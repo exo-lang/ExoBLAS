@@ -18,14 +18,14 @@ def gemv(
   beta: f32,
   n: size,
   m: size,
-  A: f32[n, m],
-  x: f32[m],
-  y: f32[n],
+  a: f32[m, n],
+  x: f32[n],
+  y: f32[m],
 ):
-  for i in seq(0, n):
+  for i in seq(0, m):
     y[i] = beta * y[i]
-    for j in seq(0, m):
-      y[i] += alpha * A[i, j] * x[j]
+    for j in seq(0, n):
+      y[i] += alpha * a[i, j] * x[j]
 
 
 if __name__ == "__main__":
