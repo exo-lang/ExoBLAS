@@ -1,4 +1,6 @@
 from __future__ import annotations
+import os
+from pathlib import Path
 
 from exo import *
 from exo.libs.memories import DRAM_STATIC
@@ -6,6 +8,8 @@ from exo.platforms.x86 import *
 from exo.platforms.neon import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
+from exo.API import compile_procs
+
 
 """
 Possible cases:
@@ -113,9 +117,6 @@ neon_gemv = replace(neon_gemv, "for ii in _:_", neon_vfmla_4xf32_4xf32)
 
 neon_gemv = simplify(neon_gemv)
 
-# TODO: check that the load to a_vecs is right
-# NOTE: I think we need unroll_memory for this to actually compile...
-
 if __name__ == "__main__":
   print("="*50)
   print("Original proc:")
@@ -123,5 +124,7 @@ if __name__ == "__main__":
   print("="*50)
   print("Final scheduled proc:")
   print(neon_gemv)
+  compile_procs([neon_gemv], Path(os.path.expanduser("~/Documents/BLAS/temp")), "neon_gemv.c", "neon_gemv.h")
+  print("Compiled to C!")
 
 __all__ = ["gemv", "neon_gemv"]
