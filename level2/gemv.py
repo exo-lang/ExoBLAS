@@ -76,7 +76,11 @@ def neon_broadcast_constant(proc, const, loop_var, n_lifts=1):
   proc = replace(proc, f"for {loop_var} in _:_", neon_broadcast_4xf32)
   return proc
 
-def vectorize_beta_times_y(proc):
+
+def shared_schedule(proc):
+  proc = divide_loop(proc, "i", 4, ["io", "ii"], tail="cut_and_guard")
+  proc = fission(proc, proc.find("y[_] = _").after(), n_lifts=2)
+
   print("vectorizing y[_] = beta * y[_]")
 
   proc = neon_broadcast_constant(proc, "beta", "ii", n_lifts=2)
@@ -90,15 +94,6 @@ def vectorize_beta_times_y(proc):
   proc = replace(proc, "for ii in _:_", neon_vmul_4xf32)
   proc = replace(proc, "for i0 in _:_", neon_vst_4xf32)
 
-  return proc
-
-def schedule_gemv_transpose_on_neon():
-  proc = gemv_transpose
-  proc = divide_loop(proc, "i", 4, ["io", "ii"], tail="cut_and_guard")
-  proc = fission(proc, proc.find("y[_] = _").after(), n_lifts=2)
-
-  proc = vectorize_beta_times_y(proc)
-
   print("splitting j loop...")
   proc = divide_loop(proc, "j", 4, ["jo", "ji"], tail="cut_and_guard")
   proc = fission(proc, proc.find("for jo in _:_").after())
@@ -120,9 +115,15 @@ def schedule_gemv_transpose_on_neon():
   proc = set_memory(proc, "x_vec", Neon4f)
   proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
   proc = replace(proc, "for ji in _:_", neon_vmul_4xf32)
+  return proc
+
+def schedule_gemv_transpose_on_neon():
+  proc = gemv_transpose
+  proc = shared_schedule(proc)
 
   print("\tvectorizing alpha_times_x[_] * a[_]")
-  # NOTE: swapped some indices, removed the rearrange_dims
+  # NOTE: swapped some indices, removed the rearrange_dims since I don't need to transpose
+  # prior to loading into the a vector registers
   proc = simplify(stage_mem(proc, "for ii in _:_", "a[4*jo:4*jo+4, 4*io:4*io+4]", "a_vecs"))
   proc = set_memory(proc, "a_vecs", Neon4f)
   proc = replace(proc, "for i1 in _:_", neon_vld_4xf32)
@@ -134,32 +135,7 @@ def schedule_gemv_transpose_on_neon():
 
 def schedule_gemv_on_neon():
   proc = gemv
-  proc = divide_loop(proc, "i", 4, ["io", "ii"], tail="cut_and_guard")
-  proc = fission(proc, proc.find("y[_] = _").after(), n_lifts=2)
-
-  proc = vectorize_beta_times_y(proc)
-
-  print("splitting j loop...")
-  proc = divide_loop(proc, "j", 4, ["jo", "ji"], tail="cut_and_guard")
-  proc = fission(proc, proc.find("for jo in _:_").after())
-  proc = reorder_loops(proc, "ii jo")
-
-  print("vectorizing y[_] += alpha * x[_] * a[_]")
-
-  proc = neon_broadcast_constant(proc, "alpha", "ji", n_lifts=4)
-
-  print("\tmaking y a vector")
-  proc = simplify(stage_mem(proc, "for jo in _:_", "y[4*io:4*io+4]", "y_vec"))
-  proc = set_memory(proc, "y_vec", Neon4f)
-  proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
-  proc = replace(proc, "for i0 in _:_", neon_vst_4xf32)
-
-  print("\tvectorizing alpha[_] * x[_]")
-  proc = neon_stage_expr(proc, "ji", "alpha_vec[_] * x[_]", "alpha_times_x", n_lifts=2)
-  proc = simplify(stage_mem(proc, "for ji in _:_", "x[4*jo:4*jo+4]", "x_vec"))
-  proc = set_memory(proc, "x_vec", Neon4f)
-  proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
-  proc = replace(proc, "for ji in _:_", neon_vmul_4xf32)
+  proc = shared_schedule(proc)
 
   print("\tvectorizing alpha_times_x[_] * a[_]")
   proc = simplify(stage_mem(proc, "for ii in _:_", "a[4*io:4*io+4, 4*jo:4*jo+4]", "a_vecs"))
