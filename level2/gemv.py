@@ -13,15 +13,17 @@ from exo.API import compile_procs
 from blas_common_schedules import *
 
 @proc
-def gemv(
+def sgemv(
   alpha: f32,
   beta: f32,
-  n: size,
   m: size,
-  a: f32[m, n],
+  n: size,
+  lda: size,
+  a: f32[m, lda],
   x: f32[n],
   y: f32[m],
 ):
+  assert n <= lda
   for i in seq(0, m):
     y[i] = beta * y[i]
     for j in seq(0, n):
@@ -31,15 +33,17 @@ def gemv(
 
 
 @proc
-def gemv_transpose(
+def sgemv_transpose(
   alpha: f32,
   beta: f32,
   n: size,
   m: size,
-  a: f32[n, m],
+  lda: size,
+  a: f32[n, lda],
   x: f32[n],
   y: f32[m],
 ):
+  assert m <= lda
   for i in seq(0, m):
     y[i] = beta * y[i]
     for j in seq(0, n):
@@ -77,8 +81,8 @@ def shared_schedule(proc):
   return proc
 
 
-def schedule_gemv_transpose_on_neon():
-  proc = gemv_transpose
+def schedule_sgemv_transpose_on_neon():
+  proc = sgemv_transpose
   proc = shared_schedule(proc)
 
   print("\tvectorizing alpha_times_x[_] * a[_]")
@@ -90,13 +94,14 @@ def schedule_gemv_transpose_on_neon():
   proc = reorder_loops(proc, "ii ji")
   proc = commute_expr(proc, "alpha_times_x[_] * a_vecs[_]")
   proc = replace(proc, "for ii in _:_", neon_vfmla_4xf32_4xf32)
+  proc = unroll_loop(proc, "ji")
 
   proc = simplify(proc)
   return proc
 
 
-def schedule_gemv_on_neon():
-  proc = gemv
+def schedule_sgemv_on_neon():
+  proc = sgemv
   proc = shared_schedule(proc)
 
   print("\tvectorizing alpha_times_x[_] * a[_]")
@@ -111,20 +116,28 @@ def schedule_gemv_on_neon():
   proc = reorder_loops(proc, "ii ji")
   proc = commute_expr(proc, "alpha_times_x[_] * a_vecs[_]")
   proc = replace(proc, "for ii in _:_", neon_vfmla_4xf32_4xf32)
+  proc = unroll_loop(proc, "ji")
 
   proc = simplify(proc)
   return proc
 
-if __name__ == "__main__":
-  # final_proc = schedule_gemv_on_neon()
-  final_proc = schedule_gemv_transpose_on_neon()
 
-  print("="*50)
-  print("Original proc:")
-  print(gemv)
-  print("="*50)
-  print("Final scheduled proc:")
-  print(final_proc)
+neon_sgemv = rename(schedule_sgemv_on_neon(), "sgemv_exo")
+neon_sgemv_transpose = rename(schedule_sgemv_transpose_on_neon(), "sgemv_transpose_exo")
 
-  compile_procs([final_proc], Path(os.path.expanduser("~/Documents/BLAS/temp")), "proc.c", "proc.h")
-  print("Compiled to C!")
+print("="*50)
+print("Original GEMV:")
+print(sgemv)
+print("="*50)
+print("Neon GEMV:")
+print(neon_sgemv)
+print("="*50)
+print("Original GEMV Transpose:")
+print(sgemv_transpose)
+print("="*50)
+print("Neon GEMV Transpose:")
+print(neon_sgemv_transpose)
+print("="*50)
+
+
+__all__ = ["neon_sgemv", "neon_sgemv_transpose"]
