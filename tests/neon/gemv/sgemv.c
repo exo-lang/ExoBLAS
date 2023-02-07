@@ -62,6 +62,7 @@ float *alpha_temp = malloc(1 * sizeof(*alpha_temp));
 alpha_temp[(0) * (1)] = *alpha;
 alpha_vec = vld1q_dup_f32(&alpha_temp[(0) * (1)]);
 free(alpha_temp);
+float *a_transposed = malloc(4 * 4 * sizeof(*a_transposed));
 for (int io = 0; io < ((m) / (4)); io++) {
   float32x4_t y_vec;
   y_vec = vld1q_f32(&y[(4 * io) * (1)]);
@@ -71,7 +72,6 @@ for (int io = 0; io < ((m) / (4)); io++) {
     x_vec = vld1q_f32(&x[(4 * jo) * (1)]);
     alpha_times_x = vmulq_f32(alpha_vec, x_vec);
     float32x4_t a_vecs[4];
-    float *a_transposed = malloc(4 * 4 * sizeof(*a_transposed));
     for (int i0 = 0; i0 < 4; i0++) {
       for (int i1 = 0; i1 < 4; i1++) {
         a_transposed[(i1) * (4) + (i0) * (1)] = a[(i0 + 4 * io) * (lda) + (i1 + 4 * jo) * (1)];
@@ -80,7 +80,6 @@ for (int io = 0; io < ((m) / (4)); io++) {
     for (int i1 = 0; i1 < 4; i1++) {
       a_vecs[i1] = vld1q_f32(&a_transposed[(i1) * (4) + (0) * (1)]);
     }
-    free(a_transposed);
     y_vec = vfmaq_laneq_f32(y_vec, a_vecs[0], alpha_times_x, (0));
     y_vec = vfmaq_laneq_f32(y_vec, a_vecs[1], alpha_times_x, (1));
     y_vec = vfmaq_laneq_f32(y_vec, a_vecs[2], alpha_times_x, (2));
@@ -95,6 +94,7 @@ for (int io = 0; io < ((m) / (4)); io++) {
     }
   }
 }
+free(a_transposed);
 if (m % 4 > 0) {
   for (int ii = 0; ii < m % 4; ii++) {
     y[(ii + ((m) / (4)) * 4) * (1)] = *beta * y[(ii + ((m) / (4)) * 4) * (1)];

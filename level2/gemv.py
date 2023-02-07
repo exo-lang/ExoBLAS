@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import sys
 from pathlib import Path
 
 from exo import *
@@ -9,6 +10,8 @@ from exo.platforms.neon import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API import compile_procs
+
+sys.path.append(os.path.expanduser("~/Documents/BLAS"))
 
 from blas_common_schedules import *
 
@@ -117,6 +120,8 @@ def schedule_sgemv_on_neon():
   proc = commute_expr(proc, "alpha_times_x[_] * a_vecs[_]")
   proc = replace(proc, "for ii in _:_", neon_vfmla_4xf32_4xf32)
   proc = unroll_loop(proc, "ji")
+
+  proc = lift_alloc(proc, "a_transposed", n_lifts=2)
 
   proc = simplify(proc)
   return proc

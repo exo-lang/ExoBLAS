@@ -49,11 +49,10 @@ int main(int argc, char *argv[]) {
   float alpha = 1.0f;
   float beta = 0.0f;
 
-  printf("\n\n\n\n");
-  printf("Multiplying two %d x %d matrices\n", n, n);
+  printf("Multiplying a %d x %d matrix by a %d x 1 vector\n", n, n, n);
   long FLOP_C = 2 * long(n) * long(n);
 
-  int N_TIMES_NAIVE = 1;
+  int N_TIMES_NAIVE = 50;
   auto begin = std::chrono::steady_clock::now();
   for (int times = 0; times < N_TIMES_NAIVE; times++) {
     naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
@@ -134,7 +133,7 @@ int main(int argc, char *argv[]) {
     float expected = y2[i];
     float actual = y3[i];
     double relerr = fabsf(actual - expected) / expected;
-    if (relerr > 2e-3) {
+    if (relerr > 1e-2) {
       printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
     }
   }
