@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
   printf("Apple SGEMV took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
       (FLOP_C * 1.0e-6) / ms_per_gemm);
 
-  int N_TIMES_EXO = 50;
+  int N_TIMES_EXO = 1000;
   begin = std::chrono::steady_clock::now();
   for (int times = 0; times < N_TIMES_EXO; times++) {
     sgemv_exo_v2(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y3.data());
@@ -151,13 +151,13 @@ int main(int argc, char *argv[]) {
     2.7  B L1 Data Load Miss
   */
 
-  // for (int i = 0; i < y2.size(); i++) {
-  //   float expected = y2[i];
-  //   float actual = y3[i];
-  //   double relerr = fabsf(actual - expected) / expected;
-  //   if (relerr > 1e-2) {
-  //     printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
-  //   }
-  // }
-  // printf("both methods produced consistent output\n\n\n\n");
+  for (int i = 0; i < y2.size(); i++) {
+    float expected = y2[i];
+    float actual = y3[i];
+    double relerr = fabsf(actual - expected) / expected;
+    if (relerr > 1e-2) {
+      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
+    }
+  }
+  printf("both methods produced consistent output\n\n\n\n");
 }

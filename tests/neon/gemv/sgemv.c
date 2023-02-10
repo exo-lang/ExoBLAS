@@ -144,29 +144,46 @@ if (m % 4 > 0) {
     y[(ii + ((m) / (4)) * 4) * (1)] = *beta * y[(ii + ((m) / (4)) * 4) * (1)];
   }
 }
-float32x4_t alpha_vec;
-float *alpha_temp = malloc(1 * sizeof(*alpha_temp));
-alpha_temp[(0) * (1)] = *alpha;
-alpha_vec = vld1q_dup_f32(&alpha_temp[(0) * (1)]);
-free(alpha_temp);
-for (int i = 0; i < m; i++) {
-  float32x4_t y_partial_sums_vec;
-  y_partial_sums_vec = vmovq_n_f32(0.0f);
+for (int io = 0; io < ((m) / (8)); io++) {
+  float32x4_t alpha_vec;
+  float *alpha_temp = malloc(1 * sizeof(*alpha_temp));
+  alpha_temp[(0) * (1)] = *alpha;
+  alpha_vec = vld1q_dup_f32(&alpha_temp[(0) * (1)]);
+  free(alpha_temp);
+  float32x4_t y_partial_sums_vec[8];
+  for (int ii = 0; ii < 8; ii++) {
+    y_partial_sums_vec[ii] = vmovq_n_f32(0.0f);
+  }
   for (int jo = 0; jo < ((n) / (4)); jo++) {
     float32x4_t alpha_times_x;
     float32x4_t x_vec;
     x_vec = vld1q_f32(&x[(4 * jo) * (1)]);
     alpha_times_x = vmulq_f32(alpha_vec, x_vec);
-    float32x4_t a_vec;
-    a_vec = vld1q_f32(&a[(i) * (lda) + (4 * jo) * (1)]);
-    y_partial_sums_vec = vmlaq_f32(y_partial_sums_vec, alpha_times_x, a_vec);
+    float32x4_t a_vec[8];
+    for (int i0 = 0; i0 < 8; i0++) {
+      a_vec[i0 + 0] = vld1q_f32(&a[(i0 + 8 * io + 0) * (lda) + (4 * jo + 0) * (1)]);
+    }
+    for (int ii = 0; ii < 8; ii++) {
+      y_partial_sums_vec[ii + 0] = vmlaq_f32(y_partial_sums_vec[ii + 0], alpha_times_x, a_vec[ii + 0]);
+    }
   }
   float *y_partial_sums = malloc(4 * sizeof(*y_partial_sums));
-  vst1q_f32(&y_partial_sums[(0) * (1)], y_partial_sums_vec);
-  for (int ji = 0; ji < 4; ji++) {
-    y[(i) * (1)] += y_partial_sums[(ji) * (1)];
+  for (int ii = 0; ii < 8; ii++) {
+    vst1q_f32(&y_partial_sums[(0) * (1)], y_partial_sums_vec[ii]);
+    for (int ji = 0; ji < 4; ji++) {
+      y[(ii + 8 * io) * (1)] += y_partial_sums[(ji) * (1)];
+    }
   }
   free(y_partial_sums);
+}
+if (m % 8 > 0) {
+  for (int ii = 0; ii < m % 8; ii++) {
+    for (int jo = 0; jo < ((n) / (4)); jo++) {
+      for (int ji = 0; ji < 4; ji++) {
+        y[(ii + ((m) / (8)) * 8) * (1)] += *alpha * x[(ji + 4 * jo) * (1)] * a[(ii + ((m) / (8)) * 8) * (lda) + (ji + 4 * jo) * (1)];
+      }
+    }
+  }
 }
 for (int i = 0; i < m; i++) {
   if (n % 4 > 0) {
