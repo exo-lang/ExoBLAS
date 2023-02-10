@@ -37,14 +37,14 @@ struct exo_win_2f32c{
     const float * const data;
     const int_fast32_t strides[2];
 };
-// SYRK(
+// syrk_upper_notranspose(
 //     N : size,
 //     K : size,
-//     A : f32[N, K] @DRAM,
-//     A_t : f32[K, N] @DRAM,
+//     A1 : f32[N, K] @DRAM,
+//     A2 : f32[K, N] @DRAM,
 //     C : f32[N, N] @DRAM
 // )
-void SYRK( void *ctxt, int_fast32_t N, int_fast32_t K, const float* A, const float* A_t, float* C );
+void syrk_upper_notranspose( void *ctxt, int_fast32_t N, int_fast32_t K, const float* A1, const float* A2, float* C );
 
 
 
@@ -64,11 +64,11 @@ static void gebp_64x64_0( void *ctxt, int_fast32_t N, struct exo_win_2f32 C, str
 
 // gepp_syrk_scheduled(
 //     N : size,
-//     A : [f32][N, 64] @DRAM,
-//     A_t : [f32][64, N] @DRAM,
+//     A1 : [f32][N, 64] @DRAM,
+//     A2 : [f32][64, N] @DRAM,
 //     C : [f32][N, N] @DRAM
 // )
-static void gepp_syrk_scheduled( void *ctxt, int_fast32_t N, struct exo_win_2f32c A, struct exo_win_2f32c A_t, struct exo_win_2f32 C );
+static void gepp_syrk_scheduled( void *ctxt, int_fast32_t N, struct exo_win_2f32c A1, struct exo_win_2f32c A2, struct exo_win_2f32 C );
 
 // neon_microkernel_4x16_0(
 //     C : [f32][4, 16] @DRAM,
@@ -76,33 +76,6 @@ static void gepp_syrk_scheduled( void *ctxt, int_fast32_t N, struct exo_win_2f32
 //     B : [f32][64, 16] @DRAM
 // )
 static void neon_microkernel_4x16_0( void *ctxt, struct exo_win_2f32 C, struct exo_win_2f32c A, struct exo_win_2f32c B );
-
-// SYRK(
-//     N : size,
-//     K : size,
-//     A : f32[N, K] @DRAM,
-//     A_t : f32[K, N] @DRAM,
-//     C : f32[N, N] @DRAM
-// )
-void SYRK( void *ctxt, int_fast32_t N, int_fast32_t K, const float* A, const float* A_t, float* C ) {
-EXO_ASSUME(N >= 1);
-EXO_ASSUME(K >= 1);
-EXO_ASSUME(1 == 1);
-EXO_ASSUME(1 == 1);
-EXO_ASSUME(1 == 1);
-for (int ko = 0; ko < ((K) / (64)); ko++) {
-  gepp_syrk_scheduled(ctxt,N + 0,(struct exo_win_2f32c){ &A[(0) * (K) + (64 * ko + 0) * (1)], { K, 1 } },(struct exo_win_2f32c){ &A_t[(64 * ko + 0) * (N) + (0) * (1)], { N, 1 } },(struct exo_win_2f32){ &C[(0) * (N) + (0) * (1)], { N, 1 } });
-}
-for (int i = 0; i < N; i++) {
-  for (int j = 0; j < i + 1; j++) {
-    if (K % 64 > 0) {
-      for (int ki = 0; ki < K % 64; ki++) {
-        C[(i) * (N) + (j) * (1)] += A[(i) * (K) + (ki + ((K) / (64)) * 64) * (1)] * A_t[(ki + ((K) / (64)) * 64) * (N) + (j) * (1)];
-      }
-    }
-  }
-}
-}
 
 // gebp_64x64_0(
 //     N : size,
@@ -147,23 +120,23 @@ if (0 > 0) {
 
 // gepp_syrk_scheduled(
 //     N : size,
-//     A : [f32][N, 64] @DRAM,
-//     A_t : [f32][64, N] @DRAM,
+//     A1 : [f32][N, 64] @DRAM,
+//     A2 : [f32][64, N] @DRAM,
 //     C : [f32][N, N] @DRAM
 // )
-static void gepp_syrk_scheduled( void *ctxt, int_fast32_t N, struct exo_win_2f32c A, struct exo_win_2f32c A_t, struct exo_win_2f32 C ) {
+static void gepp_syrk_scheduled( void *ctxt, int_fast32_t N, struct exo_win_2f32c A1, struct exo_win_2f32c A2, struct exo_win_2f32 C ) {
 EXO_ASSUME(N >= 1);
-EXO_ASSUME(A.strides[1] == 1);
-EXO_ASSUME(A_t.strides[1] == 1);
+EXO_ASSUME(A1.strides[1] == 1);
+EXO_ASSUME(A2.strides[1] == 1);
 EXO_ASSUME(C.strides[1] == 1);
 for (int io = 0; io < ((N) / (64)); io++) {
   for (int jo = 0; jo < io; jo++) {
-    gebp_64x64_0(ctxt,64,(struct exo_win_2f32){ &C.data[(64 * io) * (C.strides[0]) + (1 + 64 * jo) * (C.strides[1])], { C.strides[0], C.strides[1] } },(struct exo_win_2f32c){ &A.data[(64 * io) * (A.strides[0]) + (0) * (A.strides[1])], { A.strides[0], A.strides[1] } },(struct exo_win_2f32c){ &A_t.data[(0) * (A_t.strides[0]) + (1 + 64 * jo) * (A_t.strides[1])], { A_t.strides[0], A_t.strides[1] } });
+    gebp_64x64_0(ctxt,64,(struct exo_win_2f32){ &C.data[(64 * io) * (C.strides[0]) + (1 + 64 * jo) * (C.strides[1])], { C.strides[0], C.strides[1] } },(struct exo_win_2f32c){ &A1.data[(64 * io) * (A1.strides[0]) + (0) * (A1.strides[1])], { A1.strides[0], A1.strides[1] } },(struct exo_win_2f32c){ &A2.data[(0) * (A2.strides[0]) + (1 + 64 * jo) * (A2.strides[1])], { A2.strides[0], A2.strides[1] } });
   }
   for (int ii = 0; ii < 64; ii++) {
     for (int j = 0; j < 1; j++) {
       for (int k = 0; k < 64; k++) {
-        C.data[(ii + 64 * io) * (C.strides[0]) + (j) * (C.strides[1])] += A.data[(ii + 64 * io) * (A.strides[0]) + (k) * (A.strides[1])] * A_t.data[(k) * (A_t.strides[0]) + (j) * (A_t.strides[1])];
+        C.data[(ii + 64 * io) * (C.strides[0]) + (j) * (C.strides[1])] += A1.data[(ii + 64 * io) * (A1.strides[0]) + (k) * (A1.strides[1])] * A2.data[(k) * (A2.strides[0]) + (j) * (A2.strides[1])];
       }
     }
   }
@@ -171,7 +144,7 @@ for (int io = 0; io < ((N) / (64)); io++) {
     if (ii > 0) {
       for (int ji = 0; ji < ii; ji++) {
         for (int k = 0; k < 64; k++) {
-          C.data[(ii + 64 * io) * (C.strides[0]) + (1 + ji + 64 * io) * (C.strides[1])] += A.data[(ii + 64 * io) * (A.strides[0]) + (k) * (A.strides[1])] * A_t.data[(k) * (A_t.strides[0]) + (1 + ji + 64 * io) * (A_t.strides[1])];
+          C.data[(ii + 64 * io) * (C.strides[0]) + (1 + ji + 64 * io) * (C.strides[1])] += A1.data[(ii + 64 * io) * (A1.strides[0]) + (k) * (A1.strides[1])] * A2.data[(k) * (A2.strides[0]) + (1 + ji + 64 * io) * (A2.strides[1])];
         }
       }
     }
@@ -181,7 +154,7 @@ if (N % 64 > 0) {
   for (int ii = 0; ii < N % 64; ii++) {
     for (int j = 0; j < ii + ((N) / (64)) * 64 + 1; j++) {
       for (int k = 0; k < 64; k++) {
-        C.data[(ii + ((N) / (64)) * 64) * (C.strides[0]) + (j) * (C.strides[1])] += A.data[(ii + ((N) / (64)) * 64) * (A.strides[0]) + (k) * (A.strides[1])] * A_t.data[(k) * (A_t.strides[0]) + (j) * (A_t.strides[1])];
+        C.data[(ii + ((N) / (64)) * 64) * (C.strides[0]) + (j) * (C.strides[1])] += A1.data[(ii + ((N) / (64)) * 64) * (A1.strides[0]) + (k) * (A1.strides[1])] * A2.data[(k) * (A2.strides[0]) + (j) * (A2.strides[1])];
       }
     }
   }
@@ -242,3 +215,30 @@ neon_vld_4xf32(dst,src)
 neon_vst_4xf32(dst,src)
 vst1q_f32(&{dst_data}, {src_data});
 */
+// syrk_upper_notranspose(
+//     N : size,
+//     K : size,
+//     A1 : f32[N, K] @DRAM,
+//     A2 : f32[K, N] @DRAM,
+//     C : f32[N, N] @DRAM
+// )
+void syrk_upper_notranspose( void *ctxt, int_fast32_t N, int_fast32_t K, const float* A1, const float* A2, float* C ) {
+EXO_ASSUME(N >= 1);
+EXO_ASSUME(K >= 1);
+EXO_ASSUME(1 == 1);
+EXO_ASSUME(1 == 1);
+EXO_ASSUME(1 == 1);
+for (int ko = 0; ko < ((K) / (64)); ko++) {
+  gepp_syrk_scheduled(ctxt,N + 0,(struct exo_win_2f32c){ &A1[(0) * (K) + (64 * ko + 0) * (1)], { K, 1 } },(struct exo_win_2f32c){ &A2[(64 * ko + 0) * (N) + (0) * (1)], { N, 1 } },(struct exo_win_2f32){ &C[(0) * (N) + (0) * (1)], { N, 1 } });
+}
+for (int i = 0; i < N; i++) {
+  for (int j = 0; j < i + 1; j++) {
+    if (K % 64 > 0) {
+      for (int ki = 0; ki < K % 64; ki++) {
+        C[(i) * (N) + (j) * (1)] += A1[(i) * (K) + (ki + ((K) / (64)) * 64) * (1)] * A2[(ki + ((K) / (64)) * 64) * (N) + (j) * (1)];
+      }
+    }
+  }
+}
+}
+
