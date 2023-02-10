@@ -47,9 +47,6 @@ class SYRK:
 
         self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp()
         self.syrk_scheduled = self.schedule_gepp()
-        print(self.gebp_kernel.base_gebp)
-
-
 
     
     def generate_gepp_syrk_base(self):
@@ -73,19 +70,16 @@ class SYRK:
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'i', self.M_blk, ['io', 'ii'], tail='cut_and_guard')
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for j in _:_', 1)
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'j #1', self.M_blk, ['jo', 'ji'], tail='cut_and_guard')
-        print(gepp_syrk_scheduled)
 
         gepp_syrk_scheduled = reorder_stmts(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_ #0').expand(1))
         gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_').after(), n_lifts=1)
         gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_').before(), n_lifts=1)
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
-        print(gepp_syrk_scheduled )
 
         gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, 'ii jo')
-        gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #0', gebp.base_gebp)
-        gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'gebp_base_{gebp.this_id}(_)', gebp.scheduled_gebp)
+        gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #0', self.gebp_kernel.base_gebp)
+        gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'gebp_base_{self.gebp_kernel.this_id}(_)', self.gebp_kernel.scheduled_gebp)
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
-        print(gepp_syrk_scheduled )
 
         return gepp_syrk_scheduled, gepp_syrk_base
 
@@ -103,6 +97,10 @@ class SYRK:
 
     def write_to_file(self, name="syrk.c"):
         ### Write syrk to a file
-        file = open(f"../c/{name}", 'w+')
+        file = open(f"c/{name}", 'w+')
         file.write(self.syrk_scheduled.c_code_str())
         file.close()
+
+
+syrk = SYRK(NeonMachine, 64, 64, 4, 16)
+syrk.write_to_file()
