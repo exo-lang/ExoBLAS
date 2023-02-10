@@ -50,6 +50,18 @@ struct exo_win_1f32c{
 // )
 void sgemv_exo( void *ctxt, const float* alpha, const float* beta, int_fast32_t m, int_fast32_t n, int_fast32_t lda, const float* a, const float* x, float* y );
 
+// sgemv_exo_v2(
+//     alpha : f32 @DRAM,
+//     beta : f32 @DRAM,
+//     m : size,
+//     n : size,
+//     lda : size,
+//     a : f32[m, lda] @DRAM,
+//     x : f32[n] @DRAM,
+//     y : f32[m] @DRAM
+// )
+void sgemv_exo_v2( void *ctxt, const float* alpha, const float* beta, int_fast32_t m, int_fast32_t n, int_fast32_t lda, const float* a, const float* x, float* y );
+
 // sgemv_transpose_exo(
 //     alpha : f32 @DRAM,
 //     beta : f32 @DRAM,

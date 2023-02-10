@@ -15,6 +15,11 @@ neon_broadcast_4xf32(dst,src)
 */
 
 /* relying on the following instruction..."
+neon_vfmadd_4xf32_4xf32(dst,lhs,rhs)
+{dst_data} = vmlaq_f32({dst_data}, {lhs_data}, {rhs_data});
+*/
+
+/* relying on the following instruction..."
 neon_vfmla_4xf32_4xf32(dst,lhs,rhs,lane)
 {dst_data} = vfmaq_laneq_f32({dst_data}, {lhs_data}, {rhs_data}, {lane});
 */
@@ -32,6 +37,11 @@ neon_vmul_4xf32(dst,lhs,rhs)
 /* relying on the following instruction..."
 neon_vst_4xf32(dst,src)
 vst1q_f32(&{dst_data}, {src_data});
+*/
+
+/* relying on the following instruction..."
+neon_zero_4xf32(dst)
+{dst_data} = vmovq_n_f32(0.0f);
 */
 // sgemv_exo(
 //     alpha : f32 @DRAM,
@@ -100,6 +110,68 @@ if (m % 4 > 0) {
     y[(ii + ((m) / (4)) * 4) * (1)] = *beta * y[(ii + ((m) / (4)) * 4) * (1)];
     for (int j = 0; j < n; j++) {
       y[(ii + ((m) / (4)) * 4) * (1)] += *alpha * x[(j) * (1)] * a[(ii + ((m) / (4)) * 4) * (lda) + (j) * (1)];
+    }
+  }
+}
+}
+
+// sgemv_exo_v2(
+//     alpha : f32 @DRAM,
+//     beta : f32 @DRAM,
+//     m : size,
+//     n : size,
+//     lda : size,
+//     a : f32[m, lda] @DRAM,
+//     x : f32[n] @DRAM,
+//     y : f32[m] @DRAM
+// )
+void sgemv_exo_v2( void *ctxt, const float* alpha, const float* beta, int_fast32_t m, int_fast32_t n, int_fast32_t lda, const float* a, const float* x, float* y ) {
+EXO_ASSUME(n <= lda);
+float32x4_t beta_vec;
+float *beta_temp = malloc(1 * sizeof(*beta_temp));
+beta_temp[(0) * (1)] = *beta;
+beta_vec = vld1q_dup_f32(&beta_temp[(0) * (1)]);
+free(beta_temp);
+for (int io = 0; io < ((m) / (4)); io++) {
+  float32x4_t old_y_vec;
+  old_y_vec = vld1q_f32(&y[(4 * io) * (1)]);
+  float32x4_t new_y_vec;
+  new_y_vec = vmulq_f32(beta_vec, old_y_vec);
+  vst1q_f32(&y[(4 * io) * (1)], new_y_vec);
+}
+if (m % 4 > 0) {
+  for (int ii = 0; ii < m % 4; ii++) {
+    y[(ii + ((m) / (4)) * 4) * (1)] = *beta * y[(ii + ((m) / (4)) * 4) * (1)];
+  }
+}
+float32x4_t alpha_vec;
+float *alpha_temp = malloc(1 * sizeof(*alpha_temp));
+alpha_temp[(0) * (1)] = *alpha;
+alpha_vec = vld1q_dup_f32(&alpha_temp[(0) * (1)]);
+free(alpha_temp);
+for (int i = 0; i < m; i++) {
+  float32x4_t y_partial_sums_vec;
+  y_partial_sums_vec = vmovq_n_f32(0.0f);
+  for (int jo = 0; jo < ((n) / (4)); jo++) {
+    float32x4_t alpha_times_x;
+    float32x4_t x_vec;
+    x_vec = vld1q_f32(&x[(4 * jo) * (1)]);
+    alpha_times_x = vmulq_f32(alpha_vec, x_vec);
+    float32x4_t a_vec;
+    a_vec = vld1q_f32(&a[(i) * (lda) + (4 * jo) * (1)]);
+    y_partial_sums_vec = vmlaq_f32(y_partial_sums_vec, alpha_times_x, a_vec);
+  }
+  float *y_partial_sums = malloc(4 * sizeof(*y_partial_sums));
+  vst1q_f32(&y_partial_sums[(0) * (1)], y_partial_sums_vec);
+  for (int ji = 0; ji < 4; ji++) {
+    y[(i) * (1)] += y_partial_sums[(ji) * (1)];
+  }
+  free(y_partial_sums);
+}
+for (int i = 0; i < m; i++) {
+  if (n % 4 > 0) {
+    for (int ji = 0; ji < n % 4; ji++) {
+      y[(i) * (1)] += *alpha * x[(ji + ((n) / (4)) * 4) * (1)] * a[(i) * (lda) + (ji + ((n) / (4)) * 4) * (1)];
     }
   }
 }

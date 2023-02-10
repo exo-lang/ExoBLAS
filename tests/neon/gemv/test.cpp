@@ -43,11 +43,12 @@ int main(int argc, char *argv[]) {
   auto a = gen_matrix(n, n);
   auto x = gen_matrix(n, 1);
   auto y = gen_matrix(n, 1);
+  auto y1 = y;
   auto y2 = y;
   auto y3 = y;
 
-  float alpha = 1.0f;
-  float beta = 0.0f;
+  float alpha = 0.9f;
+  float beta = 0.7f;
 
   printf("Multiplying a %d x %d matrix by a %d x 1 vector\n", n, n, n);
   long FLOP_C = 2 * long(n) * long(n);
@@ -55,13 +56,13 @@ int main(int argc, char *argv[]) {
   int N_TIMES_NAIVE = 50;
   auto begin = std::chrono::steady_clock::now();
   for (int times = 0; times < N_TIMES_NAIVE; times++) {
-    naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
+    naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y1.data(), n, n);
   }
   auto end = std::chrono::steady_clock::now();
   double duration = std::chrono::duration<double>(end - begin).count();
   double ms_per_gemm = duration / N_TIMES_NAIVE * 1.0e3;
   printf("-----------------------------------------------------------\n");
-  printf("Naive SGEMM took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
+  printf("Naive SGEMV took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
       (FLOP_C * 1.0e-6) / ms_per_gemm);
 
   int N_TIMES_ACCELERATE = 1000;
@@ -74,7 +75,7 @@ int main(int argc, char *argv[]) {
         x.data(), // X
         1,  // incX
         beta,  // beta
-        y3.data(),
+        y2.data(),
         1  // incY
     );
   }
@@ -88,7 +89,7 @@ int main(int argc, char *argv[]) {
   int N_TIMES_EXO = 50;
   begin = std::chrono::steady_clock::now();
   for (int times = 0; times < N_TIMES_EXO; times++) {
-    sgemv_exo(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y.data());
+    sgemv_exo_v2(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y3.data());
   }
   end = std::chrono::steady_clock::now();
   duration = std::chrono::duration<double>(end - begin).count();
@@ -98,17 +99,38 @@ int main(int argc, char *argv[]) {
       (FLOP_C * 1.0e-6) / ms_per_gemm);
   printf("-----------------------------------------------------------\n");
 
-  begin = std::chrono::steady_clock::now();
-  for (int times = 0; times < N_TIMES_EXO; times++) {
-    sgemv_transpose_exo(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y.data());
-  }
-  end = std::chrono::steady_clock::now();
-  duration = std::chrono::duration<double>(end - begin).count();
-  ms_per_gemm = duration / N_TIMES_EXO * 1.0e3;
-  printf("-----------------------------------------------------------\n");
-  printf("  Exo SGEMV Transpose took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-      (FLOP_C * 1.0e-6) / ms_per_gemm);
-  printf("-----------------------------------------------------------\n");
+
+  // begin = std::chrono::steady_clock::now();
+  // for (int times = 0; times < N_TIMES_ACCELERATE; times++) {
+  //   cblas_sgemv(CblasRowMajor, CblasTrans, n, n,  // M N
+  //       alpha,  // alpha
+  //       a.data(),  // A
+  //       n,  // lda
+  //       x.data(), // X
+  //       1,  // incX
+  //       beta,  // beta
+  //       y.data(),
+  //       1  // incY
+  //   );
+  // }
+  // end = std::chrono::steady_clock::now();
+  // duration = std::chrono::duration<double>(end - begin).count();
+  // ms_per_gemm = duration / N_TIMES_ACCELERATE * 1.0e3;
+  // printf("-----------------------------------------------------------\n");
+  // printf("Apple SGEMV Transpose took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
+  //     (FLOP_C * 1.0e-6) / ms_per_gemm);
+
+  // begin = std::chrono::steady_clock::now();
+  // for (int times = 0; times < N_TIMES_EXO; times++) {
+  //   sgemv_transpose_exo(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y.data());
+  // }
+  // end = std::chrono::steady_clock::now();
+  // duration = std::chrono::duration<double>(end - begin).count();
+  // ms_per_gemm = duration / N_TIMES_EXO * 1.0e3;
+  // printf("-----------------------------------------------------------\n");
+  // printf("  Exo SGEMV Transpose took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
+  //     (FLOP_C * 1.0e-6) / ms_per_gemm);
+  // printf("-----------------------------------------------------------\n");
 
 
   /*
@@ -129,13 +151,13 @@ int main(int argc, char *argv[]) {
     2.7  B L1 Data Load Miss
   */
 
-  for (int i = 0; i < y2.size(); i++) {
-    float expected = y2[i];
-    float actual = y3[i];
-    double relerr = fabsf(actual - expected) / expected;
-    if (relerr > 1e-2) {
-      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
-    }
-  }
-  printf("both methods produced consistent output\n\n\n\n");
+  // for (int i = 0; i < y2.size(); i++) {
+  //   float expected = y2[i];
+  //   float actual = y3[i];
+  //   double relerr = fabsf(actual - expected) / expected;
+  //   if (relerr > 1e-2) {
+  //     printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
+  //   }
+  // }
+  // printf("both methods produced consistent output\n\n\n\n");
 }

@@ -127,6 +127,53 @@ def schedule_sgemv_on_neon():
   return proc
 
 
+def schedule_sgemv_on_neon_dot_product():
+  proc = sgemv
+  proc = fission(proc, proc.find("y[_] = _").after(), n_lifts=2)
+  proc = divide_loop(proc, "i", 4, ["io", "ii"], tail="cut_and_guard")
+
+  proc = neon_vectorize_beta_times_y(proc)
+
+  print("splitting j loop...")
+  proc = divide_loop(proc, "j", 4, ["jo", "ji"], tail="cut_and_guard")
+  proc = fission(proc, proc.find("for jo in _:_").after())
+
+  print("vectorizing y[_] += alpha * x[_] * a[_]")
+  proc = neon_broadcast_constant(proc, "alpha", "ji", n_lifts=3)
+
+  print("\tstaging y_partial_sums")
+  proc = reorder_loops(proc, "jo ji")
+  proc = simplify(stage_mem(proc, "for jo in _:_", "y[i]", "y_partial_sums_vec", accum=True))
+  proc = expand_dim(proc, "y_partial_sums_vec", 4, "ji")
+  proc = lift_alloc(proc, "y_partial_sums_vec")
+  proc = fission(proc, proc.find("for jo in _:_").before())
+  proc = fission(proc, proc.find("for jo in _:_").after())
+  proc = set_memory(proc, "y_partial_sums_vec", Neon4f)
+  proc = replace(proc, "for ji in _:_", neon_zero_4xf32)
+  proc = reorder_loops(proc, "ji jo")
+
+  print("\tvectorizing alpha[_] * x[_]")
+  proc = neon_stage_expr(proc, "ji", "alpha_vec[_] * x[_]", "alpha_times_x", n_lifts=1)
+  proc = simplify(stage_mem(proc, "for ji in _:_", "x[4*jo:4*jo+4]", "x_vec"))
+  proc = set_memory(proc, "x_vec", Neon4f)
+  proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
+  proc = replace(proc, "for ji in _:_", neon_vmul_4xf32)
+
+  print("\tmaking a[i] a vector")
+  proc = simplify(stage_mem(proc, "for ji in _:_", "a[i, 4*jo:4*jo+4]", "a_vec"))
+  proc = set_memory(proc, "a_vec", Neon4f)
+  proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
+  proc = replace(proc, "for ji in _:_", neon_vfmadd_4xf32_4xf32)
+
+  print("\treducing partial sums")
+  proc = simplify(stage_mem(proc, "for ji in _:_", "y_partial_sums_vec[0:4]", "y_partial_sums"))
+  proc = set_memory(proc, "y_partial_sums", DRAM)
+  proc = replace(proc, "for i0 in _:_", neon_vst_4xf32)
+  proc = lift_alloc(proc, "y_partial_sums")
+
+  return proc
+
+new_neon_sgemv = rename(schedule_sgemv_on_neon_dot_product(), "sgemv_exo_v2")
 neon_sgemv = rename(schedule_sgemv_on_neon(), "sgemv_exo")
 neon_sgemv_transpose = rename(schedule_sgemv_transpose_on_neon(), "sgemv_transpose_exo")
 
@@ -137,12 +184,12 @@ print("="*50)
 print("Neon GEMV:")
 print(neon_sgemv)
 print("="*50)
-print("Original GEMV Transpose:")
-print(sgemv_transpose)
-print("="*50)
-print("Neon GEMV Transpose:")
-print(neon_sgemv_transpose)
-print("="*50)
+# print("Original GEMV Transpose:")
+# print(sgemv_transpose)
+# print("="*50)
+# print("Neon GEMV Transpose:")
+# print(neon_sgemv_transpose)
+# print("="*50)
 
 
-__all__ = ["neon_sgemv", "neon_sgemv_transpose"]
+__all__ = ["neon_sgemv", "new_neon_sgemv", "neon_sgemv_transpose"]
