@@ -8,10 +8,17 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 from kernels.gemm_kernels import GEBP_kernel, Microkernel, NeonMachine, MachineParameters
+from format_options import *
 
 class SYRK:
-
-    def __init__(self, machine: MachineParameters, K_blk: int, M_blk: int, M_r: int, N_r: int):
+    """
+    TODO: Add Beta and Alpha
+    """
+    def __init__(self, machine: MachineParameters,
+                 uplo: ExoBlasUplo,
+                 transpose: ExoBlasT,  
+                 K_blk: int, M_blk: int, 
+                 M_r: int, N_r: int):
         
         # Generate kernels
         self.microkernel = Microkernel(machine, M_r, N_r, K_blk)
@@ -22,49 +29,74 @@ class SYRK:
         self.M_blk = M_blk
 
         @proc
-        def SYRK(N: size, 
+        def syrk_upper_notranspose(N: size, 
                  K: size, 
-                 A: f32[N, K] @ DRAM, 
-                 A_t: f32[K, N] @ DRAM,
+                 A1: f32[N, K] @ DRAM, 
+                 A2: f32[K, N] @ DRAM,
                  C: f32[N, N] @ DRAM):
+            # C = A*A**T + C      
             assert N >= 1
             assert K >= 1
-            assert stride(A, 1) == 1
-            assert stride(A_t, 1) == 1
+            assert stride(A1, 1) == 1
+            assert stride(A2, 1) == 1
             assert stride(C, 1) == 1
 
             for i in seq(0, N):
                 for j in seq(0, i+1):
                     for k in seq(0, K):
-                        C[i, j] += A[i, k]*A_t[k, j]
+                        C[i, j] += A1[i, k]*A2[k, j]
 
-        self.syrk_base = SYRK
+        @proc
+        def syrk_upper_transpose(N: size, 
+                           K: size, 
+                           A1: f32[K, N] @ DRAM, 
+                           A2: f32[N, K] @ DRAM,
+                           C: f32[N, N] @ DRAM):
+            # C = A**T*A + C      
+            assert N >= 1
+            assert K >= 1
+            assert stride(A1, 1) == 1
+            assert stride(A2, 1) == 1
+            assert stride(C, 1) == 1    
 
-        self.syrk_win = rename(self.syrk_base, "syrk_win")
-        self.syrk_win = set_window(self.syrk_win, 'A', True)
-        self.syrk_win = set_window(self.syrk_win, 'A_t', True)
-        self.syrk_win = set_window(self.syrk_win, 'C', True)
+            for j in seq(0, N):
+                for i in seq(0, j+1):
+                    for k in seq(0, K):
+                        C[i, j] += A2[j, k]*A1[k, i]
 
-        self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp()
-        self.syrk_scheduled = self.schedule_gepp()
+        if uplo==ExoBlasUpper:
+            
+            if transpose==ExoBlasNoTranspose:
+                self.syrk_base = syrk_upper_notranspose
+
+                self.syrk_win = rename(self.syrk_base, "syrk_win")
+                self.syrk_win = set_window(self.syrk_win, 'A1', True)
+                self.syrk_win = set_window(self.syrk_win, 'A2', True)
+                self.syrk_win = set_window(self.syrk_win, 'C', True)
+
+                self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp_upper_notranspose()
+                self.syrk_scheduled = self.schedule_syrk_gepp_upper_notranspose()
+
+            if transpose==ExoBlasTranspose:
+                self.syrk_base = syrk_upper_notranspose
+
+                self.syrk_win = rename(self.syrk_base, "syrk_win")
+                self.syrk_win = set_window(self.syrk_win, 'A1', True)
+                self.syrk_win = set_window(self.syrk_win, 'A2', True)
+                self.syrk_win = set_window(self.syrk_win, 'C', True)
+                #TODO:
+                raise Exception("NOT SUPPORTED")
 
     
-    def generate_gepp_syrk_base(self):
+    def generate_syrk_gepp_base(self):
         gepp_syrk_base = rename(self.syrk_win, "gepp_syrk_base")
         gepp_syrk_base = gepp_syrk_base.partial_eval(K=self.microkernel.K_blk)
         return gepp_syrk_base
     
 
-    def generate_syrk_gepp(self):
+    def generate_syrk_gepp_upper_notranspose(self):
 
-        gepp_syrk_scheduled, gepp_syrk_base = self.do_generate_syrk_gepp()
-
-        return gepp_syrk_scheduled, gepp_syrk_base
-    
-
-    def do_generate_syrk_gepp(self):
-
-        gepp_syrk_base = self.generate_gepp_syrk_base()
+        gepp_syrk_base = self.generate_syrk_gepp_base()
 
         gepp_syrk_scheduled = rename(gepp_syrk_base, "gepp_syrk_scheduled")
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'i', self.M_blk, ['io', 'ii'], tail='cut_and_guard')
@@ -84,7 +116,7 @@ class SYRK:
         return gepp_syrk_scheduled, gepp_syrk_base
 
     
-    def schedule_gepp(self):
+    def schedule_syrk_gepp_upper_notranspose(self):
 
         syrk = divide_loop(self.syrk_base, 'k', self.K_blk, ['ko', 'ki'], tail='cut_and_guard')
         syrk = autofission(syrk, syrk.find('for ko in _:_ #0').after(), n_lifts=2)
@@ -102,5 +134,5 @@ class SYRK:
         file.close()
 
 
-syrk = SYRK(NeonMachine, 64, 64, 4, 16)
+syrk = SYRK(NeonMachine, ExoBlasUpper, ExoBlasNoTranspose, 64, 64, 4, 16)
 syrk.write_to_file()
