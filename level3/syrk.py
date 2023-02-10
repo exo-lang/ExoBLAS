@@ -7,17 +7,19 @@ from exo.syntax import *
 
 from exo.stdlib.scheduling import *
 
-from kernels.gemm_kernels import GEBP_kernel, Microkernel, NeonMachine
+from kernels.gemm_kernels import GEBP_kernel, Microkernel, NeonMachine, MachineParameters
 
 class SYRK:
 
-    def __init__(self, gebp_kernel: GEBP_kernel):
+    def __init__(self, machine: MachineParameters, K_blk: int, M_blk: int, M_r: int, N_r: int):
+        
+        # Generate kernels
+        self.microkernel = Microkernel(machine, M_r, N_r, K_blk)
+        self.gebp_kernel = GEBP_kernel(self.microkernel, M_blk)
 
-        # Problem dimensions
-        self.gebp_kernel = gebp_kernel
-        self.microkernel = gebp_kernel.microkernel
-        self.K_blk = self.microkernel.K_blk
-        self.M_blk = gebp_kernel.M_blk
+        # Blocking dimensions
+        self.K_blk = K_blk
+        self.M_blk = M_blk
 
         @proc
         def SYRK(N: size, 
@@ -104,9 +106,3 @@ class SYRK:
         file = open(f"../c/{name}", 'w+')
         file.write(self.syrk_scheduled.c_code_str())
         file.close()
-
-
-microkernel = Microkernel(NeonMachine, 4, 16, 64)
-gebp = GEBP_kernel(microkernel, 64)
-syrk = SYRK(gebp)
-syrk.write_to_file()
