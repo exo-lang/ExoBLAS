@@ -4,13 +4,12 @@
 #include <random>
 #include <vector>
 #include <iostream>
-
+#include <cassert>
 #include <chrono>
 
 
 #include <cblas.h>
 #include "syrk.c"
-//#include "output.c"
 
 static std::vector<float> gen_matrix(long m, long n, float v) {
   static std::random_device rd;
@@ -70,14 +69,13 @@ static std::vector<float> transpose(std::vector<float> V, const int m, const int
 
 
 int main(int argc, char **argv) {
-    int n = atoi(argv[1]);
-
-    auto a = gen_matrix(n, n, 2.0);
+    int n = 16; //Hardcoded because test matrix is hardcoded
+    auto a = gen_matrix_symm(n, n);
     auto a2 = transpose(a, n, n);
     auto c = gen_matrix_symm(n, n);
     auto c2 = c; 
 
-    cblas_ssyrk(CblasRowMajor, CblasUpper, CblasNoTrans,
+    cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans,
                 n, n, // M N K
                 1.0, // alpha
                 a.data(),
@@ -86,49 +84,19 @@ int main(int argc, char **argv) {
                 c.data(),
                 n  // M
                 );
-   /* cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                n, n, 10, // M N K
-                1.0, // alpha
-                a.data(),
-                n, // M
-               a.data(),
-                n, // K
-                1.0, // beta
-                c.data(),
-                n  // M
-                );*/
 
     std::cout << "Correct output:" << std::endl;
     print_matrix(c, n, n);
 
-    std::cout << "Matrix C:" << std::endl;
-    print_matrix(c2, n, n);
-    std::cout << "Matrix A:" << std::endl;
-    print_matrix(a, n, n);
-
     std::cout << "Actual Output:" << std::endl;
-    //SYRK2(nullptr, n, n, a.data(), transpose(a, n, n).data(), c2.data());
-    SYRK(nullptr, n, n, a.data(), c2.data());
+    syrk_upper_notranspose(nullptr, n, n, a.data(), a2.data(), c2.data());
     print_matrix(c2, n, n);
-    //SGEMM3(NULL, n, n, 16, a.data(), a.data(), c2.data());
-    //SYRK(NULL, n, n, a.data(), a.data(), c2.data());
-    //sgemm_exo(NULL, n, n, n, a.data(), b.data(), c2.data());
-    /*auto A_micro = gen_matrix(4, 4, 2.0);
-    auto C_micro = gen_matrix(4, 4, 2.0);
-    auto C_micro_2 = C_micro;
-
-    microkernel_two(nullptr, A_micro.data(), A_micro.data(), C_micro_2.data());
-    std::cout << "Correct output:" << std::endl;
-    print_matrix(C_micro_2, 4, 4);
-
-    std::cout << "Matrix C:" << std::endl;
-    print_matrix(C_micro, 4, 4);
-    std::cout << "Matrix A:" << std::endl;
-    print_matrix(A_micro, 4, 4);
-
-    std::cout << "Actual Output:" << std::endl;
-    neon_microkernel_two_4(nullptr, A_micro.data(), transpose(A_micro, 4, 4).data(), C_micro.data());
-    print_matrix(C_micro, 4, 4);*/
-
-    //print_matrix(c2, n, n);
+    for (int i=0; i<n*n; i++) {
+        double correct = std::round(c[i] * 100.0) / 100.0;
+        double exo_out = std::round(c2[i] * 100.0) / 100.0;
+        if (correct!=exo_out)
+            std::cout<<"Expected: "<<correct<<", got: "<<exo_out<<std::endl;
+        assert(correct==exo_out);
+    }
+    std::cout<<"CORRECTNESS TEST PASSED"<<std::endl;
 }
