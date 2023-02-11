@@ -29,7 +29,7 @@ class SYRK:
         self.M_blk = M_blk
 
         @proc
-        def syrk_upper_notranspose(N: size, 
+        def syrk_lower_notranspose(N: size, 
                  K: size, 
                  A1: f32[N, K] @ DRAM, 
                  A2: f32[K, N] @ DRAM,
@@ -47,7 +47,7 @@ class SYRK:
                         C[i, j] += A1[i, k]*A2[k, j]
 
         @proc
-        def syrk_upper_transpose(N: size, 
+        def syrk_lower_transpose(N: size, 
                            K: size, 
                            A1: f32[K, N] @ DRAM, 
                            A2: f32[N, K] @ DRAM,
@@ -64,21 +64,21 @@ class SYRK:
                     for k in seq(0, K):
                         C[i, j] += A2[j, k]*A1[k, i]
 
-        if uplo==ExoBlasUpper:
+        if uplo==ExoBlasLower:
             
             if transpose==ExoBlasNoTranspose:
-                self.syrk_base = syrk_upper_notranspose
+                self.syrk_base = syrk_lower_notranspose
 
                 self.syrk_win = rename(self.syrk_base, "syrk_win")
                 self.syrk_win = set_window(self.syrk_win, 'A1', True)
                 self.syrk_win = set_window(self.syrk_win, 'A2', True)
                 self.syrk_win = set_window(self.syrk_win, 'C', True)
 
-                self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp_upper_notranspose()
-                self.syrk_scheduled = self.schedule_syrk_gepp_upper_notranspose()
+                self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp_lower_notranspose()
+                self.syrk_scheduled = self.schedule_syrk_gepp_lower_notranspose()
 
             if transpose==ExoBlasTranspose:
-                self.syrk_base = syrk_upper_notranspose
+                self.syrk_base = syrk_lower_notranspose
 
                 self.syrk_win = rename(self.syrk_base, "syrk_win")
                 self.syrk_win = set_window(self.syrk_win, 'A1', True)
@@ -94,7 +94,7 @@ class SYRK:
         return gepp_syrk_base
     
 
-    def generate_syrk_gepp_upper_notranspose(self):
+    def generate_syrk_gepp_lower_notranspose(self):
 
         gepp_syrk_base = self.generate_syrk_gepp_base()
 
@@ -116,8 +116,7 @@ class SYRK:
         return gepp_syrk_scheduled, gepp_syrk_base
 
     
-    def schedule_syrk_gepp_upper_notranspose(self):
-
+    def schedule_syrk_gepp_lower_notranspose(self):
         syrk = divide_loop(self.syrk_base, 'k', self.K_blk, ['ko', 'ki'], tail='cut_and_guard')
         syrk = autofission(syrk, syrk.find('for ko in _:_ #0').after(), n_lifts=2)
         syrk = reorder_loops(syrk, 'j ko')
