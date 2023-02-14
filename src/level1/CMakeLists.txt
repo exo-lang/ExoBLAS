@@ -1,6 +1,7 @@
-if (HAVE_AVX2)
-  add_exo_library(
-    NAME bcopy
-    SOURCES bcopy.py
-  )
-endif ()
+add_exo_library(
+  NAME bcopy
+  SOURCES bcopy.py
+  PYTHONPATH
+    "${PROJECT_BINARY_DIR}/src/common"
+    "${PROJECT_SOURCE_DIR}/src/common"
+)
