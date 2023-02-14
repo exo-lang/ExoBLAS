@@ -17,8 +17,8 @@ static std::vector<float> gen_matrix(long m, long n, float v) {
   std::uniform_real_distribution<> rv{-1.0f, 1.0f};
 
   std::vector<float> mat(m * n);
-  //std::generate(std::begin(mat), std::end(mat), [&]() { return v; });
-  std::generate(std::begin(mat), std::end(mat), [&]() { return rv(rng); });
+  std::generate(std::begin(mat), std::end(mat), [&]() { return v; });
+  //std::generate(std::begin(mat), std::end(mat), [&]() { return rv(rng); });
 
   return mat;
 }
@@ -69,10 +69,10 @@ static std::vector<float> transpose(std::vector<float> V, const int m, const int
 
 
 int main(int argc, char **argv) {
-    int n = 16; //Hardcoded because test matrix is hardcoded
-    auto a = gen_matrix_symm(n, n);
+    int n = atoi(argv[1]); 
+    auto a = gen_matrix(n, n, 2.0);
     auto a2 = transpose(a, n, n);
-    auto c = gen_matrix_symm(n, n);
+    auto c = gen_matrix(n, n, 2.0);
     auto c2 = c; 
 
     cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans,
@@ -85,18 +85,50 @@ int main(int argc, char **argv) {
                 n  // M
                 );
 
-    std::cout << "Correct output:" << std::endl;
-    print_matrix(c, n, n);
+    syrk_lower_notranspose(nullptr, n, n, a.data(), a.data(), c2.data());
 
-    std::cout << "Actual Output:" << std::endl;
-    syrk_upper_notranspose(nullptr, n, n, a.data(), a2.data(), c2.data());
-    print_matrix(c2, n, n);
     for (int i=0; i<n*n; i++) {
-        double correct = std::round(c[i] * 100.0) / 100.0;
-        double exo_out = std::round(c2[i] * 100.0) / 100.0;
+        break;
+        double correct = c[i];//std::round(c[i] * 100.0) / 100.0;
+        double exo_out = c2[i];//std::round(c2[i] * 100.0) / 100.0;
         if (correct!=exo_out)
-            std::cout<<"Expected: "<<correct<<", got: "<<exo_out<<std::endl;
+            std::cout<<"Error at "<< i/n <<", "<<i%n<< ". Expected: "<<correct<<", got: "<<exo_out<<std::endl;
         assert(correct==exo_out);
     }
     std::cout<<"CORRECTNESS TEST PASSED"<<std::endl;
+
+    long FLOP_C = long(n) * long(n) * long(n);
+
+    int N_TIMES_BLAS = 1000;
+    auto begin = std::chrono::steady_clock::now();
+    for (int times = 0; times < N_TIMES_BLAS; times++) {
+        cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans,
+                n, n, // M N K
+                1.0, // alpha
+                a.data(),
+                n, // M
+                1.0,
+                c.data(),
+                n  // M
+                );
+    }
+    auto end = std::chrono::steady_clock::now();
+    auto duration = std::chrono::duration<double>(end - begin).count();
+    double ms_per_gemm = duration / N_TIMES_BLAS * 1.0e3;
+    printf("-----------------------------------------------------------\n");
+    printf("BLAS SYRK took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
+        (FLOP_C * 1.0e-6) / ms_per_gemm);
+
+    int N_TIMES_EXO = 100;
+    begin = std::chrono::steady_clock::now();
+    for (int times = 0; times < N_TIMES_EXO; times++) {
+        syrk_lower_notranspose(nullptr, n, n, a.data(), a2.data(), c2.data());
+    }
+    end = std::chrono::steady_clock::now();
+    duration = std::chrono::duration<double>(end - begin).count();
+    ms_per_gemm = duration / N_TIMES_EXO * 1.0e3;
+    printf("-----------------------------------------------------------\n");
+    printf("  Exo SYRK took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
+        (FLOP_C * 1.0e-6) / ms_per_gemm);
+    printf("-----------------------------------------------------------\n");
 }

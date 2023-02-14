@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import sys
+import getopt 
 from exo import proc
 from exo.platforms.x86 import *
 from exo.platforms.neon import *
@@ -128,10 +131,24 @@ class SYRK:
 
     def write_to_file(self, name="syrk.c"):
         ### Write syrk to a file
-        file = open(f"c/{name}", 'w+')
+        file = open(f"c/syrk/{name}", 'w+')
         file.write(self.syrk_scheduled.c_code_str())
         file.close()
 
+if __name__=="__main__":
+    # Process command line args
+    args = sys.argv
+    optlist, _ = getopt.getopt(args[1:], '',longopts=['kc=', 'mc=', 'mr=', 'nr='])
 
-syrk = SYRK(NeonMachine, ExoBlasUpper, ExoBlasNoTranspose, 64, 64, 4, 16)
-syrk.write_to_file()
+    k_blk = int(optlist[0][1])
+    m_blk = int(optlist[1][1])
+    m_reg = int(optlist[2][1])
+    n_reg = int(optlist[3][1])
+
+    ssyrk = SYRK(NeonMachine, 
+                 ExoBlasLower, ExoBlasNoTranspose, 
+                 k_blk, m_blk, 
+                 m_reg, n_reg
+                 )
+
+    ssyrk.write_to_file()

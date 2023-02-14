@@ -120,7 +120,9 @@ class Microkernel:
 #print("TEST PASSED: Microkernel successfully generated!")
 
 
-
+"""
+TODO: Generate transpose version of all of these 
+"""
 class GEBP_kernel:
 
     gebp_id = 0
@@ -188,6 +190,60 @@ class GEBP_kernel:
         scheduled_gebp = stage_mem(scheduled_gebp, 'for io in _:_ #0', f'B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]', 'B_strip')
         
         return simplify(scheduled_gebp), gebp
+
+
+class GEPP_kernel:
+
+    def __init__(self, gebp: GEBP_kernel):
+
+        self.K_blk = gebp.microkernel.K_blk
+        self.gebp = gebp
+
+        # Base SGEMM procedure
+        @proc
+        def SGEMM(
+            M: size,
+            N: size,
+            K: size,
+            C: f32[M, N] @ DRAM,
+            A: f32[M, K] @ DRAM,
+            B: f32[K, N] @ DRAM,
+        ):
+            for i in seq(0, M):
+                for j in seq(0, N):
+                    for k in seq(0, K):
+                        C[i, j] += A[i,k] * B[k,j] 
+
+        self.sgemm_window = (rename(SGEMM, 'sgemm_win'))
+        self.sgemm_window = set_window(self.sgemm_window, 'A', True)
+        self.sgemm_window = set_window(self.sgemm_window, 'B', True)
+        self.sgemm_window = set_window(self.sgemm_window, 'C', True)
+
+        self.sgemm_base = SGEMM
+
+        self.gepp_base, self.gepp_scheduled = self.generate_gepp()
+
+    
+    def generate_base_gepp(self):
+        base_gepp = rename(self.sgemm_window, "gepp_base")
+        return base_gepp.partial_eval(K=self.K_blk)
+
+
+    def generate_gepp(self):
+        base_gepp, scheduled_gepp = self.do_generate_gepp()
+        return base_gepp, scheduled_gepp
+
+
+
+    def do_generate_gepp(self):
+
+        base_gepp = self.generate_base_gepp()
+
+        scheduled_gepp = rename(base_gepp, "scheduled_gepp")
+        scheduled_gepp = divide_loop(scheduled_gepp, 'i', self.gebp.M_blk, ['io', 'ii'], tail='cut_and_guard')
+        scheduled_gepp = replace(scheduled_gepp, 'for ii in _:_ #0', self.gebp.base_gebp)
+        scheduled_gepp = call_eqv(scheduled_gepp, f'gebp_base_{self.gebp.this_id}(_)', self.gebp.scheduled_gebp)
+        return base_gepp, scheduled_gepp
 
 #test_gebp = GEBP_kernel(test_microkernel, 64, 256)
 #print("TEST PASSED: GEBP kernel successfully generated!")
