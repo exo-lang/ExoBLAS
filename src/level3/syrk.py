@@ -10,7 +10,7 @@ from exo.syntax import *
 
 from exo.stdlib.scheduling import *
 
-from kernels.gemm_kernels import GEBP_kernel, Microkernel, NeonMachine, MachineParameters
+from kernels.gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
 
 import exo_blas_config as C
@@ -19,7 +19,7 @@ class SYRK:
     """
     TODO: Add Beta and Alpha
     """
-    def __init__(self, machine: MachineParameters,
+    def __init__(self, machine: "MachineParameters",
                  uplo: ExoBlasUplo,
                  transpose: ExoBlasT,  
                  K_blk: int, M_blk: int, 

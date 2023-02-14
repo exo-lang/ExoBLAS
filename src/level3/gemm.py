@@ -10,14 +10,14 @@ from exo.syntax import *
 
 from exo.stdlib.scheduling import *
 
-from kernels.gemm_kernels import GEPP_kernel, GEBP_kernel, Microkernel, NeonMachine, MachineParameters
+from kernels.gemm_kernels import GEPP_kernel, GEBP_kernel, Microkernel
 from format_options import *
 
 import exo_blas_config as C
 
 class GEMM:
 
-    def __init__(self, machine: MachineParameters,
+    def __init__(self, machine: "MachineParameters",
                  transa: ExoBlasT, transb: ExoBlasT,
                  alpha: int, beta: int,
                  K_blk: int, M_blk: int, 

@@ -1,7 +1,9 @@
-if (HAVE_NEON)
-  set(TARGET_ARCH "Neon")
-elseif (HAVE_AVX)
-  set(TARGET_ARCH "AVX2")
+if (NOT HAVE_AVX2)
+  set(HAVE_AVX2 0)
+endif ()
+
+if (NOT HAVE_NEON)
+  set(HAVE_NEON 0)
 endif ()
 
 set(SYRK_K_BLK 64 CACHE STRING "K_BLK size for SYRK")
