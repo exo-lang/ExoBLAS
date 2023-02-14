@@ -5,7 +5,7 @@ if (HAVE_NEON)
     PYTHONPATH "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}/src/common"
   )
   add_exo_library(
-    NAME gemm
+    NAME sgemm
     SOURCES gemm.py
     PYTHONPATH "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}/src/common"
   )
