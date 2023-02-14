@@ -1,5 +1,5 @@
 class syrk:
-    k_blk = 64
-    m_blk = 64
-    m_reg = 4
-    n_reg = 16
+    k_blk = @SYRK_K_BLK@
+    m_blk = @SYRK_M_BLK@
+    m_reg = @SYRK_M_REG@
+    n_reg = @SYRK_N_REG@
