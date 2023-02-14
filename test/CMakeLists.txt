@@ -1,6 +1,9 @@
 find_package(BLAS REQUIRED)
 
-find_path(CBLAS_INCLUDE_DIR cblas.h REQUIRED)
+find_path(
+  CBLAS_INCLUDE_DIR cblas.h REQUIRED
+  PATHS /usr/include/x86_64-linux-gnu/openblas-pthread
+)
 target_include_directories(BLAS::BLAS INTERFACE "${CBLAS_INCLUDE_DIR}")
 
 find_package(benchmark REQUIRED)
