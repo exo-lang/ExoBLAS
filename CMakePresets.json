@@ -1,0 +1,20 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "apple-silicon",
+      "displayName": "Apple M1 or M2 mac",
+      "description": "Configure cmake with Apple silicon parameters",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/apple-silicon",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64"
+      }
+    }
+  ]
+}
