@@ -13,6 +13,8 @@ from exo.stdlib.scheduling import *
 from kernels.gemm_kernels import GEBP_kernel, Microkernel, NeonMachine, MachineParameters
 from format_options import *
 
+import exo_blas_config as C
+
 class SYRK:
     """
     TODO: Add Beta and Alpha
@@ -129,26 +131,17 @@ class SYRK:
         return syrk
 
 
-    def write_to_file(self, name="syrk.c"):
-        ### Write syrk to a file
-        file = open(f"c/syrk/{name}", 'w+')
-        file.write(self.syrk_scheduled.c_code_str())
-        file.close()
+k_blk = C.syrk.k_blk
+m_blk = C.syrk.m_blk
+m_reg = C.syrk.m_reg
+n_reg = C.syrk.n_reg
 
-if __name__=="__main__":
-    # Process command line args
-    args = sys.argv
-    optlist, _ = getopt.getopt(args[1:], '',longopts=['kc=', 'mc=', 'mr=', 'nr='])
+ssyrk = SYRK(NeonMachine, 
+             ExoBlasLower, ExoBlasNoTranspose, 
+             k_blk, m_blk, 
+             m_reg, n_reg
+             )
 
-    k_blk = int(optlist[0][1])
-    m_blk = int(optlist[1][1])
-    m_reg = int(optlist[2][1])
-    n_reg = int(optlist[3][1])
+scheduled = ssyrk.syrk_scheduled
 
-    ssyrk = SYRK(NeonMachine, 
-                 ExoBlasLower, ExoBlasNoTranspose, 
-                 k_blk, m_blk, 
-                 m_reg, n_reg
-                 )
-
-    ssyrk.write_to_file()
+__all__ = ["scheduled"]

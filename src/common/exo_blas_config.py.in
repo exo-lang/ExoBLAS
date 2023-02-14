@@ -1,0 +1,5 @@
+class syrk:
+    k_blk = 64
+    m_blk = 64
+    m_reg = 4
+    n_reg = 16

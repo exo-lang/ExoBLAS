@@ -8,8 +8,8 @@
 #include <chrono>
 
 
-#include <cblas.h>
-#include "syrk.c"
+#include <Accelerate/Accelerate.h>
+#include "syrk.h"
 
 static std::vector<float> gen_matrix(long m, long n, float v) {
   static std::random_device rd;
