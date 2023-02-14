@@ -8,6 +8,7 @@
 
 #include "gemv.h"
 #include <cblas.h>
+#include <benchmark/benchmark.h>
 
 void naive_sgemv_square(const float* alpha, const float* beta, const float *a, const float *x, float *y, long m, long n) {
   for (long i = 0; i < m; i++) {
@@ -29,135 +30,82 @@ static std::vector<float> gen_matrix(long m, long n) {
   return mat;
 }
 
-int main(int argc, char *argv[]) {
-  if (argc != 2) {
-    printf("Usage: %s <n>\n", argv[0]);
-    return 1;
-  }
-  int n = std::atoi(argv[1]);
-  if (n < 1) {
-    printf("n < 1!!\n");
-    return 1;
-  }
+static void BM_GEMV_NAIVE(benchmark::State& state) {
+  int n = state.range(0);
 
   auto a = gen_matrix(n, n);
   auto x = gen_matrix(n, 1);
   auto y = gen_matrix(n, 1);
-  auto y1 = y;
-  auto y2 = y;
-  auto y3 = y;
 
   float alpha = 0.9f;
   float beta = 0.7f;
 
-  printf("Multiplying a %d x %d matrix by a %d x 1 vector\n", n, n, n);
-  long FLOP_C = 2 * long(n) * long(n);
-
-  int N_TIMES_NAIVE = 50;
-  auto begin = std::chrono::steady_clock::now();
-  for (int times = 0; times < N_TIMES_NAIVE; times++) {
-    naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y1.data(), n, n);
+  for (auto _ : state) {
+    naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y.data(), n, n);
   }
-  auto end = std::chrono::steady_clock::now();
-  double duration = std::chrono::duration<double>(end - begin).count();
-  double ms_per_gemm = duration / N_TIMES_NAIVE * 1.0e3;
-  printf("-----------------------------------------------------------\n");
-  printf("Naive SGEMV took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-      (FLOP_C * 1.0e-6) / ms_per_gemm);
 
-  int N_TIMES_ACCELERATE = 1000;
-  begin = std::chrono::steady_clock::now();
-  for (int times = 0; times < N_TIMES_ACCELERATE; times++) {
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n,  // M N
-        alpha,  // alpha
-        a.data(),  // A
-        n,  // lda
-        x.data(), // X
-        1,  // incX
-        beta,  // beta
-        y2.data(),
-        1  // incY
-    );
-  }
-  end = std::chrono::steady_clock::now();
-  duration = std::chrono::duration<double>(end - begin).count();
-  ms_per_gemm = duration / N_TIMES_ACCELERATE * 1.0e3;
-  printf("-----------------------------------------------------------\n");
-  printf("Apple SGEMV took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-      (FLOP_C * 1.0e-6) / ms_per_gemm);
-
-  int N_TIMES_EXO = 1000;
-  begin = std::chrono::steady_clock::now();
-  for (int times = 0; times < N_TIMES_EXO; times++) {
-    sgemv_exo_v2(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y3.data());
-  }
-  end = std::chrono::steady_clock::now();
-  duration = std::chrono::duration<double>(end - begin).count();
-  ms_per_gemm = duration / N_TIMES_EXO * 1.0e3;
-  printf("-----------------------------------------------------------\n");
-  printf("  Exo SGEMV took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-      (FLOP_C * 1.0e-6) / ms_per_gemm);
-  printf("-----------------------------------------------------------\n");
-
-
-  // begin = std::chrono::steady_clock::now();
-  // for (int times = 0; times < N_TIMES_ACCELERATE; times++) {
-  //   cblas_sgemv(CblasRowMajor, CblasTrans, n, n,  // M N
-  //       alpha,  // alpha
-  //       a.data(),  // A
-  //       n,  // lda
-  //       x.data(), // X
-  //       1,  // incX
-  //       beta,  // beta
-  //       y.data(),
-  //       1  // incY
-  //   );
-  // }
-  // end = std::chrono::steady_clock::now();
-  // duration = std::chrono::duration<double>(end - begin).count();
-  // ms_per_gemm = duration / N_TIMES_ACCELERATE * 1.0e3;
-  // printf("-----------------------------------------------------------\n");
-  // printf("Apple SGEMV Transpose took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-  //     (FLOP_C * 1.0e-6) / ms_per_gemm);
-
-  // begin = std::chrono::steady_clock::now();
-  // for (int times = 0; times < N_TIMES_EXO; times++) {
-  //   sgemv_transpose_exo(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y.data());
-  // }
-  // end = std::chrono::steady_clock::now();
-  // duration = std::chrono::duration<double>(end - begin).count();
-  // ms_per_gemm = duration / N_TIMES_EXO * 1.0e3;
-  // printf("-----------------------------------------------------------\n");
-  // printf("  Exo SGEMV Transpose took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-  //     (FLOP_C * 1.0e-6) / ms_per_gemm);
-  // printf("-----------------------------------------------------------\n");
-
-
-  /*
-    Notes for Apple M1 Mac
-    Cache line size : 128 bytes = 32 floats
-    L1 Cache size   : 64 KB
-    L2 Cache size   :  4 MB
-     453 M FMAdds per launch * 30 launches
-     = 13.6 B FMAdds total
-    576 KB of data per A, B, C matrix
-    Old Information (30 runs)
-    8.0  B L1 Data Cache Accesses
-    5.7  M L1 Data Store Miss
-    0.57 B L1 Data Load Miss
-    Improved SGEMM (50 runs)
-    2.7  B L1 Data Cache Accesses
-    7.1  M L1 Data Store Miss
-    2.7  B L1 Data Load Miss
-  */
-
-  for (int i = 0; i < y2.size(); i++) {
-    float expected = y2[i];
-    float actual = y3[i];
-    double relerr = fabsf(actual - expected) / expected;
-    if (relerr > 1e-2) {
-      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
-    }
-  }
-  printf("both methods produced consistent output\n\n\n\n");
+  state.counters["flops"] = benchmark::Counter(
+    static_cast<double>(state.iterations()) * 2 * n * n,
+    benchmark::Counter::kIsRate,
+    benchmark::Counter::kIs1000
+  );
 }
+
+
+static void BM_GEMV_APPLE(benchmark::State& state) {
+  int n = state.range(0);
+
+  auto a = gen_matrix(n, n);
+  auto x = gen_matrix(n, 1);
+  auto y = gen_matrix(n, 1);
+
+  float alpha = 0.9f;
+  float beta = 0.7f;
+
+  for (auto _ : state) {
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
+  }
+
+  state.counters["flops"] = benchmark::Counter(
+    static_cast<double>(state.iterations()) * 2 * n * n,
+    benchmark::Counter::kIsRate,
+    benchmark::Counter::kIs1000
+  );
+}
+
+
+static void BM_GEMV_EXO(benchmark::State& state) {
+  int n = state.range(0);
+
+  auto a = gen_matrix(n, n);
+  auto x = gen_matrix(n, 1);
+  auto y = gen_matrix(n, 1);
+
+  float alpha = 0.9f;
+  float beta = 0.7f;
+
+  for (auto _ : state) {
+    sgemv_exo_v2(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y.data());
+  }
+
+  state.counters["flops"] = benchmark::Counter(
+    static_cast<double>(state.iterations()) * 2 * n * n,
+    benchmark::Counter::kIsRate,
+    benchmark::Counter::kIs1000
+  );
+
+  // write correctness test here
+}
+
+// Register the function as a benchmark
+BENCHMARK(BM_GEMV_NAIVE) -> Args({3000});
+BENCHMARK(BM_GEMV_APPLE) -> Args({3000});
+BENCHMARK(BM_GEMV_EXO) -> Args({3000});
+
+BENCHMARK(BM_GEMV_NAIVE) -> Args({1000});
+BENCHMARK(BM_GEMV_APPLE) -> Args({1000});
+BENCHMARK(BM_GEMV_EXO) -> Args({1000});
+
+BENCHMARK(BM_GEMV_NAIVE) -> Args({100});
+BENCHMARK(BM_GEMV_APPLE) -> Args({100});
+BENCHMARK(BM_GEMV_EXO) -> Args({100});
