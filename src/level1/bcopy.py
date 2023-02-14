@@ -42,6 +42,8 @@ else:
     copy_template(n, x, y)
 """
 
+bcopy = rename(bcopy, "exo_bcopy")
+
 if __name__ == "__main__":
     print(copy_stride_1)
     print(bcopy)
