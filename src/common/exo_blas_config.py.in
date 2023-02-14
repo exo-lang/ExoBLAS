@@ -1,4 +1,12 @@
-TARGET_ARCH = "@TARGET_ARCH@"
+import sys
+
+if @HAVE_NEON@:
+    from machines.neon import Machine
+elif @HAVE_AVX2@:
+    from machines.avx2 import Machine
+else:
+    sys.exit("Failed to determine machine configuration")
+
 
 class syrk:
     k_blk = @SYRK_K_BLK@

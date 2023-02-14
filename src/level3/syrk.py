@@ -136,7 +136,7 @@ m_blk = C.syrk.m_blk
 m_reg = C.syrk.m_reg
 n_reg = C.syrk.n_reg
 
-ssyrk = SYRK(NeonMachine, 
+ssyrk = SYRK(C.Machine, 
              ExoBlasLower, ExoBlasNoTranspose, 
              k_blk, m_blk, 
              m_reg, n_reg

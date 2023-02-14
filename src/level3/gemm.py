@@ -60,7 +60,7 @@ m_reg = C.sgemm.m_reg
 n_reg = C.sgemm.n_reg
 
 sgemm = GEMM(
-    NeonMachine, 
+    C.Machine, 
     ExoBlasNoTranspose, ExoBlasNoTranspose, 
     1, 1, 
     k_blk, m_blk, 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from email.mime import base
 from exo import proc
 from exo.platforms.x86 import *
@@ -7,7 +8,6 @@ from exo import *
 from exo.syntax import *
 
 from exo.stdlib.scheduling import *
-from kernels.platforms.arch import *
 
 class Microkernel:
 
@@ -232,8 +232,6 @@ class GEPP_kernel:
     def generate_gepp(self):
         base_gepp, scheduled_gepp = self.do_generate_gepp()
         return base_gepp, scheduled_gepp
-
-
 
     def do_generate_gepp(self):
 
