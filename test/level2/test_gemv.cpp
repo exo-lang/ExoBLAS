@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-#include "sgemv.h"
+#include "gemv.h"
 #include <Accelerate/Accelerate.h>
 
 void naive_sgemv_square(const float* alpha, const float* beta, const float *a, const float *x, float *y, long m, long n) {

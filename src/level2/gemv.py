@@ -11,7 +11,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API import compile_procs
 
-sys.path.append(os.path.expanduser("~/Documents/BLAS"))
+sys.path.append(str(Path(__file__).parent.resolve()))
 
 from blas_common_schedules import *
 

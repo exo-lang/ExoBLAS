@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.25)
 project(EXO_BLAS)
 
+enable_testing()
+
 include(CheckSourceCompiles)
 
 check_source_compiles(C [[
@@ -22,4 +24,7 @@ if (NOT HAVE_AVX2 AND NOT HAVE_NEON)
   message(FATAL_ERROR "cannot build without one of AVX2 or neon")
 endif()
 
+find_package(Exo REQUIRED)
 
+add_subdirectory(src)
+add_subdirectory(test)

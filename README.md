@@ -1,3 +1,13 @@
+## How to build
+```
+cmake --preset apple-silicon
+cmake --build build/apple-silicon
+ctest --test-dir build/apple-silicon
+```
+
+
+
+
 ```
 cd level2/
 exocc --stem gbmv -o test gbmv.py
@@ -17,3 +27,5 @@ clang++ -std=c++17 -O3 -ffast-math -ffp-contract=fast -framework Accelerate -arc
 ./test.o 10000
 ```
 If there is an error, try `export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)`.
+
+
