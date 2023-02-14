@@ -3,3 +3,9 @@ class syrk:
     m_blk = @SYRK_M_BLK@
     m_reg = @SYRK_M_REG@
     n_reg = @SYRK_N_REG@
+
+class sgemm:
+    k_blk = @SGEMM_K_BLK@
+    m_blk = @SGEMM_M_BLK@
+    m_reg = @SGEMM_M_REG@
+    n_reg = @SGEMM_N_REG@
