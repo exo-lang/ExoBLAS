@@ -1,3 +1,9 @@
+if (HAVE_NEON)
+  set(TARGET_ARCH "Neon")
+elseif (HAVE_AVX)
+  set(TARGET_ARCH "AVX2")
+endif ()
+
 set(SYRK_K_BLK 64 CACHE STRING "K_BLK size for SYRK")
 set(SYRK_M_BLK 64 CACHE STRING "M_BLK size for SYRK")
 set(SYRK_M_REG 4 CACHE STRING "M_REG size for SYRK")

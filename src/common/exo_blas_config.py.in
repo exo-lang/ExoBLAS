@@ -1,3 +1,5 @@
+TARGET_ARCH = "@TARGET_ARCH@"
+
 class syrk:
     k_blk = @SYRK_K_BLK@
     m_blk = @SYRK_M_BLK@
