@@ -13,6 +13,8 @@ from exo.stdlib.scheduling import *
 from kernels.gemm_kernels import GEPP_kernel, GEBP_kernel, Microkernel, NeonMachine, MachineParameters
 from format_options import *
 
+import exo_blas_config as C
+
 class GEMM:
 
     def __init__(self, machine: MachineParameters,
@@ -52,26 +54,19 @@ class GEMM:
         return sgemm_scheduled
 
 
-    def write_to_file(self, name="gemm.c"):
-        ### Write syrk to a file
-        file = open(f"c/gemm/{name}", 'w+')
-        file.write(self.sgemm_scheduled.c_code_str())
-        file.close()
+k_blk = C.sgemm.k_blk
+m_blk = C.sgemm.m_blk
+m_reg = C.sgemm.m_reg
+n_reg = C.sgemm.n_reg
 
-if __name__=="__main__":
-    # Process command line args
-    args = sys.argv
-    optlist, _ = getopt.getopt(args[1:], '',longopts=['kc=', 'mc=', 'mr=', 'nr='])
+sgemm = GEMM(
+    NeonMachine, 
+    ExoBlasNoTranspose, ExoBlasNoTranspose, 
+    1, 1, 
+    k_blk, m_blk, 
+    m_reg, n_reg
+)
 
-    k_blk = int(optlist[0][1])
-    m_blk = int(optlist[1][1])
-    m_reg = int(optlist[2][1])
-    n_reg = int(optlist[3][1])
+sgemm = sgemm.sgemm_scheduled
 
-    sgemm = GEMM(NeonMachine, 
-                ExoBlasNoTranspose, ExoBlasNoTranspose, 
-                1, 1, 
-                k_blk, m_blk, 
-                m_reg, n_reg)
-
-    sgemm.write_to_file()
+__all__ = ['sgemm']

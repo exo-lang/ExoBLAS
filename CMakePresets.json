@@ -18,6 +18,16 @@
       }
     },
     {
+      "name": "linux-arm64",
+      "displayName": "Linux AArch64",
+      "description": "Configure Exo-Blas for arm64 with NEON",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-arm64",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
       "name": "avx2",
       "displayName": "Intel AVX2",
       "description": "Configure Exo-Blas for AVX2 with GCC-compatible compiler",
