@@ -9,7 +9,7 @@
 
 
 #include <cblas.h>
-#include "gemm.c"
+#include "sgemm.h"
 
 static std::vector<float> gen_matrix(long m, long n) {
   static std::random_device rd;

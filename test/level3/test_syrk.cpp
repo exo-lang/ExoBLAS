@@ -8,7 +8,7 @@
 #include <chrono>
 
 
-#include <Accelerate/Accelerate.h>
+#include <cblas.h>
 #include "syrk.h"
 
 static std::vector<float> gen_matrix(long m, long n, float v) {

@@ -7,7 +7,7 @@
 #include <chrono>
 
 #include "gemv.h"
-#include <Accelerate/Accelerate.h>
+#include <cblas.h>
 
 void naive_sgemv_square(const float* alpha, const float* beta, const float *a, const float *x, float *y, long m, long n) {
   for (long i = 0; i < m; i++) {
