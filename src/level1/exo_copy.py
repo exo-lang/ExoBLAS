@@ -10,12 +10,12 @@ import exo_blas_config as C
 
 
 @proc
-def copy_template(n: size, x: f32[n], y: f32[n]):
+def scopy_template(n: size, x: [f32][n], y: [f32][n]):
     for i in seq(0, n):
         y[i] = x[i]
 
 
-simple_stride_1 = rename(copy_template, copy_template.name() + "_simple_stride_1")
+simple_stride_1 = rename(scopy_template, scopy_template.name() + "_simple_stride_1")
 simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
 simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
@@ -39,27 +39,27 @@ simple_stride_1 = replace_all(
     simple_stride_1, [C.Machine.load_instr, C.Machine.store_instr]
 )
 
-copy_stride_1 = simplify(simple_stride_1)
+scopy_stride_1 = simplify(simple_stride_1)
 
 
 @proc
-def exo_bcopy(n: size, x: f32[n], y: f32[n]):
+def exo_scopy(n: size, x: [f32][n], y: [f32][n]):
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
-    copy_stride_1(n, x, y)
+    scopy_stride_1(n, x, y)
 
 
 """
 TODO: Should be:
 if stride(x, 0) == 1 and stride(y, 0) == 1:
-    copy_stride_1(n, x, y)
+    scopy_stride_1(n, x, y)
 else:
-    TODO: do packing first on sub-ranges of x, then use asum_stride_1 as a micro-kernel
-    copy_template(n, x, y)
+    TODO: do packing first on sub-ranges of x, then use scopy_stride_1 as a micro-kernel
+    scopy_template(n, x, y)
 """
 
 if __name__ == "__main__":
-    print(copy_stride_1)
-    print(exo_bcopy)
+    print(scopy_stride_1)
+    print(exo_scopy)
 
-__all__ = ["exo_bcopy"]
+__all__ = ["exo_scopy"]
