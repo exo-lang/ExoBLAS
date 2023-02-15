@@ -80,9 +80,10 @@ class Microkernel:
         c_reg_str = f'C[i, {machine.vec_width} * jo + ji]'
         scheduled_microkernel = stage_mem(scheduled_microkernel, 'C[_] += _', c_reg_str, 'C_reg')
         scheduled_microkernel = set_memory(scheduled_microkernel, 'C_reg', machine.mem_type)
-        scheduled_microkernel = expand_dim(scheduled_microkernel, 'C_reg', M_r, 'i', unsafe_disable_checks=True)
-        scheduled_microkernel = expand_dim(scheduled_microkernel, 'C_reg', N_r // machine.vec_width, f'jo', unsafe_disable_checks=True)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'C_reg', machine.vec_width, 'ji', unsafe_disable_checks=True)
+        scheduled_microkernel = expand_dim(scheduled_microkernel, 'C_reg', N_r//machine.vec_width, f'jo', unsafe_disable_checks=True)
+
+        scheduled_microkernel = expand_dim(scheduled_microkernel, 'C_reg', M_r, 'i', unsafe_disable_checks=True)
         scheduled_microkernel = lift_alloc(scheduled_microkernel, 'C_reg', n_lifts=4)
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('C_reg[_] = _').after(), n_lifts=4)
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('C[_] = _').before(), n_lifts=4)
@@ -90,14 +91,15 @@ class Microkernel:
         # Setup A buffer in vector mem
         scheduled_microkernel = bind_expr(scheduled_microkernel, 'A[_]', 'A_vec')
         scheduled_microkernel = set_memory(scheduled_microkernel, 'A_vec', machine.mem_type)
-        scheduled_microkernel = expand_dim(scheduled_microkernel, 'A_vec', M_r, 'i', unsafe_disable_checks=True)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'A_vec', machine.vec_width, 'ji', unsafe_disable_checks=True)
+        scheduled_microkernel = expand_dim(scheduled_microkernel, 'A_vec', M_r, 'i', unsafe_disable_checks=True)
 
         # Setup B buffer in vector mem
         scheduled_microkernel = bind_expr(scheduled_microkernel, 'B[_]', 'B_vec')
+
         scheduled_microkernel = set_memory(scheduled_microkernel, 'B_vec', machine.mem_type)
-        scheduled_microkernel = expand_dim(scheduled_microkernel, 'B_vec', (N_r // machine.vec_width), f'jo', unsafe_disable_checks=True)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'B_vec', machine.vec_width, f'ji', unsafe_disable_checks=True)
+        scheduled_microkernel = expand_dim(scheduled_microkernel, 'B_vec', (N_r // machine.vec_width), f'jo', unsafe_disable_checks=True)
 
         # Replace loads and stores into C
         scheduled_microkernel = replace(scheduled_microkernel, 'for ji in _:_ #0', machine.load_instr)
@@ -113,7 +115,7 @@ class Microkernel:
         # Replace
         scheduled_microkernel = replace_all(scheduled_microkernel, machine.load_instr)
         scheduled_microkernel = replace_all(scheduled_microkernel, machine.fmadd_instr)
-
+        scheduled_microkernel = simplify(scheduled_microkernel)
         return scheduled_microkernel, microkernel
 
 #test_microkernel = Microkernel(NeonMachine, 4, 16, 32)
