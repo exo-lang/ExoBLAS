@@ -101,21 +101,19 @@ class Microkernel:
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'B_vec', machine.vec_width, f'ji', unsafe_disable_checks=True)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'B_vec', (N_r // machine.vec_width), f'jo', unsafe_disable_checks=True)
 
-        # Replace loads and stores into C
-        scheduled_microkernel = replace(scheduled_microkernel, 'for ji in _:_ #0', machine.load_instr)
-        scheduled_microkernel = replace(scheduled_microkernel, 'for ji in _:_ #1', machine.store_instr)
-        
         # Move A_vec and B_vec into proper sites
         scheduled_microkernel = lift_alloc(scheduled_microkernel, 'A_vec', n_lifts=3)
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('A_vec[_] = _').after(), n_lifts=3)
-        scheduled_microkernel = replace(scheduled_microkernel, 'for ji in _:_ #0', machine.broadcast_instr)
         scheduled_microkernel = lift_alloc(scheduled_microkernel, 'B_vec', n_lifts=3)
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('B_vec[_] = _').after(), n_lifts=3)
 
         # Replace
         scheduled_microkernel = replace_all(scheduled_microkernel, machine.load_instr)
+        scheduled_microkernel = replace_all(scheduled_microkernel, machine.broadcast_instr)
+        scheduled_microkernel = replace_all(scheduled_microkernel, machine.store_instr)
         scheduled_microkernel = replace_all(scheduled_microkernel, machine.fmadd_instr)
         scheduled_microkernel = simplify(scheduled_microkernel)
+
         return scheduled_microkernel, microkernel
 
 #test_microkernel = Microkernel(NeonMachine, 4, 16, 32)
