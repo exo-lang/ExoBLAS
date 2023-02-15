@@ -6,13 +6,8 @@
 # BLAS
 
 find_package(BLAS REQUIRED)
-
-# Attach cblas header to BLAS::BLAS target
-find_path(
-  CBLAS_INCLUDE_DIR cblas.h REQUIRED
-  PATHS /usr/include/x86_64-linux-gnu/openblas-pthread
-)
-target_include_directories(BLAS::BLAS INTERFACE "${CBLAS_INCLUDE_DIR}")
+target_include_directories(
+  BLAS::BLAS INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/common")
 
 ##
 # Google Benchmark
