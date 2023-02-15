@@ -54,10 +54,10 @@ class GEMM:
         return sgemm_scheduled
 
 
-k_blk = C.sgemm.k_blk
-m_blk = C.sgemm.m_blk
-m_reg = C.sgemm.m_reg
-n_reg = C.sgemm.n_reg
+k_blk = C.gemm.k_blk
+m_blk = C.gemm.m_blk
+m_reg = C.gemm.m_reg
+n_reg = C.gemm.n_reg
 
 sgemm = GEMM(
     C.Machine, 

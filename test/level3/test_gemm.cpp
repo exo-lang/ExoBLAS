@@ -8,7 +8,7 @@
 #include <chrono>
 
 
-#include "sgemm.h"
+#include "gemm.h"
 #include <cblas.h>
 #include <benchmark/benchmark.h>
 

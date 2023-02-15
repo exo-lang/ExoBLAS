@@ -11,7 +11,7 @@ add_exo_library(
 )
 
 add_exo_library(
-  NAME sgemm
+  NAME gemm
   SOURCES gemm.py
   PYTHONPATH ${PYTHONPATH}
 )
