@@ -31,3 +31,5 @@ class MachineParameters:
     zpad_fmadd_instr: Any
     zpad_broadcast_instr: Any
     zpad_store_instr: Any
+    set_zero_instr: Any
+    assoc_reduce_add_instr: Any

@@ -5,3 +5,11 @@ add_exo_library(
     "${PROJECT_BINARY_DIR}/src/common"
     "${PROJECT_SOURCE_DIR}/src/common"
 )
+
+add_exo_library(
+  NAME dot
+  SOURCES dot.py
+  PYTHONPATH
+    "${PROJECT_BINARY_DIR}/src/common"
+    "${PROJECT_SOURCE_DIR}/src/common"
+)

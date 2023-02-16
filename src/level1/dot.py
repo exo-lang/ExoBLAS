@@ -6,14 +6,16 @@ from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 
+import exo_blas_config as C
+
 @proc
-def dot_template(n: size, x: [f32][n], y: [f32][n], result: f32):
+def sdot_template(n: size, x: [f32][n], y: [f32][n], result: f32):
     result = 0.0
     for i in seq(0, n):
         result += x[i] * y[i]
     
-def schedule_dot_stride_1(VEC_W, memory, instructions):
-    simple_stride_1 = rename(dot_template, dot_template.name() + "_simple_stride_1")
+def schedule_sdot_stride_1(VEC_W, memory, instructions):
+    simple_stride_1 = rename(sdot_template, sdot_template.name() + "_simple_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
     
@@ -38,26 +40,33 @@ def schedule_dot_stride_1(VEC_W, memory, instructions):
     
     return simplify(simple_stride_1)
 
-avx2_instructions = [mm256_loadu_ps, mm256_storeu_ps, avx2_select_ps,
-                avx2_assoc_reduce_add_ps, mm256_setzero, mm256_fmadd_ps]
-dot_stride_1 = schedule_dot_stride_1(8, AVX2, avx2_instructions)
+f32_instructions = [C.Machine.load_instr, 
+                     C.Machine.store_instr,
+                     C.Machine.assoc_reduce_add_instr,
+                     C.Machine.set_zero_instr,
+                     C.Machine.fmadd_instr]
+memory = C.Machine.mem_type
+if None not in f32_instructions:
+    sdot_stride_1 = schedule_sdot_stride_1(8, C.Machine.mem_type, f32_instructions)
+else:
+    sdot_stride_1 = sdot_template
 
 @proc 
-def dot(n: size, x: [f32][n], y: [f32][n], result: f32):
+def exo_sdot(n: size, x: [f32][n], y: [f32][n], result: f32):
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
-    dot_stride_1(n, x, y, result)
+    sdot_stride_1(n, x, y, result)
 """
 TODO: Should be:
 if stride(x, 0) == 1 and stride(y, 0) == 1:
-    dot_stride_1(n, x, y)
+    sdot_stride_1(n, x, y)
 else:
-    TODO: do packing first on sub-ranges of x, then use dot_stride_1 as a micro-kernel
-    dot_template(n, x, y)
+    TODO: do packing first on sub-ranges of x, then use sdot_stride_1 as a micro-kernel
+    sdot_template(n, x, y)
 """
 
 if __name__ == "__main__":
-    print(dot_stride_1)
-    print(dot)
+    print(sdot_stride_1)
+    print(exo_sdot)
 
-__all__ = ["dot"]
+__all__ = ["exo_sdot"]
