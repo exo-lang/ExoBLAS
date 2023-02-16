@@ -90,7 +90,6 @@ void test_syrk_correctness(benchmark::State& state) {
     syrk_lower_notranspose(nullptr, n, n, a.data(), a.data(), c2.data());
 
     for (int i=0; i<n*n; i++) {
-        break;
         double correct = c[i];//std::round(c[i] * 100.0) / 100.0;
         double exo_out = c2[i];//std::round(c2[i] * 100.0) / 100.0;
         if (correct!=exo_out)
