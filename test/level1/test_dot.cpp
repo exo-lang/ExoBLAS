@@ -5,7 +5,7 @@
 
 #include "generate_buffer.h"
 
-#include "dot.h"
+#include "exo_dot.h"
 
 static float naive_sdot(const int N, const float  *X, const int incX,
                   const float  *Y, const int incY) {

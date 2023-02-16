@@ -24,7 +24,7 @@ function(add_exo_blas_test kernel)
   target_link_libraries(
     test_${kernel}
     PRIVATE
-    EXO_BLAS::${kernel}
+    EXO_BLAS::exo_${kernel}
     BLAS::BLAS
     benchmark::benchmark_main
   )

@@ -5,7 +5,7 @@
 
 #include "generate_buffer.h"
 
-#include "copy.h"
+#include "exo_copy.h"
 
 static void naive_scopy(const int N, const float *X, const int incX, float *Y, const int incY) {
     for (int i = 0; i < N; ++i) {

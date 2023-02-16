@@ -1,5 +1,5 @@
 add_exo_library(
-  NAME copy
+  NAME exo_copy
   SOURCES exo_copy.py
   PYTHONPATH
     "${PROJECT_BINARY_DIR}/src/common"
@@ -7,7 +7,7 @@ add_exo_library(
 )
 
 add_exo_library(
-  NAME dot
+  NAME exo_dot
   SOURCES dot.py
   PYTHONPATH
     "${PROJECT_BINARY_DIR}/src/common"

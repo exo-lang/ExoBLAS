@@ -6,7 +6,7 @@
 
 #include <chrono>
 
-#include "gemv.h"
+#include "exo_gemv.h"
 #include <cblas.h>
 #include <benchmark/benchmark.h>
 

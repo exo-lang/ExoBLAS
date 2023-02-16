@@ -8,7 +8,7 @@
 #include <chrono>
 
 
-#include "syrk.h"
+#include "exo_syrk.h"
 #include <cblas.h>
 #include <benchmark/benchmark.h>
 
