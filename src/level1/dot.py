@@ -40,11 +40,11 @@ def schedule_sdot_stride_1(VEC_W, memory, instructions):
     
     return simplify(simple_stride_1)
 
-f32_instructions = [C.Machine.load_instr, 
-                     C.Machine.store_instr,
-                     C.Machine.assoc_reduce_add_instr,
-                     C.Machine.set_zero_instr,
-                     C.Machine.fmadd_instr]
+f32_instructions = [C.Machine.load_instr_f32, 
+                     C.Machine.store_instr_f32,
+                     C.Machine.assoc_reduce_add_instr_f32,
+                     C.Machine.set_zero_instr_f32,
+                     C.Machine.fmadd_instr_f32]
 memory = C.Machine.mem_type
 if None not in f32_instructions:
     sdot_stride_1 = schedule_sdot_stride_1(8, C.Machine.mem_type, f32_instructions)

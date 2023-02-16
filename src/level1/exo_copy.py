@@ -36,7 +36,7 @@ simple_stride_1 = stage_mem(
 
 simple_stride_1 = set_memory(simple_stride_1, "xReg", C.Machine.mem_type)
 simple_stride_1 = replace_all(
-    simple_stride_1, [C.Machine.load_instr, C.Machine.store_instr]
+    simple_stride_1, [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
 )
 
 scopy_stride_1 = simplify(simple_stride_1)

@@ -108,10 +108,10 @@ class Microkernel:
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('B_vec[_] = _').after(), n_lifts=3)
 
         # Replace
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.load_instr)
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.broadcast_instr)
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.store_instr)
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.fmadd_instr)
+        scheduled_microkernel = replace_all(scheduled_microkernel, machine.load_instr_f32)
+        scheduled_microkernel = replace_all(scheduled_microkernel, machine.broadcast_instr_f32)
+        scheduled_microkernel = replace_all(scheduled_microkernel, machine.store_instr_f32)
+        scheduled_microkernel = replace_all(scheduled_microkernel, machine.fmadd_instr_f32)
         scheduled_microkernel = simplify(scheduled_microkernel)
 
         return scheduled_microkernel, microkernel
