@@ -30,7 +30,6 @@ static std::vector<float> gen_matrix(long m, long n) {
   return mat;
 }
 
-// TODO: set up a fixture for GEMV testing
 class GEMVFixture : public benchmark::Fixture {
 public:
   void SetUp(const ::benchmark::State& state) {
@@ -102,9 +101,21 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
     benchmark::Counter::kIsRate,
     benchmark::Counter::kIs1000
   );
-}
 
-// TODO: write correctness test
+  auto y2 = y;
+  auto y3 = y;
+  naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
+  sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
+
+  for (int i = 0; i < y2.size(); i++) {
+    float expected = y2[i];
+    float actual = y3[i];
+    double relerr = fabsf(actual - expected) / expected;
+    if (relerr > 1e-2) {
+      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
+    }
+  }
+}
 
 // Register the function as a benchmark
 // BENCHMARK_REGISTER_F(GEMVFixture, NAIVE) -> Range(16, 16384);
