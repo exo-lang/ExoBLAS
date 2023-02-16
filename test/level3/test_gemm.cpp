@@ -7,9 +7,9 @@
 #include <cassert>
 #include <chrono>
 
-
 #include <cblas.h>
 #include "sgemm.h"
+#include "benchmark/benchmark.h"
 
 static std::vector<float> gen_matrix(long m, long n) {
   static std::random_device rd;
@@ -44,7 +44,7 @@ static std::vector<float> transpose(std::vector<float> V, const int m, const int
 }
 
 
-int main(int argc, char **argv) {
+int main2(int argc, char **argv) {
     int n = atoi(argv[1]); 
     auto a = gen_matrix(n, n);
     auto b = gen_matrix(n, n);
@@ -104,3 +104,27 @@ int main(int argc, char **argv) {
         (FLOP_C * 1.0e-6) / ms_per_gemm);
     printf("-----------------------------------------------------------\n");
 }
+
+
+static void BM_GEMM_EXO(benchmark::State& state) {
+  int n = state.range(0);
+
+  auto a = gen_matrix(n, n);
+  auto x = gen_matrix(n, 1);
+  auto y = gen_matrix(n, 1);
+
+  float alpha = 0.9f;
+  float beta = 0.7f;
+
+  for (auto _ : state) {
+    sgemm_notranspose(nullptr, n, 1, n, y.data(), a.data(), x.data());
+  }
+
+  state.counters["flops"] = benchmark::Counter(
+    static_cast<double>(state.iterations()) * 2 * n * n,
+    benchmark::Counter::kIsRate,
+    benchmark::Counter::kIs1000
+  );
+}
+
+BENCHMARK(BM_GEMM_EXO) -> Range(16, 16384);

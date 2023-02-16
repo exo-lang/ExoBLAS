@@ -19,12 +19,10 @@ def sgemv(
   beta: f32,
   m: size,
   n: size,
-  lda: size,
-  a: f32[m, lda],
+  a: f32[m, n],
   x: f32[n],
   y: f32[m],
 ):
-  assert n <= lda
   for i in seq(0, m):
     y[i] = beta * y[i]
     for j in seq(0, n):
@@ -39,12 +37,10 @@ def sgemv_transpose(
   beta: f32,
   n: size,
   m: size,
-  lda: size,
-  a: f32[n, lda],
+  a: f32[n, m],
   x: f32[n],
   y: f32[m],
 ):
-  assert m <= lda
   for i in seq(0, m):
     y[i] = beta * y[i]
     for j in seq(0, n):
@@ -125,7 +121,7 @@ def schedule_sgemv_on_neon():
   return proc
 
 
-def schedule_sgemv_on_neon_dot_product():
+def schedule_sgemv_on_neon_dot_product(i_tile=8):
   proc = sgemv
   proc = fission(proc, proc.find("y[_] = _").after(), n_lifts=2)
   proc = divide_loop(proc, "i", 4, ["io", "ii"], tail="cut_and_guard")
@@ -137,14 +133,14 @@ def schedule_sgemv_on_neon_dot_product():
   proc = fission(proc, proc.find("for jo in _:_").after())
 
   print("vectorizing y[_] += alpha * x[_] * a[_]")
-  proc = divide_loop(proc, "i", 8, ["io", "ii"], tail="cut_and_guard")
-  proc = neon_broadcast_constant(proc, "alpha", "ji", n_lifts=3)
+  proc = divide_loop(proc, "i", i_tile, ["io", "ii"], tail="cut_and_guard")
+  proc = neon_broadcast_constant(proc, "alpha", "ji", n_lifts=4)
 
   print("\tstaging y_partial_sums")
   proc = reorder_loops(proc, "jo ji")
-  proc = simplify(stage_mem(proc, "for jo in _:_", "y[8*io+ii]", "y_partial_sums_vec", accum=True))
+  proc = simplify(stage_mem(proc, "for jo in _:_", f"y[{i_tile}*io+ii]", "y_partial_sums_vec", accum=True))
   proc = expand_dim(proc, "y_partial_sums_vec", 4, "ji")
-  proc = expand_dim(proc, "y_partial_sums_vec", 8, "ii")
+  proc = expand_dim(proc, "y_partial_sums_vec", i_tile, "ii")
   proc = lift_alloc(proc, "y_partial_sums_vec", 2)
   proc = fission(proc, proc.find("for jo in _:_").before(), n_lifts=2)
   proc = fission(proc, proc.find("for jo in _:_").after(), n_lifts=2)
@@ -168,30 +164,16 @@ def schedule_sgemv_on_neon_dot_product():
   proc = replace(proc, "for ji in _:_", neon_vmul_4xf32)
 
   print("\tmaking a[i] a vector")
-  proc = simplify(stage_mem(proc, "for ii in _:_ #2", "a[8*io:8*io+8, 4*jo:4*jo+4]", "a_vec"))
+  proc = simplify(stage_mem(proc, "for ii in _:_ #2", f"a[{i_tile}*io:{i_tile}*(io+1), 4*jo:4*jo+4]", "a_vec"))
   proc = set_memory(proc, "a_vec", Neon4f)
   proc = replace(proc, "for i1 in _:_", neon_vld_4xf32)
   proc = replace(proc, "for ji in _:_", neon_vfmadd_4xf32_4xf32)
 
   return proc
 
-new_neon_sgemv = rename(schedule_sgemv_on_neon_dot_product(), "sgemv_exo_v2")
-neon_sgemv = rename(schedule_sgemv_on_neon(), "sgemv_exo")
-neon_sgemv_transpose = rename(schedule_sgemv_transpose_on_neon(), "sgemv_transpose_exo")
+neon_sgemv = rename(schedule_sgemv_on_neon_dot_product(i_tile=8), "sgemv_exo")
+# neon_sgemv_transpose = rename(schedule_sgemv_transpose_on_neon(), "sgemv_transpose_exo")
 
-print("="*50)
-print("Original GEMV:")
-print(sgemv)
-print("="*50)
-print("Neon GEMV:")
-print(new_neon_sgemv)
-print("="*50)
-# print("Original GEMV Transpose:")
-# print(sgemv_transpose)
-# print("="*50)
-# print("Neon GEMV Transpose:")
-# print(neon_sgemv_transpose)
-# print("="*50)
+print(neon_sgemv)
 
-
-__all__ = ["neon_sgemv", "new_neon_sgemv", "neon_sgemv_transpose"]
+__all__ = ["neon_sgemv"]

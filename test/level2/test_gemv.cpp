@@ -30,82 +30,84 @@ static std::vector<float> gen_matrix(long m, long n) {
   return mat;
 }
 
-static void BM_GEMV_NAIVE(benchmark::State& state) {
-  int n = state.range(0);
+// TODO: set up a fixture for GEMV testing
+class GEMVFixture : public benchmark::Fixture {
+public:
+  void SetUp(const ::benchmark::State& state) {
+    n = state.range(0);
+    a = gen_matrix(n, n);
+    x = gen_matrix(n, 1);
+    y = gen_matrix(n, 1);
+    alpha = 0.9f;
+    beta = 0.7f;
+  }
 
-  auto a = gen_matrix(n, n);
-  auto x = gen_matrix(n, 1);
-  auto y = gen_matrix(n, 1);
+  void TearDown(const ::benchmark::State& state) {
+    a.clear();
+    x.clear();
+    y.clear();
+  }
 
-  float alpha = 0.9f;
-  float beta = 0.7f;
+  int n;
+  std::vector<float> a;
+  std::vector<float> x;
+  std::vector<float> y;
+  float alpha;
+  float beta;
+};
 
+BENCHMARK_DEFINE_F(GEMVFixture, NAIVE)(benchmark::State& state) {
   for (auto _ : state) {
     naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y.data(), n, n);
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 2 * n * n,
+    static_cast<double>(state.iterations()) * 3 * n * n,
     benchmark::Counter::kIsRate,
     benchmark::Counter::kIs1000
   );
 }
 
-
-static void BM_GEMV_APPLE(benchmark::State& state) {
-  int n = state.range(0);
-
-  auto a = gen_matrix(n, n);
-  auto x = gen_matrix(n, 1);
-  auto y = gen_matrix(n, 1);
-
-  float alpha = 0.9f;
-  float beta = 0.7f;
-
+BENCHMARK_DEFINE_F(GEMVFixture, APPLE)(benchmark::State& state) {
   for (auto _ : state) {
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 2 * n * n,
+    static_cast<double>(state.iterations()) * 3 * n * n,
     benchmark::Counter::kIsRate,
     benchmark::Counter::kIs1000
   );
 }
 
-
-static void BM_GEMV_EXO(benchmark::State& state) {
-  int n = state.range(0);
-
-  auto a = gen_matrix(n, n);
-  auto x = gen_matrix(n, 1);
-  auto y = gen_matrix(n, 1);
-
-  float alpha = 0.9f;
-  float beta = 0.7f;
-
+BENCHMARK_DEFINE_F(GEMVFixture, APPLE_GEMM)(benchmark::State& state) {
   for (auto _ : state) {
-    sgemv_exo_v2(nullptr, &alpha, &beta, n, n, n, a.data(), x.data(), y.data());
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, 1, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 2 * n * n,
+    static_cast<double>(state.iterations()) * 3 * n * n,
     benchmark::Counter::kIsRate,
     benchmark::Counter::kIs1000
   );
-
-  // write correctness test here
 }
 
+BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
+  for (auto _ : state) {
+    sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
+  }
+
+  state.counters["flops"] = benchmark::Counter(
+    static_cast<double>(state.iterations()) * 3 * n * n,
+    benchmark::Counter::kIsRate,
+    benchmark::Counter::kIs1000
+  );
+}
+
+// TODO: write correctness test
+
 // Register the function as a benchmark
-BENCHMARK(BM_GEMV_NAIVE) -> Args({3000});
-BENCHMARK(BM_GEMV_APPLE) -> Args({3000});
-BENCHMARK(BM_GEMV_EXO) -> Args({3000});
-
-BENCHMARK(BM_GEMV_NAIVE) -> Args({1000});
-BENCHMARK(BM_GEMV_APPLE) -> Args({1000});
-BENCHMARK(BM_GEMV_EXO) -> Args({1000});
-
-BENCHMARK(BM_GEMV_NAIVE) -> Args({100});
-BENCHMARK(BM_GEMV_APPLE) -> Args({100});
-BENCHMARK(BM_GEMV_EXO) -> Args({100});
+// BENCHMARK_REGISTER_F(GEMVFixture, NAIVE) -> Range(16, 16384);
+// BENCHMARK_REGISTER_F(GEMVFixture, APPLE) -> Range(16, 16384);
+// BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> Range(16, 16384);
