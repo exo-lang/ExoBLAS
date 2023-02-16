@@ -14,7 +14,7 @@ class syrk:
     m_reg = @SYRK_M_REG@
     n_reg = @SYRK_N_REG@
 
-class sgemm:
+class gemm:
     k_blk = @SGEMM_K_BLK@
     m_blk = @SGEMM_M_BLK@
     m_reg = @SGEMM_M_REG@

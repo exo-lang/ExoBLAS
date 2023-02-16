@@ -5,13 +5,13 @@ set(PYTHONPATH
 )
 
 add_exo_library(
-  NAME syrk
+  NAME exo_syrk
   SOURCES syrk.py
   PYTHONPATH ${PYTHONPATH}
 )
 
 add_exo_library(
-  NAME sgemm
+  NAME exo_gemm
   SOURCES gemm.py
   PYTHONPATH ${PYTHONPATH}
 )

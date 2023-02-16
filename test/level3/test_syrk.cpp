@@ -8,8 +8,10 @@
 #include <chrono>
 
 
+#include "exo_syrk.h"
 #include <cblas.h>
-#include "syrk.h"
+#include <benchmark/benchmark.h>
+
 
 static std::vector<float> gen_matrix(long m, long n, float v) {
   static std::random_device rd;
@@ -68,15 +70,15 @@ static std::vector<float> transpose(std::vector<float> V, const int m, const int
 }
 
 
-int main(int argc, char **argv) {
-    int n = atoi(argv[1]); 
+void test_syrk_correctness(benchmark::State& state) {
+
+    int n = state.range(0);
     auto a = gen_matrix(n, n, 2.0);
-    auto a2 = transpose(a, n, n);
     auto c = gen_matrix(n, n, 2.0);
-    auto c2 = c; 
+    auto c2 = gen_matrix(n, n, 2.0);
 
     cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans,
-                n, n, // M N K
+                n, n, // M N
                 1.0, // alpha
                 a.data(),
                 n, // M
@@ -88,22 +90,23 @@ int main(int argc, char **argv) {
     syrk_lower_notranspose(nullptr, n, n, a.data(), a.data(), c2.data());
 
     for (int i=0; i<n*n; i++) {
-        break;
         double correct = c[i];//std::round(c[i] * 100.0) / 100.0;
         double exo_out = c2[i];//std::round(c2[i] * 100.0) / 100.0;
         if (correct!=exo_out)
             std::cout<<"Error at "<< i/n <<", "<<i%n<< ". Expected: "<<correct<<", got: "<<exo_out<<std::endl;
         assert(correct==exo_out);
     }
-    std::cout<<"CORRECTNESS TEST PASSED"<<std::endl;
+}
 
-    long FLOP_C = long(n) * long(n) * long(n);
 
-    int N_TIMES_BLAS = 1000;
-    auto begin = std::chrono::steady_clock::now();
-    for (int times = 0; times < N_TIMES_BLAS; times++) {
+static void BM_SYRK_CBLAS(benchmark::State& state) {
+    int n = state.range(0);
+    auto a = gen_matrix(n, n, 2.0);
+    auto c = gen_matrix(n, n, 2.0);
+
+    for (auto _: state) {
         cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans,
-                n, n, // M N K
+                n, n, // M N
                 1.0, // alpha
                 a.data(),
                 n, // M
@@ -112,23 +115,44 @@ int main(int argc, char **argv) {
                 n  // M
                 );
     }
-    auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration<double>(end - begin).count();
-    double ms_per_gemm = duration / N_TIMES_BLAS * 1.0e3;
-    printf("-----------------------------------------------------------\n");
-    printf("BLAS SYRK took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-        (FLOP_C * 1.0e-6) / ms_per_gemm);
 
-    int N_TIMES_EXO = 100;
-    begin = std::chrono::steady_clock::now();
-    for (int times = 0; times < N_TIMES_EXO; times++) {
-        syrk_lower_notranspose(nullptr, n, n, a.data(), a2.data(), c2.data());
-    }
-    end = std::chrono::steady_clock::now();
-    duration = std::chrono::duration<double>(end - begin).count();
-    ms_per_gemm = duration / N_TIMES_EXO * 1.0e3;
-    printf("-----------------------------------------------------------\n");
-    printf("  Exo SYRK took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-        (FLOP_C * 1.0e-6) / ms_per_gemm);
-    printf("-----------------------------------------------------------\n");
+    state.counters["flops"] = benchmark::Counter(
+        static_cast<double>(state.iterations()) * n * n * n,
+        benchmark::Counter::kIsRate,
+        benchmark::Counter::kIs1000	
+    );
+
 }
+
+
+static void BM_SYRK_EXO(benchmark::State& state) {
+    int n = state.range(0);
+    auto a = gen_matrix(n, n, 2.0);
+    auto c = gen_matrix(n, n, 2.0);
+
+    float alpha = 1.0f;
+    float beta = 1.0f;
+
+    for (auto _: state) {
+        syrk_lower_notranspose(nullptr, n, n, a.data(), a.data(), c.data());
+    }
+
+    state.counters["flops"] = benchmark::Counter(
+        static_cast<double>(state.iterations()) * n * n * n,
+        benchmark::Counter::kIsRate,
+        benchmark::Counter::kIs1000	
+    );
+
+    test_syrk_correctness(state);
+
+}
+
+BENCHMARK(BM_SYRK_CBLAS) -> Args({2048});
+BENCHMARK(BM_SYRK_EXO) -> Args({2048});
+
+BENCHMARK(BM_SYRK_CBLAS) -> Args({1024});
+BENCHMARK(BM_SYRK_EXO) -> Args({1024});
+
+BENCHMARK(BM_SYRK_CBLAS) -> Args({256});
+BENCHMARK(BM_SYRK_EXO) -> Args({256});
+

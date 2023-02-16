@@ -7,9 +7,10 @@
 #include <cassert>
 #include <chrono>
 
+
+#include "exo_gemm.h"
 #include <cblas.h>
-#include "sgemm.h"
-#include "benchmark/benchmark.h"
+#include <benchmark/benchmark.h>
 
 static std::vector<float> gen_matrix(long m, long n) {
   static std::random_device rd;
@@ -44,8 +45,8 @@ static std::vector<float> transpose(std::vector<float> V, const int m, const int
 }
 
 
-int main2(int argc, char **argv) {
-    int n = atoi(argv[1]); 
+static void test_sgemm_correctness(benchmark::State& state) {
+    int n = state.range(0);
     auto a = gen_matrix(n, n);
     auto b = gen_matrix(n, n);
     auto c = gen_matrix(n, n);
@@ -69,62 +70,66 @@ int main2(int argc, char **argv) {
             std::cout<<"Error at "<< i/n <<", "<<i%n<< ". Expected: "<<correct<<", got: "<<exo_out<<std::endl;
         assert(correct==exo_out);
     }
-    std::cout<<"CORRECTNESS TEST PASSED"<<std::endl;
+}
 
-    long FLOP_C = 2 * long(n) * long(n) * long(n);
 
-    int N_TIMES_BLAS = 100;
-    auto begin = std::chrono::steady_clock::now();
-    for (int times = 0; times < N_TIMES_BLAS; times++) {
+static void BM_GEMM_CBLAS(benchmark::State& state) {
+    int n = state.range(0);
+    auto a = gen_matrix(n, n);
+    auto b = gen_matrix(n, n);
+    auto c = gen_matrix(n, n);
+
+    float alpha = 1.0f;
+    float beta = 1.0f;
+
+    for (auto _: state) {
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                n, n, n, 
-                1.0, 
+                n, n, n,
+                1.0,
                 a.data(), n,
                 b.data(), n,
                 1.0,
                 c.data(), n);
     }
-    auto end = std::chrono::steady_clock::now();
-    auto duration = std::chrono::duration<double>(end - begin).count();
-    double ms_per_gemm = duration / N_TIMES_BLAS * 1.0e3;
-    printf("-----------------------------------------------------------\n");
-    printf("BLAS GEMM took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-        (FLOP_C * 1.0e-6) / ms_per_gemm);
 
-    int N_TIMES_EXO = 100;
-    begin = std::chrono::steady_clock::now();
-    for (int times = 0; times < N_TIMES_EXO; times++) {
-        sgemm_notranspose(nullptr, n, n, n, c2.data(), a.data(), b.data());
-    }
-    end = std::chrono::steady_clock::now();
-    duration = std::chrono::duration<double>(end - begin).count();
-    ms_per_gemm = duration / N_TIMES_EXO * 1.0e3;
-    printf("-----------------------------------------------------------\n");
-    printf("  Exo GEMM took %5.1lf ms, or %4.1lf GFLOPS\n", ms_per_gemm,
-        (FLOP_C * 1.0e-6) / ms_per_gemm);
-    printf("-----------------------------------------------------------\n");
+    state.counters["flops"] = benchmark::Counter(
+        static_cast<double>(state.iterations()) * 2 * n * n * n,
+        benchmark::Counter::kIsRate,
+        benchmark::Counter::kIs1000	
+    );
+
 }
 
 
 static void BM_GEMM_EXO(benchmark::State& state) {
-  int n = state.range(0);
+    int n = state.range(0);
+    auto a = gen_matrix(n, n);
+    auto b = gen_matrix(n, n);
+    auto c = gen_matrix(n, n);
 
-  auto a = gen_matrix(n, n);
-  auto x = gen_matrix(n, 1);
-  auto y = gen_matrix(n, 1);
+    float alpha = 1.0f;
+    float beta = 1.0f;
 
-  float alpha = 0.9f;
-  float beta = 0.7f;
+    for (auto _: state) {
+        sgemm_notranspose(nullptr, n, n, n, c.data(), a.data(), b.data());
+    }
 
-  for (auto _ : state) {
-    sgemm_notranspose(nullptr, n, 1, n, y.data(), a.data(), x.data());
-  }
+    state.counters["flops"] = benchmark::Counter(
+        static_cast<double>(state.iterations()) * 2 * n * n * n,
+        benchmark::Counter::kIsRate,
+        benchmark::Counter::kIs1000	
+    );
 
-  state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 2 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
+    test_sgemm_correctness(state);
+
 }
 
-BENCHMARK(BM_GEMM_EXO) -> Range(16, 16384);
+
+BENCHMARK(BM_GEMM_CBLAS) -> Args({2048});
+BENCHMARK(BM_GEMM_EXO) -> Args({2048});
+
+BENCHMARK(BM_GEMM_CBLAS) -> Args({1024});
+BENCHMARK(BM_GEMM_EXO) -> Args({1024});
+
+BENCHMARK(BM_GEMM_CBLAS) -> Args({256});
+BENCHMARK(BM_GEMM_EXO) -> Args({256});

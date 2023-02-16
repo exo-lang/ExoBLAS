@@ -6,7 +6,7 @@ set(PYTHONPATH
 
 if (HAVE_NEON)
   add_exo_library(
-    NAME gemv
+    NAME exo_gemv
     SOURCES gemv.py
     PYTHONPATH ${PYTHONPATH}
   )

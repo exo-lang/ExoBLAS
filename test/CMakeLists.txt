@@ -1,29 +1,43 @@
-find_package(BLAS REQUIRED)
+###############################################################################
+# Find test dependencies
+###############################################################################
 
-find_path(
-  CBLAS_INCLUDE_DIR cblas.h REQUIRED
-  PATHS /usr/include/x86_64-linux-gnu/openblas-pthread
-)
-target_include_directories(BLAS::BLAS INTERFACE "${CBLAS_INCLUDE_DIR}")
+##
+# BLAS
+
+find_package(BLAS REQUIRED)
+target_include_directories(
+  BLAS::BLAS INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/common")
+
+##
+# Google Benchmark
 
 find_package(benchmark REQUIRED)
 
-if (HAVE_NEON)
-  add_executable(test_gemv level2/test_gemv.cpp)
-  target_link_libraries(test_gemv PRIVATE EXO_BLAS::gemv BLAS::BLAS benchmark::benchmark_main)
-  target_compile_features(test_gemv PRIVATE cxx_std_11)
+###############################################################################
+# Generic test-case function
+###############################################################################
 
-  add_test(NAME gemv COMMAND test_gemv)
+function(add_exo_blas_test kernel)
+  add_executable(test_${kernel} test_${kernel}.cpp)
+  target_compile_features(test_${kernel} PRIVATE cxx_std_11)
+  target_link_libraries(
+    test_${kernel}
+    PRIVATE
+    EXO_BLAS::exo_${kernel}
+    BLAS::BLAS
+    benchmark::benchmark_main
+  )
 
-  add_executable(test_syrk level3/test_syrk.cpp)
-  target_link_libraries(test_syrk PRIVATE EXO_BLAS::syrk BLAS::BLAS)
-  target_compile_features(test_syrk PRIVATE cxx_std_11)
+  add_test(NAME ${kernel} COMMAND test_${kernel})
+  set_tests_properties(
+    ${kernel}
+    PROPERTIES
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;"
+  )
+endfunction()
 
-  add_test(NAME syrk_10 COMMAND test_syrk 10)
+add_subdirectory(level1)
+add_subdirectory(level2)
+add_subdirectory(level3)
 
-  add_executable(test_sgemm level3/test_gemm.cpp)
-  target_link_libraries(test_sgemm PRIVATE EXO_BLAS::sgemm BLAS::BLAS benchmark::benchmark_main)
-  target_compile_features(test_sgemm PRIVATE cxx_std_11)
-
-  add_test(NAME sgemm COMMAND test_sgemm)
-endif ()
