@@ -23,5 +23,5 @@ Machine = MachineParameters(
     zpad_broadcast_instr=None,
     zpad_store_instr=None,
     set_zero_instr_f32=neon_zero_4xf32,
-    assoc_reduce_add_instr_f32=
+    assoc_reduce_add_instr_f32=None
 )
