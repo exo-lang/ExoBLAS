@@ -27,20 +27,29 @@ def loop_fragment(it, idx=0):
 simple_stride_1 = divide_loop(
     simple_stride_1, loop_fragment("i"), C.Machine.vec_width, ("io", "ii"), tail="cut"
 )
-simple_stride_1 = stage_mem(
+simple_stride_1 = divide_loop(
+    simple_stride_1, loop_fragment("io"), 2, ("io", "im"), tail="cut"
+)
+simple_stride_1 = simplify(stage_mem(
     simple_stride_1,
     loop_fragment("ii"),
-    f"x[io * {C.Machine.vec_width}:(io + 1) * {C.Machine.vec_width}]",
-    "xReg",
-)
+    f"x[(2*io+im) * {C.Machine.vec_width}:(2*io+im+1) * {C.Machine.vec_width}]",
+    "xRegs",
+))
 
-simple_stride_1 = set_memory(simple_stride_1, "xReg", C.Machine.mem_type)
+simple_stride_1 = expand_dim(simple_stride_1, "xRegs", 2, "im")
+simple_stride_1 = set_memory(simple_stride_1, "xRegs", C.Machine.mem_type)
+simple_stride_1 = lift_alloc(simple_stride_1, "xRegs")
 simple_stride_1 = replace_all(
     simple_stride_1, [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
 )
+simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("neon_vld_4xf32(_)").after())
+
+# simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("neon_vld_4xf32(_)").after())
 
 scopy_stride_1 = simplify(simple_stride_1)
 
+print(scopy_stride_1)
 
 @proc
 def exo_scopy(n: size, x: [f32][n], y: [f32][n]):
