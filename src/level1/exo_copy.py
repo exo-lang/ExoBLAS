@@ -43,9 +43,7 @@ simple_stride_1 = lift_alloc(simple_stride_1, "xRegs")
 simple_stride_1 = replace_all(
     simple_stride_1, [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
 )
-simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("neon_vld_4xf32(_)").after())
-
-# simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("neon_vld_4xf32(_)").after())
+simple_stride_1 = fission(simple_stride_1, simple_stride_1.find(C.Machine.load_instr_f32_str).after())
 
 scopy_stride_1 = simplify(simple_stride_1)
 
