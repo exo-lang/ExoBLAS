@@ -13,3 +13,11 @@ add_exo_library(
     "${PROJECT_BINARY_DIR}/src/common"
     "${PROJECT_SOURCE_DIR}/src/common"
 )
+
+add_exo_library(
+  NAME exo_asum
+  SOURCES asum.py
+  PYTHONPATH
+    "${PROJECT_BINARY_DIR}/src/common"
+    "${PROJECT_SOURCE_DIR}/src/common"
+)

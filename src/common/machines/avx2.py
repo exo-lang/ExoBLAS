@@ -24,4 +24,10 @@ Machine = MachineParameters(
     zpad_store_instr=None,
     set_zero_instr_f32=mm256_setzero,
     assoc_reduce_add_instr_f32=avx2_assoc_reduce_add_ps,
+    mul_instr_f32=mm256_mul_ps,
+    add_instr_f32=mm256_add_ps,
+    reduce_add_wide_instr_f32=avx2_reduce_add_wide_ps,
+    reg_copy_instr_f32=mm256_reg_copy,
+    sign_instr_f32=avx2_sign_ps,
+    select_instr_f32=avx2_select_ps,
 )

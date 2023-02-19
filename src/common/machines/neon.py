@@ -23,5 +23,11 @@ Machine = MachineParameters(
     zpad_broadcast_instr=None,
     zpad_store_instr=None,
     set_zero_instr_f32=neon_zero_4xf32,
-    assoc_reduce_add_instr_f32=None
+    assoc_reduce_add_instr_f32=None,
+    mul_instr_f32=None,
+    add_instr_f32=None,
+    reduce_add_wide_instr_f32=None,
+    reg_copy_instr_f32=None,
+    sign_instr_f32=None,
+    select_instr_f32=None,
 )

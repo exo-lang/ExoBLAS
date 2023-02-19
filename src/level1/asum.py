@@ -6,6 +6,8 @@ from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 
+import exo_blas_config as C
+
 @proc
 def asum_template(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
     result = 0.0
@@ -50,25 +52,25 @@ def schedule_asum_stride_1(VEC_W, memory, instructions):
 
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
-    simple_stride_1 = bind_expr(simple_stride_1, "x[_] #1", "tmp")
-    simple_stride_1 = bind_expr(simple_stride_1, "x[_] #2", "tmp1")
-    simple_stride_1 = bind_expr(simple_stride_1, "x[_] #3", "tmp1")
+    for i in range(4):
+        select_cursor = simple_stride_1.find("select(_, _, _, _)")
+        arg_cursor = select_cursor.args()[i]
+        simple_stride_1 = bind_expr(simple_stride_1, [arg_cursor], f"tmp_{i}")
     
     return simple_stride_1
 
-"""
-TODO: Add missing instructions:
-- vector reg to reg copy
-- vector negation
-- vector reduction
-"""
-avx2_instructions = [mm256_loadu_ps, mm256_storeu_ps, avx2_select_ps,
-                avx2_assoc_reduce_add_ps, mm256_setzero, avx2_fmadd_memu_ps]
+instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32, 
+                C.Machine.select_instr_f32, C.Machine.assoc_reduce_add_instr_f32,
+                C.Machine.set_zero_instr_f32, C.Machine.reg_copy_instr_f32,
+                C.Machine.sign_instr_f32, C.Machine.reduce_add_wide_instr_f32,]
 
-asum_stride_1 = schedule_asum_stride_1(8, AVX2, avx2_instructions)
+if None not in instructions:
+    asum_stride_1 = schedule_asum_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
+else:
+    asum_stride_1 = asum_template
 
 @proc
-def asum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
+def exo_sasum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
     assert stride(x, 0) == 1
     asum_stride_1(n, x, result)
 """
@@ -83,7 +85,7 @@ else:
 if __name__ == "__main__":
     print(asum_stride_1)
     print(asum_template)
-    print(asum)
+    print(exo_sasum)
     pass
 
-__all__ = ["asum"]
+__all__ = ["exo_sasum"]
