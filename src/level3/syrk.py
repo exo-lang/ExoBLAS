@@ -10,7 +10,7 @@ from exo.syntax import *
 
 from exo.stdlib.scheduling import *
 
-from kernels.gemm_kernels import GEBP_kernel, Microkernel
+from gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
 
 import exo_blas_config as C
@@ -26,8 +26,8 @@ class SYRK:
                  M_r: int, N_r: int):
         
         # Generate kernels
-        self.microkernel = Microkernel(machine, M_r, N_r, K_blk)
-        self.gebp_kernel = GEBP_kernel(self.microkernel, M_blk)
+        self.microkernel = Microkernel(machine, ExoBlasNoTranspose, ExoBlasNoTranspose, M_r, N_r, K_blk)
+        self.gebp_kernel = GEBP_kernel(self.microkernel, ExoBlasNoTranspose, ExoBlasNoTranspose, M_blk)
 
         # Blocking dimensions
         self.K_blk = K_blk
@@ -81,6 +81,7 @@ class SYRK:
 
                 self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp_lower_notranspose()
                 self.syrk_scheduled = self.schedule_syrk_gepp_lower_notranspose()
+                print(self.gepp_syrk_scheduled)
 
             if transpose==ExoBlasTranspose:
                 self.syrk_base = syrk_lower_notranspose
@@ -116,6 +117,11 @@ class SYRK:
         gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, 'ii jo')
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #0', self.gebp_kernel.base_gebp)
         gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'gebp_base_{self.gebp_kernel.this_id}(_)', self.gebp_kernel.scheduled_gebp)
+        gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
+
+        gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for ii in _:_ #1', 1)
+        gepp_syrk_scheduled = assert_if(gepp_syrk_scheduled, gepp_syrk_scheduled.find('if _:_ #1'), True)
+
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
 
         return gepp_syrk_scheduled, gepp_syrk_base
