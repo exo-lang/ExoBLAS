@@ -6,6 +6,8 @@ from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 
+import exo_blas_config as C
+
 @proc
 def nrm2_template(n: size, x: [f32][n], result: f32):
     result = 0.0
@@ -41,15 +43,19 @@ def schedule_nrm2_stride_1(VEC_W, memory, instructions):
     
     return simple_stride_1
 
-# TODO: add vector register copy instruction
-avx2_instructions = [mm256_loadu_ps, mm256_storeu_ps, avx2_select_ps,
-                avx2_assoc_reduce_add_ps, mm256_setzero, mm256_fmadd_ps]
-nrm2_stride_1 = schedule_nrm2_stride_1(8, AVX2, avx2_instructions)
+instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32, 
+                     C.Machine.set_zero_instr_f32, C.Machine.fmadd_instr_f32,
+                     C.Machine.reg_copy_instr_f32, C.Machine.assoc_reduce_add_instr_f32,
+                     ]
 
+if None not in instructions:
+    nrm2_stride_1 = schedule_nrm2_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
+else:
+    nrm2_stride_1 = nrm2_template
 
 # TODO: this calculates ||x||^2, not ||x|| 
 @proc 
-def nrm2(n: size, x: [f32][n], result: f32):
+def exo_snrm2(n: size, x: [f32][n], result: f32):
     assert stride(x, 0) == 1
     nrm2_stride_1(n, x, result)
     
@@ -64,6 +70,6 @@ else:
 
 if __name__ == "__main__":
     print(nrm2_stride_1)
-    print(nrm2)
+    print(exo_snrm2)
 
-__all__ = ["nrm2"]
+__all__ = ["exo_snrm2"]
