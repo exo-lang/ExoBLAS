@@ -17,6 +17,7 @@ Machine = MachineParameters(
     store_instr_f32=neon_vst_4xf32,
     broadcast_instr_f32=neon_broadcast_4xf32,
     broadcast_instr_f32_str="neon_broadcast_4xf32(_)",
+    broadcast_scalar_instr_f32=None,
     fmadd_instr_f32=neon_vfmadd_4xf32_4xf32,
     zpad_ld_instr=None,
     zpad_fmadd_instr=None,

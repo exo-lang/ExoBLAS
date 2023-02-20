@@ -26,6 +26,7 @@ class MachineParameters:
     store_instr_f32: Any
     broadcast_instr_f32: Any
     broadcast_instr_f32_str: str
+    broadcast_scalar_instr_f32: Any
     fmadd_instr_f32: Any
     zpad_ld_instr: Any
     zpad_fmadd_instr: Any

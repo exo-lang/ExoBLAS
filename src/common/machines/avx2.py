@@ -17,6 +17,7 @@ Machine = MachineParameters(
     store_instr_f32=mm256_storeu_ps,
     broadcast_instr_f32=mm256_broadcast_ss,
     broadcast_instr_f32_str="mm256_broadcast_ss(_)",
+    broadcast_scalar_instr_f32=mm256_broadcast_ss_scalar,
     fmadd_instr_f32=mm256_fmadd_ps,
     zpad_ld_instr=None,
     zpad_fmadd_instr=None,
