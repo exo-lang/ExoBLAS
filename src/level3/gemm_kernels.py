@@ -9,21 +9,26 @@ from exo.syntax import *
 
 from exo.stdlib.scheduling import *
 
+from format_options import *
+
 class Microkernel:
 
     microkernel_id = 0
 
-    def __init__(self, machine: MachineParameters, M_r: int, N_r: int, K_blk: int):
+    def __init__(self, machine: MachineParameters,
+                       transpose_a: ExoBlasT, transpose_b: ExoBlasT, 
+                       M_r: int, N_r: int, 
+                       K_blk: int):
         
-        # Problem dimensions
+        # Tiling Sizes
         self.M_r = M_r
         self.N_r = N_r
         self.K_blk = K_blk
         self.this_id = Microkernel.microkernel_id
 
-        # Base SGEMM procedure
+        # Base sgemm procedures
         @proc
-        def SGEMM(
+        def sgemm_notranspose(
             M: size,
             N: size,
             K: size,
@@ -36,13 +41,61 @@ class Microkernel:
                     for k in seq(0, K):
                         C[i, j] += A[i,k] * B[k,j] 
 
-        self.sgemm_window = (rename(SGEMM, 'sgemm_win'))
-        self.sgemm_window = set_window(self.sgemm_window, 'A', True)
-        self.sgemm_window = set_window(self.sgemm_window, 'B', True)
-        self.sgemm_window = set_window(self.sgemm_window, 'C', True)
+        @proc
+        def sgemm_b_transpose(
+            M: size,
+            N: size,
+            K: size,
+            C: f32[M, N] @ DRAM,
+            A: f32[M, K] @ DRAM,
+            B: f32[N, K] @ DRAM,
+        ):
+            assert(N==K)
+            for i in seq(0, M):
+                for j in seq(0, N):
+                    for k in seq(0, K):
+                        C[i, j] += A[i,k] * B[j,k]                         
 
-        self.sgemm_base = SGEMM
-        self.scheduled_microkernel, self.base_microkernel = self.generate_microkernel(machine, M_r, N_r, K_blk)
+        if transpose_b==ExoBlasNoTranspose:
+
+            if transpose_a==ExoBlasNoTranspose:
+                # C = A*B
+                self.sgemm_window = (rename(sgemm_notranspose, 'sgemm_win'))
+                self.sgemm_window = set_window(self.sgemm_window, 'A', True)
+                self.sgemm_window = set_window(self.sgemm_window, 'B', True)
+                self.sgemm_window = set_window(self.sgemm_window, 'C', True)
+
+                self.sgemm_base = sgemm_notranspose
+                self.scheduled_microkernel, self.base_microkernel = self.generate_microkernel(machine, M_r, N_r, K_blk)
+
+            elif transpose_a==ExoBlasTranspose:
+                # C = A**T*B
+                raise Exception("NOT IMPLEMENTED")
+
+            else:
+                raise Exception("UNRECOGNIZED A TRANSPOSE VALUE")
+        
+        elif transpose_b==ExoBlasTranspose:
+
+            if transpose_a==ExoBlasNoTranspose:
+                # C = A*B**T
+                self.sgemm_window = (rename(sgemm_b_transpose, 'sgemm_win'))
+                self.sgemm_window = set_window(self.sgemm_window, 'A', True)
+                self.sgemm_window = set_window(self.sgemm_window, 'B', True)
+                self.sgemm_window = set_window(self.sgemm_window, 'C', True)
+
+                self.sgemm_base = sgemm_b_transpose
+                self.scheduled_microkernel, self.base_microkernel = self.generate_microkernel(machine, M_r, N_r, K_blk)
+            
+            elif transpose_a==ExoBlasTranspose:
+                # C = A**T*B**T
+                raise Exception("NOT IMPLEMENTED")
+            
+            else:
+                raise Exception("UNRECOGNIZED A TRANSPOSE VALUE")
+
+        else:
+            raise Exception("UNRECOGNIZED B TRANSPOSE VALUE")
 
     def generate_microkernel(self, machine: MachineParameters, M_r: int, N_r: int, K_blk: int):
         """
@@ -85,6 +138,7 @@ class Microkernel:
 
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'C_reg', M_r, 'i', unsafe_disable_checks=True)
         scheduled_microkernel = lift_alloc(scheduled_microkernel, 'C_reg', n_lifts=4)
+        print(scheduled_microkernel)
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('C_reg[_] = _').after(), n_lifts=4)
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('C[_] = _').before(), n_lifts=4)
 
@@ -128,6 +182,7 @@ class GEBP_kernel:
     gebp_id = 0
 
     def __init__(self, microkernel: Microkernel, 
+                 transpose_a: ExoBlasT, transpose_b: ExoBlasT,
                  M_blk: int):
 
         # Problem dimensions
@@ -137,7 +192,7 @@ class GEBP_kernel:
         
         # Base SGEMM procedure
         @proc
-        def SGEMM(
+        def sgemm_notranspose(
             M: size,
             N: size,
             K: size,
@@ -150,12 +205,12 @@ class GEBP_kernel:
                     for k in seq(0, K):
                         C[i, j] += A[i,k] * B[k,j] 
 
-        self.sgemm_window = (rename(SGEMM, 'sgemm_win'))
+        self.sgemm_window = (rename(sgemm_notranspose, 'sgemm_win'))
         self.sgemm_window = set_window(self.sgemm_window, 'A', True)
         self.sgemm_window = set_window(self.sgemm_window, 'B', True)
         self.sgemm_window = set_window(self.sgemm_window, 'C', True)
 
-        self.sgemm_base = SGEMM
+        self.sgemm_base = sgemm_notranspose
 
         self.scheduled_gebp, self.base_gebp = self.generate_gebp()
 
@@ -194,14 +249,14 @@ class GEBP_kernel:
 
 class GEPP_kernel:
 
-    def __init__(self, gebp: GEBP_kernel):
+    def __init__(self, gebp: GEBP_kernel, transpose_a: ExoBlasT, transpose_b: ExoBlasT):
 
         self.K_blk = gebp.microkernel.K_blk
         self.gebp = gebp
 
         # Base SGEMM procedure
         @proc
-        def SGEMM(
+        def sgemm_notranspose(
             M: size,
             N: size,
             K: size,
@@ -214,12 +269,12 @@ class GEPP_kernel:
                     for k in seq(0, K):
                         C[i, j] += A[i,k] * B[k,j] 
 
-        self.sgemm_window = (rename(SGEMM, 'sgemm_win'))
+        self.sgemm_window = (rename(sgemm_notranspose, 'sgemm_win'))
         self.sgemm_window = set_window(self.sgemm_window, 'A', True)
         self.sgemm_window = set_window(self.sgemm_window, 'B', True)
         self.sgemm_window = set_window(self.sgemm_window, 'C', True)
 
-        self.sgemm_base = SGEMM
+        self.sgemm_base = sgemm_notranspose
 
         self.gepp_base, self.gepp_scheduled = self.generate_gepp()
 

@@ -81,7 +81,6 @@ class SYRK:
 
                 self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp_lower_notranspose()
                 self.syrk_scheduled = self.schedule_syrk_gepp_lower_notranspose()
-                print(self.gepp_syrk_scheduled)
 
             if transpose==ExoBlasTranspose:
                 self.syrk_base = syrk_lower_notranspose
@@ -121,8 +120,15 @@ class SYRK:
 
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for ii in _:_ #1', 1)
         gepp_syrk_scheduled = assert_if(gepp_syrk_scheduled, gepp_syrk_scheduled.find('if _:_ #1'), True)
+        print(gepp_syrk_scheduled)
+
+        #gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ii #2', self.microkernel.M_r, ['iio', 'iii'], tail='cut_and_guard')
+        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ji #1', self.microkernel.N_r, ['jio', 'jii'], tail='cut_and_guard')
+        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ji #0', self.microkernel.N_r, ['jio2', 'jii2'], tail='cut_and_guard')
+
 
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
+        print(gepp_syrk_scheduled)
 
         return gepp_syrk_scheduled, gepp_syrk_base
 
