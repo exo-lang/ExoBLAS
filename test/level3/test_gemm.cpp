@@ -12,6 +12,14 @@
 #include <cblas.h>
 #include <benchmark/benchmark.h>
 
+#define EPSILON 0.01
+
+bool AreSame(double a, double b)
+{
+    return fabs(a - b) < EPSILON;
+}
+
+
 static std::vector<float> gen_matrix(long m, long n) {
   static std::random_device rd;
   static std::mt19937 rng{rd()};
@@ -63,12 +71,11 @@ static void test_sgemm_correctness(benchmark::State& state) {
     sgemm_notranspose(nullptr, n, n, n, c2.data(), a.data(), b.data());
 
     for (int i=0; i<n*n; i++) {
-        break;
-        double correct = c[i];//std::round(c[i] * 100.0) / 100.0;
-        double exo_out = c2[i];//std::round(c2[i] * 100.0) / 100.0;
-        if (correct!=exo_out)
+        double correct = std::round(c[i] * 1000.0) / 1000.0;
+        double exo_out = std::round(c2[i] * 1000.0) / 1000.0;
+        if (!AreSame(correct, exo_out))
             std::cout<<"Error at "<< i/n <<", "<<i%n<< ". Expected: "<<correct<<", got: "<<exo_out<<std::endl;
-        assert(correct==exo_out);
+        assert(AreSame(correct, exo_out));
     }
 }
 
