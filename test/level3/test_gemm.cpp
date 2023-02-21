@@ -59,16 +59,18 @@ static void test_sgemm_correctness(benchmark::State& state) {
     auto b = gen_matrix(n, n);
     auto c = gen_matrix(n, n);
     auto c2 = c; 
+    const float alpha = 1.0;
+    const float beta = 1.0;
 
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                   n, n, n, 
-                  1.0, 
+                  alpha, 
                   a.data(), n,
                   b.data(), n,
-                  1.0,
+                  beta,
                   c.data(), n);
 
-    sgemm_notranspose(nullptr, n, n, n, c2.data(), a.data(), b.data());
+    exo_gemm(nullptr, n, n, n, &alpha, &beta, c2.data(), a.data(), b.data());
 
     for (int i=0; i<n*n; i++) {
         double correct = std::round(c[i] * 1000.0) / 1000.0;
@@ -114,11 +116,11 @@ static void BM_GEMM_EXO(benchmark::State& state) {
     auto b = gen_matrix(n, n);
     auto c = gen_matrix(n, n);
 
-    float alpha = 1.0f;
-    float beta = 1.0f;
+    const float alpha = 1.0f;
+    const float beta = 1.0f;
 
     for (auto _: state) {
-        sgemm_notranspose(nullptr, n, n, n, c.data(), a.data(), b.data());
+        exo_gemm(nullptr, n, n, n, &alpha, &beta, c.data(), a.data(), b.data());
     }
 
     state.counters["flops"] = benchmark::Counter(

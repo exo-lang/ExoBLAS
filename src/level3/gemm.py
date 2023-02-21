@@ -11,7 +11,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 from kernels.gemm_kernels import GEPP_kernel, GEBP_kernel, Microkernel
-from kernels.format_options import *
+from format_options import *
 
 import exo_blas_config as C
 
