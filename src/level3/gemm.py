@@ -135,6 +135,7 @@ class GEMM:
 
     def schedule_apply_scalar(self, proc: Procedure, machine: "MachineParameters", buffer_name: str):
         
+        return proc #Temporary until aliasing hack
         proc = divide_loop(proc, 'j', machine.vec_width, ['jo', 'ji'], tail='cut_and_guard')
         proc = self.stage(proc, f'{buffer_name}', f'{buffer_name}_vec', machine)
         proc = self.bind(proc, 'scalar[_]', 'scalar_vec', machine)
