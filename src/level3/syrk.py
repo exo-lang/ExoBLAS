@@ -1,4 +1,5 @@
 from __future__ import annotations
+from os import abort
 
 import sys
 import getopt 
@@ -11,7 +12,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 from kernels.gemm_kernels import GEBP_kernel, Microkernel
-from format_options import *
+from kernels.format_options import *
 
 import exo_blas_config as C
 
@@ -152,8 +153,20 @@ m_blk = C.syrk.m_blk
 m_reg = C.syrk.m_reg
 n_reg = C.syrk.n_reg
 
+if C.syrk.uplo=='L':
+    uplo = ExoBlasLower
+elif C.syrk.uplo=='U':
+    uplo = ExoBlasUpper
+else:
+    raise Exception(f"INVALID SYRK UPLO VALUE: {C.syrk.uplo}")
+
+if C.syrk.trans:
+    trans = ExoBlasTranspose
+else:
+    trans = ExoBlasNoTranspose
+
 ssyrk = SYRK(C.Machine, 
-             ExoBlasLower, ExoBlasNoTranspose, 
+             uplo, trans, 
              k_blk, m_blk, 
              m_reg, n_reg
              )
