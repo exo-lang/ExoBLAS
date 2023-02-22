@@ -29,7 +29,7 @@ function(add_exo_blas_test kernel)
     benchmark::benchmark_main
   )
 
-  add_test(NAME ${kernel} COMMAND test_${kernel})
+  add_test(NAME ${kernel} COMMAND test_${kernel} --benchmark_out_format=csv --benchmark_out=${kernel}.csv)
   set_tests_properties(
     ${kernel}
     PROPERTIES
