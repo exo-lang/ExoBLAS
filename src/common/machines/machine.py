@@ -34,6 +34,7 @@ class MachineParameters:
     zpad_store_instr: Any
     set_zero_instr_f32: Any
     assoc_reduce_add_instr_f32: Any
+    mul_instr_f32_hack: Any
     mul_instr_f32: Any
     add_instr_f32: Any
     reduce_add_wide_instr_f32: Any

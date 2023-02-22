@@ -5,6 +5,8 @@ from exo.platforms.neon import *
 
 from .machine import MachineParameters
 
+
+
 Machine = MachineParameters(
     name="neon",
     mem_type=Neon4f,
@@ -26,10 +28,11 @@ Machine = MachineParameters(
     zpad_store_instr=None,
     set_zero_instr_f32=neon_zero_4xf32,
     assoc_reduce_add_instr_f32=None,
+    mul_instr_f32_hack=neon_vmul_4xf32_alias_hack,
     mul_instr_f32=neon_vmul_4xf32,
     add_instr_f32=None,
     reduce_add_wide_instr_f32=None,
-    reg_copy_instr_f32=None,
+    reg_copy_instr_f32=neon_reg_copy_4xf32,
     sign_instr_f32=None,
     select_instr_f32=None,
 )

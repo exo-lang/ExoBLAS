@@ -56,11 +56,12 @@ static std::vector<float> transpose(std::vector<float> V, const int m, const int
 static void test_sgemm_correctness(benchmark::State& state) {
     int n = state.range(0);
     auto a = gen_matrix(n, n);
+    auto a2 = a;
     auto b = gen_matrix(n, n);
     auto c = gen_matrix(n, n);
     auto c2 = c; 
-    const float alpha = 1.0;
-    const float beta = 1.0;
+    const float alpha = 2.0f;
+    const float beta = 2.0f;
 
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                   n, n, n, 
@@ -70,7 +71,7 @@ static void test_sgemm_correctness(benchmark::State& state) {
                   beta,
                   c.data(), n);
 
-    exo_gemm(nullptr, n, n, n, &alpha, &beta, c2.data(), a.data(), b.data());
+    exo_gemm(nullptr, n, n, n, &alpha, &beta, c2.data(), a2.data(), b.data());
 
     for (int i=0; i<n*n; i++) {
         double correct = std::round(c[i] * 1000.0) / 1000.0;
@@ -88,16 +89,16 @@ static void BM_GEMM_CBLAS(benchmark::State& state) {
     auto b = gen_matrix(n, n);
     auto c = gen_matrix(n, n);
 
-    float alpha = 1.0f;
-    float beta = 1.0f;
+    float alpha = 2.0f;
+    float beta = 2.0f;
 
     for (auto _: state) {
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                 n, n, n,
-                1.0,
+                alpha,
                 a.data(), n,
                 b.data(), n,
-                1.0,
+                beta,
                 c.data(), n);
     }
 
@@ -116,8 +117,8 @@ static void BM_GEMM_EXO(benchmark::State& state) {
     auto b = gen_matrix(n, n);
     auto c = gen_matrix(n, n);
 
-    const float alpha = 1.0f;
-    const float beta = 1.0f;
+    const float alpha = 2.0f;
+    const float beta = 2.0f;
 
     for (auto _: state) {
         exo_gemm(nullptr, n, n, n, &alpha, &beta, c.data(), a.data(), b.data());
@@ -133,12 +134,13 @@ static void BM_GEMM_EXO(benchmark::State& state) {
 
 }
 
-
-BENCHMARK(BM_GEMM_CBLAS) -> Args({2048});
-BENCHMARK(BM_GEMM_EXO) -> Args({2048});
+BENCHMARK(BM_GEMM_CBLAS) -> Args({256});
+BENCHMARK(BM_GEMM_EXO) -> Args({256});
 
 BENCHMARK(BM_GEMM_CBLAS) -> Args({1024});
 BENCHMARK(BM_GEMM_EXO) -> Args({1024});
 
-BENCHMARK(BM_GEMM_CBLAS) -> Args({256});
-BENCHMARK(BM_GEMM_EXO) -> Args({256});
+BENCHMARK(BM_GEMM_CBLAS) -> Args({2048});
+BENCHMARK(BM_GEMM_EXO) -> Args({2048});
+
+
