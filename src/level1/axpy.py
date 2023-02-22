@@ -6,13 +6,14 @@ from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 
+import exo_blas_config as C
 
 @proc
 def axpy_template(
   n: size,
   alpha: f32,
-  x: f32[n],
-  y: f32[n],
+  x: [f32][n],
+  y: [f32][n],
 ):
     for i in seq(0, n):
         y[i] += alpha * x[i]
@@ -57,27 +58,33 @@ def schedule_axpy_stride_1(VEC_W, memory, instructions):
     
     return simplify(simple_stride_1)
 
-#TODO: broadcast doesn't work for scalars
-avx2_instructions = [mm256_loadu_ps, mm256_storeu_ps, mm256_broadcast_ss, mm256_fmadd_ps]
+instructions = [C.Machine.load_instr_f32,
+                     C.Machine.store_instr_f32,
+                     C.Machine.broadcast_scalar_instr_f32,
+                     C.Machine.fmadd_instr_f32,
+                     ]
 
-axpy1_stride_one = schedule_axpy_stride_1(8, AVX2, avx2_instructions)
+if None not in  instructions:
+    axpy_stride_1 = schedule_axpy_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
+else:
+    axpy_stride_1 = axpy_template
 
 @proc
-def axpy(n: size, alpha: f32, x: f32[n], y: f32[n]):
+def exo_saxpy(n: size, alpha: f32, x: [f32][n], y: [f32][n]):
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
-    axpy1_stride_one(n, alpha, x, y)
+    axpy_stride_1(n, alpha, x, y)
 """
 TODO: Should be:
 if stride(x, 0) == 1 and stride(y, 0) == 1:
-    axpy1_stride_one(n, alpha, x, y)
+    axpy_stride_1(n, alpha, x, y)
 else:
-    TODO: do packing first on sub-ranges of x, then use asum_stride_1 as a micro-kernel
+    TODO: do packing first on sub-ranges of x, then use axpy_stride_1 as a micro-kernel
     axpy_template(n, alpha, x, y)
 """
 
 if __name__ == "__main__":
-    print(axpy1_stride_one)
-    print(axpy)
+    print(axpy_stride_1)
+    print(exo_saxpy)
 
-__all__ = ["axpy"]
+__all__ = ["exo_saxpy"]
