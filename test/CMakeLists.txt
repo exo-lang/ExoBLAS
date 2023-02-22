@@ -13,7 +13,6 @@ target_include_directories(
 # Google Benchmark
 
 find_package(benchmark REQUIRED)
-include(CMakePrintHelpers)
 ###############################################################################
 # Generic test-case function
 ###############################################################################
