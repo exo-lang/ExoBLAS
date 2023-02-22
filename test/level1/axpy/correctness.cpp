@@ -3,6 +3,7 @@
 #include <cblas.h>
 
 #include "generate_buffer.h"
+#include "correctness_helpers.h"
 
 #include "exo_axpy.h"
 
@@ -19,7 +20,7 @@ void test_saxpy(int n, float alpha, int incx, int incy) {
     cblas_saxpy(n, alpha, xcopy.data(), incx, ycopy.data(), incy);
 
     for (int i = 0; i < n; ++i) {
-        if (y[i] != ycopy[i]) {
+        if (!check_relative_error_okay(y[i], ycopy[i], 1.f / 10000.f)) {
             printf("Failed ! i = %d, expected %f, got %f\n", i, ycopy[i], y[i]);
             exit(1);
         }

@@ -1,10 +1,9 @@
 #include <vector>
-#include <math.h>
-#include <algorithm>
 
 #include <cblas.h>
 
 #include "generate_buffer.h"
+#include "correctness_helpers.h"
 
 #include "exo_dot.h"
 
@@ -21,11 +20,9 @@ void test_sdot(int n, int incx, int incy) {
     exo_win_1f32c{.data = y.data(), .strides = {incy}}, &result);
     auto expected = cblas_sdot(n, xcopy.data(), incx, ycopy.data(), incy);
 
-    auto error = fabsf(result - expected);
-    auto rel_error = error / std::max(1.f, fabsf(expected));
     auto epsilon = 1.f / 1000.f;
 
-    if (rel_error >= epsilon) {
+    if (!check_relative_error_okay(result, expected, epsilon)) {
         printf("Failed! Expected %f, got %f\n", expected, result);
         exit(1);
     }

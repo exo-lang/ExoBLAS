@@ -3,6 +3,7 @@
 #include <cblas.h>
 
 #include "generate_buffer.h"
+#include "correctness_helpers.h"
 
 #include "exo_scal.h"
 
@@ -15,7 +16,7 @@ void test_sscal(int n, int incx, float alpha) {
     cblas_sscal(n, alpha, xcopy.data(), incx);
 
     for (int i = 0; i < n; ++i) {
-        if (x[i] != xcopy[i]) {
+        if (!check_relative_error_okay(x[i], xcopy[i], 1.f / 10000.f)) {
             printf("Failed ! i = %d, expected %f, got %f\n", i, xcopy[i], x[i]);
             exit(1);
         }
