@@ -75,7 +75,10 @@ instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32,
                 C.Machine.mul_instr_f32, C.Machine.broadcast_scalar_instr_f32,
                 ]
 
-scal_stride_1 = schedule_scal_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
+if None not in instructions:
+    scal_stride_1 = schedule_scal_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
+else:
+    scal_stride_1 = scal_template
 
 @proc
 def exo_sscal(n: size, alpha: f32, x: [f32][n]):
