@@ -19,8 +19,8 @@ void test_saxpy(int n, float alpha, int incx, int incy) {
     cblas_saxpy(n, alpha, xcopy.data(), incx, ycopy.data(), incy);
 
     for (int i = 0; i < n; ++i) {
-        if (x[i] != xcopy[i]) {
-            printf("Failed ! i = %d, expected %f, got %f\n", i, xcopy[i], x[i]);
+        if (y[i] != ycopy[i]) {
+            printf("Failed ! i = %d, expected %f, got %f\n", i, ycopy[i], y[i]);
             exit(1);
         }
     }
