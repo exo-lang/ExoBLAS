@@ -21,7 +21,7 @@ def avx2_abs_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2):
     for i in seq(0, 8):
         dst[i] = select(0.0, src[i], src[i], -src[i])
 
-def schedule_asum_stride_1(VEC_W, memory, instructions):
+def schedule_asum_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions):
     simple_stride_1 = rename(asum_template, asum_template.name() + "_simple_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
             
@@ -40,7 +40,7 @@ def schedule_asum_stride_1(VEC_W, memory, instructions):
     def stage(proc, buffer, reg):
         proc = bind_expr(proc, buffer, reg)
         proc = expand_dim(proc, reg, VEC_W, "ii")
-        proc = lift_alloc(proc, f"{reg} : _", n_lifts=2)
+        proc = lift_alloc(proc, f"{reg} : _", n_lifts=1)
         proc = fission(proc, proc.find(f"{reg}[_] = _").after())
         return proc
     
@@ -57,6 +57,24 @@ def schedule_asum_stride_1(VEC_W, memory, instructions):
         arg_cursor = select_cursor.args()[i]
         simple_stride_1 = bind_expr(simple_stride_1, [arg_cursor], f"tmp_{i}")
 
+    def interleave_instructions(proc, iter):
+        while True:
+            main_loop = proc.find(f"for {iter} in _:_")
+            if len(main_loop.body()) == 1:
+                break
+            proc = fission(proc, main_loop.body()[0].after())
+            proc = unroll_loop(proc, f"for {iter} in _:_")
+        proc = unroll_loop(proc, "for im in _:_")
+        return proc
+    
+    if INTERLEAVE_FACTOR > 1:
+        simple_stride_1 = divide_loop(simple_stride_1, "for io in _:_", INTERLEAVE_FACTOR, ("io", "im"), tail="cut")
+        simple_stride_1 = expand_dim(simple_stride_1, "xReg", INTERLEAVE_FACTOR, "im")
+        simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _")
+        simple_stride_1 = expand_dim(simple_stride_1, "selectReg", INTERLEAVE_FACTOR, "im")
+        simple_stride_1 = lift_alloc(simple_stride_1, "selectReg : _")
+        simple_stride_1 = interleave_instructions(simple_stride_1, "im")
+        
     return simple_stride_1
 
 instructions = [C.Machine.load_instr_f32,
@@ -67,7 +85,7 @@ instructions = [C.Machine.load_instr_f32,
                 avx2_abs_ps if C.Machine.mem_type is AVX2 else None]
 
 if None not in instructions:
-    asum_stride_1 = schedule_asum_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
+    asum_stride_1 = schedule_asum_stride_1(C.Machine.vec_width, 1, C.Machine.mem_type, instructions)
 else:
     asum_stride_1 = asum_template
     for i in range(4):
