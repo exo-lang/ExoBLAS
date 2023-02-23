@@ -62,8 +62,7 @@ def schedule_asum_stride_1(VEC_W, memory, instructions):
 instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32, 
                 C.Machine.select_instr_f32, C.Machine.assoc_reduce_add_instr_f32,
                 C.Machine.set_zero_instr_f32, C.Machine.reg_copy_instr_f32,
-                C.Machine.sign_instr_f32, C.Machine.reduce_add_wide_instr_f32,
-                None,]
+                C.Machine.sign_instr_f32, C.Machine.reduce_add_wide_instr_f32]
 
 if None not in instructions:
     asum_stride_1 = schedule_asum_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
