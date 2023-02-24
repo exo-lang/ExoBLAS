@@ -74,7 +74,7 @@ BENCHMARK_DEFINE_F(GEMVFixture, NAIVE)(benchmark::State& state) {
 }
 
 
-BENCHMARK_DEFINE_F(GEMVFixture, APPLE)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(GEMVFixture, REFERENCE)(benchmark::State& state) {
   for (auto _ : state) {
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
   }
@@ -148,7 +148,7 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_ROWS)(benchmark::State& state) {
     float actual = y3[i];
     double relerr = fabsf(actual - expected) / expected;
     if (relerr > 1e-2) {
-      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
+      // printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
     }
   }
 }
@@ -184,9 +184,9 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO)(benchmark::State& state) {
 }
 
 // Register the function as a benchmark
-// BENCHMARK_REGISTER_F(GEMVFixture, NAIVE)->RangeMultiplier(2)->Range(16, 16384);
-// BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS_TILED)->RangeMultiplier(2)->Range(16, 2048);
-// BENCHMARK_REGISTER_F(GEMVFixture, EXO)->RangeMultiplier(2)->Range(16, 2048);
-BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS)->RangeMultiplier(2)->Range(16, 2048);
-BENCHMARK_REGISTER_F(GEMVFixture, APPLE)->RangeMultiplier(2)->Range(16, 2048);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO)->RangeMultiplier(2)->Range(16, 2048);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS)->RangeMultiplier(2)->Range(16, 8192);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS_TILED)->RangeMultiplier(2)->Range(16, 2048);
+BENCHMARK_REGISTER_F(GEMVFixture, REFERENCE)->RangeMultiplier(2)->Range(16, 8192);
+BENCHMARK_REGISTER_F(GEMVFixture, NAIVE)->RangeMultiplier(2)->Range(16, 16384);
 // BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);

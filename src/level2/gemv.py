@@ -155,6 +155,11 @@ def neon_vmul_lane_4xf32_4xf32_hack(
         dst[i] = lhs[i] * rhs[lane]
 
 
+@instr("{dst_data} = vaddvq_f32({src_data});")
+def neon_vaddv_4xf32(dst: [f32][1] @ DRAM, src: [f32][4] @ Neon4f):
+  dst[0] = src[0] + src[1] + src[2] + src[3]
+
+
 def schedule_sgemv_on_neon(i_tile=1):
   proc = sgemv_simple
 
@@ -203,6 +208,9 @@ def schedule_sgemv_on_neon(i_tile=1):
   proc = replace(proc, "for ii in _:_", neon_vmul_lane_4xf32_4xf32_hack)
   proc = replace(proc, "for ii in _:_", neon_vadd_4xf32_alias_hack)
 
+  proc = unroll_loop(proc, "i0")
+  proc = unroll_loop(proc, "ji")
+
   if i_tile > 1:
     print("tiling i")
     proc = divide_loop(proc, "io", i_tile, ["ioo", "ioi"], tail="cut_and_guard")
@@ -220,15 +228,10 @@ def schedule_sgemv_on_neon(i_tile=1):
   proc = lift_alloc(proc, "y_vec_final", 1)
 
   if i_tile > 1:
-    print(proc)
+    print("Loop organization for i tiling")
     proc = fission(proc, proc.find("for jo in _:_").before())
     proc = fission(proc, proc.find("for jo in _:_").after())
     proc = reorder_loops(proc, "ioi jo")
-
-  print("unrolling loops")
-  proc = unroll_loop(proc, "i0")
-  proc = unroll_loop(proc, "ji")
-  if i_tile > 1:
     for i in range(3):
       proc = unroll_loop(proc, "ioi")
 
@@ -262,12 +265,17 @@ def sgemv_on_neon_row_product(i_tile=8):
   proc = replace(proc, "for ji in _:_", neon_zero_4xf32)
   proc = reorder_loops(proc, "ji jo")
 
-  # TODO: can probably be vectorized to accumulate to across i
   print("\treducing partial sums")
-  proc = simplify(stage_mem(proc, "for ji in _:_ #1", "y_partial_sums_vec[ii, 0:4]", "y_partial_sums"))
-  proc = set_memory(proc, "y_partial_sums", DRAM)
-  proc = replace(proc, "for i0 in _:_", neon_vst_4xf32)
-  proc = lift_alloc(proc, "y_partial_sums")
+  proc = simplify(stage_mem(proc, "for ji in _:_ #1", f"y[{i_tile}*io+ii]", "y_acc", accum=True))
+  proc = expand_dim(proc, "y_acc", i_tile, "ii")
+  proc = lift_alloc(proc, "y_acc", 2)
+  proc = unroll_loop(proc, "ji #1")
+  proc = merge_writes(proc, "y_acc[ii] = 0.0; y_acc[ii] += y_partial_sums_vec[ii, 0]")
+  proc = simplify(proc)
+  proc = merge_writes(proc, "y_acc[ii] = y_partial_sums_vec[ii, 0]; y_acc[ii] += y_partial_sums_vec[ii, 1]")
+  proc = merge_writes(proc, "y_acc[ii] = y_partial_sums_vec[ii, 0] + y_partial_sums_vec[ii, 1]; y_acc[ii] += y_partial_sums_vec[ii, 2]")
+  proc = merge_writes(proc, "y_acc[ii] = y_partial_sums_vec[ii, 0] + y_partial_sums_vec[ii, 1] + y_partial_sums_vec[ii, 2]; y_acc[ii] += y_partial_sums_vec[ii, 3]")
+  proc = replace(proc, "y_acc[_] = _", neon_vaddv_4xf32)
 
   print("\tvectorizing alpha[_] * x[_]")
   proc = reorder_loops(proc, "ii jo")
@@ -283,11 +291,9 @@ def sgemv_on_neon_row_product(i_tile=8):
   proc = replace(proc, "for i1 in _:_", neon_vld_4xf32)
   proc = replace(proc, "for ji in _:_", neon_vfmadd_4xf32_4xf32)
 
-  proc = unroll_loop(proc, "ii #2")
   proc = unroll_loop(proc, "i0")
-
-  # proc = unroll_loop(proc, "ji")
-  # proc = unroll_loop(proc, "ii #2")
+  for i in range(3):
+    proc = unroll_loop(proc, "ii #1")
 
   return proc
 
@@ -358,19 +364,21 @@ def sgemv_on_neon_tiled_row_product(i_tile=8, j_tile=2):
   proc = fission(proc, proc.find("neon_vld_4xf32(_) #2").after())
   proc = fission(proc, proc.find("neon_vmul_4xf32(_) #1").after())
 
-  # proc = unroll_loop(proc, "jm")
-  # proc = unroll_loop(proc, "i0")
-  # proc = unroll_loop(proc, "jm")
-  # proc = unroll_loop(proc, "jm")
-  # proc = unroll_loop(proc, "ii #2")
-  # proc = unroll_loop(proc, "jm")
+  proc = unroll_loop(proc, "jm")
+  proc = unroll_loop(proc, "i0")
+  proc = unroll_loop(proc, "jm")
+  proc = unroll_loop(proc, "jm")
+  proc = unroll_loop(proc, "ii #2")
+  proc = unroll_loop(proc, "jm")
 
   return simplify(proc)
 
 
-neon_sgemv_new = rename(schedule_sgemv_on_neon(i_tile=1), "sgemv_exo")
+# neon_sgemv_new = rename(sgemv, "sgemv_exo")
+neon_sgemv_new = rename(schedule_sgemv_on_neon(i_tile=8), "sgemv_exo")
 print(neon_sgemv_new)
-neon_sgemv_8_rows_tiled = rename(sgemv_on_neon_tiled_row_product(i_tile=8, j_tile=8), "sgemv_exo_8_rows_tiled")
 neon_sgemv_8_rows = rename(sgemv_on_neon_row_product(i_tile=8), "sgemv_exo_8_rows")
+# print(neon_sgemv_8_rows)
+neon_sgemv_8_rows_tiled = rename(sgemv_on_neon_tiled_row_product(i_tile=8, j_tile=8), "sgemv_exo_8_rows_tiled")
 
 __all__ = ["neon_sgemv_8_rows", "neon_sgemv_8_rows_tiled", "neon_sgemv_new"]
