@@ -11,20 +11,26 @@ import exo_blas_config as C
 @proc
 def rotm_template_flag_neg_one(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
     for i in seq(0, n):
-        x[i] = H[0, 0] * x[i] + H[0, 1] * y[i]
-        y[i] = H[1, 0] * x[i] + H[1, 1] * y[i]
+        xReg: f32
+        xReg = x[i]
+        x[i] = H[0, 0] * xReg + H[0, 1] * y[i]
+        y[i] = H[1, 0] * xReg + H[1, 1] * y[i]
 
 @proc
 def rotm_template_flag_zero(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
     for i in seq(0, n):
-        x[i] = x[i] + H[0, 1] * y[i]
-        y[i] = H[1, 0] * x[i] + y[i]
+        xReg: f32
+        xReg = x[i]
+        x[i] = xReg + H[0, 1] * y[i]
+        y[i] = H[1, 0] * xReg + y[i]
         
 @proc
 def rotm_template_flag_one(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
     for i in seq(0, n):
-        x[i] = H[0, 0] * x[i] + y[i]
-        y[i] = -x[i] + H[1, 1] * y[i]
+        xReg: f32
+        xReg = x[i]
+        x[i] = H[0, 0] * xReg + y[i]
+        y[i] = -xReg + H[1, 1] * y[i]
 
 @proc
 def rotm_template_flag_neg_two(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
@@ -51,9 +57,10 @@ def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions):
     simple_stride_1 = divide_loop(simple_stride_1, "for i in _:_", VEC_W, ("io", "ii"), tail = "cut")
     
     # Stage memories
-    simple_stride_1 = simplify(stage_mem(simple_stride_1, "for ii in _:_", f"x[{VEC_W} * io : {VEC_W} * (io + 1)]", "xReg"))
-    simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _", n_lifts=1)
-    simple_stride_1 = simplify(stage_mem(simple_stride_1, "for ii in _:_", f"y[{VEC_W} * io : {VEC_W} * (io + 1)]", "yReg"))
+    simple_stride_1 = expand_dim(simple_stride_1, "xReg", VEC_W, "ii")
+    simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _", n_lifts=2)
+    simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("xReg[_] = _").after())
+    simple_stride_1 = simplify(stage_mem(simple_stride_1, "for ii in _:_ #1", f"y[{VEC_W} * io : {VEC_W} * (io + 1)]", "yReg"))
     simple_stride_1 = lift_alloc(simple_stride_1, "yReg : _", n_lifts=1)
     
     def stage(proc, expr_cursors, reg, cse=False):
@@ -64,7 +71,7 @@ def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions):
         return proc
 
     # No common expressions after this point, fission compute loop
-    compute_loop = simple_stride_1.find("for ii in _:_")
+    compute_loop = simple_stride_1.find("for ii in _:_ #1")
     simple_stride_1 = fission(simple_stride_1, compute_loop.body()[0].after())
     
     def hoist_const_loop(proc, constant):
@@ -102,31 +109,38 @@ def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions):
     
     # Stage binary expressions
     if flag != 0:
-        x_compute_stmt = simple_stride_1.find("xReg[_] = _ + _")
+        x_compute_stmt = simple_stride_1.find("x[_] = _ + _")
         simple_stride_1 = stage(simple_stride_1, [x_compute_stmt.rhs().lhs()], "H00_Mul_X_Reg")
     if flag != 1:
-        x_compute_stmt = simple_stride_1.find("xReg[_] = _ + _")
+        x_compute_stmt = simple_stride_1.find("x[_] = _ + _")
         simple_stride_1 = stage(simple_stride_1, [x_compute_stmt.rhs().rhs()], "H01_Mul_Y_Reg")
+    x_compute_stmt = simple_stride_1.find("x[_] = _ + _")
+    simple_stride_1 = stage(simple_stride_1, [x_compute_stmt.rhs()], "H00X_Add_H01Y_Reg")
     if flag != 1:
         y_compute_stmt = simple_stride_1.find("yReg[_] = _ + _")
         simple_stride_1 = stage(simple_stride_1, [y_compute_stmt.rhs().lhs()], "H10_Mul_X_Reg")
     if flag != 0:
         y_compute_stmt = simple_stride_1.find("yReg[_] = _ + _")
         simple_stride_1 = stage(simple_stride_1, [y_compute_stmt.rhs().rhs()], "H11_Mul_Y_Reg")
-    
+
     # Un-alias instructions
     if flag == 0:
-        x_compute_stmt = simple_stride_1.find("xReg[_] = xReg[_] + _")
-        simple_stride_1 = stage(simple_stride_1, [x_compute_stmt.rhs().lhs()], "xReg1")
-        
         y_compute_stmt = simple_stride_1.find("yReg[_] = _ + yReg[_]")
         simple_stride_1 = stage(simple_stride_1, [y_compute_stmt.rhs().rhs()], "yReg1")
     
-    for buffer in ["xReg", "xReg1", "negXReg", "yReg", "yReg1", "H00Reg", "H01Reg", "H10Reg", "H11Reg", "H00_Mul_X_Reg", "H01_Mul_Y_Reg", "H10_Mul_X_Reg", "H11_Mul_Y_Reg"]:
+    for buffer in ["xReg", "xReg1", "negXReg", "yReg", "yReg1", "H00Reg", "H01Reg", "H10Reg", "H11Reg", "H00_Mul_X_Reg", "H01_Mul_Y_Reg", "H10_Mul_X_Reg", "H11_Mul_Y_Reg", "H00X_Add_H01Y_Reg"]:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
         simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
     
     simple_stride_1 = replace_all(simple_stride_1, instructions)
+    
+    # TODO: remove once set_memory takes allocation cursor
+    tail_loop_block = simple_stride_1.find("xReg = x[_]").expand(2)
+    simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "xReg", "xTmp")
+    tmp_buffer = simple_stride_1.find("xTmp : _")
+    xReg_buffer = tmp_buffer.prev()
+    simple_stride_1 = reuse_buffer(simple_stride_1, tmp_buffer, xReg_buffer)
+    simple_stride_1 = set_memory(simple_stride_1, "xTmp", DRAM)
     
     return simple_stride_1
 

@@ -1,6 +1,9 @@
+#pragma once
+
 #include <stdint.h>
 #include <vector>
 #include <random>
+#include <algorithm>
 
 template <typename T>
 static void randomize(std::vector<T> &buffer) {
