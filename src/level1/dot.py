@@ -100,8 +100,6 @@ if None not in f32_instructions:
 else:
     sdot_stride_1 = sdot_template
 
-print(sdot_stride_1)
-
 @proc 
 def exo_sdot(n: size, x: [f32][n], y: [f32][n], result: f32):
     assert stride(x, 0) == 1

@@ -111,8 +111,6 @@ if None not in instructions:
 else:
     rot_stride_1 = rot_template
 
-print(rot_stride_1)
-
 @proc
 def exo_srot(n: size, x: [f32][n], y: [f32][n], c: f32, s: f32):
     assert stride(x, 0) == 1

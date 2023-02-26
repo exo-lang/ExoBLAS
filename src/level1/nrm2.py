@@ -105,8 +105,6 @@ if None not in instructions:
 else:
     nrm2_stride_1 = nrm2_template
 
-print(nrm2_stride_1)
-
 # TODO: this calculates ||x||^2, not ||x|| 
 @proc 
 def exo_snrm2(n: size, x: [f32][n], result: f32):
