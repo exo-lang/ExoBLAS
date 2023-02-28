@@ -32,4 +32,18 @@ Machine = MachineParameters(
     reg_copy_instr_f32=None,
     sign_instr_f32=None,
     select_instr_f32=None,
+    
+    load_instr_f64=None,
+    store_instr_f64=None,
+    broadcast_instr_f64=None,
+    broadcast_scalar_instr_f64=None,
+    fmadd_instr_f64=None,
+    set_zero_instr_f64=None,
+    assoc_reduce_add_instr_f64=None,
+    mul_instr_f64=None,
+    add_instr_f64=None,
+    reduce_add_wide_instr_f64=None,
+    reg_copy_instr_f64=None,
+    sign_instr_f64=None,
+    select_instr_f64=None,
 )

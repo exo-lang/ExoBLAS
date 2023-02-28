@@ -31,4 +31,18 @@ Machine = MachineParameters(
     reg_copy_instr_f32=avx2_reg_copy_ps,
     sign_instr_f32=avx2_sign_ps,
     select_instr_f32=avx2_select_ps,
+    
+    load_instr_f64=mm256_loadu_pd,
+    store_instr_f64=mm256_storeu_pd,
+    broadcast_instr_f64=mm256_broadcast_sd,
+    broadcast_scalar_instr_f64=mm256_broadcast_sd_scalar,
+    fmadd_instr_f64=mm256_fmadd_pd,
+    set_zero_instr_f64=mm256_setzero_pd,
+    assoc_reduce_add_instr_f64=avx2_assoc_reduce_add_pd,
+    mul_instr_f64=mm256_mul_pd,
+    add_instr_f64=mm256_add_pd,
+    reduce_add_wide_instr_f64=avx2_reduce_add_wide_pd,
+    reg_copy_instr_f64=avx2_reg_copy_pd,
+    sign_instr_f64=avx2_sign_pd,
+    select_instr_f64=avx2_select_pd,
 )
