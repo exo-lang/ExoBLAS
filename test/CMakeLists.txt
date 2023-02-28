@@ -13,6 +13,10 @@ target_include_directories(
 # Google Benchmark
 
 find_package(benchmark REQUIRED)
+
+## Python
+find_package(Python COMPONENTS Interpreter REQUIRED)
+
 ###############################################################################
 # Generic test-case function
 ###############################################################################
@@ -54,6 +58,8 @@ function(add_exo_blas_test kernel)
     ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;"
     ENVIRONMENT "BENCHMARK_FORMAT=json;BENCHMARK_OUT=output_${kernel}.json;"
   )
+
+  add_test(NAME ${kernel}_graph COMMAND ${Python_EXECUTABLE} ../../../../test/graph.py output_${kernel}.json)
 endfunction()
 
 add_subdirectory(level1)
