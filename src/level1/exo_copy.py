@@ -71,9 +71,6 @@ exo_dcopy_stride_any = rename(exo_dcopy_stride_any, exo_dcopy_stride_any.name() 
 
 entry_points = [exo_scopy_stride_1, exo_dcopy_stride_1, exo_scopy_stride_any, exo_dcopy_stride_any]
 
-for p in entry_points:
-    print(p)
-
 if __name__ == "__main__":
     for p in entry_points:
         print(p)
