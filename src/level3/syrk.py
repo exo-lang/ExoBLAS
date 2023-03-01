@@ -119,23 +119,22 @@ class SYRK:
         gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'gebp_base_{self.gebp_kernel.this_id}(_)', self.gebp_kernel.scheduled_gebp)
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
 
+        
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for ii in _:_ #1', self.microkernel.N_r)
         gepp_syrk_scheduled = assert_if(gepp_syrk_scheduled, gepp_syrk_scheduled.find('if _:_ #1'), True)
         
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ii #2', self.microkernel.M_r, ['iio', 'iii'], tail='cut_and_guard')
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for ji in _:_ #1', self.microkernel.N_r)
-
+        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ji #2', self.microkernel.N_r, ['jio', 'jii'], tail='cut_and_guard')
         gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for ji in _:_ #1').after(), n_lifts=1)
-        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ji #1', self.microkernel.N_r, ['jio', 'jii'], tail='cut_and_guard')
-        gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for jio in _:_').after(), n_lifts=1)
-        gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, 'iii jio')
-
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for iii in _:_', self.microkernel.base_microkernel)
         gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'microkernel_{self.microkernel.this_id}(_)', self.microkernel.scheduled_microkernel)
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
 
         return gepp_syrk_scheduled, gepp_syrk_base
+
+        
 
     
     def schedule_syrk_gepp_lower_notranspose(self):
