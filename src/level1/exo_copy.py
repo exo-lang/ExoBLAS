@@ -10,12 +10,20 @@ import exo_blas_config as C
 
 
 @proc
-def scopy_template(n: size, x: [f32][n], y: [f32][n]):
+def copy_template(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
         y[i] = x[i]
 
-def schedule_scopy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions):
-    simple_stride_1 = rename(scopy_template, scopy_template.name() + "_simple_stride_1")
+def specialize_precision(precision):
+    prefix = "s" if precision == "f32" else "d"
+    specialized_copy = rename(copy_template, "exo_" + prefix + "copy")
+    for arg in ["x", "y"]:
+        specialized_copy = set_precision(specialized_copy, arg, precision)
+    return specialized_copy
+    
+def schedule_scopy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision):
+    simple_stride_1 = specialize_precision(precision)
+    simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
@@ -43,34 +51,31 @@ def schedule_scopy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions):
         )
         simple_stride_1 = expand_dim(simple_stride_1, "xRegs", INTERLEAVE_FACTOR, "im")
         simple_stride_1 = lift_alloc(simple_stride_1, "xRegs")
-        simple_stride_1 = fission(simple_stride_1, simple_stride_1.find(C.Machine.load_instr_f32_str).after())
+        load_instr_name = C.Machine.load_instr_f32.name() if precision == "f32" else C.Machine.load_instr_f64.name()
+        simple_stride_1 = fission(simple_stride_1, simple_stride_1.find(load_instr_name + "(_)").after())
         simple_stride_1 = unroll_loop(simple_stride_1, loop_fragment("im"))
         simple_stride_1 = unroll_loop(simple_stride_1, loop_fragment("im"))
 
     return simplify(simple_stride_1)
 
-instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
+f32_instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
 
-scopy_stride_1 = schedule_scopy_stride_1(C.Machine.vec_width, 2, C.Machine.mem_type, instructions)
+exo_scopy_stride_1 = schedule_scopy_stride_1(C.Machine.vec_width, 2, C.Machine.mem_type, f32_instructions, "f32")
+exo_scopy_stride_any = specialize_precision("f32")
+exo_scopy_stride_any = rename(exo_scopy_stride_any, exo_scopy_stride_any.name() + "_stride_any")
 
-@proc
-def exo_scopy(n: size, x: [f32][n], y: [f32][n]):
-    assert stride(x, 0) == 1
-    assert stride(y, 0) == 1
-    scopy_stride_1(n, x, y)
+f64_instructions = [C.Machine.load_instr_f64, C.Machine.store_instr_f64]
+exo_dcopy_stride_1 = schedule_scopy_stride_1(C.Machine.vec_width // 2, 2, C.Machine.mem_type, f64_instructions, "f64")
+exo_dcopy_stride_any = specialize_precision("f64")
+exo_dcopy_stride_any = rename(exo_dcopy_stride_any, exo_dcopy_stride_any.name() + "_stride_any")
 
+entry_points = [exo_scopy_stride_1, exo_dcopy_stride_1, exo_scopy_stride_any, exo_dcopy_stride_any]
 
-"""
-TODO: Should be:
-if stride(x, 0) == 1 and stride(y, 0) == 1:
-    scopy_stride_1(n, x, y)
-else:
-    TODO: do packing first on sub-ranges of x, then use scopy_stride_1 as a micro-kernel
-    scopy_template(n, x, y)
-"""
+for p in entry_points:
+    print(p)
 
 if __name__ == "__main__":
-    print(scopy_stride_1)
-    print(exo_scopy)
+    for p in entry_points:
+        print(p)
 
-__all__ = ["exo_scopy"]
+__all__ = [p.name() for p in entry_points]

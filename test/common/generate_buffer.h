@@ -13,8 +13,14 @@ static void randomize(std::vector<T> &buffer) {
     std::generate(buffer.begin(), buffer.end(), [&]() { return rv(rng); });
 }
 
-static std::vector<float> generate1d_sbuffer(uint32_t n, uint32_t stride) {
-    std::vector<float> buffer(n * stride);
+static std::vector<float> generate1d_sbuffer(int n, int inc) {
+    std::vector<float> buffer(1 + (n - 1) * abs(inc));
+    randomize(buffer);
+    return buffer;
+}
+
+static std::vector<double> generate1d_dbuffer(int n, int inc) {
+    std::vector<double> buffer(1 + (n - 1) * abs(inc));
     randomize(buffer);
     return buffer;
 }

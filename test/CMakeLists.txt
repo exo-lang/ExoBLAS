@@ -29,6 +29,7 @@ function(add_exo_blas_test kernel)
     BLAS::BLAS
     benchmark::benchmark_main
   )
+  target_include_directories(${kernel}_bench PRIVATE ${kernel})
 
   add_test(NAME ${kernel}_bench COMMAND ${kernel}_bench)
   set_tests_properties(
@@ -46,6 +47,7 @@ function(add_exo_blas_test kernel)
     EXO_BLAS::exo_${kernel}
     BLAS::BLAS
   )
+  target_include_directories(${kernel}_correctness PRIVATE ${kernel})
 
   add_test(NAME ${kernel}_correctness COMMAND ${kernel}_correctness)
   set_tests_properties(

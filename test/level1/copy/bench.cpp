@@ -5,139 +5,113 @@
 
 #include "generate_buffer.h"
 
-#include "exo_copy.h"
+#include "exo_copy_wrapper.h"
 
 static void BM_CBLAS_SCOPY(benchmark::State& state) {
-    auto n = state.range(0);
+    int n = state.range(0);
+    int incx = state.range(1);
+    int incy = state.range(2);
 
-    std::vector<float> x = generate1d_sbuffer(n, 1);
-    std::vector<float> y = generate1d_sbuffer(n, 1);
+    auto x = generate1d_sbuffer(n, incx);
+    auto y = generate1d_sbuffer(n, incy);
 
     for (auto _ : state) {
-        cblas_scopy(n, x.data(), 1, y.data(), 1);
+        cblas_scopy(n, x.data(), incx, y.data(), incy);
     }
 
     // state.counters["flops"] = ;
 }
 
 static void BM_EXO_SCOPY(benchmark::State& state) {
-    auto n = state.range(0);
+    int n = state.range(0);
+    int incx = state.range(1);
+    int incy = state.range(2);
 
-    std::vector<float> x = generate1d_sbuffer(n, 1);
-    std::vector<float> y = generate1d_sbuffer(n, 1);
+    auto x = generate1d_sbuffer(n, incx);
+    auto y = generate1d_sbuffer(n, incy);
 
     for (auto _ : state) {
-        exo_scopy(nullptr, n, exo_win_1f32c{x.data(), {1}}, exo_win_1f32{y.data(), {1}});
+        exo_scopy(n, x.data(), incx, y.data(), incy);
     }
 
     // state.counters["flops"] = ;
 }
 
-// Register the function as a benchmark
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({1});
-BENCHMARK(BM_EXO_SCOPY) -> Args({1});
 
+static void BM_CBLAS_DCOPY(benchmark::State& state) {
+    int n = state.range(0);
+    int incx = state.range(1);
+    int incy = state.range(2);
 
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({2});
-BENCHMARK(BM_EXO_SCOPY) -> Args({2});
+    auto x = generate1d_dbuffer(n, incx);
+    auto y = generate1d_dbuffer(n, incy);
 
+    for (auto _ : state) {
+        cblas_dcopy(n, x.data(), incx, y.data(), incy);
+    }
 
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({4});
-BENCHMARK(BM_EXO_SCOPY) -> Args({4});
+    // state.counters["flops"] = ;
+}
 
+static void BM_EXO_DCOPY(benchmark::State& state) {
+    int n = state.range(0);
+    int incx = state.range(1);
+    int incy = state.range(2);
 
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({8});
-BENCHMARK(BM_EXO_SCOPY) -> Args({8});
+    auto x = generate1d_dbuffer(n, incx);
+    auto y = generate1d_dbuffer(n, incy);
 
+    for (auto _ : state) {
+        exo_dcopy(n, x.data(), incx, y.data(), incy);
+    }
 
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({16});
-BENCHMARK(BM_EXO_SCOPY) -> Args({16});
+    // state.counters["flops"] = ;
+}
 
+// Run scopy with stride = 1
+BENCHMARK(BM_CBLAS_SCOPY)->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}
+    })->ArgsProduct({
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}
+    });
+BENCHMARK(BM_EXO_SCOPY)->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}
+    })->ArgsProduct({
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}
+    });
 
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({32});
-BENCHMARK(BM_EXO_SCOPY) -> Args({32});
+// Run scopy with stride != 1
+BENCHMARK(BM_CBLAS_SCOPY)->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    });
+BENCHMARK(BM_EXO_SCOPY)->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    });
 
+// Run dcopy with stride = 1
+BENCHMARK(BM_CBLAS_DCOPY)->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}
+    })->ArgsProduct({
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}
+    });
+BENCHMARK(BM_EXO_DCOPY)->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}
+    })->ArgsProduct({
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}
+    });
 
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({64});
-BENCHMARK(BM_EXO_SCOPY) -> Args({64});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({128});
-BENCHMARK(BM_EXO_SCOPY) -> Args({128});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({256});
-BENCHMARK(BM_EXO_SCOPY) -> Args({256});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({512});
-BENCHMARK(BM_EXO_SCOPY) -> Args({512});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({1024});
-BENCHMARK(BM_EXO_SCOPY) -> Args({1024});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({2048});
-BENCHMARK(BM_EXO_SCOPY) -> Args({2048});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({4096});
-BENCHMARK(BM_EXO_SCOPY) -> Args({4096});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({8192});
-BENCHMARK(BM_EXO_SCOPY) -> Args({8192});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({16384});
-BENCHMARK(BM_EXO_SCOPY) -> Args({16384});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({32768});
-BENCHMARK(BM_EXO_SCOPY) -> Args({32768});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({65536});
-BENCHMARK(BM_EXO_SCOPY) -> Args({65536});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({131072});
-BENCHMARK(BM_EXO_SCOPY) -> Args({131072});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({262144});
-BENCHMARK(BM_EXO_SCOPY) -> Args({262144});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({524288});
-BENCHMARK(BM_EXO_SCOPY) -> Args({524288});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({1048576});
-BENCHMARK(BM_EXO_SCOPY) -> Args({1048576});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({2097152});
-BENCHMARK(BM_EXO_SCOPY) -> Args({2097152});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({4194304});
-BENCHMARK(BM_EXO_SCOPY) -> Args({4194304});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({8388608});
-BENCHMARK(BM_EXO_SCOPY) -> Args({8388608});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({16777216});
-BENCHMARK(BM_EXO_SCOPY) -> Args({16777216});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({33554432});
-BENCHMARK(BM_EXO_SCOPY) -> Args({33554432});
-
-
-BENCHMARK(BM_CBLAS_SCOPY) -> Args({67108864});
-BENCHMARK(BM_EXO_SCOPY) -> Args({67108864});
-
+// Run dcopy with stride != 1
+BENCHMARK(BM_CBLAS_DCOPY)->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    });
+BENCHMARK(BM_EXO_DCOPY)->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+    });
