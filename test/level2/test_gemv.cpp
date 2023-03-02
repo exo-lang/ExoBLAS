@@ -67,7 +67,7 @@ BENCHMARK_DEFINE_F(GEMVFixture, NAIVE)(benchmark::State& state) {
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations())  * GEMV_FLOPS(n),
+    static_cast<double>(state.iterations()) * GEMV_FLOPS(n),
     benchmark::Counter::kIsRate,
     benchmark::Counter::kIs1000
   );
@@ -100,9 +100,9 @@ BENCHMARK_DEFINE_F(GEMVFixture, APPLE_GEMM)(benchmark::State& state) {
 }
 
 
-BENCHMARK_DEFINE_F(GEMVFixture, EXO_ROWS_TILED)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(GEMVFixture, EXO_ROWS_LOAD1)(benchmark::State& state) {
   for (auto _ : state) {
-    sgemv_exo_8_rows_tiled(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
+    sgemv_exo_row_load1(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
   }
 
   state.counters["flops"] = benchmark::Counter(
@@ -114,7 +114,61 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_ROWS_TILED)(benchmark::State& state) {
   auto y2 = y;
   auto y3 = y;
   naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
-  sgemv_exo_8_rows_tiled(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
+  sgemv_exo_row_load1(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
+
+  for (int i = 0; i < y2.size(); i++) {
+    float expected = y2[i];
+    float actual = y3[i];
+    double relerr = fabsf(actual - expected) / expected;
+    if (relerr > 1e-2) {
+      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
+    }
+  }
+}
+
+
+BENCHMARK_DEFINE_F(GEMVFixture, EXO_ROWS_LOAD1_TILED)(benchmark::State& state) {
+  for (auto _ : state) {
+    sgemv_exo_row_load1_tiled(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
+  }
+
+  state.counters["flops"] = benchmark::Counter(
+    static_cast<double>(state.iterations()) * GEMV_FLOPS(n),
+    benchmark::Counter::kIsRate,
+    benchmark::Counter::kIs1000
+  );
+
+  auto y2 = y;
+  auto y3 = y;
+  naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
+  sgemv_exo_row_load1_tiled(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
+
+  for (int i = 0; i < y2.size(); i++) {
+    float expected = y2[i];
+    float actual = y3[i];
+    double relerr = fabsf(actual - expected) / expected;
+    if (relerr > 1e-2) {
+      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
+    }
+  }
+}
+
+
+BENCHMARK_DEFINE_F(GEMVFixture, EXO_ROWS_LOAD1_MULTI_ROW)(benchmark::State& state) {
+  for (auto _ : state) {
+    sgemv_exo_row_load1_multi_rows(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
+  }
+
+  state.counters["flops"] = benchmark::Counter(
+    static_cast<double>(state.iterations()) * GEMV_FLOPS(n),
+    benchmark::Counter::kIsRate,
+    benchmark::Counter::kIs1000
+  );
+
+  auto y2 = y;
+  auto y3 = y;
+  naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
+  sgemv_exo_row_load1_multi_rows(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
 
   for (int i = 0; i < y2.size(); i++) {
     float expected = y2[i];
@@ -154,39 +208,45 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_ROWS)(benchmark::State& state) {
 }
 
 
-BENCHMARK_DEFINE_F(GEMVFixture, EXO)(benchmark::State& state) {
-  for (auto _ : state) {
-    sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
-  }
+// BENCHMARK_DEFINE_F(GEMVFixture, EXO)(benchmark::State& state) {
+//   for (auto _ : state) {
+//     sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
+//   }
 
-  state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations())  * GEMV_FLOPS(n),
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
+//   state.counters["flops"] = benchmark::Counter(
+//     static_cast<double>(state.iterations())  * GEMV_FLOPS(n),
+//     benchmark::Counter::kIsRate,
+//     benchmark::Counter::kIs1000
+//   );
 
-  alpha = 1.0;
-  beta = 1.0;
+//   alpha = 1.0;
+//   beta = 1.0;
 
-  auto y2 = y;
-  auto y3 = y;
-  naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
-  sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
+//   auto y2 = y;
+//   auto y3 = y;
+//   naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
+//   sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
 
-  for (int i = 0; i < y2.size(); i++) {
-    float expected = y2[i];
-    float actual = y3[i];
-    double relerr = fabsf(actual - expected) / expected;
-    if (relerr > 1e-2) {
-      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
-    }
-  }
-}
+//   for (int i = 0; i < y2.size(); i++) {
+//     float expected = y2[i];
+//     float actual = y3[i];
+//     double relerr = fabsf(actual - expected) / expected;
+//     if (relerr > 1e-2) {
+//       printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
+//     }
+//   }
+// }
 
 // Register the function as a benchmark
-BENCHMARK_REGISTER_F(GEMVFixture, EXO)->RangeMultiplier(2)->Range(16, 2048);
-BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS)->RangeMultiplier(2)->Range(16, 8192);
-BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS_TILED)->RangeMultiplier(2)->Range(16, 2048);
-BENCHMARK_REGISTER_F(GEMVFixture, REFERENCE)->RangeMultiplier(2)->Range(16, 8192);
-BENCHMARK_REGISTER_F(GEMVFixture, NAIVE)->RangeMultiplier(2)->Range(16, 16384);
+
+const int MIN_TEST = 8192;
+const int MAX_TEST = 8192;
+
+// BENCHMARK_REGISTER_F(GEMVFixture, EXO)->RangeMultiplier(2)->Range(16, 2048);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS_LOAD1_TILED)->RangeMultiplier(2)->Range(MIN_TEST, MAX_TEST);
+// BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS_LOAD1_MULTI_ROW)->RangeMultiplier(2)->Range(MIN_TEST, MAX_TEST);
+// BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS_LOAD1)->RangeMultiplier(2)->Range(MIN_TEST, MAX_TEST);
+// BENCHMARK_REGISTER_F(GEMVFixture, EXO_ROWS)->RangeMultiplier(2)->Range(MIN_TEST, MAX_TEST);
+// BENCHMARK_REGISTER_F(GEMVFixture, REFERENCE)->RangeMultiplier(2)->Range(MIN_TEST, MAX_TEST);
+// BENCHMARK_REGISTER_F(GEMVFixture, NAIVE)->RangeMultiplier(2)->Range(MIN_TEST, MAX_TEST);
 // BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);
