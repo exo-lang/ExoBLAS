@@ -93,7 +93,7 @@ BENCHMARK_DEFINE_F(GEMVFixture, APPLE_GEMM)(benchmark::State& state) {
 
 BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
   for (auto _ : state) {
-    sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
+    exo_sgemv(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
   }
 
   state.counters["flops"] = benchmark::Counter(
@@ -105,7 +105,7 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
   auto y2 = y;
   auto y3 = y;
   naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
-  sgemv_exo(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
+  exo_sgemv(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
 
   for (int i = 0; i < y2.size(); i++) {
     float expected = y2[i];
@@ -119,6 +119,6 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
 
 // Register the function as a benchmark
 // BENCHMARK_REGISTER_F(GEMVFixture, NAIVE) -> Range(16, 16384);
-// BENCHMARK_REGISTER_F(GEMVFixture, APPLE) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, APPLE) -> Range(16, 16384);
 // BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);
 BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> Range(16, 16384);
