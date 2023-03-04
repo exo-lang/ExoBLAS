@@ -1,1 +1,1 @@
-add_exo_blas_test(gemv)
+add_exo_blas_test(gemv s)
