@@ -17,14 +17,17 @@ perf_res = {}
 for d in data['benchmarks']:
     lis = d['name'].split('/')
     name = lis[0]
-    size = lis[1]
+    size = int(lis[1])
     time = d['cpu_time']
     p = perf_res.setdefault( name, ([size], [time]) )
     p[0].append(size)
     p[1].append(time)
 
 for key in perf_res:
-    plt.plot(perf_res[key][0], perf_res[key][1], label=key)
+    sorted_points = sorted([(perf_res[key][0][i], perf_res[key][1][i]) for i in range(len(perf_res[key][0]))])
+    x = [p[0] for p in sorted_points]
+    y = [p[1] for p in sorted_points]
+    plt.plot(x, y, label=key)
     plt.legend()
 
 plt.ylabel('runtime (ns)')
