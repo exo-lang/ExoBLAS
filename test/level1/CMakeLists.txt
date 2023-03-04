@@ -1,6 +1,7 @@
 add_exo_blas_test(copy s)
 add_exo_blas_test(copy d)
 add_exo_blas_test(dot s)
+add_exo_blas_test(dot d)
 add_exo_blas_test(scal s)
 add_exo_blas_test(axpy s)
 add_exo_blas_test(axpy d)
