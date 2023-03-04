@@ -39,14 +39,14 @@ static void BM_exo_ddot(benchmark::State& state) {
 
 // Run scopy with stride = 1
 BENCHMARK(BM_cblas_ddot)->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 10), 2), {1}, {1}
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 10) - 1, 7), {1}, {1}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}
     });
 BENCHMARK(BM_exo_ddot)->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 10), 2), {1}, {1}
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 10) - 1, 7), {1}, {1}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}
     });
 
 // Run scopy with stride != 1
