@@ -6,15 +6,15 @@
 #include "generate_buffer.h"
 #include "correctness_helpers.h"
 
-#include "exo_snrm2.h"
+#include "exo_dnrm2.h"
 
-void test_snrm2(int N, int incX) {
-    printf("Running snrm2 test: N = %d, incX = %d\n", N, incX);
-    auto X = generate1d_sbuffer(N, incX);
+void test_dnrm2(int N, int incX) {
+    printf("Running dnrm2 test: N = %d, incX = %d\n", N, incX);
+    auto X = generate1d_dbuffer(N, incX);
     auto X_expected = X;
 
-    auto result = exo_snrm2(N, X.data(), incX);
-    auto expected = cblas_snrm2(N, X_expected.data(), incX);
+    auto result = exo_dnrm2(N, X.data(), incX);
+    auto expected = cblas_dnrm2(N, X_expected.data(), incX);
 
     auto epsilon = 1.f / 1000.f;
 
@@ -30,12 +30,12 @@ int main () {
     std::vector<int> inc {2, 3, 5, -1, -2, -10};
 
     for (auto n : N) {
-        test_snrm2(n, 1);
+        test_dnrm2(n, 1);
     }
     
     for (auto n : N) {
         for (auto i : inc) {
-            test_snrm2(n, i);
+            test_dnrm2(n, i);
         }
     }
 }
