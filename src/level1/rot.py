@@ -9,15 +9,23 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 @proc
-def rot_template(n: size, x: [f32][n], y: [f32][n], c: f32, s: f32):
+def rot_template(n: size, x: [R][n], y: [R][n], c: R, s: R):
     for i in seq(0, n):
-        xReg: f32
+        xReg: R
         xReg = x[i]
         x[i] = c * xReg + s * y[i]
         y[i] = -s * xReg + c * y[i]
 
-def schedule_rot_stride_1(VEC_W, memory, instructions):
-    simple_stride_1 = rename(rot_template, rot_template.name() + "_simple_stride_1")
+def specialize_precision(precision):
+    prefix = "s" if precision == "f32" else "d"
+    specialized_copy = rename(rot_template, "exo_" + prefix + "rot")
+    for arg in ["x", "y", "c", "s", "xReg"]:
+        specialized_copy = set_precision(specialized_copy, arg, precision)
+    return specialized_copy
+
+def schedule_rot_stride_1(VEC_W, memory, instructions, precision):
+    simple_stride_1 = specialize_precision(precision)
+    simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
     
@@ -68,7 +76,7 @@ def schedule_rot_stride_1(VEC_W, memory, instructions):
     simple_stride_1 = hoist_const_loop(simple_stride_1, "-s")
             
     simple_stride_1 = bind_expr(simple_stride_1, "-s", "NegS")
-    simple_stride_1 = set_precision(simple_stride_1, "NegS", "f32")
+    simple_stride_1 = set_precision(simple_stride_1, "NegS", precision)
     simple_stride_1 = lift_alloc(simple_stride_1, "NegS")
     simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("NegS = -s").after())
     simple_stride_1 = remove_loop(simple_stride_1, "for ii in _:_ #2")
@@ -87,7 +95,7 @@ def schedule_rot_stride_1(VEC_W, memory, instructions):
     
     for buffer in ["xReg", "yReg", "cReg", "sReg", "sNegReg", "cX_Add_sY_Reg", "C_Mul_X_Reg", "S_Mul_Y_Reg", "SNeg_Mul_X_Reg", "C_Mul_Y_Reg"]:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
+        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
     
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
@@ -101,33 +109,53 @@ def schedule_rot_stride_1(VEC_W, memory, instructions):
     
     return simple_stride_1
     
-instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32,
-                C.Machine.mul_instr_f32, C.Machine.add_instr_f32,
-                C.Machine.broadcast_scalar_instr_f32,
-                ]
+#################################################
+# Generate specialized kernels for f32 precision
+#################################################
+
+exo_srot_stride_any = specialize_precision("f32")
+exo_srot_stride_any = rename(exo_srot_stride_any, exo_srot_stride_any.name() + "_stride_any")
+
+f32_instructions = [C.Machine.load_instr_f32, 
+                    C.Machine.store_instr_f32,
+                    C.Machine.mul_instr_f32, 
+                    C.Machine.add_instr_f32,
+                    C.Machine.broadcast_scalar_instr_f32,
+                    ]
+
+if None not in f32_instructions:
+    exo_srot_stride_1 = schedule_rot_stride_1(C.Machine.vec_width, C.Machine.mem_type, f32_instructions, "f32")
+else:
+    exo_srot_stride_1 = specialize_precision("f32")
+    exo_srot_stride_1 = rename(exo_srot_stride_1, exo_srot_stride_1.name() + "_stride_1")
+
+#################################################
+# Generate specialized kernels for f64 precision
+#################################################
+
+exo_drot_stride_any = specialize_precision("f64")
+exo_drot_stride_any = rename(exo_drot_stride_any, exo_drot_stride_any.name() + "_stride_any")
+
+f64_instructions = [C.Machine.load_instr_f64,
+                    C.Machine.store_instr_f64,
+                    C.Machine.mul_instr_f64, 
+                    C.Machine.add_instr_f64,
+                    C.Machine.broadcast_scalar_instr_f64,
+                    ]
+
+if None not in f64_instructions:
+    exo_drot_stride_1 = schedule_rot_stride_1(C.Machine.vec_width // 2, C.Machine.mem_type, f64_instructions, "f64")
+else:
+    exo_drot_stride_1 = specialize_precision("f64")
+    exo_drot_stride_1 = rename(exo_drot_stride_1, exo_drot_stride_1.name() + "_stride_1")
     
-if None not in instructions:
-    rot_stride_1 = schedule_rot_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
-else:
-    rot_stride_1 = rot_template
+entry_points = [exo_srot_stride_any, exo_srot_stride_1, exo_drot_stride_any, exo_drot_stride_1]
 
-@proc
-def exo_srot(n: size, x: [f32][n], y: [f32][n], c: f32, s: f32):
-    assert stride(x, 0) == 1
-    assert stride(y, 0) == 1
-    rot_stride_1(n, x, y, c, s)
-
-"""
-TODO: Should be:
-if stride(x, 0) == 1 and stride(y, 0) == 1:
-    rot_stride_1(n, x, y, c, s)
-else:
-    TODO: do packing first on sub-ranges of x, then use rot_stride_1 as a micro-kernel
-    rot_template(n, x, y, c, s)
-"""
+for p in entry_points:
+    print(p)
 
 if __name__ == "__main__":
-    print(rot_stride_1)
-    print(exo_srot)
+    for p in entry_points:
+        print(p)
 
-__all__ = ["exo_srot"]
+__all__ = [p.name() for p in entry_points]
