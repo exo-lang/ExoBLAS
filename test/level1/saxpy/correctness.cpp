@@ -7,21 +7,21 @@
 #include "generate_buffer.h"
 #include "correctness_helpers.h"
 
-#include "exo_saxpy_wrapper.h"
+#include "exo_saxpy.h"
 
-void test_saxpy(int n, float alpha, int incx, int incy) {
-    printf("Running saxpy test: n = %d, alpha = %f, incx = %d, incy = %d\n", n, alpha, incx, incy);
-    auto x = generate1d_sbuffer(n, incx);
-    auto y = generate1d_sbuffer(n, incy);
-    auto xcopy = x;
-    auto ycopy = y;
+void test_saxpy(int N, float alpha, int incX, int incY) {
+    printf("Running saxpy test: N = %d, alpha = %f, incX = %d, incY = %d\n", N, alpha, incX, incY);
+    auto X = generate1d_sbuffer(N, incX);
+    auto Y = generate1d_sbuffer(N, incY);
+    auto X_expected = X;
+    auto Y_expected = Y;
 
-    exo_saxpy(n, alpha, x.data(), incx, y.data(), incy);
-    cblas_saxpy(n, alpha, xcopy.data(), incx, ycopy.data(), incy);
+    exo_saxpy(N, alpha, X.data(), incX, Y.data(), incY);
+    cblas_saxpy(N, alpha, X_expected.data(), incX, Y_expected.data(), incY);
 
-    for (int i = 0; i < n; ++i) {
-        if (!check_relative_error_okay(y[i], ycopy[i], 1.f / 10000.f)) {
-            printf("Failed ! i = %d, expected %f, got %f\n", i, ycopy[i], y[i]);
+    for (int i = 0; i < Y.size(); ++i) {
+        if (!check_relative_error_okay(Y[i], Y_expected[i], 1.f / 10000.f)) {
+            printf("Failed ! i = %d, expected %f, got %f\n", i, Y_expected[i], Y[i]);
             exit(1);
         }
     }

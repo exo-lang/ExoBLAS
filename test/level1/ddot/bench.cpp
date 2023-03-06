@@ -12,14 +12,12 @@ static void BM_cblas_ddot(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
 
-    std::vector<double> X = generate1d_dbuffer(N, incX);
-    std::vector<double> Y = generate1d_dbuffer(N, incY);
+    auto X = generate1d_dbuffer(N, incX);
+    auto Y = generate1d_dbuffer(N, incY);
 
     for (auto _ : state) {
         cblas_ddot(N, X.data(), incX, Y.data(), incY);
     }
-
-    // state.counters["flops"] = ;
 }
 
 static void BM_exo_ddot(benchmark::State& state) {
@@ -27,17 +25,14 @@ static void BM_exo_ddot(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
 
-    std::vector<double> X = generate1d_dbuffer(N, incX);
-    std::vector<double> Y = generate1d_dbuffer(N, incY);
+    auto X = generate1d_dbuffer(N, incX);
+    auto Y = generate1d_dbuffer(N, incY);
 
     for (auto _ : state) {
         exo_ddot(N, X.data(), incX, Y.data(), incY);
     }
-
-    // state.counters["flops"] = ;
 }
 
-// Run scopy with stride = 1
 BENCHMARK(BM_cblas_ddot)->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}
     })->ArgsProduct({
@@ -49,7 +44,6 @@ BENCHMARK(BM_exo_ddot)->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}
     });
 
-// Run scopy with stride != 1
 // BENCHMARK(BM_cblas_ddot)->ArgsProduct({
 //       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
 //     })->ArgsProduct({

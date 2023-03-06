@@ -11,7 +11,7 @@ static void BM_cblas_snrm2(benchmark::State& state) {
     auto N = state.range(0);
     auto incX = state.range(1);
 
-    std::vector<float> X = generate1d_sbuffer(N, incX);
+    auto X = generate1d_sbuffer(N, incX);
 
     for (auto _ : state) {
         cblas_snrm2(N, X.data(), incX);
@@ -22,7 +22,7 @@ static void BM_exo_snrm2(benchmark::State& state) {
     auto N = state.range(0);
     auto incX = state.range(1);
 
-    std::vector<float> X = generate1d_sbuffer(N, incX);
+    auto X = generate1d_sbuffer(N, incX);
 
     for (auto _ : state) {
         exo_snrm2(N, X.data(), incX);

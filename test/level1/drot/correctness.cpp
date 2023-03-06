@@ -12,24 +12,24 @@
 
 void test_drot(int N, int incX, int incY, double c, double s) {
     printf("Running drot test: N = %d, incX = %d, incY = %d, c = %f, s = %f\n", N, incX, incY, c, s);
-    auto x = generate1d_dbuffer(N, incX);
-    auto y = generate1d_dbuffer(N, incY);
-    auto x_expected = x;
-    auto y_expected = y;
+    auto X = generate1d_dbuffer(N, incX);
+    auto Y = generate1d_dbuffer(N, incY);
+    auto X_expected = X;
+    auto Y_expected = Y;
 
-    exo_drot(N, x.data(), incX, y.data(), incY, c, s);
-    cblas_drot(N, x_expected.data(), incX, y_expected.data(), incY, c, s);
+    exo_drot(N, X.data(), incX, Y.data(), incY, c, s);
+    cblas_drot(N, X_expected.data(), incX, Y_expected.data(), incY, c, s);
 
-    for (int i = 0; i < N; ++i) {
-        if (!check_relative_error_okay(x[i], x_expected[i], 1.f / 10000.f)) {
-            printf("Failed ! expected x[%d] = %f, got %f\n", i, x_expected[i], x[i]);
+    for (int i = 0; i < X.size(); ++i) {
+        if (!check_relative_error_okay(X[i], X_expected[i], 1.f / 10000.f)) {
+            printf("Failed ! expected X[%d] = %f, got %f\n", i, X_expected[i], X[i]);
             exit(1);
         }
     }
 
-    for (int i = 0; i < N; ++i) {
-        if (!check_relative_error_okay(y[i], y_expected[i], 1.f / 10000.f)) {
-            printf("Failed ! expected y[%d] = %f, got %f\n", i, y_expected[i], y[i]);
+    for (int i = 0; i < Y.size(); ++i) {
+        if (!check_relative_error_okay(Y[i], Y_expected[i], 1.f / 10000.f)) {
+            printf("Failed ! expected Y[%d] = %f, got %f\n", i, Y_expected[i], Y[i]);
             exit(1);
         }
     }

@@ -14,7 +14,7 @@ void test_sdsdot(int N, float alpha, int incX, int incY) {
     auto X_expected = X;
     auto Y_expected = Y;
 
-    float result = exo_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
+    auto result = exo_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
     auto expected = cblas_sdsdot(N, alpha, X_expected.data(), incX, Y_expected.data(), incY);
 
     auto epsilon = 1.f / 1000.f;

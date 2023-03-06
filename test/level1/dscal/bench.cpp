@@ -8,9 +8,9 @@
 #include "exo_dscal.h"
 
 static void BM_cblas_dscal(benchmark::State& state) {
-    auto N = state.range(0);
-    auto alpha = state.range(1);
-    auto incX = state.range(2);
+    int N = state.range(0);
+    float alpha = state.range(1);
+    int incX = state.range(2);
 
     auto X = generate1d_dbuffer(N, incX);
 
@@ -20,9 +20,9 @@ static void BM_cblas_dscal(benchmark::State& state) {
 }
 
 static void BM_exo_dscal(benchmark::State& state) {
-    auto N = state.range(0);
-    auto alpha = state.range(1);
-    auto incX = state.range(2);
+    int N = state.range(0);
+    float alpha = state.range(1);
+    int incX = state.range(2);
 
     auto X = generate1d_dbuffer(N, incX);
 

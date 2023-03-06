@@ -9,15 +9,15 @@
 
 void test_sscal(int N, float alpha, int incX) {
     printf("Running sscal test: N = %d, alpha = %f, incX = %d\n", N, alpha, incX);
-    auto x = generate1d_sbuffer(N, incX);
-    auto x_expected = x;
+    auto X = generate1d_sbuffer(N, incX);
+    auto X_expected = X;
 
-    exo_sscal(N, alpha, x.data(), incX);
-    cblas_sscal(N, alpha, x_expected.data(), incX);
+    exo_sscal(N, alpha, X.data(), incX);
+    cblas_sscal(N, alpha, X_expected.data(), incX);
 
-    for (int i = 0; i < x.size(); ++i) {
-        if (!check_relative_error_okay(x[i], x_expected[i], 1.f / 10000.f)) {
-            printf("Failed ! memory offset = %d, expected %f, got %f\n", i, x_expected[i], x[i]);
+    for (int i = 0; i < X.size(); ++i) {
+        if (!check_relative_error_okay(X[i], X_expected[i], 1.f / 10000.f)) {
+            printf("Failed ! memory offset = %d, expected %f, got %f\n", i, X_expected[i], X[i]);
             exit(1);
         }
     }

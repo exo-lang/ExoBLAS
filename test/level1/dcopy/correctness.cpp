@@ -4,25 +4,24 @@
 
 #include "generate_buffer.h"
 
-#include "exo_dcopy_wrapper.h"
+#include "exo_dcopy.h"
 
-void test_dcopy(int n, int incx, int incy) {
-    printf("Running dcopy test: n = %d, incx = %d, incy = %d\n", n, incx, incy);
-    auto x = generate1d_dbuffer(n, incx);
-    auto y = generate1d_dbuffer(n, incy);
-    auto x_expected = x;
-    auto y_expected = y;
+void test_dcopy(int N, int incX, int incY) {
+    printf("Running dcopy test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
+    auto X = generate1d_dbuffer(N, incX);
+    auto Y = generate1d_dbuffer(N, incY);
+    auto X_expected = X;
+    auto Y_expected = Y;
 
-    exo_dcopy(n, x.data(), incx, y.data(), incy);
-    cblas_dcopy(n, x_expected.data(), incx, y_expected.data(), incy);
+    exo_dcopy(N, X.data(), incX, Y.data(), incY);
+    cblas_dcopy(N, X_expected.data(), incX, Y_expected.data(), incY);
 
-    for (int i = 0; i < y_expected.size(); ++i) {
-        if (y_expected[i] != y[i]) {
-            printf("Failed ! mem offset = %d, expected %f, got %f\n", i, y_expected[i], y[i]);
+    for (int i = 0; i < Y_expected.size(); ++i) {
+        if (Y_expected[i] != Y[i]) {
+            printf("Failed ! mem offset = %d, expected %f, got %f\n", i, Y_expected[i], Y[i]);
             exit(1);
         }
     }
-
 
     printf("Passed!\n");
 }

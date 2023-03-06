@@ -8,9 +8,9 @@
 #include "exo_drot.h"
 
 static void BM_cblas_drot(benchmark::State& state) {
-    auto N = state.range(0);
-    auto incX = state.range(1);
-    auto incY = state.range(2);
+    int N = state.range(0);
+    int incX = state.range(1);
+    int incY = state.range(2);
     double c = state.range(3);
     double s = state.range(4);
 
@@ -23,9 +23,9 @@ static void BM_cblas_drot(benchmark::State& state) {
 }
 
 static void BM_exo_drot(benchmark::State& state) {
-    auto N = state.range(0);
-    auto incX = state.range(1);
-    auto incY = state.range(2);
+    int N = state.range(0);
+    int incX = state.range(1);
+    int incY = state.range(2);
     double c = state.range(3);
     double s = state.range(4);
 

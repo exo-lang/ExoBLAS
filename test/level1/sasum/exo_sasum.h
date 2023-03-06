@@ -1,7 +1,5 @@
 #pragma once
 
-#include <math.h>
-
 #include "exo_asum.h"
 
 float exo_sasum(const int N, const float *X, const int incX) {

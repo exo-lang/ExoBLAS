@@ -9,15 +9,15 @@
 
 void test_dscal(int N, double alpha, int incX) {
     printf("Running dscal test: N = %d, alpha = %f, incX = %d\n", N, alpha, incX);
-    auto x = generate1d_dbuffer(N, incX);
-    auto x_expected = x;
+    auto X = generate1d_dbuffer(N, incX);
+    auto X_expected = X;
 
-    exo_dscal(N, alpha, x.data(), incX);
-    cblas_dscal(N, alpha, x_expected.data(), incX);
+    exo_dscal(N, alpha, X.data(), incX);
+    cblas_dscal(N, alpha, X_expected.data(), incX);
 
-    for (int i = 0; i < x.size(); ++i) {
-        if (!check_relative_error_okay(x[i], x_expected[i], 1.f / 10000.f)) {
-            printf("Failed ! memory offset = %d, expected %f, got %f\n", i, x_expected[i], x[i]);
+    for (int i = 0; i < X.size(); ++i) {
+        if (!check_relative_error_okay(X[i], X_expected[i], 1.f / 10000.f)) {
+            printf("Failed ! mem offset = %d, expected %f, got %f\n", i, X_expected[i], X[i]);
             exit(1);
         }
     }

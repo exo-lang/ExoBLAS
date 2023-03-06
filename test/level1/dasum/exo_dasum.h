@@ -1,7 +1,5 @@
 #pragma once
 
-#include <math.h>
-
 #include "exo_asum.h"
 
 double exo_dasum(const int N, const double *X, const int incX) {
