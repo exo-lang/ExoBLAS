@@ -7,16 +7,15 @@
 
 #include "exo_sdsdot_h.h"
 
-void test_sdsdot(int n, int incx, int incy) {
-    printf("Running sdsdot test: n = %d, incx = %d, incy = %d\n", n, incx, incy);
-    auto x = generate1d_sbuffer(n, incx);
-    auto y = generate1d_sbuffer(n, incy);
-    auto xcopy = x;
-    auto ycopy = y;
-    float sb = 1;
+void test_sdsdot(int N, float alpha, int incX, int incY) {
+    printf("Running sdsdot test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
+    auto X = generate1d_sbuffer(N, incX);
+    auto Y = generate1d_sbuffer(N, incY);
+    auto X_expected = X;
+    auto Y_expected = Y;
 
-    float result = exo_sdsdot(n, sb, x.data(), incx, y.data(), incy);
-    auto expected = cblas_sdsdot(n, sb, xcopy.data(), incx, ycopy.data(), incy);
+    float result = exo_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
+    auto expected = cblas_sdsdot(N, alpha, X_expected.data(), incX, Y_expected.data(), incY);
 
     auto epsilon = 1.f / 1000.f;
 
@@ -29,10 +28,18 @@ void test_sdsdot(int n, int incx, int incy) {
 }
 
 int main () {
-    test_sdsdot(1, 1, 1);
-    test_sdsdot(2, 1, 1);
-    test_sdsdot(8, 1, 1);
-    test_sdsdot(100, 1, 1);
-    test_sdsdot(64 * 64 * 64, 1, 1);
-    test_sdsdot(100000000, 1, 1);
+    std::vector<int> N {1, 2, 8, 100, 64 * 64 * 64, 10000000};
+    std::vector<std::pair<int, int> > inc {{2, 2}, {3, 3}, {2, 3}, {4, 5}, {10, -1}, {-2, -4}};
+
+    for (auto n : N) {
+        test_sdsdot(n, 0.0, 1, 1);
+        test_sdsdot(n, -1.3, 1, 1);
+    }
+    
+    for (auto n : N) {
+        for (auto i : inc) {
+            test_sdsdot(n, 0.0, i.first, i.second);
+            test_sdsdot(n, -1.3, i.first, i.second);
+        }
+    }
 }

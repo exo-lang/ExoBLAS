@@ -7,139 +7,52 @@
 
 #include "exo_sdsdot_h.h"
 
-static void BM_CBLAS_SDSDOT(benchmark::State& state) {
-    auto n = state.range(0);
+static void BM_cblas_sdsdot(benchmark::State& state) {
+    int N = state.range(0);
+    int incX = state.range(1);
+    int incY = state.range(2);
+    float alpha = state.range(3);
 
-    std::vector<float> x = generate1d_sbuffer(n, 1);
-    std::vector<float> y = generate1d_sbuffer(n, 1);
-
-    for (auto _ : state) {
-        cblas_sdsdot(n, 1, x.data(), 1, y.data(), 1);
-    }
-
-    // state.counters["flops"] = ;
-}
-
-static void BM_EXO_SDSDOT(benchmark::State& state) {
-    auto n = state.range(0);
-
-    std::vector<float> x = generate1d_sbuffer(n, 1);
-    std::vector<float> y = generate1d_sbuffer(n, 1);
-    float result = 0.0;
-    float sb = 1;
+    auto X = generate1d_sbuffer(N, incX);
+    auto Y = generate1d_sbuffer(N, incY);
 
     for (auto _ : state) {
-        exo_sdsdot(n, 1, x.data(), 1, y.data(), 1);
+        cblas_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
     }
-
-    // state.counters["flops"] = ;
 }
 
-// Register the function as a benchmark
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({1});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({1});
+static void BM_exo_sdsdot(benchmark::State& state) {
+    int N = state.range(0);
+    int incX = state.range(1);
+    int incY = state.range(2);
+    float alpha = state.range(3);
 
+    auto X = generate1d_sbuffer(N, incX);
+    auto Y = generate1d_sbuffer(N, incY);
 
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({2});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({2});
+    for (auto _ : state) {
+        exo_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
+    }
+}
 
+BENCHMARK(BM_cblas_sdsdot)->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}
+    })->ArgsProduct({
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {1}
+    });
+BENCHMARK(BM_exo_sdsdot)->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}
+    })->ArgsProduct({
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {1}
+    });
 
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({4});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({4});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({8});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({8});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({16});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({16});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({32});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({32});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({64});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({64});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({128});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({128});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({256});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({256});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({512});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({512});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({1024});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({1024});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({2048});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({2048});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({4096});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({4096});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({8192});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({8192});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({16384});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({16384});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({32768});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({32768});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({65536});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({65536});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({131072});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({131072});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({262144});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({262144});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({524288});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({524288});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({1048576});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({1048576});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({2097152});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({2097152});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({4194304});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({4194304});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({8388608});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({8388608});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({16777216});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({16777216});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({33554432});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({33554432});
-
-
-BENCHMARK(BM_CBLAS_SDSDOT) -> Args({67108864});
-BENCHMARK(BM_EXO_SDSDOT) -> Args({67108864});
-
+// BENCHMARK(BM_cblas_sdsdot)->ArgsProduct({
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+//     })->ArgsProduct({
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+//     });
+// BENCHMARK(BM_exo_sdsdot)->ArgsProduct({
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+//     })->ArgsProduct({
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+//     });
