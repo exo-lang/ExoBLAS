@@ -9,48 +9,45 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 @proc
-def rotm_template_flag_neg_one(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
+def rotm_template_flag_neg_one(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
-        xReg: f32
+        xReg: R
         xReg = x[i]
         x[i] = H[0, 0] * xReg + H[0, 1] * y[i]
         y[i] = H[1, 0] * xReg + H[1, 1] * y[i]
 
 @proc
-def rotm_template_flag_zero(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
+def rotm_template_flag_zero(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
-        xReg: f32
+        xReg: R
         xReg = x[i]
         x[i] = xReg + H[0, 1] * y[i]
         y[i] = H[1, 0] * xReg + y[i]
         
 @proc
-def rotm_template_flag_one(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
+def rotm_template_flag_one(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
-        xReg: f32
+        xReg: R
         xReg = x[i]
         x[i] = H[0, 0] * xReg + y[i]
         y[i] = -xReg + H[1, 1] * y[i]
 
 @proc
-def rotm_template_flag_neg_two(n: size, x: [f32][n], y: [f32][n], H: f32[2, 2]):
+def rotm_template_flag_neg_two(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
         x[i] = x[i]
         y[i] = y[i]
 
-@proc
-def rotm_template(n: size, x: [f32][n], y: [f32][n], Hflag: size, H: f32[2, 2]):
-    if Hflag == -1:
-        rotm_template_flag_neg_one(n, x, y, H)
-    if Hflag == 0:
-        rotm_template_flag_zero(n, x, y, H)
-    if Hflag == 1:
-        rotm_template_flag_one(n, x, y, H)
-    if Hflag == -2:
-        rotm_template_flag_neg_two(n, x, y, H)
+def specialize_precision(template, precision):
+    prefix = "s" if precision == "f32" else "d"
+    specialized_copy = rename(template, "exo_" + prefix + template.name())
+    for arg in ["x", "y", "xReg", "H"]:
+        specialized_copy = set_precision(specialized_copy, arg, precision)
+    return specialized_copy
 
-def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions):
-    simple_stride_1 = rename(template, template.name() + "_simple_stride_1")
+def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions, precision):
+    simple_stride_1 = specialize_precision(template, precision)
+    simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
     
@@ -130,7 +127,7 @@ def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions):
     
     for buffer in ["xReg", "xReg1", "negXReg", "yReg", "yReg1", "H00Reg", "H01Reg", "H10Reg", "H11Reg", "H00_Mul_X_Reg", "H01_Mul_Y_Reg", "H10_Mul_X_Reg", "H11_Mul_Y_Reg", "H00X_Add_H01Y_Reg"]:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
+        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
     
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
@@ -144,57 +141,127 @@ def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions):
     
     return simple_stride_1
 
-instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32,
-                C.Machine.mul_instr_f32, C.Machine.add_instr_f32,
-                C.Machine.broadcast_instr_f32, C.Machine.reg_copy_instr_f32,
-                C.Machine.sign_instr_f32,
-                ]
+#################################################
+# Generate specialized kernels for f32 precision
+#################################################
 
-if None not in instructions:
-    rotm_flag_neg_one_stride_1 = schedule_rotm_stride_1(rotm_template_flag_neg_one, -1, C.Machine.vec_width, C.Machine.mem_type, instructions)
-else:
-    rotm_flag_neg_one_stride_1 = rotm_template_flag_neg_one
+f32_instructions = [C.Machine.load_instr_f32, 
+                    C.Machine.store_instr_f32,
+                    C.Machine.mul_instr_f32,
+                    C.Machine.add_instr_f32,
+                    C.Machine.broadcast_instr_f32,
+                    C.Machine.reg_copy_instr_f32,
+                    C.Machine.sign_instr_f32,
+                    ]
 
-if None not in instructions:
-    rotm_flag_zero_stride_1 = schedule_rotm_stride_1(rotm_template_flag_zero, 0, C.Machine.vec_width, C.Machine.mem_type, instructions)
-else:
-    rotm_flag_zero_stride_1 = rotm_template_flag_zero
+srotm_flag_neg_one_stride_any = specialize_precision(rotm_template_flag_neg_one, "f32")
+srotm_flag_zero_stride_any = specialize_precision(rotm_template_flag_zero, "f32")
+srotm_flag_one_stride_any = specialize_precision(rotm_template_flag_one, "f32")
+srotm_flag_two_stride_any = specialize_precision(rotm_template_flag_neg_two, "f32")
 
-if None not in instructions:
-    rotm_flag_one_stride_1 = schedule_rotm_stride_1(rotm_template_flag_one, 1, C.Machine.vec_width, C.Machine.mem_type, instructions)
+if None not in f32_instructions:
+    srotm_flag_neg_one_stride_1 = schedule_rotm_stride_1(rotm_template_flag_neg_one, -1, C.Machine.vec_width, C.Machine.mem_type, f32_instructions, "f32")
 else:
-    rotm_flag_one_stride_1 = rotm_template_flag_one
+    srotm_flag_neg_one_stride_1 = srotm_flag_neg_one_stride_any
+
+if None not in f32_instructions:
+    srotm_flag_zero_stride_1 = schedule_rotm_stride_1(rotm_template_flag_zero, 0, C.Machine.vec_width, C.Machine.mem_type, f32_instructions, "f32")
+else:
+    srotm_flag_zero_stride_1 = srotm_flag_zero_stride_any
+
+if None not in f32_instructions:
+    srotm_flag_one_stride_1 = schedule_rotm_stride_1(rotm_template_flag_one, 1, C.Machine.vec_width, C.Machine.mem_type, f32_instructions, "f32")
+else:
+    srotm_flag_one_stride_1 = srotm_flag_one_stride_any
 
 @proc
-def rotm_template_stride_1(n: size, x: [f32][n], y: [f32][n], Hflag: size, H: f32[2, 2]):
+def exo_srotm_stride_1(n: size, x: [f32][n], y: [f32][n], Hflag: size, H: f32[2, 2]):
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
     if Hflag == -1:
-        rotm_flag_neg_one_stride_1(n, x, y, H)
+        srotm_flag_neg_one_stride_1(n, x, y, H)
     if Hflag == 0:
-        rotm_flag_zero_stride_1(n, x, y, H)
+        srotm_flag_zero_stride_1(n, x, y, H)
     if Hflag == 1:
-        rotm_flag_one_stride_1(n, x, y, H)
+        srotm_flag_one_stride_1(n, x, y, H)
     if Hflag == -2:
-        rotm_template_flag_neg_two(n, x, y, H)
+        srotm_flag_two_stride_any(n, x, y, H)
 
 @proc
-def exo_srotm(n: size, x: [f32][n], y: [f32][n], Hflag: size, H: f32[2, 2]):
+def exo_srotm_stride_any(n: size, x: [f32][n], y: [f32][n], Hflag: size, H: f32[2, 2]):
+    if Hflag == -1:
+        srotm_flag_neg_one_stride_any(n, x, y, H)
+    if Hflag == 0:
+        srotm_flag_zero_stride_any(n, x, y, H)
+    if Hflag == 1:
+        srotm_flag_one_stride_any(n, x, y, H)
+    if Hflag == -2:
+        srotm_flag_two_stride_any(n, x, y, H)
+
+#################################################
+# Generate specialized kernels for f64 precision
+#################################################
+
+f64_instructions = [C.Machine.load_instr_f64, 
+                    C.Machine.store_instr_f64,
+                    C.Machine.mul_instr_f64,
+                    C.Machine.add_instr_f64,
+                    C.Machine.broadcast_instr_f64,
+                    C.Machine.reg_copy_instr_f64,
+                    C.Machine.sign_instr_f64,
+                    ]
+
+drotm_flag_neg_one_stride_any = specialize_precision(rotm_template_flag_neg_one, "f64")
+drotm_flag_zero_stride_any = specialize_precision(rotm_template_flag_zero, "f64")
+drotm_flag_one_stride_any = specialize_precision(rotm_template_flag_one, "f64")
+drotm_flag_two_stride_any = specialize_precision(rotm_template_flag_neg_two, "f64")
+
+if None not in f64_instructions:
+    drotm_flag_neg_one_stride_1 = schedule_rotm_stride_1(rotm_template_flag_neg_one, -1, C.Machine.vec_width // 2, C.Machine.mem_type, f64_instructions, "f64")
+else:
+    drotm_flag_neg_one_stride_1 = drotm_flag_neg_one_stride_any
+
+if None not in f64_instructions:
+    drotm_flag_zero_stride_1 = schedule_rotm_stride_1(rotm_template_flag_zero, 0, C.Machine.vec_width // 2, C.Machine.mem_type, f64_instructions, "f64")
+else:
+    drotm_flag_zero_stride_1 = drotm_flag_zero_stride_any
+
+if None not in f64_instructions:
+    drotm_flag_one_stride_1 = schedule_rotm_stride_1(rotm_template_flag_one, 1, C.Machine.vec_width // 2, C.Machine.mem_type, f64_instructions, "f64")
+else:
+    drotm_flag_one_stride_1 = drotm_flag_one_stride_any
+
+@proc
+def exo_drotm_stride_1(n: size, x: [f64][n], y: [f64][n], Hflag: size, H: f64[2, 2]):
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
-    rotm_template_stride_1(n, x, y, Hflag, H)
+    if Hflag == -1:
+        drotm_flag_neg_one_stride_1(n, x, y, H)
+    if Hflag == 0:
+        drotm_flag_zero_stride_1(n, x, y, H)
+    if Hflag == 1:
+        drotm_flag_one_stride_1(n, x, y, H)
+    if Hflag == -2:
+        drotm_flag_two_stride_any(n, x, y, H)
 
-"""
-TODO: Should be:
-if stride(x, 0) == 1 and stride(y, 0) == 1:
-    rot_stride_1(n, x, y, c, s)
-else:
-    TODO: do packing first on sub-ranges of x, then use rot_stride_1 as a micro-kernel
-    rot_template(n, x, y, c, s)
-"""
+@proc
+def exo_drotm_stride_any(n: size, x: [f64][n], y: [f64][n], Hflag: size, H: f64[2, 2]):
+    if Hflag == -1:
+        drotm_flag_neg_one_stride_any(n, x, y, H)
+    if Hflag == 0:
+        drotm_flag_zero_stride_any(n, x, y, H)
+    if Hflag == 1:
+        drotm_flag_one_stride_any(n, x, y, H)
+    if Hflag == -2:
+        drotm_flag_two_stride_any(n, x, y, H)        
+
+entry_points = [exo_srotm_stride_any, exo_srotm_stride_1, exo_drotm_stride_any, exo_drotm_stride_1]
+
+for p in entry_points:
+    print(p)
 
 if __name__ == "__main__":
-    print(rotm_flag_neg_one_stride_1)
-    print(exo_srotm)
+    for p in entry_points:
+        print(p)
 
-__all__ = ["exo_srotm"]
+__all__ = [p.name() for p in entry_points]

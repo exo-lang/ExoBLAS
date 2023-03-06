@@ -7,21 +7,21 @@
 #include "generate_buffer.h"
 #include "correctness_helpers.h"
 
-#include "exo_srotm.h"
+#include "exo_drotm.h"
 
-void test_srotm(int N, int incX, int incY, float HFlag) {
-    printf("Running srotm test: N = %d, incX = %d, incY = %d, HFlag = %f\n", N, incX, incY, HFlag);
+void test_drotm(int N, int incX, int incY, double HFlag) {
+    printf("Running drotm test: N = %d, incX = %d, incY = %d, HFlag = %f\n", N, incX, incY, HFlag);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
-    auto H = generate1d_sbuffer(5, 1);
+    auto X = generate1d_dbuffer(N, incX);
+    auto Y = generate1d_dbuffer(N, incY);
+    auto H = generate1d_dbuffer(5, 1);
     H[0] = HFlag;
     auto X_expected = X;
     auto Y_expected = Y;
     auto H_expected = H;
 
-    exo_srotm(N, X.data(), incX, Y.data(), incY, H.data());
-    cblas_srotm(N, X_expected.data(), incX, Y_expected.data(), incY, H_expected.data());
+    exo_drotm(N, X.data(), incX, Y.data(), incY, H.data());
+    cblas_drotm(N, X_expected.data(), incX, Y_expected.data(), incY, H_expected.data());
 
     for (int i = 0; i < X.size(); ++i) {
         if (!check_relative_error_okay(X[i], X_expected[i], 1.f / 10000.f)) {
@@ -48,18 +48,18 @@ int main () {
                                                 {4, 5}, 
                                                 {10, -1}, 
                                                 {-2, -4}};
-    float HFlag[4] = {-2.0, -1.0, 0.0, 1.0};
+    double HFlag[4] = {-2.0, -1.0, 0.0, 1.0};
     
     for (int i = 0; i < 4; ++i) {
         for (auto n : N) {
-            test_srotm(n, 1, 1, HFlag[i]);
+            test_drotm(n, 1, 1, HFlag[i]);
         }
     }
 
     for (int i = 0; i < 4; ++i) {
         for (auto n : N) {
             for (auto p : params) {
-                test_srotm(n, std::get<0>(p), std::get<1>(p), HFlag[i]);
+                test_drotm(n, std::get<0>(p), std::get<1>(p), HFlag[i]);
             }
         }
     }
