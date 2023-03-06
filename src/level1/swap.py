@@ -9,15 +9,23 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 @proc
-def swap_template(n: size, x: [f32][n], y: [f32][n]):
+def swap_template(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
-        tmp: f32
+        tmp: R
         tmp = x[i]
         x[i] = y[i]
         y[i] = tmp
 
-def schedule_swap_stride_1(VEC_W, memory, instructions):
-    simple_stride_1 = rename(swap_template, swap_template.name() + "_simple_stride_1")
+def specialize_precision(precision):
+    prefix = "s" if precision == "f32" else "d"
+    specialized_copy = rename(swap_template, "exo_" + prefix + "swap")
+    for arg in ["x", "y", "tmp"]:
+        specialized_copy = set_precision(specialized_copy, arg, precision)
+    return specialized_copy
+
+def schedule_swap_stride_1(VEC_W, memory, instructions, precision):
+    simple_stride_1 = specialize_precision(precision)
+    simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
     
@@ -40,7 +48,7 @@ def schedule_swap_stride_1(VEC_W, memory, instructions):
     
     for buffer in ["yReg", "tmp"]:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
+        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
         
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
@@ -54,27 +62,22 @@ def schedule_swap_stride_1(VEC_W, memory, instructions):
     
     return simple_stride_1
 
-instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
+exo_sswap_stride_any = specialize_precision("f32")
+exo_sswap_stride_any = rename(exo_sswap_stride_any, exo_sswap_stride_any.name() + "_stride_any")
 
-swap_stride_1 = schedule_swap_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
+f32_instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
+exo_sswap_stride_1 = schedule_swap_stride_1(C.Machine.vec_width, C.Machine.mem_type, f32_instructions, "f32")
 
-@proc
-def exo_sswap(n: size, x: [f32][n], y: [f32][n]):
-    assert stride(x, 0) == 1
-    assert stride(y, 0) == 1
-    swap_stride_1(n, x, y)
+exo_dswap_stride_any = specialize_precision("f64")
+exo_dswap_stride_any = rename(exo_dswap_stride_any, exo_dswap_stride_any.name() + "_stride_any")
 
-"""
-TODO: Should be:
-if stride(x, 0) == 1:
-    swap_stride_1(n, x, y)
-else:
-    TODO: do packing first on sub-ranges of x, then use swap_stride_1 as a micro-kernel
-    swap_stride_1(n, x, y)
-"""
+f64_instructions = [C.Machine.load_instr_f64, C.Machine.store_instr_f64]
+exo_dswap_stride_1 = schedule_swap_stride_1(C.Machine.vec_width // 2, C.Machine.mem_type, f64_instructions, "f64")
+
+entry_points = [exo_sswap_stride_any, exo_sswap_stride_1, exo_dswap_stride_any, exo_dswap_stride_1]
 
 if __name__ == "__main__":
-    print(swap_stride_1)
-    print(exo_sswap)
+    for p in entry_points:
+        print(p)
 
-__all__ = ["exo_sswap"]
+__all__ = [p.name() for p in entry_points]
