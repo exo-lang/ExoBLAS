@@ -5,7 +5,7 @@
 #include "generate_buffer.h"
 #include "correctness_helpers.h"
 
-#include "exo_sdsdot.h"
+#include "exo_sdsdot_h.h"
 
 void test_sdsdot(int n, int incx, int incy) {
     printf("Running sdsdot test: n = %d, incx = %d, incy = %d\n", n, incx, incy);
@@ -15,10 +15,7 @@ void test_sdsdot(int n, int incx, int incy) {
     auto ycopy = y;
     float sb = 1;
 
-    float result;
-    exo_sdsdot(nullptr, n, &sb,
-    exo_win_1f32c{.data = x.data(), .strides = {incx}},
-    exo_win_1f32c{.data = y.data(), .strides = {incy}}, &result);
+    float result = exo_sdsdot(n, sb, x.data(), incx, y.data(), incy);
     auto expected = cblas_sdsdot(n, sb, xcopy.data(), incx, ycopy.data(), incy);
 
     auto epsilon = 1.f / 1000.f;

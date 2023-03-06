@@ -5,7 +5,7 @@
 
 #include "generate_buffer.h"
 
-#include "exo_sdsdot.h"
+#include "exo_sdsdot_h.h"
 
 static void BM_CBLAS_SDSDOT(benchmark::State& state) {
     auto n = state.range(0);
@@ -29,7 +29,7 @@ static void BM_EXO_SDSDOT(benchmark::State& state) {
     float sb = 1;
 
     for (auto _ : state) {
-        exo_sdsdot(nullptr, n, &sb, exo_win_1f32c{x.data(), {1}}, exo_win_1f32c{y.data(), {1}}, &result);
+        exo_sdsdot(n, 1, x.data(), 1, y.data(), 1);
     }
 
     // state.counters["flops"] = ;
