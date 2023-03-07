@@ -34,6 +34,9 @@ class SYRK:
         self.K_blk = K_blk
         self.M_blk = M_blk
 
+        #machine
+        self.machine = machine
+
         @proc
         def syrk_lower_notranspose(N: size, 
                  K: size, 

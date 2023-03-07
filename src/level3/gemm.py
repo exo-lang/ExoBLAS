@@ -16,6 +16,13 @@ from format_options import *
 
 import exo_blas_config as C
 
+"""
+TODO:
+    1. Variable block sizes based on problem size
+    2. transpose gemm
+    3. dgemm
+"""
+
 class GEMM:
 
     def __init__(self, machine: "MachineParameters",
