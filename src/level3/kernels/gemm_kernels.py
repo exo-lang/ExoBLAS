@@ -183,12 +183,12 @@ class GEBP_kernel:
         
         scheduled_gebp = autofission(scheduled_gebp, scheduled_gebp.find('for jo in _: _').after(), n_lifts=2)
         scheduled_gebp = reorder_loops(scheduled_gebp, 'ii jo')
+       
         scheduled_gebp = replace_all(scheduled_gebp, self.microkernel.base_microkernel)
         scheduled_gebp = call_eqv(scheduled_gebp, f'microkernel_{self.microkernel.this_id}(_)', self.microkernel.scheduled_microkernel)
 
         scheduled_gebp = reorder_loops(scheduled_gebp, 'io jo')
         scheduled_gebp = stage_mem(scheduled_gebp, 'for io in _:_ #0', f'B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]', 'B_strip')
-        
         return simplify(scheduled_gebp), gebp
 
 
@@ -239,8 +239,12 @@ class GEPP_kernel:
 
         scheduled_gepp = rename(base_gepp, "scheduled_gepp")
         scheduled_gepp = divide_loop(scheduled_gepp, 'i', self.gebp.M_blk, ['io', 'ii'], tail='cut_and_guard')
+        scheduled_gepp = stage_mem(scheduled_gepp, 'for ii in _:_ #0', f'A[{self.gebp.M_blk} * io + 0:{self.gebp.M_blk} * io + {self.gebp.M_blk}, 0:{self.K_blk}]', 'A_packed')
+        print(scheduled_gepp)
+
         scheduled_gepp = replace(scheduled_gepp, 'for ii in _:_ #0', self.gebp.base_gebp)
         scheduled_gepp = call_eqv(scheduled_gepp, f'gebp_base_{self.gebp.this_id}(_)', self.gebp.scheduled_gebp)
+        
         return base_gepp, scheduled_gepp
 
 #test_gebp = GEBP_kernel(test_microkernel, 64, 256)
