@@ -12,6 +12,7 @@ from exo.stdlib.scheduling import *
 from exo.API import compile_procs
 
 from blas_common_schedules import *
+import exo_blas_config as C
 
 @proc
 def sgemv(
@@ -24,9 +25,11 @@ def sgemv(
   y: f32[m],
 ):
   for i in seq(0, m):
-    y[i] = beta * y[i]
+    result: f32
+    result = 0.0
     for j in seq(0, n):
-      y[i] += alpha * x[j] * a[i, j]
+      result += x[j] * a[i, j]
+    y[i] = beta * y[i] + alpha * result
       # NOTE: is there a way to do additive/multiplicative associativity? for now I'm just changing the original proc...
       # e.g if i want to bind_expr (b*c) in a*b*c = (a*b)*c, then (b*c) is not found
 
@@ -171,9 +174,78 @@ def schedule_sgemv_on_neon_dot_product(i_tile=8):
 
   return proc
 
-neon_sgemv = rename(schedule_sgemv_on_neon_dot_product(i_tile=8), "sgemv_exo")
+# neon_sgemv = rename(schedule_sgemv_on_neon_dot_product(i_tile=8), "sgemv_exo")
 # neon_sgemv_transpose = rename(schedule_sgemv_transpose_on_neon(), "sgemv_transpose_exo")
 
-print(neon_sgemv)
+def schedule_sdot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instructions):
+    simple_stride_1 = rename(sgemv, sgemv.name() + "_simple_stride_1")
+    simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
+    simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
+        
+    simple_stride_1 = divide_loop(simple_stride_1, "for j in _:_", VEC_W * INTERLEAVE_FACTOR, ("jo", "ji"), tail = "cut")
+    simple_stride_1 = divide_loop(simple_stride_1, "for ji in _:_", VEC_W, ("jm", "ji"), perfect=True)
+    
+    simple_stride_1 = reorder_loops(simple_stride_1, "jo jm")
+    simple_stride_1 = reorder_loops(simple_stride_1, "jo ji")
+    simple_stride_1 = simplify(stage_mem(simple_stride_1, "for jo in _:_", "result", "resultReg", accum=True))
+    simple_stride_1 = expand_dim(simple_stride_1, "resultReg :_ ", VEC_W, "ji")
+    simple_stride_1 = expand_dim(simple_stride_1, "resultReg :_ ", INTERLEAVE_FACTOR, "jm")
+    simple_stride_1 = lift_alloc(simple_stride_1, "resultReg : _", n_lifts=2)
+    simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("for jo in _:_").before(), n_lifts=2)
+    simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("for jo in _:_").after(), n_lifts=2)
+    simple_stride_1 = reorder_loops(simple_stride_1, "ji jo")
+    simple_stride_1 = reorder_loops(simple_stride_1, "jm jo")    
+    
+    lower_bound = f"{VEC_W * INTERLEAVE_FACTOR} * jo + jm * {VEC_W}"
+    simple_stride_1 = stage_mem(simple_stride_1, "for ji in _:_ #1", f"x[{lower_bound}: {lower_bound} + {VEC_W}]", "xReg")
+    simple_stride_1 = stage_mem(simple_stride_1, "for ji in _:_ #1", f"a[i, {lower_bound}: {lower_bound} + {VEC_W}]", "aReg")
+    
+    for buffer in ["xReg", "aReg", "resultReg"]:
+        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
+        simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
+        
+    simple_stride_1 = replace_all(simple_stride_1, instructions)
+    simple_stride_1 = simplify(simple_stride_1)
+    
+    simple_stride_1 = expand_dim(simple_stride_1, "xReg", INTERLEAVE_FACTOR, "jm")
+    simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _")
+    simple_stride_1 = expand_dim(simple_stride_1, "aReg", INTERLEAVE_FACTOR, "jm")
+    simple_stride_1 = lift_alloc(simple_stride_1, "aReg : _")
+    def interleave_instructions(proc, iter):
+        while True:
+            main_loop = proc.find(f"for {iter} in _:_")
+            if len(main_loop.body()) == 1:
+                break
+            proc = fission(proc, main_loop.body()[0].after())
+            proc = unroll_loop(proc, f"for {iter} in _:_")
+        proc = unroll_loop(proc, "for jm in _:_")
+        return proc
+    simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
+    simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
+    simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
+    
+    return simplify(simple_stride_1)
 
-__all__ = ["neon_sgemv"]
+f32_instructions = [C.Machine.load_instr_f32, 
+                     C.Machine.store_instr_f32,
+                     C.Machine.assoc_reduce_add_instr_f32,
+                     C.Machine.set_zero_instr_f32,
+                     C.Machine.fmadd_instr_f32]
+sgemv_stride_1 = schedule_sdot_stride_1_interleaved(C.Machine.vec_width, 4, C.Machine.mem_type, f32_instructions)
+
+@proc
+def exo_sgemv(
+  alpha: f32,
+  beta: f32,
+  m: size,
+  n: size,
+  a: f32[m, n],
+  x: f32[n],
+  y: f32[m],
+):
+  assert (stride(x, 0) == 1)
+  assert (stride(y, 0) == 1)
+  assert (stride(a, 1) == 1)
+  sgemv_stride_1(alpha, beta, m, n, a, x, y)
+  
+__all__ = ["exo_sgemv"]

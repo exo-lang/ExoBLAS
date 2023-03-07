@@ -11,15 +11,23 @@ import exo_blas_config as C
 @proc
 def axpy_template(
   n: size,
-  alpha: f32,
-  x: [f32][n],
-  y: [f32][n],
+  alpha: R,
+  x: [R][n],
+  y: [R][n],
 ):
     for i in seq(0, n):
         y[i] += alpha * x[i]
+        
+def specialize_precision(precision):
+    prefix = "s" if precision == "f32" else "d"
+    specialized_copy = rename(axpy_template, "exo_" + prefix + "axpy")
+    for arg in ["x", "y", "alpha"]:
+        specialized_copy = set_precision(specialized_copy, arg, precision)
+    return specialized_copy
 
-def schedule_axpy_stride_1(VEC_W, memory, instructions):
-    simple_stride_1 = rename(axpy_template, axpy_template.name() + "_simple_stride_1")
+def schedule_axpy_stride_1(VEC_W, memory, instructions, precision):
+    simple_stride_1 = specialize_precision(precision)
+    simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
@@ -52,14 +60,15 @@ def schedule_axpy_stride_1(VEC_W, memory, instructions):
     
     for buffer in ["xReg", "alphaReg", "yReg"]:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
+        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
 
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
     return simplify(simple_stride_1)
 
-def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions):
-    simple_stride_1 = rename(axpy_template, axpy_template.name() + "_simple_stride_1")
+def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision):
+    simple_stride_1 = specialize_precision(precision)
+    simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
@@ -103,7 +112,7 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     
     for buffer in ["xReg", "alphaReg", "yReg"]:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
+        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
 
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
@@ -121,33 +130,47 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     simple_stride_1 = interleave_instructions(simple_stride_1, "im")
     return simplify(simple_stride_1)
 
-instructions = [C.Machine.load_instr_f32,
+#################################################
+# Generate specialized kernels for f32 precision
+#################################################
+
+exo_saxpy_stride_any = specialize_precision("f32")
+exo_saxpy_stride_any = rename(exo_saxpy_stride_any, exo_saxpy_stride_any.name() + "_stride_any")
+
+f32_instructions = [C.Machine.load_instr_f32,
                      C.Machine.store_instr_f32,
                      C.Machine.broadcast_scalar_instr_f32,
                      C.Machine.fmadd_instr_f32,
                      ]
-
-if None not in  instructions:
-    axpy_stride_1 = schedule_interleave_axpy_stride_1(C.Machine.vec_width, 4, C.Machine.mem_type, instructions)
+if None not in f32_instructions:
+    exo_saxpy_stride_1 = schedule_interleave_axpy_stride_1(C.Machine.vec_width, 2, C.Machine.mem_type, f32_instructions, "f32")
 else:
-    axpy_stride_1 = axpy_template
+    exo_saxpy_stride_1 = specialize_precision("f32")
+    exo_saxpy_stride_1 = rename(exo_saxpy_stride_1, exo_saxpy_stride_1.name() + "_stride_1")
 
-@proc
-def exo_saxpy(n: size, alpha: f32, x: [f32][n], y: [f32][n]):
-    assert stride(x, 0) == 1
-    assert stride(y, 0) == 1
-    axpy_stride_1(n, alpha, x, y)
-"""
-TODO: Should be:
-if stride(x, 0) == 1 and stride(y, 0) == 1:
-    axpy_stride_1(n, alpha, x, y)
+#################################################
+# Generate specialized kernels for f64 precision
+#################################################
+
+exo_daxpy_stride_any = specialize_precision("f64")
+exo_daxpy_stride_any = rename(exo_daxpy_stride_any, exo_daxpy_stride_any.name() + "_stride_any")
+
+f64_instructions = [C.Machine.load_instr_f64,
+                     C.Machine.store_instr_f64,
+                     C.Machine.broadcast_scalar_instr_f64,
+                     C.Machine.fmadd_instr_f64,
+                     ]
+
+if None not in f64_instructions:
+    exo_daxpy_stride_1 = schedule_interleave_axpy_stride_1(C.Machine.vec_width // 2, 2, C.Machine.mem_type, f64_instructions, "f64")
 else:
-    TODO: do packing first on sub-ranges of x, then use axpy_stride_1 as a micro-kernel
-    axpy_template(n, alpha, x, y)
-"""
+    exo_daxpy_stride_1 = specialize_precision("f64")
+    exo_daxpy_stride_1 = rename(exo_daxpy_stride_1, exo_daxpy_stride_1.name() + "_stride_1")
+
+entry_points = [exo_saxpy_stride_any, exo_saxpy_stride_1, exo_daxpy_stride_any, exo_daxpy_stride_1]
 
 if __name__ == "__main__":
-    print(axpy_stride_1)
-    print(exo_saxpy)
+    for p in entry_points:
+        print(p)
 
-__all__ = ["exo_saxpy"]
+__all__ = [p.name() for p in entry_points]
