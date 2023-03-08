@@ -1,4 +1,5 @@
 #include <vector>
+#include <tuple>
 
 #include <cblas.h>
 
