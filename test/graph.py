@@ -78,10 +78,77 @@ def peak_bandwidth_plot(params, names_to_points):
     
     plt.legend()
     
-    plt.title(kernel_name + ", params: " + str(params) + "\nBLAS Reference: " + BLA_VENDOR + ", kernel with AVX2")
+    plt.title(f"""{kernel_name}, params: {params}
+              BLAS Reference: {BLA_VENDOR}, kernel with AVX2""")
     plt.ylabel('Gwords/sec')
     plt.xlabel('log(words)')
-    plt.savefig(kernel_graphs_dir + "/" + "peak_bandwidth_" + kernel_name + str(params) + '.png')
+    plt.xticks(range(0, 30, 2))
+    plt.savefig(f"{kernel_graphs_dir}/peak_bandwidth_{kernel_name}_{params}.png")
+
+def raw_runtime_plot(params, names_to_points):
+    plt.clf()
+    for name in names_to_points:
+        points = names_to_points[name]
+        x = [log_2(p[0]) for p in points]
+        y = [p[1] for p in points]
+        plt.plot(x, y, label=name)
+    
+    plt.legend()
+    
+    plt.title(f"""{kernel_name}, params: {params}
+              BLAS Reference: {BLA_VENDOR}, kernel with AVX2""")
+    plt.ylabel('runtime (ns)')
+    plt.xlabel('log(words)')
+    plt.xticks(range(0, 30, 2))
+    plt.savefig(f"{kernel_graphs_dir}/raw_runtime_{kernel_name}_{params}.png", bbox_inches='tight')
+
+def ratio_and_gm_plot(params, names_to_points):
+    names_list = list(names_to_points.keys())
+    
+    for i in range(len(names_list)):
+        for j in range(i + 1, len(names_list)):
+            name1 = names_list[i]
+            name2 = names_list[j]
+            
+            if "exo" not in name2 and "EXO" not in name2:
+                name1, name2 = name2, name1
+            
+            points1 = names_to_points[name1]
+            points2 = names_to_points[name2]
+            sizes1 = [p[0] for p in points1]
+            sizes2 = [p[0] for p in points2]
+            runtimes1 = [p[1] for p in points1]
+            runtimes2 = [p[1] for p in points2]
+            
+            # Points should have been ordered before
+            if sizes1 != sizes2:
+                print(f"Could not plot ratios of {name1} against {name2}, benchmarks did not use the same sizes")
+                continue
+            
+            plt.clf()
+            x = [log_2(sz) for sz in sizes1]
+            y = [runtimes1[i] * 100 / runtimes2[i] for i in range(len(runtimes1))]
+            plt.plot(x, y, label=f"{name1} runtime / {name2} runtime")
+
+            plt.legend()
+            
+            GM = 1
+            for r in y:
+                GM *= r
+            GM = GM ** (1 / len(sizes1))
+            
+            plt.title(f"""
+                      {kernel_name}, params: {params}
+                      GM = {GM}, BLAS Reference: {BLA_VENDOR}
+                      kernel with AVX2""")
+            plt.ylabel('runtime ratio % (ns)')
+            plt.xlabel('log(words)')
+            plt.xticks(range(0, 30, 2))
+            plt.yticks(list(range(0, 201, 20)) + list(range(250, 500, 50)))
+            plt.axhline(y = 100, color = 'r', linestyle = '-')
+            plt.savefig(f"{kernel_graphs_dir}/ratios_{name1}_vs_{name2}_{params}.png", bbox_inches='tight')
     
 for params in perf_res:
     peak_bandwidth_plot(params, perf_res[params])
+    raw_runtime_plot(params, perf_res[params])
+    ratio_and_gm_plot(params, perf_res[params])
