@@ -2,14 +2,24 @@ import json
 import sys
 import matplotlib.pyplot as plt
 import math
+import os
 
 vectors = {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2}
 
-if len(sys.argv) != 4:
-    print("python grpah.py <kernel name> <google benchmark output json file> <BLA_VENDOR>!")
+if len(sys.argv) != 5:
+    print("python grpah.py <kernel name> <google benchmark output json file> <BLA_VENDOR> <graphs_dir>!")
+    exit(1)
 
 kernel_name = sys.argv[1]
 BLA_VENDOR = sys.argv[3]
+graphs_dir = sys.argv[4]
+
+if not os.path.exists(graphs_dir):
+    os.mkdir(graphs_dir)
+
+kernel_graphs_dir = graphs_dir + "/" + kernel_name
+if not os.path.exists(kernel_graphs_dir):
+    os.mkdir(kernel_graphs_dir)
 
 with open(sys.argv[2]) as f:
     data = json.load(f)
@@ -71,7 +81,7 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.title(kernel_name + ", params: " + str(params) + "\nBLAS Reference: " + BLA_VENDOR + ", kernel with AVX2")
     plt.ylabel('Gwords/sec')
     plt.xlabel('log(words)')
-    plt.savefig("peak_bandwidth_" + kernel_name + str(params) + '.png')
+    plt.savefig(kernel_graphs_dir + "/" + "peak_bandwidth_" + kernel_name + str(params) + '.png')
     
 for params in perf_res:
     peak_bandwidth_plot(params, perf_res[params])
