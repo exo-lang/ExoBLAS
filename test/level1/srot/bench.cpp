@@ -14,8 +14,8 @@ static void BM_cblas_srot(benchmark::State& state) {
     float c = state.range(3);
     float s = state.range(4);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
 
     for (auto _ : state) {
         cblas_srot(N, X.data(), incX, Y.data(), incY, c, s);
@@ -29,8 +29,8 @@ static void BM_exo_srot(benchmark::State& state) {
     float c = state.range(3);
     float s = state.range(4);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
 
     for (auto _ : state) {
         exo_srot(N, X.data(), incX, Y.data(), incY, c, s);

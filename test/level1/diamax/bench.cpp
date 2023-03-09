@@ -11,7 +11,7 @@ static void BM_cblas_idamax(benchmark::State& state) {
     int N = state.range(0);
     int incX = state.range(1);
 
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
 
     for (auto _ : state) {
         cblas_idamax(N, X.data(), incX);
@@ -22,7 +22,7 @@ static void BM_exo_idamax(benchmark::State& state) {
     int N = state.range(0);
     int incX = state.range(1);
 
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
 
     for (auto _ : state) {
         exo_idamax(N, X.data(), incX);

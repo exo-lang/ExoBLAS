@@ -12,7 +12,7 @@ static void BM_cblas_sscal(benchmark::State& state) {
     auto alpha = state.range(1);
     auto incX = state.range(2);
 
-    auto X = generate1d_sbuffer(N, incX);
+    auto X = AlignedBuffer<float>(N, incX);
 
     for (auto _ : state) {
         cblas_sscal(N, alpha, X.data(), incX);
@@ -24,7 +24,7 @@ static void BM_exo_sscal(benchmark::State& state) {
     auto alpha = state.range(1);
     auto incX = state.range(2);
 
-    auto X = generate1d_sbuffer(N, incX);
+    auto X = AlignedBuffer<float>(N, incX);
 
     for (auto _ : state) {
         exo_sscal(N, alpha, X.data(), incX);

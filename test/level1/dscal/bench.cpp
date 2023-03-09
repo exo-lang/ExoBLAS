@@ -12,7 +12,7 @@ static void BM_cblas_dscal(benchmark::State& state) {
     float alpha = state.range(1);
     int incX = state.range(2);
 
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
 
     for (auto _ : state) {
         cblas_dscal(N, alpha, X.data(), incX);
@@ -24,7 +24,7 @@ static void BM_exo_dscal(benchmark::State& state) {
     float alpha = state.range(1);
     int incX = state.range(2);
 
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
 
     for (auto _ : state) {
         exo_dscal(N, alpha, X.data(), incX);

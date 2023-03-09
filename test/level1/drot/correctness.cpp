@@ -12,8 +12,8 @@
 
 void test_drot(int N, int incX, int incY, double c, double s) {
     printf("Running drot test: N = %d, incX = %d, incY = %d, c = %f, s = %f\n", N, incX, incY, c, s);
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
     auto X_expected = X;
     auto Y_expected = Y;
 

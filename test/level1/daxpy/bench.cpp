@@ -13,8 +13,8 @@ static void BM_cblas_daxpy(benchmark::State& state) {
     int incX = state.range(2);
     int incY = state.range(3);
 
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
 
     for (auto _ : state) {
         cblas_daxpy(N, alpha, X.data(), incY, Y.data(), incY);
@@ -27,8 +27,8 @@ static void BM_exo_daxpy(benchmark::State& state) {
     int incX = state.range(2);
     int incY = state.range(3);
 
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
 
     for (auto _ : state) {
         exo_daxpy(N, alpha, X.data(), incY, Y.data(), incY);

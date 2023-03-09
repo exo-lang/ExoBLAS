@@ -8,8 +8,8 @@
  
 void test_scopy(int N, int incX, int incY) {
     printf("Running scopy test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
     auto X_expected = X;
     auto Y_expected = Y;
 

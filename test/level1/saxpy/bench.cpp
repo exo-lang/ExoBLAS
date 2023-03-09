@@ -13,8 +13,8 @@ static void BM_cblas_saxpy(benchmark::State& state) {
     int incX = state.range(2);
     int incY = state.range(3);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
 
     for (auto _ : state) {
         cblas_saxpy(N, alpha, X.data(), incY, Y.data(), incY);
@@ -27,8 +27,8 @@ static void BM_exo_saxpy(benchmark::State& state) {
     int incX = state.range(2);
     int incY = state.range(3);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
 
     for (auto _ : state) {
         exo_saxpy(N, alpha, X.data(), incY, Y.data(), incY);

@@ -6,21 +6,68 @@
 #include <algorithm>
 
 template <typename T>
-static void randomize(std::vector<T> &buffer) {
-    static std::random_device rd;
-    static std::mt19937 rng{rd()};
-    std::uniform_real_distribution<> rv{-1.0f, 1.0f};
-    std::generate(buffer.begin(), buffer.end(), [&]() { return rv(rng); });
-}
+class AlignedBuffer {
+public:
+    AlignedBuffer(size_t N, int inc, size_t alignment = 64) {
+        size_ = 1 + (N - 1) * abs(inc);
+        alignment_ = alignment;
+        buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * (size_ + alignment_ - (size_ % alignment_)));
+        if (buffer_ == NULL) {
+            throw "AlignedBuffer allocation Failed";
+        }
+        randomize();
+    }
 
-static std::vector<float> generate1d_sbuffer(int n, int inc) {
-    std::vector<float> buffer(1 + (n - 1) * abs(inc));
-    randomize(buffer);
-    return buffer;
-}
+    AlignedBuffer(const AlignedBuffer<T> &other) {
+        size_ = other.size_;
+        alignment_ = other.alignment_;
+        buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * size_);
+        std::copy(buffer_, buffer_ + size_, other.buffer_);
+    }
 
-static std::vector<double> generate1d_dbuffer(int n, int inc) {
-    std::vector<double> buffer(1 + (n - 1) * abs(inc));
-    randomize(buffer);
-    return buffer;
-}
+    AlignedBuffer<T>& operator=(const AlignedBuffer<T>& other) {
+        free(buffer_);
+        
+        size_ = other.size_;
+        alignment_ = other.alignment_;
+        buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * size_ + alignment_ - (size_ % alignment_));
+        std::copy(buffer_, buffer_ + size_, other.buffer_);
+
+        return *this;
+    }
+
+
+    ~AlignedBuffer() {
+        free(buffer_);
+    }
+
+    size_t size() {
+        return size_;
+    }
+
+    size_t alignment() {
+        return alignment_;
+    }
+
+    T* data() {
+        return buffer_;
+    }
+    
+    T& operator[](std::size_t i) {
+        return buffer_[i];
+    }
+
+private:
+    void randomize() {
+        static std::random_device rd;
+        static std::mt19937 rng{rd()};
+        std::uniform_real_distribution<> rv{-1.0f, 1.0f};
+        for (size_t i = 0; i < size_; ++i) {
+            buffer_[i] = rv(rng);
+        }
+    }
+
+    size_t size_;
+    size_t alignment_;
+    T* buffer_;
+};

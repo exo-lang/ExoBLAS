@@ -9,7 +9,7 @@
 
 void test_sasum(int N, int incX) {
     printf("Running sasum test: N = %d, incX = %d\n", N, incX);
-    auto X = generate1d_sbuffer(N, incX);
+    auto X = AlignedBuffer<float>(N, incX);
     auto X_expected = X;
 
     auto result = exo_sasum(N, X.data(), incX);

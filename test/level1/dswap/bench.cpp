@@ -12,8 +12,8 @@ static void BM_cblas_dswap(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
 
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
 
     for (auto _ : state) {
         cblas_dswap(N, X.data(), incX, Y.data(), incY);
@@ -25,8 +25,8 @@ static void BM_exo_dswap(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
 
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
 
     for (auto _ : state) {
         exo_dswap(N, X.data(), incX, Y.data(), incY);

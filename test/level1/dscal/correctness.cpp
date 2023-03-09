@@ -10,7 +10,7 @@
 
 void test_dscal(int N, double alpha, int incX) {
     printf("Running dscal test: N = %d, alpha = %f, incX = %d\n", N, alpha, incX);
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
     auto X_expected = X;
 
     exo_dscal(N, alpha, X.data(), incX);

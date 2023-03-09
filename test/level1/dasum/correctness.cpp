@@ -9,7 +9,7 @@
 
 void test_dasum(int N, int incX) {
     printf("Running dasum test: N = %d, incX = %d\n", N, incX);
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
     auto X_expected = X;
 
     auto result = exo_dasum(N, X.data(), incX);

@@ -14,8 +14,8 @@ static void BM_cblas_drot(benchmark::State& state) {
     double c = state.range(3);
     double s = state.range(4);
 
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
 
     for (auto _ : state) {
         cblas_drot(N, X.data(), incX, Y.data(), incY, c, s);
@@ -29,8 +29,8 @@ static void BM_exo_drot(benchmark::State& state) {
     double c = state.range(3);
     double s = state.range(4);
 
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
 
     for (auto _ : state) {
         exo_drot(N, X.data(), incX, Y.data(), incY, c, s);

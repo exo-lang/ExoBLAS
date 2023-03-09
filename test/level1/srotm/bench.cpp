@@ -13,17 +13,12 @@ static void BM_cblas_srotm(benchmark::State& state) {
     int incX = state.range(2);
     int incY = state.range(3);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
-    auto H = generate1d_sbuffer(5, 1);
-    H[0] = HFlag;
-    H[1] = 1.2;
-    H[2] = 2.2;
-    H[3] = 3.2;
-    H[4] = 4.2;
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
+    float H[5] = {HFlag, 1.2, 2.2, 3.2, 4.2};
 
     for (auto _ : state) {
-        cblas_srotm(N, X.data(), incX, Y.data(), incY, H.data());
+        cblas_srotm(N, X.data(), incX, Y.data(), incY, H);
     }
 }
 
@@ -33,17 +28,12 @@ static void BM_exo_srotm(benchmark::State& state) {
     int incX = state.range(2);
     int incY = state.range(3);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
-    auto H = generate1d_sbuffer(5, 1);
-    H[0] = HFlag;
-    H[1] = 1.2;
-    H[2] = 2.2;
-    H[3] = 3.2;
-    H[4] = 4.2;
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
+    float H[5] = {HFlag, 1.2, 2.2, 3.2, 4.2};
 
     for (auto _ : state) {
-        exo_srotm(N, X.data(), incX, Y.data(), incY, H.data());
+        exo_srotm(N, X.data(), incX, Y.data(), incY, H);
     }
 }
 

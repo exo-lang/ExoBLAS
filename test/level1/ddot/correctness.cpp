@@ -9,8 +9,8 @@
 
 void test_ddot(int N, int incX, int incY) {
     printf("Running ddot test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
     auto X_expected = X;
     auto Y_expected = Y;
 

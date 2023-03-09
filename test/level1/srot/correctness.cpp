@@ -12,8 +12,8 @@
 
 void test_srot(int N, int incX, int incY, float c, float s) {
     printf("Running srot test: N = %d, incX = %d, incY = %d, c = %f, s = %f\n", N, incX, incY, c, s);
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
     auto X_expected = X;
     auto Y_expected = Y;
 

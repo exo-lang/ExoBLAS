@@ -12,8 +12,8 @@ static void BM_cblas_sdot(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
 
     for (auto _ : state) {
         cblas_sdot(N, X.data(), incX, Y.data(), incY);
@@ -25,8 +25,8 @@ static void BM_exo_sdot(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
 
     for (auto _ : state) {
         exo_sdot(N, X.data(), incX, Y.data(), incY);

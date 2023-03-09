@@ -11,7 +11,7 @@ static void BM_cblas_sasum(benchmark::State& state) {
     int N = state.range(0);
     int incX = state.range(1);
 
-    auto X = generate1d_sbuffer(N, incX);
+    auto X = AlignedBuffer<float>(N, incX);
 
     for (auto _ : state) {
         cblas_sasum(N, X.data(), incX);
@@ -22,7 +22,7 @@ static void BM_exo_sasum(benchmark::State& state) {
     int N = state.range(0);
     int incX = state.range(1);
 
-    auto X = generate1d_sbuffer(N, incX);
+    auto X = AlignedBuffer<float>(N, incX);
 
     for (auto _ : state) {
         exo_sasum(N, X.data(), incX);

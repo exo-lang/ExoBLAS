@@ -10,7 +10,7 @@
 
 void test_sscal(int N, float alpha, int incX) {
     printf("Running sscal test: N = %d, alpha = %f, incX = %d\n", N, alpha, incX);
-    auto X = generate1d_sbuffer(N, incX);
+    auto X = AlignedBuffer<float>(N, incX);
     auto X_expected = X;
 
     exo_sscal(N, alpha, X.data(), incX);
