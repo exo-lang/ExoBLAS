@@ -83,7 +83,9 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.ylabel('Gwords/sec')
     plt.xlabel('log(words)')
     plt.xticks(range(0, 30, 2))
-    plt.savefig(f"{kernel_graphs_dir}/peak_bandwidth_{kernel_name}_{params}.png")
+    fig_file_name = f"{kernel_graphs_dir}/peak_bandwidth_{kernel_name}_{params}.png"
+    fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
+    plt.savefig(fig_file_name)
 
 def raw_runtime_plot(params, names_to_points):
     plt.clf()
@@ -100,7 +102,9 @@ def raw_runtime_plot(params, names_to_points):
     plt.ylabel('runtime (ns)')
     plt.xlabel('log(words)')
     plt.xticks(range(0, 30, 2))
-    plt.savefig(f"{kernel_graphs_dir}/raw_runtime_{kernel_name}_{params}.png", bbox_inches='tight')
+    fig_file_name = f"{kernel_graphs_dir}/raw_runtime_{kernel_name}_{params}.png"
+    fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
+    plt.savefig(fig_file_name, bbox_inches='tight')
 
 def ratio_and_gm_plot(params, names_to_points):
     names_list = list(names_to_points.keys())
@@ -146,7 +150,9 @@ def ratio_and_gm_plot(params, names_to_points):
             plt.xticks(range(0, 30, 2))
             plt.yticks(list(range(0, 201, 20)) + list(range(250, 500, 50)))
             plt.axhline(y = 100, color = 'r', linestyle = '-')
-            plt.savefig(f"{kernel_graphs_dir}/ratios_{name1}_vs_{name2}_{params}.png", bbox_inches='tight')
+            fig_file_name = f"{kernel_graphs_dir}/ratios_{name1}_vs_{name2}_{params}.png"
+            fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
+            plt.savefig(fig_file_name, bbox_inches='tight')
     
 for params in perf_res:
     peak_bandwidth_plot(params, perf_res[params])
