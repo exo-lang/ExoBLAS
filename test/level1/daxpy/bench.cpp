@@ -35,23 +35,23 @@ static void BM_exo_daxpy(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_cblas_daxpy)->ArgsProduct({
+BENCHMARK(BM_cblas_daxpy)->ArgNames({"n", "alpha", "incX", "incY"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {3}, {1}, {1}
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {3}, {1}, {1}
     });
-BENCHMARK(BM_exo_daxpy)->ArgsProduct({
+BENCHMARK(BM_exo_daxpy)->ArgNames({"n", "alpha", "incX", "incY"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {3}, {1}, {1}
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {3}, {1}, {1}
     });
 
-// BENCHMARK(BM_cblas_daxpy)->ArgsProduct({
+// BENCHMARK(BM_cblas_daxpy)->ArgNames({"n", "alpha", "incX", "incY"})->ArgsProduct({
 //       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
 //     })->ArgsProduct({
 //       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
 //     });
-// BENCHMARK(BM_exo_daxpy)->ArgsProduct({
+// BENCHMARK(BM_exo_daxpy)->ArgNames({"n", "alpha", "incX", "incY"})->ArgsProduct({
 //       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
 //     })->ArgsProduct({
 //       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}

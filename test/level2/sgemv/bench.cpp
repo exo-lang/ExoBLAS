@@ -119,6 +119,6 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
 
 // Register the function as a benchmark
 // BENCHMARK_REGISTER_F(GEMVFixture, NAIVE) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, APPLE) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, APPLE) -> ArgNames({"n"}) -> Range(16, 16384);
 // BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> ArgNames({"n"}) -> Range(16, 16384);

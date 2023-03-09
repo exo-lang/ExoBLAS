@@ -48,11 +48,11 @@ static void BM_EXO_SROTM(benchmark::State& state) {
 }
 
 // Register the function as a benchmark
-BENCHMARK(BM_cblas_drotm)->ArgsProduct({
+BENCHMARK(BM_cblas_drotm)->ArgNames({"n", "HFlag", "incX", "incY"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2),
       {-1, 0, 1, -2}, {1}, {1}
     });
-BENCHMARK(BM_EXO_SROTM)->ArgsProduct({
+BENCHMARK(BM_EXO_SROTM)->ArgNames({"n", "HFlag", "incX", "incY"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2),
       {-1, 0, 1, -2}, {1}, {1}
     });

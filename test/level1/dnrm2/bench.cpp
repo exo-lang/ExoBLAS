@@ -29,23 +29,23 @@ static void BM_exo_dnrm2(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_cblas_dnrm2)->ArgsProduct({
+BENCHMARK(BM_cblas_dnrm2)->ArgNames({"n", "incX"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {1}
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}
     });
-BENCHMARK(BM_exo_dnrm2)->ArgsProduct({
+BENCHMARK(BM_exo_dnrm2)->ArgNames({"n", "incX"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {1}
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}
     });
 
-// BENCHMARK(BM_cblas_dnrm2)->ArgsProduct({
+// BENCHMARK(BM_cblas_dnrm2)->ArgNames({"n", "incX"})->ArgsProduct({
 //       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}
 //     })->ArgsProduct({
 //       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}
 //     });
-// BENCHMARK(BM_exo_dnrm2)->ArgsProduct({
+// BENCHMARK(BM_exo_dnrm2)->ArgNames({"n", "incX"})->ArgsProduct({
 //       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}
 //     })->ArgsProduct({
 //       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}

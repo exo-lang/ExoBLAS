@@ -29,12 +29,12 @@ static void BM_exo_sasum(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_cblas_sasum)->ArgsProduct({
+BENCHMARK(BM_cblas_sasum)->ArgNames({"n", "incX"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {1}
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}
     });
-BENCHMARK(BM_exo_sasum)->ArgsProduct({
+BENCHMARK(BM_exo_sasum)->ArgNames({"n", "incX"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {1}
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}

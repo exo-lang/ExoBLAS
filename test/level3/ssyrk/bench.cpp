@@ -134,12 +134,12 @@ static void BM_SYRK_EXO(benchmark::State& state) {
 
 }
 
-BENCHMARK(BM_SYRK_CBLAS) -> Args({2048});
-BENCHMARK(BM_SYRK_EXO) -> Args({2048});
+BENCHMARK(BM_SYRK_CBLAS) -> ArgNames({"n"}) -> Args({2048});
+BENCHMARK(BM_SYRK_EXO) -> ArgNames({"n"}) -> Args({2048});
 
-BENCHMARK(BM_SYRK_CBLAS) -> Args({1024});
-BENCHMARK(BM_SYRK_EXO) -> Args({1024});
+BENCHMARK(BM_SYRK_CBLAS) -> ArgNames({"n"}) -> Args({1024});
+BENCHMARK(BM_SYRK_EXO) -> ArgNames({"n"}) -> Args({1024});
 
-BENCHMARK(BM_SYRK_CBLAS) -> Args({256});
-BENCHMARK(BM_SYRK_EXO) -> Args({256});
+BENCHMARK(BM_SYRK_CBLAS) -> ArgNames({"n"}) -> Args({256});
+BENCHMARK(BM_SYRK_EXO) -> ArgNames({"n"}) -> Args({256});
 

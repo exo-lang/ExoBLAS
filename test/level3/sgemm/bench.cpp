@@ -134,11 +134,11 @@ static void BM_GEMM_EXO(benchmark::State& state) {
 }
 
 
-BENCHMARK(BM_GEMM_CBLAS) -> Args({2048});
-BENCHMARK(BM_GEMM_EXO) -> Args({2048});
+BENCHMARK(BM_GEMM_CBLAS) -> ArgNames({"n"}) -> Args({2048});
+BENCHMARK(BM_GEMM_EXO) -> ArgNames({"n"}) -> Args({2048});
 
-BENCHMARK(BM_GEMM_CBLAS) -> Args({1024});
-BENCHMARK(BM_GEMM_EXO) -> Args({1024});
+BENCHMARK(BM_GEMM_CBLAS) -> ArgNames({"n"}) -> Args({1024});
+BENCHMARK(BM_GEMM_EXO) -> ArgNames({"n"}) -> Args({1024});
 
-BENCHMARK(BM_GEMM_CBLAS) -> Args({256});
-BENCHMARK(BM_GEMM_EXO) -> Args({256});
+BENCHMARK(BM_GEMM_CBLAS) -> ArgNames({"n"}) -> Args({256});
+BENCHMARK(BM_GEMM_EXO) -> ArgNames({"n"}) -> Args({256});
