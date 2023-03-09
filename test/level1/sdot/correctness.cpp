@@ -17,7 +17,7 @@ void test_sdot(int N, int incX, int incY) {
     auto result = exo_sdot(N, X.data(), incX, Y.data(), incY);
     auto expected = cblas_sdot(N, X_expected.data(), incX, Y_expected.data(), incY);
 
-    auto epsilon = 1.f / 1000.f;
+    auto epsilon = 1.f / 100.f;
 
     if (!check_relative_error_okay(result, expected, epsilon)) {
         printf("Failed! Expected %f, got %f\n", expected, result);

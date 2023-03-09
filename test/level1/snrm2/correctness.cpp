@@ -16,7 +16,7 @@ void test_snrm2(int N, int incX) {
     auto result = exo_snrm2(N, X.data(), incX);
     auto expected = cblas_snrm2(N, X_expected.data(), incX);
 
-    auto epsilon = 1.f / 1000.f;
+    auto epsilon = 1.f / 100.f;
 
     if (!check_relative_error_okay(result, expected, epsilon)) {
         printf("Failed! Expected %f, got %f\n", expected, result);

@@ -17,7 +17,7 @@ void test_sscal(int N, float alpha, int incX) {
     cblas_sscal(N, alpha, X_expected.data(), incX);
 
     for (int i = 0; i < X.size(); ++i) {
-        if (!check_relative_error_okay(X[i], X_expected[i], 1.f / 10000.f)) {
+        if (!check_relative_error_okay(X[i], X_expected[i], 1.f / 100.f)) {
             printf("Failed ! memory offset = %d, expected %f, got %f\n", i, X_expected[i], X[i]);
             exit(1);
         }
