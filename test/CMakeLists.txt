@@ -23,6 +23,7 @@ find_package(Python 3 REQUIRED Interpreter)
 
 function(add_exo_blas_test kernel precision)
   set(precision_kernel "${precision}${kernel}")
+  set(benchmark_json_output "output_${precision_kernel}_${BLA_VENDOR}.json")
   # Add the benchmark test
   add_executable(${precision_kernel}_bench ${precision_kernel}/bench.cpp)
 
@@ -40,7 +41,7 @@ function(add_exo_blas_test kernel precision)
   set_tests_properties(
     ${precision_kernel}_bench
     PROPERTIES
-    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;"
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=json;BENCHMARK_OUT=${benchmark_json_output}"
   )
 
   # Add the correctness test
@@ -56,14 +57,14 @@ function(add_exo_blas_test kernel precision)
 
   add_test(NAME ${precision_kernel}_correctness COMMAND ${precision_kernel}_correctness)
   set_tests_properties(
-    ${precision_kernel}_bench
+    ${precision_kernel}_correctness
     PROPERTIES
-    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=json;BENCHMARK_OUT=output_${precision_kernel}.json"
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1"
   )
 
   add_test(
     NAME ${precision_kernel}_graph
-    COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/graph.py" ${precision_kernel} output_${precision_kernel}.json
+    COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/graph.py" ${precision_kernel} ${benchmark_json_output} ${BLA_VENDOR}
   )
 endfunction()
 

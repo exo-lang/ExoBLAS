@@ -5,10 +5,11 @@ import math
 
 vectors = {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2}
 
-if len(sys.argv) != 3:
-    print("python grpah.py <kernel name> <google benchmark output json file>!")
+if len(sys.argv) != 4:
+    print("python grpah.py <kernel name> <google benchmark output json file> <BLA_VENDOR>!")
 
 kernel_name = sys.argv[1]
+BLA_VENDOR = sys.argv[3]
 
 with open(sys.argv[2]) as f:
     data = json.load(f)
@@ -67,7 +68,7 @@ def peak_bandwidth_plot(params, names_to_points):
     
     plt.legend()
     
-    plt.title(kernel_name + ", params: " + str(params) + ", kernel with AVX2")
+    plt.title(kernel_name + ", params: " + str(params) + "\nBLAS Reference: " + BLA_VENDOR + ", kernel with AVX2")
     plt.ylabel('Gwords/sec')
     plt.xlabel('log(words)')
     plt.savefig("peak_bandwidth_" + kernel_name + str(params) + '.png')
