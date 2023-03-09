@@ -43,12 +43,12 @@ BENCHMARK(BM_exo_dscal)->ArgNames({"n", "alpha", "incX"})->ArgsProduct({
     });
 
 // BENCHMARK(BM_cblas_dscal)->ArgNames({"n", "alpha", "incX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {17}, {-4, 2, 4, 10}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {17}, {-4, 2, 4, 10}
 //     });
 // BENCHMARK(BM_exo_dscal)->ArgNames({"n", "alpha", "incX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {17}, {-4, 2, 4, 10}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {17}, {-4, 2, 4, 10}
 //     });

@@ -47,12 +47,12 @@ BENCHMARK(BM_exo_saxpy)->ArgNames({"n", "alpha", "incX", "incY"})->ArgsProduct({
     });
 
 // BENCHMARK(BM_cblas_saxpy)->ArgNames({"n", "alpha", "incX", "incY"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {3}, {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {3}, {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}
 //     });
 // BENCHMARK(BM_exo_saxpy)->ArgNames({"n", "alpha", "incX", "incY"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {3}, {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {3}, {-4, 2, 1, 4, 10}, {-4, 2, 1, 4, 10}
 //     });

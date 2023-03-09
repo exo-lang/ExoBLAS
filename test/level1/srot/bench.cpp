@@ -47,3 +47,14 @@ BENCHMARK(BM_exo_srot)->ArgNames({"n", "incX", "incY", "c", "s"})->ArgsProduct({
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {2}, {3}
     });
+
+// BENCHMARK(BM_cblas_srot)->ArgNames({"n", "incX", "incY", "c", "s"})->ArgsProduct({
+//       benchmark::CreateRange(1, (1 << 26), 2), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {2}, {3}
+//     })->ArgsProduct({
+//       benchmark::CreateRange(7, (1 << 26) - 1, 7), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {2}, {3}
+//     });
+// BENCHMARK(BM_exo_srot)->ArgNames({"n", "incX", "incY", "c", "s"})->ArgsProduct({
+//       benchmark::CreateRange(1, (1 << 26), 2), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {2}, {3}
+//     })->ArgsProduct({
+//       benchmark::CreateRange(7, (1 << 26) - 1, 7), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {2}, {3}
+//     });
