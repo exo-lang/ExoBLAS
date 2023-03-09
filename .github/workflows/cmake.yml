@@ -22,8 +22,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Install Ninja
-      run: sudo apt install ninja-build git python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+        
+    - name: Install Ninja and git
+      run: sudo apt install ninja-build git
     
     - name: Install Exo
       run: git clone https://github.com/exo-lang/exo.git ; cd exo; python -m build . ; python -m pip install dist/*.whl
