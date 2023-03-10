@@ -40,14 +40,14 @@ static void BM_exo_saxpy(benchmark::State& state) {
 }
 
 BENCHMARK(BM_cblas_saxpy)->ArgNames({"n", "alpha", "incX", "incY", "alignmentX", "alignmentY"})->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {3}, {1}, {1}, {64}, {64}
+      benchmark::CreateRange(1, (1 << 26), 2), {0, 1, 3}, {1}, {1}, {64}, {64}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {3}, {1}, {1}, {64}, {64}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {0, 1, 3}, {1}, {1}, {64}, {64}
     });
 BENCHMARK(BM_exo_saxpy)->ArgNames({"n", "alpha", "incX", "incY", "alignmentX", "alignmentY"})->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {3}, {1}, {1}, {64}, {64}
+      benchmark::CreateRange(1, (1 << 26), 2), {0, 1, 3}, {1}, {1}, {64}, {64}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {3}, {1}, {1}, {64}, {64}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {0, 1, 3}, {1}, {1}, {64}, {64}
     });
 
 // BENCHMARK(BM_cblas_saxpy)->ArgNames({"n", "alpha", "incX", "incY", "alignmentX", "alignmentY"})->ArgsProduct({

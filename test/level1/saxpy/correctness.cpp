@@ -31,11 +31,14 @@ void test_saxpy(int N, float alpha, int incX, int incY) {
 
 int main () {
     std::vector<int> N {1, 2, 8, 100, 64 * 64 * 64, 10000000};
+    std::vector<float>alpha = {1.2, -2.2, 0.0, 1.0};
     std::vector<std::tuple<float, int, int> > params {{1.2, 2, 2}, {2.5, 3, 3}, {0, 2, 3},
                                                  {1, 4, 5}, {1.3, 10, -1}, {4.5, -2, -4}};
 
     for (auto n : N) {
-        test_saxpy(n, 1.2, 1, 1);
+        for (auto a : alpha) {
+            test_saxpy(n, a, 1, 1);
+        }
     }
     
     for (auto n : N) {
