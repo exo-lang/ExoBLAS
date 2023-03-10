@@ -106,6 +106,10 @@ def peak_bandwidth_plot(params, names_to_points):
     
     peak_x = [0, log_2(32*1024/4), log_2(256*1024/4), log_2(6*1024*1024/4), log_2(66*1024*1024/4)]
     peak_y = [60.764375, 26.390875, 14.170275, 8.750275, 8.750275]
+
+    if x[-1] > peak_x[-1]:
+        peak_x[-1] = x[-1]
+
     plt.plot(peak_x, peak_y, drawstyle='steps-post', label="peak bandwidth")
     
     plt.legend()
