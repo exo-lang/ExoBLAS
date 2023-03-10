@@ -2,3 +2,5 @@ __pycache__/
 **/*.o
 build/
 graphs/
+.DS_Store
+.vscode/*
