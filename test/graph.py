@@ -4,10 +4,36 @@ import matplotlib.pyplot as plt
 import math
 import os
 
-vectors = {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2}
+
+def mem_footprint(kernel_name, size):
+    if kernel_name in ["snrm2", "sscal", "scopy", "srot", "sswap", "sasum", "sdot"]:
+        return size
+    elif kernel_name in ["sgemv"]:
+        return size*size
+    else:
+        raise NotImplementedError(f"Input size of {kernel_name} is not implemented")
+
+
+def mem_ops(kernel_name, size):
+    """
+    Returns total memory usage of `kernel_name` of dimension `size` in words.
+    """
+    mem_ops = {
+        1: {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2},
+        2: {"sgemv": 1}
+    }
+
+    if kernel_name in mem_ops[1].keys():
+        return size*mem_ops[1].get(kernel_name, 2)
+    elif kernel_name in mem_ops[2].keys():
+        # TODO: generalize beyond nxn matrices
+        return size*size*mem_ops[2].get(kernel_name, 1)
+    else:
+        raise NotImplementedError(f"Memory usage of {kernel_name} is not implemented")
+
 
 if len(sys.argv) != 5:
-    print("python grpah.py <kernel name> <google benchmark output json file> <BLA_VENDOR> <graphs_dir>!")
+    print("python graph.py <kernel name> <google benchmark output json file> <BLA_VENDOR> <graphs_dir>!")
     exit(1)
 
 kernel_name = sys.argv[1]
@@ -43,19 +69,22 @@ for d in data['benchmarks']:
     lis = d['name'].split('/')
     if "Fixture" in lis[0]:
         lis = lis[1:]
-
-    name = lis[0].split('_')
-    name = " ".join(name[1:])
+        name = lis[0]
+    else:
+        name = lis[0].split('_')
+        name = " ".join(name[1:])
 
     size = int(lis[1].split(":")[1]) # Words
     params = tuple(lis[2:])
     time = d['cpu_time'] # ns
     # size : word already
     # time is nanoseconds
-    
+
     params_dict = perf_res.setdefault(params, {})
     points = params_dict.setdefault(name, [])
     points.append((size, time))
+
+print(params_dict)
 
 # Sort Raw Data
 for params in perf_res:
@@ -66,12 +95,12 @@ for params in perf_res:
 
 def peak_bandwidth_plot(params, names_to_points):
     def get_gword_sec(size, time):
-        return (size*vectors.get(kernel_name, 2)*10**9)/(time*2**30)
+        return (mem_ops(kernel_name, size)*10**9)/(time*2**30)
 
     plt.clf()
     for name in names_to_points:
         points = names_to_points[name]
-        x = [log_2(p[0]) for p in points]
+        x = [log_2(mem_footprint(kernel_name, p[0])) for p in points]
         y = [get_gword_sec(p[0], p[1]) for p in points]
         plt.plot(x, y, label=name)
     
