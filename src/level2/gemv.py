@@ -203,10 +203,10 @@ def schedule_sdot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruc
     for buffer in ["xReg", "aReg", "resultReg"]:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
         simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
-        
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
+
     simple_stride_1 = simplify(simple_stride_1)
-    
+    simple_stride_1 = replace_all(simple_stride_1, instructions)
+
     simple_stride_1 = expand_dim(simple_stride_1, "xReg", INTERLEAVE_FACTOR, "jm")
     simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _")
     simple_stride_1 = expand_dim(simple_stride_1, "aReg", INTERLEAVE_FACTOR, "jm")
@@ -223,15 +223,28 @@ def schedule_sdot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruc
     simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
     simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
     simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
-    
+
     return simplify(simple_stride_1)
 
-f32_instructions = [C.Machine.load_instr_f32, 
+
+# TODO: add to EXO's Neon library
+@instr("*{result} += vaddvq_f32({x_data});")
+def neon_assoc_reduce_add_instr_4xf32(result: f32 @ DRAM, x: [f32][4] @ Neon4f):
+  for i in seq(0, 4):
+      result += x[i]
+
+
+f32_instructions = [C.Machine.load_instr_f32,
                      C.Machine.store_instr_f32,
-                     C.Machine.assoc_reduce_add_instr_f32,
                      C.Machine.set_zero_instr_f32,
                      C.Machine.fmadd_instr_f32]
+if C.Machine.name == "neon":
+    f32_instructions.append(neon_assoc_reduce_add_instr_4xf32)
+else:
+    f32_instructions.append(C.Machine.assoc_reduce_add_instr_f32)
+
 sgemv_stride_1 = schedule_sdot_stride_1_interleaved(C.Machine.vec_width, 4, C.Machine.mem_type, f32_instructions)
+print("FINAL", sgemv_stride_1)
 
 @proc
 def exo_sgemv(

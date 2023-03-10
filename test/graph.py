@@ -41,6 +41,9 @@ perf_res = {}
 # Parse data
 for d in data['benchmarks']:
     lis = d['name'].split('/')
+    if "Fixture" in lis[0]:
+        lis = lis[1:]
+
     name = lis[0].split('_')
     name = " ".join(name[1:])
 
