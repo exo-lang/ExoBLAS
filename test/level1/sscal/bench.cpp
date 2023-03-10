@@ -34,14 +34,14 @@ static void BM_exo_sscal(benchmark::State& state) {
 }
 
 BENCHMARK(BM_cblas_sscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {17}, {1}, {64}
+      benchmark::CreateRange(1, (1 << 26), 2), {0, 1, 17}, {1}, {64}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {17}, {1}, {64}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {0, 1, 17}, {1}, {64}
     });
 BENCHMARK(BM_exo_sscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {17}, {1}, {64}
+      benchmark::CreateRange(1, (1 << 26), 2), {0, 1, 17}, {1}, {64}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {17}, {1}, {64}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {0, 1, 17}, {1}, {64}
     });
 
 // BENCHMARK(BM_cblas_sscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsProduct({
