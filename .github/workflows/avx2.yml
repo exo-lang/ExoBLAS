@@ -1,4 +1,4 @@
-name: CMake
+name: AVX2
 
 on:
   push:
