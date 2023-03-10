@@ -11,7 +11,7 @@ double exo_dasum(const int N, const double *X, const int incX) {
         return result;
     } else {
         if (incX < 0) {
-            X = X + (1 - N) * incX;
+            return 0.0;
         }
         double result;
         exo_dasum_stride_any(nullptr, N, 

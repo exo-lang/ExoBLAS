@@ -10,7 +10,7 @@ void exo_sscal(const int N, const float alpha, float *X, const int incX) {
             exo_win_1f32{.data = X, .strides = {incX}});
     } else {
         if (incX < 0) {
-            X = X + (1 - N) * incX;
+            return;
         }
         exo_sscal_stride_any(nullptr, N, &alpha,
             exo_win_1f32{.data = X, .strides = {incX}});

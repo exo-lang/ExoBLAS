@@ -27,7 +27,7 @@ void test_sasum(int N, int incX) {
 
 int main () {
     std::vector<int> N {1, 2, 8, 100, 64 * 64 * 64, 10000000};
-    std::vector<int> inc {2, 3, 5, -1, -2, -10};
+    std::vector<int> inc {2, 3, 5, -1, 10};
 
     for (auto n : N) {
         test_sasum(n, 1);

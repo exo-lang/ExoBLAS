@@ -10,7 +10,7 @@ void exo_dscal(const int N, const double alpha, double *X, const int incX) {
             exo_win_1f64{.data = X, .strides = {incX}});
     } else {
         if (incX < 0) {
-            X = X + (1 - N) * incX;
+            return;
         }
         exo_dscal_stride_any(nullptr, N, &alpha,
             exo_win_1f64{.data = X, .strides = {incX}});

@@ -43,12 +43,12 @@ BENCHMARK(BM_exo_dasum)->ArgNames({"n", "incX"})->ArgsProduct({
     });
 
 // BENCHMARK(BM_cblas_dasum)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {64}
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {2, 4, 10}, {64}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {64}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {2, 4, 10}, {64}
 //     });
 // BENCHMARK(BM_exo_dasum)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {64}
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {2, 4, 10}, {64}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {64}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {2, 4, 10}, {64}
 //     });

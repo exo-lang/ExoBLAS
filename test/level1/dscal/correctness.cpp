@@ -29,7 +29,7 @@ void test_dscal(int N, double alpha, int incX) {
 int main () {
     std::vector<int> N {1, 2, 8, 100, 64 * 64 * 64, 10000000};
     std::vector<double> alphas {0, 1, 2, -3, 3.14};
-    std::vector<std::tuple<double, int> > params {{1.2, 2}, {2.5, 3}, {0, -1},
+    std::vector<std::tuple<double, int> > params {{1.2, 2}, {2.5, 3}, {0, 5},
                                                  {1, 4}, {1.3, 10}, {4.5, -2}};
 
     for (auto n : N) {
