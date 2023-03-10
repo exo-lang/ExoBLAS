@@ -25,7 +25,7 @@ jobs:
         python-version: 3.9
         
     - name: Install Ninja and git
-      run: sudo brew install ninja git
+      run: brew install ninja git
       
     - name: Install Google benchmark
       run: git clone https://github.com/google/benchmark; cmake -S benchmark -B benchmark/build -DCMAKE_BUILD_TYPE=Release -DBENCHMARK_ENABLE_TESTING=NO ; cmake --build benchmark/build; cmake --install benchmark/build --prefix ~/.local
