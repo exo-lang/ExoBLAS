@@ -4,6 +4,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <cstring>
 
 template <typename T>
 class AlignedBuffer {
@@ -21,8 +22,8 @@ public:
     AlignedBuffer(const AlignedBuffer<T> &other) {
         size_ = other.size_;
         alignment_ = other.alignment_;
-        buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * size_);
-        std::copy(buffer_, buffer_ + size_, other.buffer_);
+        buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * (size_ + alignment_ - (size_ % alignment_)));
+        memcpy(buffer_, other.buffer_, size_ * sizeof(T));
     }
 
     AlignedBuffer<T>& operator=(const AlignedBuffer<T>& other) {
@@ -31,7 +32,7 @@ public:
         size_ = other.size_;
         alignment_ = other.alignment_;
         buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * size_ + alignment_ - (size_ % alignment_));
-        std::copy(buffer_, buffer_ + size_, other.buffer_);
+        memcpy(buffer_, other.buffer_, size_ * sizeof(T));
 
         return *this;
     }
