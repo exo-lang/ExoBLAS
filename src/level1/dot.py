@@ -98,6 +98,8 @@ def schedule_dot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     
     return simplify(simple_stride_1)
 
+INTERLEAVE_FACTOR = 4
+
 #################################################
 # Generate specialized kernels for f32 precision
 #################################################
@@ -112,7 +114,7 @@ f32_instructions = [C.Machine.load_instr_f32,
                      C.Machine.fmadd_instr_f32]
 
 if None not in f32_instructions:
-    exo_sdot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width, 2, C.Machine.mem_type, f32_instructions, "f32")
+    exo_sdot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width, INTERLEAVE_FACTOR, C.Machine.mem_type, f32_instructions, "f32")
 else:
     exo_sdot_stride_1 = specialize_precision("f32")
     exo_sdot_stride_1 = rename(exo_sdot_stride_1, exo_sdot_stride_1.name() + "_stride_1")
@@ -132,7 +134,7 @@ f64_instructions = [C.Machine.load_instr_f64,
                      ]
 
 if None not in f64_instructions:
-    exo_ddot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width // 2, 2, C.Machine.mem_type, f64_instructions, "f64")
+    exo_ddot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width // 2, INTERLEAVE_FACTOR, C.Machine.mem_type, f64_instructions, "f64")
 else:
     exo_ddot_stride_1 = specialize_precision("f64")
     exo_ddot_stride_1 = rename(exo_ddot_stride_1, exo_ddot_stride_1.name() + "_stride_1")
