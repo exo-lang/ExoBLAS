@@ -53,6 +53,24 @@ class SYRK:
                 for j in seq(0, i+1):
                     for k in seq(0, K):
                         C[i, j] += A1[i, k]*A2[k, j]
+        
+        @proc
+        def diag_handler_lower_notranspose(N: size, 
+                 K: size, 
+                 A1: [f32][N, K] @ DRAM, 
+                 A2: [f32][K, N] @ DRAM,
+                 C: [f32][N, N] @ DRAM):
+            # C = A*A**T + C      
+            assert N >= 1
+            assert K >= 1
+            assert stride(A1, 1) == 1
+            assert stride(A2, 1) == 1
+            assert stride(C, 1) == 1
+
+            for i in seq(0, N):
+                for j in seq(0, i):
+                    for k in seq(0, K):
+                        C[i, j] += A1[i, k]*A2[k, j]
 
         @proc
         def ssyrk_lower_transpose(N: size, 
@@ -77,7 +95,7 @@ class SYRK:
         self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'A1', True)
         self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'A2', True)
         self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'C', True)
-        self.gepp_ssyrk_scheduled_lower_notranspose, self.gepp_ssyrk_base_lower_notranspose = self.generate_ssyrk_gepp_lower_notranspose()
+        self.gepp_ssyrk_scheduled_lower_notranspose, self.gepp_ssyrk_base_lower_notranspose = self.generate_ssyrk_gepp_lower_notranspose(diag_handler_lower_notranspose)
         ssyrk_scheduled_lower_notranspose = self.schedule_ssyrk_lower_notranspose(ssyrk_lower_notranspose)
 
         @proc
@@ -103,14 +121,16 @@ class SYRK:
         return gepp_syrk_base
     
 
-    def generate_ssyrk_gepp_lower_notranspose(self):
+    def generate_ssyrk_gepp_lower_notranspose(self, diag_handler: Procedure):
+
+        assert(self.M_blk >= 128) # Temporary
 
         gepp_syrk_base = self.generate_ssyrk_gepp_base(self.ssyrk_win_lower_notranspose)
 
         gepp_syrk_scheduled = rename(gepp_syrk_base, "gepp_ssyrk_scheduled")
-        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'i', self.M_blk, ['io', 'ii'], tail='cut_and_guard')
+        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'i', self.M_blk, ['io', 'ii'], tail='cut')
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for j in _:_', 1)
-        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'j #1', self.M_blk, ['jo', 'ji'], tail='cut_and_guard')
+        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'j #1', self.M_blk, ['jo', 'ji'], tail='cut')
 
         gepp_syrk_scheduled = reorder_stmts(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_ #0').expand(1))
         gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_').after(), n_lifts=1)
@@ -121,19 +141,33 @@ class SYRK:
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #0', self.gebp_kernel.base_gebp)
         gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'gebp_base_{self.gebp_kernel.this_id}(_)', self.gebp_kernel.scheduled_gebp)
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
+        gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for ii in _:_ #0').before(), n_lifts=1)
 
+        diag_syrk_base = rename(diag_handler, "diag_handler")
+        diag_syrk_base = diag_syrk_base.partial_eval(K=self.K_blk, N=self.M_blk)
+        gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #1', diag_syrk_base)
         
-        gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for ii in _:_ #1', self.microkernel.N_r)
-        gepp_syrk_scheduled = assert_if(gepp_syrk_scheduled, gepp_syrk_scheduled.find('if _:_ #1'), True)
-        
-        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ii #2', self.microkernel.M_r, ['iio', 'iii'], tail='cut_and_guard')
-        gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for ji in _:_ #1', self.microkernel.N_r)
-        gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ji #2', self.microkernel.N_r, ['jio', 'jii'], tail='cut_and_guard')
-        gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for ji in _:_ #1').after(), n_lifts=1)
-        gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
-        gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for iii in _:_', self.microkernel.base_microkernel)
-        gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'microkernel_{self.microkernel.this_id}(_)', self.microkernel.scheduled_microkernel)
-        gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
+        #TODO: generate GEBP procedures until M_blk is the size of the microkernel
+        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//4)
+        diag_syrk_scheduled = rename(diag_syrk_base, 'diag_handler_scheduled')
+        diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'i', gebp_diag_handler.M_blk, ['io', 'ii'], tail='cut')
+        diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'j', gebp_diag_handler.M_blk, ['jo', 'ji'], tail='cut')
+        diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for ji in _:_ #1').before(), n_lifts=1)
+        diag_syrk_scheduled = simplify(diag_syrk_scheduled)
+        diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, 'ii jo')
+        diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for ii in _:_ #0', gebp_diag_handler.base_gebp)
+        diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'gebp_base_{gebp_diag_handler.this_id}(_)', gebp_diag_handler.scheduled_gebp)
+
+        microkernel_diag_handler = Microkernel(self.machine, 8, 8, self.K_blk)
+        diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ii in _:_', microkernel_diag_handler.M_r, ['iio', 'iii'], tail='cut')
+        diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ji in _:_', microkernel_diag_handler.N_r, ['jio', 'jii'], tail='cut')
+        diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for jii in _:_ #1').before(), n_lifts=1)
+        diag_syrk_scheduled = simplify(diag_syrk_scheduled)
+        diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, 'iii jio')
+        diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for iii in _:_ #0', microkernel_diag_handler.base_microkernel)
+        diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'microkernel_{microkernel_diag_handler.this_id}(_)', microkernel_diag_handler.scheduled_microkernel)
+
+        gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, 'diag_handler(_)', diag_syrk_scheduled)
 
         return gepp_syrk_scheduled, gepp_syrk_base
 
