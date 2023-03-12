@@ -10,7 +10,7 @@
 
 void test_dnrm2(int N, int incX) {
     printf("Running dnrm2 test: N = %d, incX = %d\n", N, incX);
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
     auto X_expected = X;
 
     auto result = exo_dnrm2(N, X.data(), incX);

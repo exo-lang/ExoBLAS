@@ -67,7 +67,7 @@ BENCHMARK_DEFINE_F(GEMVFixture, NAIVE)(benchmark::State& state) {
   );
 }
 
-BENCHMARK_DEFINE_F(GEMVFixture, APPLE)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(GEMVFixture, REFERENCE)(benchmark::State& state) {
   for (auto _ : state) {
     cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
   }
@@ -119,6 +119,6 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
 
 // Register the function as a benchmark
 // BENCHMARK_REGISTER_F(GEMVFixture, NAIVE) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, APPLE) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, REFERENCE) -> ArgNames({"n"}) -> Range(16, 16384);
 // BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> ArgNames({"n"}) -> Range(16, 16384);

@@ -14,17 +14,8 @@ class syrk:
     m_reg = @SYRK_M_REG@
     n_reg = @SYRK_N_REG@
 
-    uplo = "@SYRK_UPLO@"
-    trans = @SYRK_TRANS@
-
 class gemm:
     k_blk = @GEMM_K_BLK@
     m_blk = @GEMM_M_BLK@
     m_reg = @GEMM_M_REG@
     n_reg = @GEMM_N_REG@
-
-    alpha = @GEMM_ALPHA@
-    beta = @GEMM_BETA@
-
-    transa = @GEMM_TRANSA@
-    transb = @GEMM_TRANSB@

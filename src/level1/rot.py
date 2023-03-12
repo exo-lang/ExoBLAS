@@ -151,9 +151,6 @@ else:
     
 entry_points = [exo_srot_stride_any, exo_srot_stride_1, exo_drot_stride_any, exo_drot_stride_1]
 
-for p in entry_points:
-    print(p)
-
 if __name__ == "__main__":
     for p in entry_points:
         print(p)

@@ -11,8 +11,8 @@
 
 void test_daxpy(int N, double alpha, int incX, int incY) {
     printf("Running daxpy test: N = %d, alpha = %f, incX = %d, incY = %d\n", N, alpha, incX, incY);
-    auto X = generate1d_dbuffer(N, incX);
-    auto Y = generate1d_dbuffer(N, incY);
+    auto X = AlignedBuffer<double>(N, incX);
+    auto Y = AlignedBuffer<double>(N, incY);
     auto X_expected = X;
     auto Y_expected = Y;
 
@@ -31,11 +31,14 @@ void test_daxpy(int N, double alpha, int incX, int incY) {
 
 int main () {
     std::vector<int> N {1, 2, 8, 100, 64 * 64 * 64, 10000000};
+    std::vector<double>alpha = {1.2, -2.2, 0.0, 1.0};
     std::vector<std::tuple<double, int, int> > params {{1.2, 2, 2}, {2.5, 3, 3}, {0, 2, 3},
                                                  {1, 4, 5}, {1.3, 10, -1}, {4.5, -2, -4}};
 
     for (auto n : N) {
-        test_daxpy(n, 1.2, 1, 1);
+        for (auto a : alpha) {
+            test_daxpy(n, a, 1, 1);
+        }
     }
     
     for (auto n : N) {

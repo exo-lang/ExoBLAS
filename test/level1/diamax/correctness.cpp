@@ -10,16 +10,13 @@
 
 void test_idamax(int N, int incX) {
     printf("Running idamax test: N = %d, incX = %d\n", N, incX);
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
     auto X_expected = X;
 
     auto result = exo_idamax(N, X.data(), incX);
     auto expected = cblas_idamax(N, X_expected.data(), incX);
 
     if (result != expected) {
-        for (auto x : X) {
-            std::cout << x << std::endl;
-        }
         printf("Failed! Expected %ld, got %d\n", expected, result);
         exit(1);
     }

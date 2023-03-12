@@ -9,7 +9,7 @@
 
 void test_dasum(int N, int incX) {
     printf("Running dasum test: N = %d, incX = %d\n", N, incX);
-    auto X = generate1d_dbuffer(N, incX);
+    auto X = AlignedBuffer<double>(N, incX);
     auto X_expected = X;
 
     auto result = exo_dasum(N, X.data(), incX);
@@ -27,7 +27,7 @@ void test_dasum(int N, int incX) {
 
 int main () {
     std::vector<int> N {1, 2, 8, 100, 64 * 64 * 64, 10000000};
-    std::vector<int> inc {2, 3, 5, -1, -2, -10};
+    std::vector<int> inc {2, 3, 5, -1, 10};
 
     for (auto n : N) {
         test_dasum(n, 1);

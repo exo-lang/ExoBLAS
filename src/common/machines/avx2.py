@@ -4,6 +4,16 @@ from exo.platforms.x86 import *
 
 from .machine import MachineParameters
 
+@instr("{dst_data} = _mm256_mul_ps({dst_data}, {rhs_data});")
+def mm256_mul_ps_hack(
+    dst: [f32][8] @ AVX2, rhs: [f32][8] @ AVX2
+):
+    assert stride(dst, 0) == 1
+    assert stride(rhs, 0) == 1
+
+    for i in seq(0, 8):
+        dst[i] = dst[i] * rhs[i]
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -25,7 +35,7 @@ Machine = MachineParameters(
     zpad_store_instr=None,
     set_zero_instr_f32=mm256_setzero_ps,
     assoc_reduce_add_instr_f32=avx2_assoc_reduce_add_ps,
-    mul_instr_f32_hack=None,
+    mul_instr_f32_hack=mm256_mul_ps_hack,
     mul_instr_f32=mm256_mul_ps,
     add_instr_f32=mm256_add_ps,
     reduce_add_wide_instr_f32=avx2_reduce_add_wide_ps,

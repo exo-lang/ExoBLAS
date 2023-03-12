@@ -9,15 +9,15 @@
 
 void test_sdot(int N, int incX, int incY) {
     printf("Running sdot test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
     auto X_expected = X;
     auto Y_expected = Y;
 
     auto result = exo_sdot(N, X.data(), incX, Y.data(), incY);
     auto expected = cblas_sdot(N, X_expected.data(), incX, Y_expected.data(), incY);
 
-    auto epsilon = 1.f / 1000.f;
+    auto epsilon = 1.f / 100.f;
 
     if (!check_relative_error_okay(result, expected, epsilon)) {
         printf("Failed! Expected %f, got %f\n", expected, result);

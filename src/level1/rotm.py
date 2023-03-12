@@ -257,9 +257,6 @@ def exo_drotm_stride_any(n: size, x: [f64][n], y: [f64][n], Hflag: size, H: f64[
 
 entry_points = [exo_srotm_stride_any, exo_srotm_stride_1, exo_drotm_stride_any, exo_drotm_stride_1]
 
-for p in entry_points:
-    print(p)
-
 if __name__ == "__main__":
     for p in entry_points:
         print(p)

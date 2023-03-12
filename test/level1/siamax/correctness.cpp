@@ -9,7 +9,7 @@
 
 void test_isamax(int N, int incX) {
     printf("Running isamax test: N = %d, incX = %d\n", N, incX);
-    auto X = generate1d_sbuffer(N, incX);
+    auto X = AlignedBuffer<float>(N, incX);
     auto X_expected = X;
 
     auto result = exo_isamax(N, X.data(), incX);

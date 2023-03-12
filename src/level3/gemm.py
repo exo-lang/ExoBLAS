@@ -1,4 +1,5 @@
 from __future__ import annotations
+from importlib.metadata import entry_points
 from os import abort
 
 import sys
@@ -27,8 +28,6 @@ class GEMM:
 
     def __init__(self, machine: "MachineParameters",
                  precision: str,
-                 transa: ExoBlasT, transb: ExoBlasT,
-                 alpha: float, beta: float,
                  K_blk: int, M_blk: int, 
                  M_reg: int, N_reg: int):
 
@@ -38,7 +37,6 @@ class GEMM:
             M: size,
             N: size,
             K: size,
-            alpha: f32[1],
             C: f32[M, N] @ DRAM,
             A: f32[M, K] @ DRAM,
             B: f32[K, N] @ DRAM,
@@ -67,17 +65,6 @@ class GEMM:
                     for k in seq(0, K):
                         C[i, j] += A[i,k] * temp[k, j]   
 
-        @proc
-        def gemm_do_nothing(
-            M: size,
-            N: size,
-            K: size,
-            alpha: f32[1],
-            C: f32[M, N] @ DRAM,
-            A: f32[M, K] @ DRAM,
-            B: f32[K, N] @ DRAM,
-        ):
-            pass
 
         ### ALPHA AND BETA
         @proc
@@ -105,85 +92,110 @@ class GEMM:
 
 
         @proc
-        def do_nothing(
-            M: size, 
-            N: size, 
-            scalar: f32[1], 
-            A: f32[M, N] @ DRAM
-        ):
+        def do_nothing():
             pass                   
-
-        ### Process format options
-
-        if transb==ExoBlasNoTranspose:
-
-            if transa==ExoBlasNoTranspose:
-                if alpha==1.0:
-                    self.gemm_base = gemm_notranspose_noalpha
-                elif alpha != 0.0:
-                    self.gemm_base = gemm_notranspose_alpha
-                else:
-                    self.gemm_base = gemm_do_nothing
-
-            elif transa==ExoBlasTranspose:
-                raise Exception("Not implemented")
-
-        elif transb==ExoBlasTranspose:
-
-            if transa==ExoBlasNoTranspose:
-                raise Exception("Not implemented")
-
-            elif transa==ExoBlasTranspose:
-                raise Exception("Not implemented")
-        
-        #if alpha==1.0:
-        #    apply_alpha = do_nothing
-        #else:
-        #    apply_alpha = self.schedule_apply_scalar(gemm_apply_scalar, machine, 'A', 'apply_alpha')
-        #    print(apply_alpha)
             
         
-        if beta==1.0:
-            apply_beta = do_nothing
-        else:
-            apply_beta = self.schedule_apply_scalar(gemm_apply_scalar, machine, ['P'], 'apply_beta', True)
+        ### Alpha and Beta scaling procedures
+        apply_alpha = self.schedule_apply_scalar(gemm_apply_scalar_no_overwrite, machine, ['Q', 'P'], 'apply_alpha', False)
+        apply_beta = self.schedule_apply_scalar(gemm_apply_scalar, machine, ['P'], 'apply_beta', True)
         
 
-        ### Schedule GEMM
+        ### GEMM kernels
         self.microkernel = Microkernel(machine, M_reg, N_reg, K_blk) #TODO: Add precision args to microkernel, gebp, gepp
         self.gebp = GEBP_kernel(self.microkernel, M_blk)
         self.gepp = GEPP_kernel(self.gebp)
+        
 
-        if alpha==1.0:
-            gemm_scheduled = self.schedule_gemm_notranspose_noalpha()
-        elif alpha != 0.0:
-            apply_alpha = self.schedule_apply_scalar(gemm_apply_scalar_no_overwrite, machine, ['Q', 'P'], 'apply_alpha', False)
-            gemm_scheduled = self.schedule_gemm_notranspose_alpha(gemm_apply_scalar_no_overwrite, apply_alpha)
-        else:
-            gemm_scheduled = self.gemm_base
+        ### GEMM variants
+        gemm_scheduled_notranspose_noalpha = self.schedule_gemm_notranspose_noalpha(gemm_notranspose_noalpha)
+        gemm_scheduled_notranspose_alpha = self.schedule_gemm_notranspose_alpha(gemm_notranspose_alpha, gemm_apply_scalar_no_overwrite, apply_alpha)
 
 
+        ### Create final GEMM procedures
 
-        ### Create final GEMM
+        # Alpha = Beta = 1
         @proc
-        def exo_gemm(
+        def exo_gemm_notranspose_noalpha_nobeta(
             M: size,
             N: size,
             K: size,
             alpha: f32[1],
             beta: f32[1],
-            C: f32[M, N] @ DRAM,
             A: f32[M, K] @ DRAM,
             B: f32[K, N] @ DRAM,
+            C: f32[M, N] @ DRAM
+        ):
+            gemm_scheduled_notranspose_noalpha(M, N, K, C, A, B)
+        
+        # Alpha = 0, Beta = 0
+        @proc
+        def exo_gemm_alphazero_nobeta(
+            M: size,
+            N: size,
+            K: size,
+            alpha: f32[1],
+            beta: f32[1],
+            A: f32[M, K] @ DRAM,
+            B: f32[K, N] @ DRAM,
+            C: f32[M, N] @ DRAM
+        ):
+            pass
+
+        # Alpha = 0, Beta != 0
+        @proc
+        def exo_gemm_alphazero_beta(
+            M: size,
+            N: size,
+            K: size,
+            alpha: f32[1],
+            beta: f32[1],
+            A: f32[M, K] @ DRAM,
+            B: f32[K, N] @ DRAM,
+            C: f32[M, N] @ DRAM
         ):
             apply_beta(M, N, beta, C)
-            gemm_scheduled(M, N, K, alpha, C, A, B)
         
-        self.exo_gemm = exo_gemm
+        # Alpha != 1, Beta = 1
+        @proc
+        def exo_gemm_notranspose_alpha_nobeta(
+            M: size,
+            N: size,
+            K: size,
+            alpha: f32[1],
+            beta: f32[1],
+            A: f32[M, K] @ DRAM,
+            B: f32[K, N] @ DRAM,
+            C: f32[M, N] @ DRAM
+        ):
+            gemm_scheduled_notranspose_alpha(M, N, K, alpha, C, A, B)
+        
+        # Alpha = Beta != 1
+        @proc
+        def exo_gemm_notranspose_alpha_beta(
+            M: size,
+            N: size,
+            K: size,
+            alpha: f32[1],
+            beta: f32[1],
+            A: f32[M, K] @ DRAM,
+            B: f32[K, N] @ DRAM,
+            C: f32[M, N] @ DRAM
+        ):
+            apply_beta(M, N, beta, C)
+            gemm_scheduled_notranspose_alpha(M, N, K, alpha, C, A, B)
+        
+        self.entry_points = [
+            exo_gemm_notranspose_noalpha_nobeta,
+            exo_gemm_alphazero_nobeta,
+            exo_gemm_alphazero_beta,
+            exo_gemm_notranspose_alpha_nobeta,
+            exo_gemm_notranspose_alpha_beta
+        ]
 
 
-    def schedule_gemm_notranspose_noalpha(self):
-        gemm_scheduled = divide_loop(self.gemm_base, 'k', self.microkernel.K_blk, ['ko', 'ki'], tail='cut_and_guard')
+    def schedule_gemm_notranspose_noalpha(self, gemm_procedure: Procedure):
+        gemm_scheduled = divide_loop(gemm_procedure, 'k', self.microkernel.K_blk, ['ko', 'ki'], tail='cut_and_guard')
         gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for ko in _:_ #0').after(), n_lifts=2)
         gemm_scheduled = reorder_loops(gemm_scheduled, 'j ko')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i ko')
@@ -192,9 +204,9 @@ class GEMM:
         return simplify(gemm_scheduled)
 
 
-    def schedule_gemm_notranspose_alpha(self, apply_alpha_base: Procedure, apply_alpha_scheduled: Procedure):
+    def schedule_gemm_notranspose_alpha(self, gemm_procedure: Procedure, apply_alpha_base: Procedure, apply_alpha_scheduled: Procedure):
 
-        gemm_scheduled = divide_loop(self.gemm_base, 'k #1', self.microkernel.K_blk, ['ko', 'ki'], tail='cut_and_guard')
+        gemm_scheduled = divide_loop(gemm_procedure, 'k #1', self.microkernel.K_blk, ['ko', 'ki'], tail='cut_and_guard')
         gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for ko in _:_ #0').after(), n_lifts=2)
         gemm_scheduled = reorder_loops(gemm_scheduled, 'j ko')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i ko')
@@ -263,29 +275,18 @@ m_blk = C.gemm.m_blk
 m_reg = C.gemm.m_reg
 n_reg = C.gemm.n_reg
 
-if C.gemm.transa:
-    transa = ExoBlasTranspose
-else:
-    transa = ExoBlasNoTranspose
-
-if C.gemm.transb:
-    transb = ExoBlasTranspose
-else:
-    transb = ExoBlasNoTranspose
-
-alpha = C.gemm.alpha
-beta = C.gemm.beta
-
 
 gemm = GEMM(
     C.Machine,
     'f32', 
-    transa, transb, 
-    alpha, beta, 
     k_blk, m_blk, 
     m_reg, n_reg
 )
 
-gemm = gemm.exo_gemm
+exo_gemm_notranspose_noalpha_nobeta = gemm.entry_points[0]
+exo_gemm_alphazero_nobeta = gemm.entry_points[1]
+exo_gemm_alphazero_beta = gemm.entry_points[2]
+exo_gemm_notranspose_alpha_nobeta = gemm.entry_points[3]
+exo_gemm_notranspose_alpha_beta = gemm.entry_points[4]
 
-__all__ = ['gemm']
+__all__ = [p.name() for p in gemm.entry_points]

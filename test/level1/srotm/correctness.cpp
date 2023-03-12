@@ -1,6 +1,7 @@
 #include <vector>
 #include <math.h>
 #include <algorithm>
+#include<tuple>
 
 #include <cblas.h>
 
@@ -12,16 +13,15 @@
 void test_srotm(int N, int incX, int incY, float HFlag) {
     printf("Running srotm test: N = %d, incX = %d, incY = %d, HFlag = %f\n", N, incX, incY, HFlag);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
-    auto H = generate1d_sbuffer(5, 1);
-    H[0] = HFlag;
+    auto X = AlignedBuffer<float>(N, incX);
+    auto Y = AlignedBuffer<float>(N, incY);
+    float H[5] = {HFlag, 1.2, 2.2, 3.2, 4.2};
     auto X_expected = X;
     auto Y_expected = Y;
-    auto H_expected = H;
+    float H_expected[5] = {HFlag, 1.2, 2.2, 3.2, 4.2};
 
-    exo_srotm(N, X.data(), incX, Y.data(), incY, H.data());
-    cblas_srotm(N, X_expected.data(), incX, Y_expected.data(), incY, H_expected.data());
+    exo_srotm(N, X.data(), incX, Y.data(), incY, H);
+    cblas_srotm(N, X_expected.data(), incX, Y_expected.data(), incY, H_expected);
 
     for (int i = 0; i < X.size(); ++i) {
         if (!check_relative_error_okay(X[i], X_expected[i], 1.f / 10000.f)) {

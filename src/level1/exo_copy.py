@@ -58,14 +58,22 @@ def schedule_scopy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, prec
 
     return simplify(simple_stride_1)
 
+INTERLEAVE_FACTOR = 4
+
 f32_instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
 
-exo_scopy_stride_1 = schedule_scopy_stride_1(C.Machine.vec_width, 2, C.Machine.mem_type, f32_instructions, "f32")
+exo_scopy_stride_1 = schedule_scopy_stride_1(C.Machine.vec_width, INTERLEAVE_FACTOR, C.Machine.mem_type, f32_instructions, "f32")
 exo_scopy_stride_any = specialize_precision("f32")
 exo_scopy_stride_any = rename(exo_scopy_stride_any, exo_scopy_stride_any.name() + "_stride_any")
 
 f64_instructions = [C.Machine.load_instr_f64, C.Machine.store_instr_f64]
-exo_dcopy_stride_1 = schedule_scopy_stride_1(C.Machine.vec_width // 2, 2, C.Machine.mem_type, f64_instructions, "f64")
+
+if None not in f64_instructions:
+    exo_dcopy_stride_1 = schedule_scopy_stride_1(C.Machine.vec_width // 2, INTERLEAVE_FACTOR, C.Machine.mem_type, f64_instructions, "f64")
+else:
+    exo_dcopy_stride_1 = specialize_precision("f64")
+    exo_dcopy_stride_1 = rename(exo_dcopy_stride_1, exo_dcopy_stride_1.name() + "_stride_1")
+
 exo_dcopy_stride_any = specialize_precision("f64")
 exo_dcopy_stride_any = rename(exo_dcopy_stride_any, exo_dcopy_stride_any.name() + "_stride_any")
 

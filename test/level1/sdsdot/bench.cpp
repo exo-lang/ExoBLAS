@@ -12,9 +12,11 @@ static void BM_cblas_sdsdot(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
     float alpha = state.range(3);
+    size_t alignmentX = state.range(4);
+    size_t alignmentY = state.range(5);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX, alignmentX);
+    auto Y = AlignedBuffer<float>(N, incY, alignmentY);
 
     for (auto _ : state) {
         cblas_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
@@ -26,33 +28,35 @@ static void BM_exo_sdsdot(benchmark::State& state) {
     int incX = state.range(1);
     int incY = state.range(2);
     float alpha = state.range(3);
+    size_t alignmentX = state.range(4);
+    size_t alignmentY = state.range(5);
 
-    auto X = generate1d_sbuffer(N, incX);
-    auto Y = generate1d_sbuffer(N, incY);
+    auto X = AlignedBuffer<float>(N, incX, alignmentX);
+    auto Y = AlignedBuffer<float>(N, incY, alignmentY);
 
     for (auto _ : state) {
         exo_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
     }
 }
 
-BENCHMARK(BM_cblas_sdsdot)->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}
+BENCHMARK(BM_cblas_sdsdot)->ArgNames({"n", "incX", "incY", "alpha", "alignmentX", "alignmentY"})->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}, {64}, {64}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {1}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {1}, {64}, {64}
     });
-BENCHMARK(BM_exo_sdsdot)->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}
+BENCHMARK(BM_exo_sdsdot)->ArgNames({"n", "incX", "incY", "alpha", "alignmentX", "alignmentY"})->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}, {64}, {64}
     })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {1}
+      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {1}, {64}, {64}
     });
 
-// BENCHMARK(BM_cblas_sdsdot)->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+// BENCHMARK(BM_cblas_sdsdot)->ArgNames({"n", "incX", "incY", "alpha", "alignmentX", "alignmentY"})->ArgsProduct({
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {1}, {64}, {64}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {1}, {64}, {64}
 //     });
-// BENCHMARK(BM_exo_sdsdot)->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+// BENCHMARK(BM_exo_sdsdot)->ArgNames({"n", "incX", "incY", "alpha", "alignmentX", "alignmentY"})->ArgsProduct({
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {1}, {64}, {64}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-10, -2, 1, 3, 7}, {-7, -1, 2, 4, 11}, {1}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {1}, {64}, {64}
 //     });

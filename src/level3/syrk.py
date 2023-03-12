@@ -21,8 +21,7 @@ class SYRK:
     TODO: Add Beta and Alpha
     """
     def __init__(self, machine: "MachineParameters",
-                 uplo: ExoBlasUplo,
-                 transpose: ExoBlasT,  
+                 precision: str,
                  K_blk: int, M_blk: int, 
                  M_r: int, N_r: int):
         
@@ -38,7 +37,7 @@ class SYRK:
         self.machine = machine
 
         @proc
-        def syrk_lower_notranspose(N: size, 
+        def ssyrk_lower_notranspose(N: size, 
                  K: size, 
                  A1: f32[N, K] @ DRAM, 
                  A2: f32[K, N] @ DRAM,
@@ -56,9 +55,9 @@ class SYRK:
                         C[i, j] += A1[i, k]*A2[k, j]
 
         @proc
-        def syrk_lower_transpose(N: size, 
+        def ssyrk_lower_transpose(N: size, 
                            K: size, 
-                           A1: f32[K, N] @ DRAM, 
+                           A1: f32[K, N] @ DRAM,
                            A2: f32[N, K] @ DRAM,
                            C: f32[N, N] @ DRAM):
             # C = A**T*A + C      
@@ -73,41 +72,42 @@ class SYRK:
                     for k in seq(0, K):
                         C[i, j] += A2[j, k]*A1[k, i]
 
-        if uplo==ExoBlasLower:
-            
-            if transpose==ExoBlasNoTranspose:
-                self.syrk_base = syrk_lower_notranspose
 
-                self.syrk_win = rename(self.syrk_base, "syrk_win")
-                self.syrk_win = set_window(self.syrk_win, 'A1', True)
-                self.syrk_win = set_window(self.syrk_win, 'A2', True)
-                self.syrk_win = set_window(self.syrk_win, 'C', True)
+        self.ssyrk_win_lower_notranspose = rename(ssyrk_lower_notranspose, "ssyrk_win")
+        self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'A1', True)
+        self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'A2', True)
+        self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'C', True)
+        self.gepp_ssyrk_scheduled_lower_notranspose, self.gepp_ssyrk_base_lower_notranspose = self.generate_ssyrk_gepp_lower_notranspose()
+        ssyrk_scheduled_lower_notranspose = self.schedule_ssyrk_lower_notranspose(ssyrk_lower_notranspose)
 
-                self.gepp_syrk_scheduled, self.gepp_syrk_base = self.generate_syrk_gepp_lower_notranspose()
-                self.syrk_scheduled = self.schedule_syrk_gepp_lower_notranspose()
-
-            if transpose==ExoBlasTranspose:
-                self.syrk_base = syrk_lower_notranspose
-
-                self.syrk_win = rename(self.syrk_base, "syrk_win")
-                self.syrk_win = set_window(self.syrk_win, 'A1', True)
-                self.syrk_win = set_window(self.syrk_win, 'A2', True)
-                self.syrk_win = set_window(self.syrk_win, 'C', True)
-                #TODO:
-                raise Exception("NOT SUPPORTED")
+        @proc
+        def exo_ssyrk_lower_notranspose(
+            N: size,
+            K: size,
+            alpha: f32[1] @ DRAM,
+            A1: f32[N, K] @ DRAM,
+            A2: f32[K, N] @ DRAM,
+            beta: f32[1] @ DRAM,
+            C: f32[N, N] @ DRAM
+        ):
+            ssyrk_scheduled_lower_notranspose(N, K, A1, A2, C)
+        
+        self.entry_points = [
+            exo_ssyrk_lower_notranspose
+        ]
 
     
-    def generate_syrk_gepp_base(self):
-        gepp_syrk_base = rename(self.syrk_win, "gepp_syrk_base")
+    def generate_ssyrk_gepp_base(self, syrk_win: Procedure):
+        gepp_syrk_base = rename(syrk_win, "gepp_ssyrk_base")
         gepp_syrk_base = gepp_syrk_base.partial_eval(K=self.microkernel.K_blk)
         return gepp_syrk_base
     
 
-    def generate_syrk_gepp_lower_notranspose(self):
+    def generate_ssyrk_gepp_lower_notranspose(self):
 
-        gepp_syrk_base = self.generate_syrk_gepp_base()
+        gepp_syrk_base = self.generate_ssyrk_gepp_base(self.ssyrk_win_lower_notranspose)
 
-        gepp_syrk_scheduled = rename(gepp_syrk_base, "gepp_syrk_scheduled")
+        gepp_syrk_scheduled = rename(gepp_syrk_base, "gepp_ssyrk_scheduled")
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'i', self.M_blk, ['io', 'ii'], tail='cut_and_guard')
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for j in _:_', 1)
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'j #1', self.M_blk, ['jo', 'ji'], tail='cut_and_guard')
@@ -140,13 +140,13 @@ class SYRK:
         
 
     
-    def schedule_syrk_gepp_lower_notranspose(self):
-        syrk = divide_loop(self.syrk_base, 'k', self.K_blk, ['ko', 'ki'], tail='cut_and_guard')
+    def schedule_ssyrk_lower_notranspose(self, ssyrk_base: Procedure):
+        syrk = divide_loop(ssyrk_base, 'k', self.K_blk, ['ko', 'ki'], tail='cut_and_guard')
         syrk = autofission(syrk, syrk.find('for ko in _:_ #0').after(), n_lifts=2)
         syrk = reorder_loops(syrk, 'j ko')
         syrk = reorder_loops(syrk, 'i ko')
-        syrk = replace(syrk, 'for i in _:_ #0', self.gepp_syrk_base)
-        syrk = call_eqv(syrk, 'gepp_syrk_base(_)', self.gepp_syrk_scheduled)
+        syrk = replace(syrk, 'for i in _:_ #0', self.gepp_ssyrk_base_lower_notranspose)
+        syrk = call_eqv(syrk, 'gepp_ssyrk_base(_)', self.gepp_ssyrk_scheduled_lower_notranspose)
         return syrk
 
  
@@ -155,24 +155,12 @@ m_blk = C.syrk.m_blk
 m_reg = C.syrk.m_reg
 n_reg = C.syrk.n_reg
 
-if C.syrk.uplo=='L':
-    uplo = ExoBlasLower
-elif C.syrk.uplo=='U':
-    uplo = ExoBlasUpper
-else:
-    raise Exception(f"INVALID SYRK UPLO VALUE: {C.syrk.uplo}")
 
-if C.syrk.trans:
-    trans = ExoBlasTranspose
-else:
-    trans = ExoBlasNoTranspose
-
-ssyrk = SYRK(C.Machine, 
-             uplo, trans, 
+ssyrk = SYRK(C.Machine, 'f32',
              k_blk, m_blk, 
              m_reg, n_reg
              )
 
-scheduled = ssyrk.syrk_scheduled
+exo_ssyrk_lower_notranspose = ssyrk.entry_points[0]
 
-__all__ = ["scheduled"]
+__all__ = [p.name() for p in ssyrk.entry_points]

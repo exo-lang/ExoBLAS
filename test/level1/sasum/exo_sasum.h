@@ -11,7 +11,7 @@ float exo_sasum(const int N, const float *X, const int incX) {
         return result;
     } else {
         if (incX < 0) {
-            X = X + (1 - N) * incX;
+            return 0.0;
         }
         float result;
         exo_sasum_stride_any(nullptr, N, 
