@@ -138,7 +138,7 @@ def avx2_abs_pd(dst: [f64][8] @ AVX2, src: [f64][8] @ AVX2):
     for i in seq(0, 4):
         dst[i] = select(0.0, src[i], src[i], -src[i])
 
-INTERLEAVE_FACTOR = 2
+INTERLEAVE_FACTOR = 4
 
 #################################################
 # Generate specialized kernels for f32 precision
