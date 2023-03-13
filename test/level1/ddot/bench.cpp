@@ -48,13 +48,13 @@ BENCHMARK(BM_exo_ddot)->ArgNames({"n", "incX", "incY", "alignmentX", "alignmentY
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {1}, {64}, {64}
     });
 
-// BENCHMARK(BM_cblas_ddot)->ArgNames({"n", "incX", "incY", "alignmentX", "alignmentY"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
-//     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
-//     });
-// BENCHMARK(BM_exo_ddot)->ArgNames({"n", "incX", "incY", "alignmentX", "alignmentY"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
-//     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
-//     });
+BENCHMARK(BM_cblas_ddot)->ArgNames({"n", "incX", "incY", "alignmentX", "alignmentY"})->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
+    });
+BENCHMARK(BM_exo_ddot)->ArgNames({"n", "incX", "incY", "alignmentX", "alignmentY"})->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {-4, 2, 1, 4, 10}, {64}, {64}
+    });

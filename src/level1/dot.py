@@ -98,14 +98,60 @@ def schedule_dot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     
     return simplify(simple_stride_1)
 
-INTERLEAVE_FACTOR = 4
+def schedule_dot_stride_any(VEC_W, incX, incY, precision, stride_suffix):
+    stride_any = specialize_precision(precision)
+    stride_any = rename(stride_any, stride_any.name() + f"_stride_{stride_suffix}")
+    if incX != None:
+        stride_any = stride_any.add_assertion(f"stride(x, 0) == {incX}")
+    if incY != None:
+        stride_any = stride_any.add_assertion(f"stride(y, 0) == {incY}")
+
+    if VEC_W is not None:
+        stride_any = divide_loop(stride_any, "for i in _:_", VEC_W, ("io", "ii"), tail="cut")
+        
+        stride_any = reorder_loops(stride_any, "io ii")
+        stride_any = simplify(stage_mem(stride_any, "for io in _:_", "result", "resultReg", accum=True))
+        stride_any = expand_dim(stride_any, "resultReg :_ ", VEC_W, "ii")
+        stride_any = lift_alloc(stride_any, "resultReg : _", n_lifts=1)
+        stride_any = fission(stride_any, stride_any.find("for io in _:_").before(), n_lifts=1)
+        stride_any = fission(stride_any, stride_any.find("for io in _:_").after(), n_lifts=1)
+        stride_any = reorder_loops(stride_any, "ii io")
+        stride_any = set_memory(stride_any, "resultReg", DRAM_STATIC)
+        
+        stride_any = unroll_loop(stride_any, "for ii in _:_")
+        stride_any = unroll_loop(stride_any, "for ii in _:_")
+        stride_any = unroll_loop(stride_any, "for ii in _:_")
+        
+        for i in range(VEC_W):
+            stride_any = bind_expr(stride_any, f"x[{i} + {VEC_W} * io]", f"x{i}")
+            stride_any = set_precision(stride_any, f"x{i}", precision)
+            for j in range(i * 2):
+                stride_any = reorder_stmts(stride_any, stride_any.find(f"x{i} : _").expand(-1))
+            for j in range(i):
+                stride_any = reorder_stmts(stride_any, stride_any.find(f"x{i} = _").expand(-1))
+        for i in range(VEC_W):
+            stride_any = bind_expr(stride_any, f"y[{i} + {VEC_W} * io]", f"y{i}")
+            stride_any = set_precision(stride_any, f"y{i}", precision)
+            for j in range(i * 2):
+                stride_any = reorder_stmts(stride_any, stride_any.find(f"y{i} : _").expand(-1))
+            for j in range(i):
+                stride_any = reorder_stmts(stride_any, stride_any.find(f"y{i} = _").expand(-1))
+    
+    return stride_any
+
+#################################################
+# Kernel Parameters
+#################################################
+
+STRIDE_1_INTERLEAVE_FACTOR = 4
+STRIDE_ANY_VECTORIZATION_FACTOR_F32 = C.Machine.vec_width // 2
+STRIDE_ANY_VECTORIZATION_FACTOR_F64 = STRIDE_ANY_VECTORIZATION_FACTOR_F32 // 2
 
 #################################################
 # Generate specialized kernels for f32 precision
 #################################################
 
-exo_sdot_stride_any = specialize_precision("f32")
-exo_sdot_stride_any = rename(exo_sdot_stride_any, exo_sdot_stride_any.name() + "_stride_any")
+exo_sdot_stride_any = schedule_dot_stride_any(STRIDE_ANY_VECTORIZATION_FACTOR_F32, None, None, "f32", "any")
 
 f32_instructions = [C.Machine.load_instr_f32, 
                      C.Machine.store_instr_f32,
@@ -114,17 +160,15 @@ f32_instructions = [C.Machine.load_instr_f32,
                      C.Machine.fmadd_instr_f32]
 
 if None not in f32_instructions:
-    exo_sdot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width, INTERLEAVE_FACTOR, C.Machine.mem_type, f32_instructions, "f32")
+    exo_sdot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width, STRIDE_1_INTERLEAVE_FACTOR, C.Machine.mem_type, f32_instructions, "f32")
 else:
-    exo_sdot_stride_1 = specialize_precision("f32")
-    exo_sdot_stride_1 = rename(exo_sdot_stride_1, exo_sdot_stride_1.name() + "_stride_1")
+    exo_sdot_stride_1 = schedule_dot_stride_any(C.Machine.vec_width, 1, 1, "f32", "1")
     
 #################################################
 # Generate specialized kernels for f64 precision
 #################################################
 
-exo_ddot_stride_any = specialize_precision("f64")
-exo_ddot_stride_any = rename(exo_ddot_stride_any, exo_ddot_stride_any.name() + "_stride_any")
+exo_ddot_stride_any = schedule_dot_stride_any(STRIDE_ANY_VECTORIZATION_FACTOR_F64, None, None, "f64", "any")
 
 f64_instructions = [C.Machine.load_instr_f64,
                      C.Machine.store_instr_f64,
@@ -134,10 +178,9 @@ f64_instructions = [C.Machine.load_instr_f64,
                      ]
 
 if None not in f64_instructions:
-    exo_ddot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width // 2, INTERLEAVE_FACTOR, C.Machine.mem_type, f64_instructions, "f64")
+    exo_ddot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width // 2, STRIDE_1_INTERLEAVE_FACTOR, C.Machine.mem_type, f64_instructions, "f64")
 else:
-    exo_ddot_stride_1 = specialize_precision("f64")
-    exo_ddot_stride_1 = rename(exo_ddot_stride_1, exo_ddot_stride_1.name() + "_stride_1")
+    exo_ddot_stride_1 = schedule_dot_stride_any(C.Machine.vec_width // 2, 1, 1, "f64", "any")
 
 entry_points = [exo_sdot_stride_any, exo_sdot_stride_1, exo_ddot_stride_any, exo_ddot_stride_1]
 
