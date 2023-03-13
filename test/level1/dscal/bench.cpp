@@ -44,13 +44,13 @@ BENCHMARK(BM_exo_dscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsPro
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {0, 1, 17}, {1}, {64}
     });
 
-// BENCHMARK(BM_cblas_dscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {17}, {2, 4, 10}, {64}
-//     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {17}, {2, 4, 10}, {64}
-//     });
-// BENCHMARK(BM_exo_dscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {17}, {2, 4, 10}, {64}
-//     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {17}, {2, 4, 10}, {64}
-//     });
+BENCHMARK(BM_cblas_dscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {0, 17}, {2, 3, 4, 5, 6, 7, 8, 10}, {64}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {0, 17}, {2, 3, 4, 5, 6, 7, 8, 10}, {64}
+    });
+BENCHMARK(BM_exo_dscal)->ArgNames({"n", "alpha", "incX", "alignmentX"})->ArgsProduct({
+      benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {0, 17}, {2, 3, 4, 5, 6, 7, 8, 10}, {64}
+    })->ArgsProduct({
+      benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {0, 17}, {2, 3, 4, 5, 6, 7, 8, 10}, {64}
+    });

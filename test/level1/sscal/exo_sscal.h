@@ -20,12 +20,22 @@ void exo_sscal(const int N, const float alpha, float *X, const int incX) {
         if (incX < 0) {
             return;
         }
-        if (alpha == 0.0f) {
+        if (incX == 2) {
+            if (alpha == 0.0f) {
+                exo_sscal_alpha_0_stride_2(nullptr, N,
+                    exo_win_1f32{.data = X, .strides = {incX}});
+            } else {
+                exo_sscal_stride_2(nullptr, N, &alpha,
+                    exo_win_1f32{.data = X, .strides = {incX}});
+            }
+        } else {
+            if (alpha == 0.0f) {
             exo_sscal_alpha_0_stride_any(nullptr, N,
                 exo_win_1f32{.data = X, .strides = {incX}});
-        } else {
-            exo_sscal_stride_any(nullptr, N, &alpha,
-                exo_win_1f32{.data = X, .strides = {incX}});
+            } else {
+                exo_sscal_stride_any(nullptr, N, &alpha,
+                    exo_win_1f32{.data = X, .strides = {incX}});
+            }
         }
     }
 }

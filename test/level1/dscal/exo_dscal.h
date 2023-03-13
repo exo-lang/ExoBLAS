@@ -20,12 +20,22 @@ void exo_dscal(const int N, const double alpha, double *X, const int incX) {
         if (incX < 0) {
             return;
         }
-        if (alpha == 0.0) {
-            exo_dscal_alpha_0_stride_any(nullptr, N,
-                exo_win_1f64{.data = X, .strides = {incX}});
+        if (incX == 2) {
+            if (alpha == 0.0) {
+                exo_dscal_alpha_0_stride_2(nullptr, N,
+                    exo_win_1f64{.data = X, .strides = {incX}});
+            } else {
+                exo_dscal_stride_2(nullptr, N, &alpha,
+                    exo_win_1f64{.data = X, .strides = {incX}});
+            }
         } else {
-            exo_dscal_stride_any(nullptr, N, &alpha,
-                exo_win_1f64{.data = X, .strides = {incX}});
+            if (alpha == 0.0) {
+                exo_dscal_alpha_0_stride_any(nullptr, N,
+                    exo_win_1f64{.data = X, .strides = {incX}});
+            } else {
+                exo_dscal_stride_any(nullptr, N, &alpha,
+                    exo_win_1f64{.data = X, .strides = {incX}});
+            }
         }
     }
 }
