@@ -194,10 +194,13 @@ class GEBP_kernel:
 
 class GEPP_kernel:
 
+    gepp_id = 0
+
     def __init__(self, gebp: GEBP_kernel):
 
         self.K_blk = gebp.microkernel.K_blk
         self.gebp = gebp
+        self.this_id = GEPP_kernel.gepp_id
 
         # Base SGEMM procedure
         @proc
@@ -225,19 +228,22 @@ class GEPP_kernel:
 
     
     def generate_base_gepp(self):
-        base_gepp = rename(self.sgemm_window, "gepp_base")
+        base_gepp = rename(self.sgemm_window, f"gepp_base_{self.this_id}")
         return base_gepp.partial_eval(K=self.K_blk)
 
 
     def generate_gepp(self):
         base_gepp, scheduled_gepp = self.do_generate_gepp()
+
+        GEPP_kernel.gepp_id += 1
+
         return base_gepp, scheduled_gepp
 
     def do_generate_gepp(self):
 
         base_gepp = self.generate_base_gepp()
 
-        scheduled_gepp = rename(base_gepp, "scheduled_gepp")
+        scheduled_gepp = rename(base_gepp, f"scheduled_gepp_{self.this_id}")
         scheduled_gepp = divide_loop(scheduled_gepp, 'i', self.gebp.M_blk, ['io', 'ii'], tail='cut_and_guard')
         scheduled_gepp = stage_mem(scheduled_gepp, 'for ii in _:_ #0', f'A[{self.gebp.M_blk} * io + 0:{self.gebp.M_blk} * io + {self.gebp.M_blk}, 0:{self.K_blk}]', 'A_packed')
         print(scheduled_gepp)
