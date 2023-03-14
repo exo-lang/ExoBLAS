@@ -119,7 +119,7 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
 # Generate specialized kernels for f32 precision
 #################################################
 
-INTERLEAVE_FACTOR = 4
+INTERLEAVE_FACTOR = C.Machine.vec_units * 2
 
 exo_saxpy_stride_any = specialize_axpy("f32", None)
 exo_saxpy_stride_any = rename(exo_saxpy_stride_any, exo_saxpy_stride_any.name() + "_stride_any")

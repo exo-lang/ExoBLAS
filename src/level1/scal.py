@@ -113,7 +113,7 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
 # Generate specialized kernels for f32 precision
 #################################################
 
-INTERLEAVE_FACTOR = 4
+INTERLEAVE_FACTOR = C.Machine.vec_units * 2
 
 exo_sscal_stride_any = specialize_scal("f32", None)
 exo_sscal_stride_any = rename(exo_sscal_stride_any, exo_sscal_stride_any.name() + "_stride_any")

@@ -9,6 +9,7 @@ Machine = MachineParameters(
     mem_type=AVX512,
     n_vec_registers=32,
     vec_width=16,
+    vec_units=2,
     l1_cache=None,
     l2_cache=None,
     l3_cache=None,

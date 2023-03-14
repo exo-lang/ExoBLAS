@@ -120,7 +120,7 @@ f32_instructions = [C.Machine.load_instr_f32,
                     ]
 
 if None not in f32_instructions:
-    exo_snrm2_stride_1 = schedule_nrm2_stride_1_interleaved(C.Machine.vec_width, 2, C.Machine.mem_type, f32_instructions, "f32")
+    exo_snrm2_stride_1 = schedule_nrm2_stride_1_interleaved(C.Machine.vec_width, C.Machine.vec_units * 2, C.Machine.mem_type, f32_instructions, "f32")
 else:
     exo_snrm2_stride_1 = specialize_precision("f32")
     exo_snrm2_stride_1 = rename(exo_snrm2_stride_1, exo_snrm2_stride_1.name() + "_stride_1")
@@ -141,7 +141,7 @@ f64_instructions = [C.Machine.load_instr_f64,
                     ]
 
 if None not in f64_instructions:
-    exo_dnrm2_stride_1 = schedule_nrm2_stride_1_interleaved(C.Machine.vec_width // 2, 2, C.Machine.mem_type, f64_instructions, "f64")
+    exo_dnrm2_stride_1 = schedule_nrm2_stride_1_interleaved(C.Machine.vec_width // 2, C.Machine.vec_units * 2, C.Machine.mem_type, f64_instructions, "f64")
 else:
     exo_dnrm2_stride_1 = specialize_precision("f64")
     exo_dnrm2_stride_1 = rename(exo_dnrm2_stride_1, exo_dnrm2_stride_1.name() + "_stride_1")

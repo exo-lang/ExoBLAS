@@ -58,7 +58,7 @@ def schedule_scopy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, prec
 
     return simplify(simple_stride_1)
 
-INTERLEAVE_FACTOR = 4
+INTERLEAVE_FACTOR = C.Machine.vec_units * 2
 
 f32_instructions = [C.Machine.load_instr_f32, C.Machine.store_instr_f32]
 
