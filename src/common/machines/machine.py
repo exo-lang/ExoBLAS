@@ -15,6 +15,7 @@ class MachineParameters:
     mem_type: Any
     n_vec_registers: int
     vec_width: int
+    vec_units: int
 
     # These are not currently used for anything
     l1_cache: int

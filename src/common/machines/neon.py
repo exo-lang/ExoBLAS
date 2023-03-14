@@ -31,6 +31,7 @@ Machine = MachineParameters(
     mem_type=Neon4f,
     n_vec_registers=32,
     vec_width=4,
+    vec_units=4,
     l1_cache=None,
     l2_cache=None,
     l3_cache=None,

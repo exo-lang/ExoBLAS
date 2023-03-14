@@ -6,7 +6,7 @@ import os
 
 
 def mem_footprint(kernel_name, size):
-    if kernel_name in ["snrm2", "sscal", "scopy", "srot", "sswap", "sasum", "sdot"]:
+    if kernel_name in ["snrm2", "sscal", "scopy", "srot", "sswap", "sasum", "sdot", "saxpy"]:
         return size
     elif kernel_name in ["sgemv"]:
         return size*size
@@ -19,7 +19,7 @@ def mem_ops(kernel_name, size):
     Returns total memory usage of `kernel_name` of dimension `size` in words.
     """
     mem_ops = {
-        1: {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2},
+        1: {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2, "saxpy": 2},
         2: {"sgemv": 1}
     }
 
@@ -32,13 +32,13 @@ def mem_ops(kernel_name, size):
         raise NotImplementedError(f"Memory usage of {kernel_name} is not implemented")
 
 
-if len(sys.argv) != 5:
-    print("python graph.py <kernel name> <google benchmark output json file> <BLA_VENDOR> <graphs_dir>!")
+if len(sys.argv) != 4:
+    print("python graph.py <kernel name> <benchmark results dir> <graphs_dir>!")
     exit(1)
 
 kernel_name = sys.argv[1]
-BLA_VENDOR = sys.argv[3]
-graphs_dir = sys.argv[4]
+benchmark_results_dir = sys.argv[2]
+graphs_dir = sys.argv[3]
 
 if not os.path.exists(graphs_dir):
     os.mkdir(graphs_dir)
@@ -47,11 +47,18 @@ kernel_graphs_dir = graphs_dir + "/" + kernel_name
 if not os.path.exists(kernel_graphs_dir):
     os.mkdir(kernel_graphs_dir)
 
-with open(sys.argv[2]) as f:
-    data = json.load(f)
-
-# TODO: We should probably use this context data for time tracking
-context = data['context']
+jsons_dict = {}
+for dir in os.listdir(benchmark_results_dir):
+    name = dir
+    if name == "Intel10_64lp_seq":
+        name = "MKL"
+    json_path = f"{benchmark_results_dir}/{dir}/{kernel_name}.json"
+    if not os.path.exists(json_path):
+        continue
+    
+    with open(json_path) as f:
+        data = json.load(f)
+    jsons_dict[name] = data
 
 def log_2(x):
     return math.log(x, 2)
@@ -65,26 +72,22 @@ perf_res = {
 perf_res = {}
 
 # Parse data
-for d in data['benchmarks']:
-    lis = d['name'].split('/')
-    if "Fixture" in lis[0]:
-        lis = lis[1:]
-        name = lis[0]
-    else:
-        name = lis[0].split('_')
-        name = " ".join(name[1:])
+for benchmark_name in jsons_dict:
+    data = jsons_dict[benchmark_name]
+    for d in data['benchmarks']:
+        lis = d['name'].split('/')
+        if "Fixture" in lis[0]:
+            lis = lis[1:]
+        name = benchmark_name
+        size = int(lis[1].split(":")[1]) # Words
+        params = tuple(lis[2:])
+        time = d['cpu_time'] # ns
+        # size : word already
+        # time is nanoseconds
 
-    size = int(lis[1].split(":")[1]) # Words
-    params = tuple(lis[2:])
-    time = d['cpu_time'] # ns
-    # size : word already
-    # time is nanoseconds
-
-    params_dict = perf_res.setdefault(params, {})
-    points = params_dict.setdefault(name, [])
-    points.append((size, time))
-
-print(params_dict)
+        params_dict = perf_res.setdefault(params, {})
+        points = params_dict.setdefault(name, [])
+        points.append((size, time))
 
 # Sort Raw Data
 for params in perf_res:
@@ -114,8 +117,7 @@ def peak_bandwidth_plot(params, names_to_points):
     
     plt.legend()
     
-    plt.title(f"""{kernel_name}, params: {params}
-              BLAS Reference: {BLA_VENDOR}, kernel with AVX2""")
+    plt.title(f"""{kernel_name}, params: {params}""")
     plt.ylabel('Gwords/sec')
     plt.xlabel('log(words)')
     plt.xticks(range(0, 30, 2))
@@ -133,8 +135,7 @@ def raw_runtime_plot(params, names_to_points):
     
     plt.legend()
     
-    plt.title(f"""{kernel_name}, params: {params}
-              BLAS Reference: {BLA_VENDOR}, kernel with AVX2""")
+    plt.title(f"""{kernel_name}, params: {params}""")
     plt.ylabel('runtime (ns)')
     plt.xlabel('log(words)')
     plt.xticks(range(0, 30, 2))
@@ -179,8 +180,7 @@ def ratio_and_gm_plot(params, names_to_points):
             
             plt.title(f"""
                       {kernel_name}, params: {params}
-                      GM = {GM}, BLAS Reference: {BLA_VENDOR}
-                      kernel with AVX2""")
+                      GM = {GM}""")
             plt.ylabel('runtime ratio % (ns)')
             plt.xlabel('log(words)')
             plt.xticks(range(0, 30, 2))

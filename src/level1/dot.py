@@ -98,7 +98,7 @@ def schedule_dot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     
     return simplify(simple_stride_1)
 
-INTERLEAVE_FACTOR = 4
+INTERLEAVE_FACTOR = C.Machine.vec_units * 2
 
 #################################################
 # Generate specialized kernels for f32 precision
