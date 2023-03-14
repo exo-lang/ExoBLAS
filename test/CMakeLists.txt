@@ -23,7 +23,15 @@ find_package(Python 3 REQUIRED Interpreter)
 
 function(add_exo_blas_test kernel precision)
   set(precision_kernel "${precision}${kernel}")
-  set(benchmark_json_output "output_${precision_kernel}_${BLA_VENDOR}.json")
+
+  set(bla_vendor_benchmark_results_dir "${PROJECT_SOURCE_DIR}/benchmark_results/${BLA_VENDOR}")
+  file(MAKE_DIRECTORY ${bla_vendor_benchmark_results_dir})
+  set(bla_vendor_benchmark_json_output "${bla_vendor_benchmark_results_dir}/${precision_kernel}.json")
+
+  set(exo_benchmark_results_dir ${PROJECT_SOURCE_DIR}/benchmark_results/exo)
+  file(MAKE_DIRECTORY ${exo_benchmark_results_dir})
+  set(exo_benchmark_json_output "${exo_benchmark_results_dir}/${precision_kernel}.json")
+  
   # Add the benchmark test
   add_executable(${precision_kernel}_bench ${precision_kernel}/bench.cpp)
 
@@ -37,11 +45,18 @@ function(add_exo_blas_test kernel precision)
   )
   target_include_directories(${precision_kernel}_bench PRIVATE ${precision_kernel})
 
-  add_test(NAME ${precision_kernel}_bench COMMAND ${precision_kernel}_bench)
+  add_test(NAME cblas_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=cblas|CBLAS)
   set_tests_properties(
-    ${precision_kernel}_bench
+    cblas_${precision_kernel}_bench
     PROPERTIES
-    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=json;BENCHMARK_OUT=${benchmark_json_output}"
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=json;BENCHMARK_OUT=${bla_vendor_benchmark_json_output}"
+  )
+
+  add_test(NAME exo_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=exo|EXO)
+  set_tests_properties(
+    exo_${precision_kernel}_bench
+    PROPERTIES
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=json;BENCHMARK_OUT=${exo_benchmark_json_output}"
   )
 
   # Add the correctness test
@@ -64,7 +79,7 @@ function(add_exo_blas_test kernel precision)
 
   add_test(
     NAME ${precision_kernel}_graph
-    COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/graph.py" ${precision_kernel} ${benchmark_json_output} ${BLA_VENDOR} ${PROJECT_SOURCE_DIR}/graphs
+    COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/graph.py" ${precision_kernel} ${PROJECT_SOURCE_DIR}/benchmark_results ${PROJECT_SOURCE_DIR}/graphs
   )
 endfunction()
 
