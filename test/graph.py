@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import math
 import os
 
+read_bound_kernels = {"snrm2", "saxpy", "sdot", "sasum"}
+write_bound_kernels = {"scopy", "sswap", "sscal", "srot"}
 
 def mem_footprint(kernel_name, size):
     if kernel_name in ["snrm2", "sscal", "scopy", "srot", "sswap", "sasum", "sdot", "saxpy"]:
@@ -108,7 +110,12 @@ def peak_bandwidth_plot(params, names_to_points):
         plt.plot(x, y, label=name)
     
     peak_x = [0, log_2(32*1024/4), log_2(256*1024/4), log_2(6*1024*1024/4), log_2(66*1024*1024/4)]
-    peak_y = [60.764375, 26.390875, 14.170275, 8.750275, 8.750275]
+    if kernel_name in read_bound_kernels:
+        peak_y = [60.764375, 26.390875, 14.170275, 5, 5]
+    elif kernel_name in write_bound_kernels:
+        peak_y = [30, 17.5, 11.25, 8.8, 8.8]
+    else:
+        assert False, f"unsupported kernel: {kernel_name}"
 
     if x[-1] > peak_x[-1]:
         peak_x[-1] = x[-1]
