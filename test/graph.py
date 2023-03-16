@@ -111,9 +111,9 @@ def peak_bandwidth_plot(params, names_to_points):
     
     peak_x = [0, log_2(32*1024/4), log_2(256*1024/4), log_2(6*1024*1024/4), log_2(66*1024*1024/4)]
     if kernel_name in read_bound_kernels:
-        peak_y = [60.764375, 26.390875, 14.170275, 5, 5]
+        peak_y = [60.764375, 26.390875, 14.170275, 5.391088867, 5.391088867]
     elif kernel_name in write_bound_kernels:
-        peak_y = [30, 17.5, 11.25, 8.8, 8.8]
+        peak_y = [29.70048828, 17.79030762, 9.842431641, 8.750275, 8.750275]
     else:
         assert False, f"unsupported kernel: {kernel_name}"
 
