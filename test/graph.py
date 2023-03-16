@@ -21,7 +21,7 @@ def mem_ops(kernel_name, size):
     Returns total memory usage of `kernel_name` of dimension `size` in words.
     """
     mem_ops = {
-        1: {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2, "saxpy": 2},
+        1: {"snrm2" : 1, "sscal": 1, "scopy": 1, "srot":2, "sswap": 2, "sasum": 1, "sdot":2, "saxpy": 2},
         2: {"sgemv": 1}
     }
 
