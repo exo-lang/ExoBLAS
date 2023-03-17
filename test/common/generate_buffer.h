@@ -23,6 +23,9 @@ public:
         size_ = other.size_;
         alignment_ = other.alignment_;
         buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * (size_ + alignment_ - (size_ % alignment_)));
+        if (buffer_ == NULL) {
+            throw "AlignedBuffer allocation Failed";
+        }
         memcpy(buffer_, other.buffer_, size_ * sizeof(T));
     }
 
@@ -31,7 +34,10 @@ public:
         
         size_ = other.size_;
         alignment_ = other.alignment_;
-        buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * size_ + alignment_ - (size_ % alignment_));
+        buffer_ = (T*)aligned_alloc(alignment_, sizeof(T) * (size_ + alignment_ - (size_ % alignment_)));
+        if (buffer_ == NULL) {
+            throw "AlignedBuffer allocation Failed";
+        }
         memcpy(buffer_, other.buffer_, size_ * sizeof(T));
 
         return *this;
