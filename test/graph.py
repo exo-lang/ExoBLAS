@@ -4,13 +4,13 @@ import matplotlib.pyplot as plt
 import math
 import os
 
-read_bound_kernels = {"snrm2", "saxpy", "sdot", "sasum"}
+read_bound_kernels = {"snrm2", "saxpy", "sdot", "sasum", "sger"}
 write_bound_kernels = {"scopy", "sswap", "sscal", "srot"}
 
 def mem_footprint(kernel_name, size):
     if kernel_name in ["snrm2", "sscal", "scopy", "srot", "sswap", "sasum", "sdot", "saxpy"]:
         return size
-    elif kernel_name in ["sgemv"]:
+    elif kernel_name in ["sgemv", "sger"]:
         return size*size
     else:
         raise NotImplementedError(f"Input size of {kernel_name} is not implemented")
@@ -22,7 +22,7 @@ def mem_ops(kernel_name, size):
     """
     mem_ops = {
         1: {"snrm2" : 1, "sscal": 1, "scopy": 1, "srot":2, "sswap": 2, "sasum": 1, "sdot":2, "saxpy": 2},
-        2: {"sgemv": 1}
+        2: {"sgemv": 1, "sger": 2}
     }
 
     if kernel_name in mem_ops[1].keys():
