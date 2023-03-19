@@ -4,11 +4,13 @@ import matplotlib.pyplot as plt
 import math
 import os
 
+read_bound_kernels = {"snrm2", "saxpy", "sdot", "sasum", "sger", "strmv"}
+write_bound_kernels = {"scopy", "sswap", "sscal", "srot"}
 
 def mem_footprint(kernel_name, size):
     if kernel_name in ["snrm2", "sscal", "scopy", "srot", "sswap", "sasum", "sdot", "saxpy"]:
         return size
-    elif kernel_name in ["sgemv"]:
+    elif kernel_name in ["sgemv", "sger", "strmv"]:
         return size*size
     else:
         raise NotImplementedError(f"Input size of {kernel_name} is not implemented")
@@ -19,8 +21,8 @@ def mem_ops(kernel_name, size):
     Returns total memory usage of `kernel_name` of dimension `size` in words.
     """
     mem_ops = {
-        1: {"snrm2" : 1, "sscal": 1, "scopy": 2, "srot":2, "sswap": 2, "sasum": 1, "sdot":2, "saxpy": 2},
-        2: {"sgemv": 1}
+        1: {"snrm2" : 1, "sscal": 1, "scopy": 1, "srot":2, "sswap": 2, "sasum": 1, "sdot":2, "saxpy": 2},
+        2: {"sgemv": 1, "sger": 2, "strmv" : 0.5}
     }
 
     if kernel_name in mem_ops[1].keys():
@@ -108,7 +110,12 @@ def peak_bandwidth_plot(params, names_to_points):
         plt.plot(x, y, label=name)
     
     peak_x = [0, log_2(32*1024/4), log_2(256*1024/4), log_2(6*1024*1024/4), log_2(66*1024*1024/4)]
-    peak_y = [60.764375, 26.390875, 14.170275, 8.750275, 8.750275]
+    if kernel_name in read_bound_kernels:
+        peak_y = [60.764375, 26.390875, 14.170275, 5.391088867, 5.391088867]
+    elif kernel_name in write_bound_kernels:
+        peak_y = [29.70048828, 17.79030762, 9.842431641, 8.750275, 8.750275]
+    else:
+        assert False, f"unsupported kernel: {kernel_name}"
 
     if x[-1] > peak_x[-1]:
         peak_x[-1] = x[-1]
