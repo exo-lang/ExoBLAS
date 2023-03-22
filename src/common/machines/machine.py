@@ -50,6 +50,7 @@ class MachineParameters:
     fmadd_instr_f64: Any
     set_zero_instr_f64: Any
     assoc_reduce_add_instr_f64: Any
+    mul_instr_f64_hack : Any
     mul_instr_f64: Any
     add_instr_f64: Any
     reduce_add_wide_instr_f64: Any

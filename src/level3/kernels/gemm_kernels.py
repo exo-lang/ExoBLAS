@@ -13,12 +13,13 @@ class Microkernel:
 
     microkernel_id = 0
 
-    def __init__(self, machine: MachineParameters, M_r: int, N_r: int, K_blk: int):
+    def __init__(self, machine: MachineParameters, M_r: int, N_r: int, K_blk: int, precision:str='f32'):
         
-        # Problem dimensions
+        # Problem dimensions and precision
         self.M_r = M_r
         self.N_r = N_r
         self.K_blk = K_blk
+        self.precision = precision
         self.this_id = Microkernel.microkernel_id
 
         # Base SGEMM procedure
@@ -69,6 +70,7 @@ class Microkernel:
         Vectorize along dimension N
         """
         microkernel = self.generate_base_microkernel(M_r, N_r, K_blk)
+        microkernel = self.specialize_microkernel(microkernel, self.precision)
 
         # Reorder and divide loops
         scheduled_microkernel = rename(microkernel, f"{machine.name}_microkernel_{M_r}x{N_r}_{self.microkernel_id}")
@@ -93,6 +95,7 @@ class Microkernel:
         scheduled_microkernel = set_memory(scheduled_microkernel, 'A_vec', machine.mem_type)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'A_vec', machine.vec_width, 'ji', unsafe_disable_checks=True)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'A_vec', M_r, 'i', unsafe_disable_checks=True)
+        scheduled_microkernel = set_precision(scheduled_microkernel, 'A_vec', self.precision)
 
         # Setup B buffer in vector mem
         scheduled_microkernel = bind_expr(scheduled_microkernel, 'B[_]', 'B_vec')
@@ -100,6 +103,7 @@ class Microkernel:
         scheduled_microkernel = set_memory(scheduled_microkernel, 'B_vec', machine.mem_type)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'B_vec', machine.vec_width, f'ji', unsafe_disable_checks=True)
         scheduled_microkernel = expand_dim(scheduled_microkernel, 'B_vec', (N_r // machine.vec_width), f'jo', unsafe_disable_checks=True)
+        scheduled_microkernel = set_precision(scheduled_microkernel, 'B_vec', self.precision)
 
         # Move A_vec and B_vec into proper sites
         scheduled_microkernel = lift_alloc(scheduled_microkernel, 'A_vec', n_lifts=3)
@@ -108,13 +112,27 @@ class Microkernel:
         scheduled_microkernel = autofission(scheduled_microkernel, scheduled_microkernel.find('B_vec[_] = _').after(), n_lifts=3)
 
         # Replace
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.load_instr_f32)
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.broadcast_instr_f32)
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.store_instr_f32)
-        scheduled_microkernel = replace_all(scheduled_microkernel, machine.fmadd_instr_f32)
-        scheduled_microkernel = simplify(scheduled_microkernel)
+        if self.precision=='f32':
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.load_instr_f32)
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.broadcast_instr_f32)
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.store_instr_f32)
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.fmadd_instr_f32)
+            scheduled_microkernel = simplify(scheduled_microkernel)
+        else:
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.load_instr_f64)
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.broadcast_instr_f64)
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.store_instr_f64)
+            scheduled_microkernel = replace_all(scheduled_microkernel, machine.fmadd_instr_f64)
+            scheduled_microkernel = simplify(scheduled_microkernel)
 
         return scheduled_microkernel, microkernel
+    
+    
+    def specialize_microkernel(self, microkernel: Procedure, precision:str):
+        args = ["A", "B", "C"]
+        for arg in args:
+            microkernel = set_precision(microkernel, arg, precision)
+        return microkernel
 
 #test_microkernel = Microkernel(NeonMachine, 4, 16, 32)
 #print("TEST PASSED: Microkernel successfully generated!")
@@ -128,11 +146,12 @@ class GEBP_kernel:
     gebp_id = 0
 
     def __init__(self, microkernel: Microkernel, 
-                 M_blk: int):
+                 M_blk: int, precision:str='f32'):
 
         # Problem dimensions
         self.M_blk = M_blk
         self.microkernel = microkernel
+        self.precision=precision
         self.this_id = GEBP_kernel.gebp_id
         
         # Base SGEMM procedure
@@ -173,9 +192,11 @@ class GEBP_kernel:
 
         return scheduled_gebp, gebp
 
+
     def do_generate_gebp(self):
 
         gebp = self.generate_base_gebp(self.M_blk, self.microkernel.K_blk)
+        gebp = self.specialize_gebp(gebp, self.precision)
 
         scheduled_gebp = rename(gebp, f"gebp_{self.M_blk}x{self.microkernel.K_blk}_{self.gebp_id}")
         scheduled_gebp = divide_loop(scheduled_gebp, 'i', self.microkernel.M_r, ['io', 'ii'], tail='cut_and_guard')
@@ -192,13 +213,20 @@ class GEBP_kernel:
         return simplify(scheduled_gebp), gebp
 
 
+    def specialize_gebp(self, gebp: Procedure, precision:str):
+        args = ["A", "B", "C"]
+        for arg in args:
+            gebp = set_precision(gebp, arg, precision)
+        return gebp
+
 class GEPP_kernel:
 
     gepp_id = 0
 
-    def __init__(self, gebp: GEBP_kernel):
+    def __init__(self, gebp: GEBP_kernel, precision:str='f32'):
 
         self.K_blk = gebp.microkernel.K_blk
+        self.precision = precision
         self.gebp = gebp
         self.this_id = GEPP_kernel.gepp_id
 
@@ -239,19 +267,27 @@ class GEPP_kernel:
 
         return base_gepp, scheduled_gepp
 
+
     def do_generate_gepp(self):
 
         base_gepp = self.generate_base_gepp()
+        base_gepp = self.specialize_gepp(base_gepp, self.precision)
 
         scheduled_gepp = rename(base_gepp, f"scheduled_gepp_{self.this_id}")
         scheduled_gepp = divide_loop(scheduled_gepp, 'i', self.gebp.M_blk, ['io', 'ii'], tail='cut_and_guard')
         scheduled_gepp = stage_mem(scheduled_gepp, 'for ii in _:_ #0', f'A[{self.gebp.M_blk} * io + 0:{self.gebp.M_blk} * io + {self.gebp.M_blk}, 0:{self.K_blk}]', 'A_packed')
-        print(scheduled_gepp)
 
         scheduled_gepp = replace(scheduled_gepp, 'for ii in _:_ #0', self.gebp.base_gebp)
         scheduled_gepp = call_eqv(scheduled_gepp, f'gebp_base_{self.gebp.this_id}(_)', self.gebp.scheduled_gebp)
         
         return base_gepp, scheduled_gepp
+    
+
+    def specialize_gepp(self, gepp: Procedure, precision: str):
+        args = ["A", "B", "C"]
+        for arg in args:
+            gepp = set_precision(gepp, arg, precision)
+        return gepp
 
 #test_gebp = GEBP_kernel(test_microkernel, 64, 256)
 #print("TEST PASSED: GEBP kernel successfully generated!")

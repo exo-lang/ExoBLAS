@@ -14,6 +14,16 @@ def mm256_mul_ps_hack(
     for i in seq(0, 8):
         dst[i] = dst[i] * rhs[i]
 
+@instr("{dst_data} = _mm256_mul_pd({dst_data}, {rhs_data});")
+def mm256_mul_sd_hack(
+    dst: [f64][4] @ AVX2, rhs: [f64][4] @ AVX2
+):
+    assert stride(dst, 0) == 1
+    assert stride(rhs, 0) == 1
+
+    for i in seq(0, 4):
+        dst[i] = dst[i] * rhs[i]
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -51,6 +61,7 @@ Machine = MachineParameters(
     fmadd_instr_f64=mm256_fmadd_pd,
     set_zero_instr_f64=mm256_setzero_pd,
     assoc_reduce_add_instr_f64=avx2_assoc_reduce_add_pd,
+    mul_instr_f64_hack=mm256_mul_sd_hack,
     mul_instr_f64=mm256_mul_pd,
     add_instr_f64=mm256_add_pd,
     reduce_add_wide_instr_f64=avx2_reduce_add_wide_pd,
