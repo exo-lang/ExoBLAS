@@ -4,32 +4,32 @@ import matplotlib.pyplot as plt
 import math
 import os
 
-read_bound_kernels = {"snrm2", "saxpy", "sdot", "sasum", "sger", "strmv"}
-write_bound_kernels = {"scopy", "sswap", "sscal", "srot"}
+read_bound_kernels = {"nrm2", "axpy", "dot", "asum", "ger", "trmv", "gemv"}
+write_bound_kernels = {"copy", "swap", "scal", "rot"}
 
-def mem_footprint(kernel_name, size):
-    if kernel_name in ["snrm2", "sscal", "scopy", "srot", "sswap", "sasum", "sdot", "saxpy"]:
-        return size
-    elif kernel_name in ["sgemv", "sger", "strmv"]:
-        return size*size
+def mem_footprint(kernel_name, size, wordsize):
+    if kernel_name in ["nrm2", "scal", "copy", "rot", "swap", "asum", "dot", "axpy"]:
+        return size*wordsize
+    elif kernel_name in ["gemv", "ger", "trmv"]:
+        return size*size*wordsize
     else:
         raise NotImplementedError(f"Input size of {kernel_name} is not implemented")
 
 
-def mem_ops(kernel_name, size):
+def mem_ops(kernel_name, size, wordsize):
     """
-    Returns total memory usage of `kernel_name` of dimension `size` in words.
+    Returns total memory usage of `kernel_name` of dimension `size` in bytes.
     """
     mem_ops = {
-        1: {"snrm2" : 1, "sscal": 1, "scopy": 1, "srot":2, "sswap": 2, "sasum": 1, "sdot":2, "saxpy": 2},
-        2: {"sgemv": 1, "sger": 2, "strmv" : 0.5}
+        1: {"nrm2" : 1, "scal": 1, "copy": 1, "rot":2, "swap": 2, "asum": 1, "dot":2, "axpy": 2},
+        2: {"gemv": 1, "ger": 2, "trmv" : 0.5}
     }
 
     if kernel_name in mem_ops[1].keys():
-        return size*mem_ops[1].get(kernel_name, 2)
+        return wordsize*size*mem_ops[1].get(kernel_name, 2)
     elif kernel_name in mem_ops[2].keys():
         # TODO: generalize beyond nxn matrices
-        return size*size*mem_ops[2].get(kernel_name, 1)
+        return wordsize*size*size*mem_ops[2].get(kernel_name, 1)
     else:
         raise NotImplementedError(f"Memory usage of {kernel_name} is not implemented")
 
@@ -39,6 +39,13 @@ if len(sys.argv) != 4:
     exit(1)
 
 kernel_name = sys.argv[1]
+if kernel_name[0] == 's':
+    wordsize = 4
+elif kernel_name[0] == 'd':
+    wordsize = 8
+else:
+    raise NotImplementedError(f"kernel: {kernel_name} not supported")
+
 benchmark_results_dir = sys.argv[2]
 graphs_dir = sys.argv[3]
 
@@ -99,21 +106,21 @@ for params in perf_res:
 
 
 def peak_bandwidth_plot(params, names_to_points):
-    def get_gword_sec(size, time):
-        return (mem_ops(kernel_name, size)*10**9)/(time*2**30)
+    def get_gbyte_sec(size, time):
+        return (mem_ops(kernel_name[1:], size, wordsize)*10**9)/(time*2**30)
 
     plt.clf()
     for name in names_to_points:
         points = names_to_points[name]
-        x = [log_2(mem_footprint(kernel_name, p[0])) for p in points]
-        y = [get_gword_sec(p[0], p[1]) for p in points]
+        x = [log_2(mem_footprint(kernel_name[1:], p[0], wordsize)) for p in points]
+        y = [get_gbyte_sec(p[0], p[1]) for p in points]
         plt.plot(x, y, label=name)
     
-    peak_x = [0, log_2(32*1024/4), log_2(256*1024/4), log_2(6*1024*1024/4), log_2(66*1024*1024/4)]
-    if kernel_name in read_bound_kernels:
-        peak_y = [60.764375, 26.390875, 14.170275, 5.391088867, 5.391088867]
-    elif kernel_name in write_bound_kernels:
-        peak_y = [29.70048828, 17.79030762, 9.842431641, 8.750275, 8.750275]
+    peak_x = [0, log_2(32*1024), log_2(256*1024), log_2(6*1024*1024), log_2(66*1024*1024)]
+    if kernel_name[1:] in read_bound_kernels:
+        peak_y = [248890.88/1024, 108097.024/1024, 58041.4464/1024, 22081.9/1024, 22081.9/1024]
+    elif kernel_name[1:] in write_bound_kernels:
+        peak_y = [121653.2/1024, 72869.1/1024, 40314.6/1024, 35841.1264/1024, 35841.1264/1024]
     else:
         assert False, f"unsupported kernel: {kernel_name}"
 
@@ -125,8 +132,8 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.legend()
     
     plt.title(f"""{kernel_name}, params: {params}""")
-    plt.ylabel('Gwords/sec')
-    plt.xlabel('log(words)')
+    plt.ylabel('Gbytes/sec')
+    plt.xlabel('log2(bytes)')
     plt.xticks(range(0, 30, 2))
     fig_file_name = f"{kernel_graphs_dir}/peak_bandwidth_{kernel_name}_{params}.png"
     fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
@@ -144,7 +151,7 @@ def raw_runtime_plot(params, names_to_points):
     
     plt.title(f"""{kernel_name}, params: {params}""")
     plt.ylabel('runtime (ns)')
-    plt.xlabel('log(words)')
+    plt.xlabel('log2(words)')
     plt.xticks(range(0, 30, 2))
     fig_file_name = f"{kernel_graphs_dir}/raw_runtime_{kernel_name}_{params}.png"
     fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
@@ -189,7 +196,7 @@ def ratio_and_gm_plot(params, names_to_points):
                       {kernel_name}, params: {params}
                       GM = {GM}""")
             plt.ylabel('runtime ratio % (ns)')
-            plt.xlabel('log(words)')
+            plt.xlabel('log2(words)')
             plt.xticks(range(0, 30, 2))
             plt.yticks(list(range(0, 201, 20)) + list(range(250, 500, 50)))
             plt.axhline(y = 100, color = 'r', linestyle = '-')
