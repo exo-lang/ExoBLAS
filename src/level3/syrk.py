@@ -25,9 +25,13 @@ class SYRK:
                  K_blk: int, M_blk: int, 
                  M_r: int, N_r: int):
         
+        # Precision
+        self.precision = precision
+        self.prefix = 's' if precision=='f32' else 'd'
+
         # Generate kernels
-        self.microkernel = Microkernel(machine, M_r, N_r, K_blk)
-        self.gebp_kernel = GEBP_kernel(self.microkernel, M_blk)
+        self.microkernel = Microkernel(machine, M_r, N_r, K_blk, self.precision)
+        self.gebp_kernel = GEBP_kernel(self.microkernel, M_blk, self.precision)
 
         # Blocking dimensions
         self.K_blk = K_blk
@@ -37,7 +41,7 @@ class SYRK:
         self.machine = machine
 
         @proc
-        def ssyrk_lower_notranspose(N: size, 
+        def syrk_lower_notranspose(N: size, 
                  K: size, 
                  A1: f32[N, K] @ DRAM, 
                  A2: f32[K, N] @ DRAM,
@@ -53,6 +57,10 @@ class SYRK:
                 for j in seq(0, i+1):
                     for k in seq(0, K):
                         C[i, j] += A1[i, k]*A2[k, j]
+        syrk_lower_notranspose = set_precision(syrk_lower_notranspose, "A1", self.precision)
+        syrk_lower_notranspose = set_precision(syrk_lower_notranspose, "A2", self.precision)
+        syrk_lower_notranspose = set_precision(syrk_lower_notranspose, "C", self.precision)
+        syrk_lower_notranspose = rename(syrk_lower_notranspose, f"{self.prefix}{syrk_lower_notranspose.name()}")
         
         @proc
         def diag_handler_lower_notranspose(N: size, 
@@ -71,9 +79,13 @@ class SYRK:
                 for j in seq(0, i):
                     for k in seq(0, K):
                         C[i, j] += A1[i, k]*A2[k, j]
+        diag_handler_lower_notranspose = set_precision(diag_handler_lower_notranspose, "A1", self.precision)
+        diag_handler_lower_notranspose = set_precision(diag_handler_lower_notranspose, "A2", self.precision)
+        diag_handler_lower_notranspose = set_precision(diag_handler_lower_notranspose, "C", self.precision)
+        diag_handler_lower_notranspose = rename(diag_handler_lower_notranspose, f"{self.prefix}_{diag_handler_lower_notranspose.name()}")
 
         @proc
-        def ssyrk_lower_transpose(N: size, 
+        def syrk_lower_transpose(N: size, 
                            K: size, 
                            A1: f32[K, N] @ DRAM,
                            A2: f32[N, K] @ DRAM,
@@ -91,15 +103,15 @@ class SYRK:
                         C[i, j] += A2[j, k]*A1[k, i]
 
 
-        self.ssyrk_win_lower_notranspose = rename(ssyrk_lower_notranspose, "ssyrk_win")
-        self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'A1', True)
-        self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'A2', True)
-        self.ssyrk_win_lower_notranspose = set_window(self.ssyrk_win_lower_notranspose, 'C', True)
-        self.gepp_ssyrk_scheduled_lower_notranspose, self.gepp_ssyrk_base_lower_notranspose = self.generate_ssyrk_gepp_lower_notranspose(diag_handler_lower_notranspose)
-        ssyrk_scheduled_lower_notranspose = self.schedule_ssyrk_lower_notranspose(ssyrk_lower_notranspose)
+        self.syrk_win_lower_notranspose = rename(syrk_lower_notranspose, "syrk_win")
+        self.syrk_win_lower_notranspose = set_window(self.syrk_win_lower_notranspose, 'A1', True)
+        self.syrk_win_lower_notranspose = set_window(self.syrk_win_lower_notranspose, 'A2', True)
+        self.syrk_win_lower_notranspose = set_window(self.syrk_win_lower_notranspose, 'C', True)
+        self.gepp_syrk_scheduled_lower_notranspose, self.gepp_syrk_base_lower_notranspose = self.generate_syrk_gepp_lower_notranspose(diag_handler_lower_notranspose)
+        syrk_scheduled_lower_notranspose = self.schedule_syrk_lower_notranspose(syrk_lower_notranspose)
 
         @proc
-        def exo_ssyrk_lower_notranspose(
+        def exo_syrk_lower_notranspose(
             N: size,
             K: size,
             alpha: f32[1] @ DRAM,
@@ -108,26 +120,27 @@ class SYRK:
             beta: f32[1] @ DRAM,
             C: f32[N, N] @ DRAM
         ):
-            ssyrk_scheduled_lower_notranspose(N, K, A1, A2, C)
-        
+            syrk_scheduled_lower_notranspose(N, K, A1, A2, C)
+        exo_syrk_lower_notranspose = self.specialize_syrk(exo_syrk_lower_notranspose, self.precision)
+
         self.entry_points = [
-            exo_ssyrk_lower_notranspose
+            exo_syrk_lower_notranspose
         ]
 
     
-    def generate_ssyrk_gepp_base(self, syrk_win: Procedure):
-        gepp_syrk_base = rename(syrk_win, "gepp_ssyrk_base")
+    def generate_syrk_gepp_base(self, syrk_win: Procedure):
+        gepp_syrk_base = rename(syrk_win, "gepp_syrk_base")
         gepp_syrk_base = gepp_syrk_base.partial_eval(K=self.microkernel.K_blk)
         return gepp_syrk_base
     
 
-    def generate_ssyrk_gepp_lower_notranspose(self, diag_handler: Procedure):
+    def generate_syrk_gepp_lower_notranspose(self, diag_handler: Procedure):
 
         assert(self.M_blk >= 128) # Temporary
 
-        gepp_syrk_base = self.generate_ssyrk_gepp_base(self.ssyrk_win_lower_notranspose)
+        gepp_syrk_base = self.generate_syrk_gepp_base(self.syrk_win_lower_notranspose)
 
-        gepp_syrk_scheduled = rename(gepp_syrk_base, "gepp_ssyrk_scheduled")
+        gepp_syrk_scheduled = rename(gepp_syrk_base, f"gepp_{self.prefix}syrk_scheduled")
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'i', self.M_blk, ['io', 'ii'], tail='cut')
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for j in _:_', 1)
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'j #1', self.M_blk, ['jo', 'ji'], tail='cut')
@@ -148,8 +161,8 @@ class SYRK:
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #1', diag_syrk_base)
         
         #TODO: generate GEBP procedures until M_blk is the size of the microkernel
-        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//4)
-        diag_syrk_scheduled = rename(diag_syrk_base, 'diag_handler_scheduled')
+        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//4, self.precision)
+        diag_syrk_scheduled = rename(diag_syrk_base, f'{self.prefix}_diag_handler_scheduled')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'i', gebp_diag_handler.M_blk, ['io', 'ii'], tail='cut')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'j', gebp_diag_handler.M_blk, ['jo', 'ji'], tail='cut')
         diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for ji in _:_ #1').before(), n_lifts=1)
@@ -158,7 +171,7 @@ class SYRK:
         diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for ii in _:_ #0', gebp_diag_handler.base_gebp)
         diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'gebp_base_{gebp_diag_handler.this_id}(_)', gebp_diag_handler.scheduled_gebp)
 
-        microkernel_diag_handler = Microkernel(self.machine, 8, 8, self.K_blk)
+        microkernel_diag_handler = Microkernel(self.machine, 8, 8, self.K_blk, self.precision)
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ii in _:_', microkernel_diag_handler.M_r, ['iio', 'iii'], tail='cut')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ji in _:_', microkernel_diag_handler.N_r, ['jio', 'jii'], tail='cut')
         diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for jii in _:_ #1').before(), n_lifts=1)
@@ -171,16 +184,24 @@ class SYRK:
 
         return gepp_syrk_scheduled, gepp_syrk_base
 
-        
-
     
-    def schedule_ssyrk_lower_notranspose(self, ssyrk_base: Procedure):
+    def schedule_syrk_lower_notranspose(self, ssyrk_base: Procedure):
         syrk = divide_loop(ssyrk_base, 'k', self.K_blk, ['ko', 'ki'], tail='cut_and_guard')
         syrk = autofission(syrk, syrk.find('for ko in _:_ #0').after(), n_lifts=2)
         syrk = reorder_loops(syrk, 'j ko')
         syrk = reorder_loops(syrk, 'i ko')
-        syrk = replace(syrk, 'for i in _:_ #0', self.gepp_ssyrk_base_lower_notranspose)
-        syrk = call_eqv(syrk, 'gepp_ssyrk_base(_)', self.gepp_ssyrk_scheduled_lower_notranspose)
+        syrk = replace(syrk, 'for i in _:_ #0', self.gepp_syrk_base_lower_notranspose)
+        syrk = call_eqv(syrk, 'gepp_syrk_base(_)', self.gepp_syrk_scheduled_lower_notranspose)
+        return syrk
+    
+
+    def specialize_syrk(self, syrk: Procedure, precision: str):
+        prefix = "s" if precision == "f32" else "d"
+        name = syrk.name().replace("exo_", "")
+        syrk = rename(syrk, "exo_" + prefix + name)
+        args = ["A1", "A2", "C", "alpha", "beta"]
+        for arg in args:
+            syrk = set_precision(syrk, arg, precision)
         return syrk
 
  
@@ -197,4 +218,12 @@ ssyrk = SYRK(C.Machine, 'f32',
 
 exo_ssyrk_lower_notranspose = ssyrk.entry_points[0]
 
-__all__ = [p.name() for p in ssyrk.entry_points]
+C.Machine.vec_width //= 2
+dsyrk = SYRK(C.Machine, 'f64',
+             k_blk, m_blk,
+             m_reg, n_reg
+             )
+
+exo_dsyrk_lower_notranspose = dsyrk.entry_points[0]
+
+__all__ = [p.name() for p in ssyrk.entry_points] + [p.name() for p in dsyrk.entry_points]

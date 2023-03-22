@@ -8,7 +8,7 @@
 #include <chrono>
 
 
-#include "exo_ssyrk.h"
+#include "exo_dsyrk.h"
 #include "generate_buffer.h"
 #include <cblas.h>
 #include <benchmark/benchmark.h>
@@ -51,13 +51,13 @@ static std::vector<float> transpose(std::vector<float> V, const int m, const int
 }
 
 
-static void BM_SSYRK_CBLAS(benchmark::State& state) {
+static void BM_DSYRK_CBLAS(benchmark::State& state) {
     int n = state.range(0);
-    auto a = AlignedBuffer2D<float>(n, n, 2.0, 64);
-    auto c = AlignedBuffer2D<float>(n, n, 2.0, 64);
+    auto a = AlignedBuffer2D<double>(n, n, 2.0, 64);
+    auto c = AlignedBuffer2D<double>(n, n, 2.0, 64);
 
     for (auto _: state) {
-        cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans,
+        cblas_dsyrk(CblasRowMajor, CblasLower, CblasNoTrans,
                 n, n, // M N
                 1.0, // alpha
                 a.data(),
@@ -77,16 +77,16 @@ static void BM_SSYRK_CBLAS(benchmark::State& state) {
 }
 
 
-static void BM_SSYRK_EXO(benchmark::State& state) {
+static void BM_DSYRK_EXO(benchmark::State& state) {
     int n = state.range(0);
-    auto a = AlignedBuffer2D<float>(n, n, 2.0, 64);
-    auto c = AlignedBuffer2D<float>(n, n, 2.0, 64);
+    auto a = AlignedBuffer2D<double>(n, n, 2.0, 64);
+    auto c = AlignedBuffer2D<double>(n, n, 2.0, 64);
 
-    float alpha = 1.0f;
-    float beta = 1.0f;
+    double alpha = 1.0f;
+    double beta = 1.0f;
 
     for (auto _: state) {
-        exo_ssyrk('L', 'N', n, n, &alpha, a.data(), a.data(), &beta, c.data());
+        exo_dsyrk('L', 'N', n, n, &alpha, a.data(), a.data(), &beta, c.data());
     }
 
     state.counters["flops"] = benchmark::Counter(
@@ -98,12 +98,12 @@ static void BM_SSYRK_EXO(benchmark::State& state) {
 
 }
 
-BENCHMARK(BM_SSYRK_CBLAS) -> ArgNames({"n"}) -> Args({2048});
-BENCHMARK(BM_SSYRK_EXO) -> ArgNames({"n"}) -> Args({2048});
+BENCHMARK(BM_DSYRK_CBLAS) -> ArgNames({"n"}) -> Args({2048});
+BENCHMARK(BM_DSYRK_EXO) -> ArgNames({"n"}) -> Args({2048});
 
-BENCHMARK(BM_SSYRK_CBLAS) -> ArgNames({"n"}) -> Args({1024});
-BENCHMARK(BM_SSYRK_EXO) -> ArgNames({"n"}) -> Args({1024});
+BENCHMARK(BM_DSYRK_CBLAS) -> ArgNames({"n"}) -> Args({1024});
+BENCHMARK(BM_DSYRK_EXO) -> ArgNames({"n"}) -> Args({1024});
 
-BENCHMARK(BM_SSYRK_CBLAS) -> ArgNames({"n"}) -> Args({256});
-BENCHMARK(BM_SSYRK_EXO) -> ArgNames({"n"}) -> Args({256});
+BENCHMARK(BM_DSYRK_CBLAS) -> ArgNames({"n"}) -> Args({256});
+BENCHMARK(BM_DSYRK_EXO) -> ArgNames({"n"}) -> Args({256});
 
