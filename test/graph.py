@@ -61,6 +61,10 @@ for dir in os.listdir(benchmark_results_dir):
     name = dir
     if name == "Intel10_64lp_seq":
         name = "MKL"
+    elif name == "exo":
+        name = "Exo"
+    elif name == "All":
+        name = "OpenBLAS"
     json_path = f"{benchmark_results_dir}/{dir}/{kernel_name}.json"
     if not os.path.exists(json_path):
         continue

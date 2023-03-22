@@ -36,7 +36,7 @@ BENCHMARK(BM_cblas_dasum)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {64}
     });
-BENCHMARK(BM_exo_dasum)->ArgNames({"n", "incX"})->ArgsProduct({
+BENCHMARK(BM_exo_dasum)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
       benchmark::CreateRange(1, (1 << 26), 2), {1}, {64}
     })->ArgsProduct({
       benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {64}
