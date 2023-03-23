@@ -94,6 +94,9 @@ BENCHMARK(BM_SGEMM_EXO) -> ArgNames({"n"}) -> Args({2048});
 BENCHMARK(BM_SGEMM_CBLAS) -> ArgNames({"n"}) -> Args({1024});
 BENCHMARK(BM_SGEMM_EXO) -> ArgNames({"n"}) -> Args({1024});
 
+BENCHMARK(BM_SGEMM_CBLAS) -> ArgNames({"n"}) -> Args({512});
+BENCHMARK(BM_SGEMM_EXO) -> ArgNames({"n"}) -> Args({512});
+
 BENCHMARK(BM_SGEMM_CBLAS) -> ArgNames({"n"}) -> Args({256});
 BENCHMARK(BM_SGEMM_EXO) -> ArgNames({"n"}) -> Args({256});
 

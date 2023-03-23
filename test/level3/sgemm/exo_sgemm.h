@@ -9,7 +9,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
     if (*alpha==1.0 && *beta==1.0) {
         if (n<=32) {
             exo_sgemm_notranspose_noalpha_nobeta_32_32(nullptr, m, n, k, alpha, beta, A, B, C);
-        } else if (n<=62) {
+        } else if (n<=64) {
             exo_sgemm_notranspose_noalpha_nobeta_64_64(nullptr, m, n, k, alpha, beta, A, B, C);
         } else if (n<=128) {
             exo_sgemm_notranspose_noalpha_nobeta_128_128(nullptr, m, n, k, alpha, beta, A, B, C);
@@ -23,7 +23,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
     } else if (*alpha==0.0 && *beta!=1.0) {
         if (n<=32) {
             exo_sgemm_alphazero_beta_32_32(nullptr, m, n, k, alpha, beta, A, B, C);
-        } else if (n<=62) {
+        } else if (n<=64) {
             exo_sgemm_alphazero_beta_64_64(nullptr, m, n, k, alpha, beta, A, B, C);
         } else if (n<=128) {
             exo_sgemm_alphazero_beta_128_128(nullptr, m, n, k, alpha, beta, A, B, C);
@@ -35,7 +35,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
     } else if (*alpha!=1.0 && *beta==1.0) {
         if (n<=32) {
             exo_sgemm_notranspose_alpha_nobeta_32_32(nullptr, m, n, k, alpha, beta, A, B, C);
-        } else if (n<=62) {
+        } else if (n<=64) {
             exo_sgemm_notranspose_alpha_nobeta_64_64(nullptr, m, n, k, alpha, beta, A, B, C);
         } else if (n<=128) {
             exo_sgemm_notranspose_alpha_nobeta_128_128(nullptr, m, n, k, alpha, beta, A, B, C);
@@ -47,7 +47,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
     } else {
         if (n<=32) {
             exo_sgemm_notranspose_alpha_beta_32_32(nullptr, m, n, k, alpha, beta, A, B, C);
-        } else if (n<=62) {
+        } else if (n<=64) {
             exo_sgemm_notranspose_alpha_beta_64_64(nullptr, m, n, k, alpha, beta, A, B, C);
         } else if (n<=128) {
             exo_sgemm_notranspose_alpha_beta_128_128(nullptr, m, n, k, alpha, beta, A, B, C);

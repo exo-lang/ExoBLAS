@@ -171,12 +171,13 @@ class SYRK:
         diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for ii in _:_ #0', gebp_diag_handler.base_gebp)
         diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'gebp_base_{gebp_diag_handler.this_id}(_)', gebp_diag_handler.scheduled_gebp)
 
-        microkernel_diag_handler = Microkernel(self.machine, 8, 8, self.K_blk, self.precision)
+        microkernel_diag_handler = Microkernel(self.machine, self.machine.vec_width, self.machine.vec_width, self.K_blk, self.precision)
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ii in _:_', microkernel_diag_handler.M_r, ['iio', 'iii'], tail='cut')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ji in _:_', microkernel_diag_handler.N_r, ['jio', 'jii'], tail='cut')
         diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for jii in _:_ #1').before(), n_lifts=1)
         diag_syrk_scheduled = simplify(diag_syrk_scheduled)
         diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, 'iii jio')
+        print(diag_syrk_scheduled)
         diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for iii in _:_ #0', microkernel_diag_handler.base_microkernel)
         diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'microkernel_{microkernel_diag_handler.this_id}(_)', microkernel_diag_handler.scheduled_microkernel)
 
@@ -221,7 +222,7 @@ exo_ssyrk_lower_notranspose = ssyrk.entry_points[0]
 C.Machine.vec_width //= 2
 dsyrk = SYRK(C.Machine, 'f64',
              k_blk, m_blk,
-             m_reg, n_reg
+             m_reg, n_reg//2
              )
 
 exo_dsyrk_lower_notranspose = dsyrk.entry_points[0]

@@ -69,7 +69,7 @@ static void BM_DSYRK_CBLAS(benchmark::State& state) {
     }
 
     state.counters["flops"] = benchmark::Counter(
-        static_cast<double>(state.iterations()) * n * n * n,
+        static_cast<double>(state.iterations()) * n * n * n * 2,
         benchmark::Counter::kIsRate,
         benchmark::Counter::kIs1000	
     );
@@ -90,7 +90,7 @@ static void BM_DSYRK_EXO(benchmark::State& state) {
     }
 
     state.counters["flops"] = benchmark::Counter(
-        static_cast<double>(state.iterations()) * n * n * n,
+        static_cast<double>(state.iterations()) * n * n * n * 2,
         benchmark::Counter::kIsRate,
         benchmark::Counter::kIs1000	
     );

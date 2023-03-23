@@ -19,9 +19,9 @@ import exo_blas_config as C
 
 """
 TODO:
-    1. Variable block sizes based on problem size
-    2. transpose gemm
-    3. dgemm
+    - transpose
+    - optimize alpha version
+    - edge cases
 """
 
 class GEMM:
@@ -228,6 +228,8 @@ class GEMM:
         gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for ko in _:_ #0').after(), n_lifts=2)
         gemm_scheduled = reorder_loops(gemm_scheduled, 'j ko')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i ko')
+        if self.gepp.K_blk>256:
+            gemm_scheduled = stage_mem(gemm_scheduled, 'for i in _:_ #0', f'A[0:M, {self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko]', 'A_packed')
         gemm_scheduled = replace(gemm_scheduled, 'for i in _:_ #0', self.gepp.gepp_base)
         gemm_scheduled = call_eqv(gemm_scheduled, f'gepp_base_{self.gepp.this_id}(_)', self.gepp.gepp_scheduled)
         return simplify(gemm_scheduled)
@@ -388,10 +390,10 @@ dgemm_main = GEMM(
     C.Machine,
     'f64', 
     k_blk, m_blk, 
-    m_reg, n_reg
+    m_reg, n_reg//2
 )
 
-dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, m_reg, n_reg, True) for blk in blk_sizes] # Use these if problem size is too small for the main block size
+dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, m_reg, n_reg//2, True) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
 exo_dgemm_notranspose_noalpha_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[0]
 exo_dgemm_alphazero_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[1]
