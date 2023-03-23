@@ -13,7 +13,7 @@ void test_dtbmv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
                 const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_DIAG Diag,
                 const int N, const int k,
                 const int lda, const int incX) {
-    printf("Running trmv test: N = %d, k = %d, incX = %d, lda = %d, isUpper = %d, isTransA = %d, isDiag = %d\n", N, k, incX, lda, 
+    printf("Running dtbmv test: N = %d, k = %d, incX = %d, lda = %d, isUpper = %d, isTransA = %d, isDiag = %d\n", N, k, incX, lda, 
         Uplo == CBLAS_UPLO::CblasUpper,
         TransA == CBLAS_TRANSPOSE::CblasTrans,
         Diag == CBLAS_DIAG::CblasUnit);

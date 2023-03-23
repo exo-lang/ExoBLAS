@@ -48,11 +48,11 @@ void exo_dtbmv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
             }
         } else {
             if (incX == 1) {
-                exo_dtbmv_raw_major_Lower_Trans_stride_any(nullptr, N, K,
+                exo_dtbmv_raw_major_Lower_Trans_stride_1(nullptr, N, K,
                     exo_win_1f64{.data = X, .strides = {incX}}, 
                     exo_win_2f64c{.data = A, .strides = {lda, 1}}, Diag == CBLAS_DIAG::CblasUnit);
             } else {
-                exo_dtbmv_raw_major_Lower_Trans_stride_1(nullptr, N, K,
+                exo_dtbmv_raw_major_Lower_Trans_stride_any(nullptr, N, K,
                     exo_win_1f64{.data = X, .strides = {incX}}, 
                     exo_win_2f64c{.data = A, .strides = {lda, 1}}, Diag == CBLAS_DIAG::CblasUnit);
             }
