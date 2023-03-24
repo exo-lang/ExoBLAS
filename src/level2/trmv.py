@@ -169,9 +169,6 @@ entry_points = [
                 exo_dtrmv_raw_major_Lower_Trans_stride_any,
                 ]
 
-for p in entry_points:
-    print(p)
-
 if __name__ == "__main__":
     for p in entry_points:
         print(p)
