@@ -85,23 +85,7 @@ static void BM_DGEMM_EXO(benchmark::State& state) {
 
 }
 
-BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) -> Args({4096});
-BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) -> Args({4096});
-
-BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) -> Args({2048});
-BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) -> Args({2048});
-
-BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) -> Args({1024});
-BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) -> Args({1024});
-
-BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) -> Args({512});
-BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) -> Args({512});
-
-BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) -> Args({256});
-BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) -> Args({256});
-
-BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) -> Args({128});
-BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) -> Args({128});
-
-BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) -> Args({64});
-BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) -> Args({64});
+BENCHMARK(BM_DGEMM_CBLAS) -> ArgNames({"n"}) ->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 10), 2)});
+BENCHMARK(BM_DGEMM_EXO) -> ArgNames({"n"}) ->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 10), 2)});

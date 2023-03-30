@@ -98,12 +98,9 @@ static void BM_DSYRK_EXO(benchmark::State& state) {
 
 }
 
-BENCHMARK(BM_DSYRK_CBLAS) -> ArgNames({"n"}) -> Args({2048});
-BENCHMARK(BM_DSYRK_EXO) -> ArgNames({"n"}) -> Args({2048});
+BENCHMARK(BM_DSYRK_CBLAS) -> ArgNames({"n"}) ->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 10), 2)});
+BENCHMARK(BM_DSYRK_EXO) -> ArgNames({"n"}) ->ArgsProduct({
+      benchmark::CreateRange(1, (1 << 10), 2)});
 
-BENCHMARK(BM_DSYRK_CBLAS) -> ArgNames({"n"}) -> Args({1024});
-BENCHMARK(BM_DSYRK_EXO) -> ArgNames({"n"}) -> Args({1024});
-
-BENCHMARK(BM_DSYRK_CBLAS) -> ArgNames({"n"}) -> Args({256});
-BENCHMARK(BM_DSYRK_EXO) -> ArgNames({"n"}) -> Args({256});
 
