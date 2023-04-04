@@ -15,9 +15,3 @@ add_exo_library(
   SOURCES gemm.py
   PYTHONPATH ${PYTHONPATH}
 )
-
-add_exo_library(
-  NAME exo_trmm
-  SOURCES trmm.py
-  PYTHONPATH ${PYTHONPATH}
-)
