@@ -30,11 +30,14 @@ class GEMM:
                  precision: str,
                  K_blk: int, M_blk: int, 
                  M_reg: int, N_reg: int,
-                 do_rename: bool = False):
+                 do_rename: bool = False,
+                 main: bool = True):
 
         ### Specialize for different precisions
         self.precision = precision
         self.prefix = 's' if precision=='f32' else 'd'
+        self.main = main
+        
 
         ### GEMM PROCEDURES
         @proc
@@ -309,6 +312,9 @@ class GEMM:
 
         for instr in instr_lst:
             proc = replace_all(proc, instr)
+        
+        if self.main:
+            proc = rename(proc, proc.name() + "_main")
 
         return simplify(proc)
     
@@ -321,6 +327,9 @@ class GEMM:
             
         for arg in args:
             specialized = set_precision(specialized, arg, precision)
+        
+        if self.main:
+            specialized = rename(specialized, specialized.name() + "_main")
 
         return specialized
 
@@ -338,11 +347,11 @@ sgemm_main = GEMM(
     C.Machine,
     'f32', 
     k_blk, m_blk, 
-    m_reg, n_reg
+    m_reg, n_reg,
 )
 
 blk_sizes = [2**i for i in range(5, 9)]
-sgemm_backup_kernels = [GEMM(C.Machine, 'f32', blk, blk, m_reg, n_reg, True) for blk in blk_sizes] # Use these if problem size is too small for the main block size
+sgemm_backup_kernels = [GEMM(C.Machine, 'f32', blk, blk, m_reg, n_reg, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
 exo_sgemm_notranspose_noalpha_nobeta_32_32 = sgemm_backup_kernels[0].entry_points[0]
 exo_sgemm_alphazero_nobeta_32_32 = sgemm_backup_kernels[0].entry_points[1]
@@ -368,11 +377,11 @@ exo_sgemm_alphazero_beta_256_256 = sgemm_backup_kernels[3].entry_points[2]
 exo_sgemm_notranspose_alpha_nobeta_256_256 = sgemm_backup_kernels[3].entry_points[3]
 exo_sgemm_notranspose_alpha_beta_256_256 = sgemm_backup_kernels[3].entry_points[4]
 
-exo_sgemm_notranspose_noalpha_nobeta = sgemm_main.entry_points[0]
-exo_sgemm_alphazero_nobeta = sgemm_main.entry_points[1]
-exo_sgemm_alphazero_beta = sgemm_main.entry_points[2]
-exo_sgemm_notranspose_alpha_nobeta = sgemm_main.entry_points[3]
-exo_sgemm_notranspose_alpha_beta = sgemm_main.entry_points[4]
+exo_sgemm_notranspose_noalpha_nobeta_main = sgemm_main.entry_points[0]
+exo_sgemm_alphazero_nobeta_main = sgemm_main.entry_points[1]
+exo_sgemm_alphazero_beta_main = sgemm_main.entry_points[2]
+exo_sgemm_notranspose_alpha_nobeta_main = sgemm_main.entry_points[3]
+exo_sgemm_notranspose_alpha_beta_main = sgemm_main.entry_points[4]
 
 sgemm_backup_entry_points = []
 for kernel in sgemm_backup_kernels:
@@ -394,7 +403,7 @@ dgemm_main = GEMM(
     m_reg, n_reg//2
 )
 
-dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, m_reg, n_reg//2, True) for blk in blk_sizes] # Use these if problem size is too small for the main block size
+dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, m_reg, n_reg//2, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
 exo_dgemm_notranspose_noalpha_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[0]
 exo_dgemm_alphazero_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[1]
@@ -420,11 +429,11 @@ exo_dgemm_alphazero_beta_256_256 = dgemm_backup_kernels[3].entry_points[2]
 exo_dgemm_notranspose_alpha_nobeta_256_256 = dgemm_backup_kernels[3].entry_points[3]
 exo_dgemm_notranspose_alpha_beta_256_256 = dgemm_backup_kernels[3].entry_points[4]
 
-exo_dgemm_notranspose_noalpha_nobeta = dgemm_main.entry_points[0]
-exo_dgemm_alphazero_nobeta = dgemm_main.entry_points[1]
-exo_dgemm_alphazero_beta = dgemm_main.entry_points[2]
-exo_dgemm_notranspose_alpha_nobeta = dgemm_main.entry_points[3]
-exo_dgemm_notranspose_alpha_beta = dgemm_main.entry_points[4]
+exo_dgemm_notranspose_noalpha_nobeta_main = dgemm_main.entry_points[0]
+exo_dgemm_alphazero_nobeta_main = dgemm_main.entry_points[1]
+exo_dgemm_alphazero_beta_main = dgemm_main.entry_points[2]
+exo_dgemm_notranspose_alpha_nobeta_main = dgemm_main.entry_points[3]
+exo_dgemm_notranspose_alpha_beta_main = dgemm_main.entry_points[4]
 
 
 dgemm_backup_entry_points = []

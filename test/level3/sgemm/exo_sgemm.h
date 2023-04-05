@@ -16,7 +16,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
         } else if (n<=256) {
             exo_sgemm_notranspose_noalpha_nobeta_256_256(nullptr, m, n, k, alpha, beta, A, B, C);
         } else {
-            exo_sgemm_notranspose_noalpha_nobeta(nullptr, m, n, k, alpha, beta, A, B, C);
+            exo_sgemm_notranspose_noalpha_nobeta_main(nullptr, m, n, k, alpha, beta, A, B, C);
         }
     } else if (*alpha==0.0 && *beta==1.0) {
         return;
@@ -30,7 +30,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
         } else if (n<=256) {
             exo_sgemm_alphazero_beta_256_256(nullptr, m, n, k, alpha, beta, A, B, C);
         } else {
-            exo_sgemm_alphazero_beta(nullptr, m, n, k, alpha, beta, A, B, C);
+            exo_sgemm_alphazero_beta_main(nullptr, m, n, k, alpha, beta, A, B, C);
         }
     } else if (*alpha!=1.0 && *beta==1.0) {
         if (n<=32) {
@@ -42,7 +42,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
         } else if (n<=256) {
             exo_sgemm_notranspose_alpha_nobeta_256_256(nullptr, m, n, k, alpha, beta, A, B, C);
         } else {
-            exo_sgemm_notranspose_alpha_nobeta(nullptr, m, n, k, alpha, beta, A, B, C);
+            exo_sgemm_notranspose_alpha_nobeta_main(nullptr, m, n, k, alpha, beta, A, B, C);
         }
     } else {
         if (n<=32) {
@@ -54,7 +54,7 @@ void exo_sgemm(const char transpose, const int m, const int n, const int k,
         } else if (n<=256) {
             exo_sgemm_notranspose_alpha_beta_256_256(nullptr, m, n, k, alpha, beta, A, B, C);
         } else {
-            exo_sgemm_notranspose_alpha_beta(nullptr, m, n, k, alpha, beta, A, B, C);
+            exo_sgemm_notranspose_alpha_beta_main(nullptr, m, n, k, alpha, beta, A, B, C);
         }
     }
 
