@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import math
 import os
 
-read_bound_kernels = {"nrm2", "axpy", "dot", "asum", "ger", "trmv", "gemv", "tbmv"}
-write_bound_kernels = {"copy", "swap", "scal", "rot"}
+read_bound_kernels = {"nrm2", "axpy", "dot", "asum", "ger", "trmv", "gemv", "tbmv", "sdsdot", "dsdot"}
+write_bound_kernels = {"copy", "swap", "scal", "rot", "rotm"}
 level3_kernels = {"gemm", "symm", "syrk", "syr2k", "trmm", "trsm"}
 
 def mem_footprint(kernel_name, size, wordsize):
-    if kernel_name in ["nrm2", "scal", "copy", "rot", "swap", "asum", "dot", "axpy"]:
+    if kernel_name in ["nrm2", "scal", "copy", "rot", "swap", "asum", "dot", "axpy", "sdsdot", "dsdot", "rotm"]:
         return size*wordsize
     elif kernel_name in ["gemv", "ger", "trmv", "tbmv"]:
         return size*size*wordsize
@@ -22,7 +22,7 @@ def mem_ops(kernel_name, size, wordsize):
     Returns total memory usage of `kernel_name` of dimension `size` in bytes.
     """
     mem_ops = {
-        1: {"nrm2" : 1, "scal": 1, "copy": 1, "rot":2, "swap": 2, "asum": 1, "dot":2, "axpy": 2},
+        1: {"nrm2" : 1, "scal": 1, "copy": 1, "rot":2, "swap": 2, "asum": 1, "dot":2, "axpy": 2, "rotm":2, "sdsdot":2, "dsdot": 2},
         2: {"gemv": 1, "ger": 2, "trmv" : 0.5, "tbmv" : 0.5}
     }
 
@@ -40,7 +40,7 @@ if len(sys.argv) != 4:
     exit(1)
 
 kernel_name = sys.argv[1]
-if kernel_name[0] == 's':
+if kernel_name[0] == 's' or kernel_name == "sdsdot" or kernel_name == "dsdot":
     wordsize = 4
 elif kernel_name[0] == 'd':
     wordsize = 8
@@ -111,26 +111,28 @@ for params in perf_res:
 
 
 def peak_bandwidth_plot(params, names_to_points):
+    k_name = kernel_name if (kernel_name == "sdsdot" or kernel_name == "dsdot") else kernel_name[1:]
+
     def get_gbyte_sec(size, time):
-        return (mem_ops(kernel_name[1:], size, wordsize)*10**9)/(time*2**30)
+        return (mem_ops(k_name, size, wordsize)*10**9)/(time*2**30)
 
     plt.clf()
     for name in names_to_points:
         points = names_to_points[name]
-        x = [log_2(mem_footprint(kernel_name[1:], p[0], wordsize)) for p in points]
+        x = [log_2(mem_footprint(k_name, p[0], wordsize)) for p in points]
         y = [get_gbyte_sec(p[0], p[1]) for p in points]
         plt.plot(x, y, label=name)
     
     peak_x = [0, log_2(32*1024), log_2(256*1024), log_2(6*1024*1024), log_2(66*1024*1024)]
-    if kernel_name[1:] in read_bound_kernels:
+    if k_name in read_bound_kernels:
         peak_y = [248890.88/1024, 108097.024/1024, 58041.4464/1024, 22081.9/1024, 22081.9/1024]
-    elif kernel_name[1:] in write_bound_kernels:
+    elif k_name in write_bound_kernels:
         peak_y = [121653.2/1024, 72869.1/1024, 40314.6/1024, 35841.1264/1024, 35841.1264/1024]
     else:
         assert False, f"unsupported kernel: {kernel_name}"
 
-    if x[-1] > peak_x[-1]:
-        peak_x[-1] = x[-1]
+    peak_x[-1] = x[-1]
+    peak_x[0] = x[0]
 
     plt.plot(peak_x, peak_y, drawstyle='steps-post', label="peak bandwidth")
     
@@ -139,7 +141,7 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.title(f"""{kernel_name}, params: {params}""")
     plt.ylabel('Gbytes/sec')
     plt.xlabel('log2(bytes)')
-    plt.xticks(range(0, 30, 2))
+    plt.xticks(range(int(x[0]), int(x[-1]), 2))
     fig_file_name = f"{kernel_graphs_dir}/peak_bandwidth_{kernel_name}_{params}.png"
     fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
     plt.savefig(fig_file_name)
