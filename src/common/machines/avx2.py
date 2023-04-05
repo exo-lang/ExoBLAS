@@ -24,6 +24,19 @@ def mm256_mul_sd_hack(
     for i in seq(0, 4):
         dst[i] = dst[i] * rhs[i]
 
+@instr("{dst_data} = _mm256_maskz_loadu_ps(((1 << {N}) - 1), &{src_data});")
+def mm256_maskz_loadu_ps(
+    N: size,
+    dst: [f32][8] @ AVX2,
+    src: [f32][N] @ DRAM,
+):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+    assert N <= 8
+
+    for i in seq(0, N):
+        dst[i] = src[i]
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
