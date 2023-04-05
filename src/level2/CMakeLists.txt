@@ -31,3 +31,10 @@ add_exo_library(
   PYTHONPATH
       "${PROJECT_BINARY_DIR}/src/common"
       "${PROJECT_SOURCE_DIR}/src/common")
+
+add_exo_library(
+  NAME exo_symv
+  SOURCES symv.py
+  PYTHONPATH
+      "${PROJECT_BINARY_DIR}/src/common"
+      "${PROJECT_SOURCE_DIR}/src/common")
