@@ -6,6 +6,7 @@ import os
 
 read_bound_kernels = {"nrm2", "axpy", "dot", "asum", "ger", "trmv", "gemv", "tbmv"}
 write_bound_kernels = {"copy", "swap", "scal", "rot"}
+level3_kernels = {"gemm", "symm", "syrk", "syr2k", "trmm", "trsm"}
 
 def mem_footprint(kernel_name, size, wordsize):
     if kernel_name in ["nrm2", "scal", "copy", "rot", "swap", "asum", "dot", "axpy"]:
@@ -143,6 +144,34 @@ def peak_bandwidth_plot(params, names_to_points):
     fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
     plt.savefig(fig_file_name)
 
+def peak_compute_plot(params, names_to_points):
+    plt.clf()
+
+    for name in names_to_points:
+        points = names_to_points[name]
+        x = [log_2(p[0] ** 3 * wordsize) for p in points]
+        if kernel_name[1:] == "gemm":
+            y = [(2 * p[0] ** 3 / p[1]) for p in points]
+        elif kernel_name[1:] == "syrk":
+            y = [(p[0] ** 3 / p[1]) for p in points]
+        plt.plot(x, y, label = name)
+
+    peak_x = [x[0], x[-1]]
+    peak_y = [128.0, 128.0]
+
+    plt.plot(peak_x, peak_y, label="peak compute")
+    
+    plt.legend()
+
+    plt.title(f"""{kernel_name}, params: {params}""")
+    plt.ylabel('GFlops/sec')
+    plt.xlabel('log2(bytes)')
+    plt.xticks(range(int(x[0]), int(x[-1]), 2))
+    fig_file_name = f"{kernel_graphs_dir}/peak_compute_{kernel_name}_{params}.png"
+    fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
+    plt.savefig(fig_file_name)
+
+
 def raw_runtime_plot(params, names_to_points):
     plt.clf()
     for name in names_to_points:
@@ -209,6 +238,10 @@ def ratio_and_gm_plot(params, names_to_points):
             plt.savefig(fig_file_name, bbox_inches='tight')
     
 for params in perf_res:
-    peak_bandwidth_plot(params, perf_res[params])
+    if kernel_name[1:] in level3_kernels:
+        peak_compute_plot(params, perf_res[params])
+    else:
+        peak_bandwidth_plot(params, perf_res[params])
+
     raw_runtime_plot(params, perf_res[params])
     ratio_and_gm_plot(params, perf_res[params])

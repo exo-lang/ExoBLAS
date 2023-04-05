@@ -133,12 +133,15 @@ static void BM_GEMM_EXO(benchmark::State& state) {
 
 }
 
+BENCHMARK(BM_GEMM_CBLAS)->ArgNames({"n"})->ArgsProduct({
+      benchmark::CreateRange(32, (32 << 8), 2),
+    })->ArgsProduct({
+      benchmark::CreateRange(33, (32 << 8) - 1, 3),
+    });
+BENCHMARK(BM_GEMM_EXO)->ArgNames({"n"})->ArgsProduct({
+      benchmark::CreateRange(32, (32 << 8), 2),
+    })->ArgsProduct({
+      benchmark::CreateRange(33, (32 << 8) - 1, 3),
+    });
 
-BENCHMARK(BM_GEMM_CBLAS) -> ArgNames({"n"}) -> Args({2048});
-BENCHMARK(BM_GEMM_EXO) -> ArgNames({"n"}) -> Args({2048});
 
-BENCHMARK(BM_GEMM_CBLAS) -> ArgNames({"n"}) -> Args({1024});
-BENCHMARK(BM_GEMM_EXO) -> ArgNames({"n"}) -> Args({1024});
-
-BENCHMARK(BM_GEMM_CBLAS) -> ArgNames({"n"}) -> Args({256});
-BENCHMARK(BM_GEMM_EXO) -> ArgNames({"n"}) -> Args({256});
