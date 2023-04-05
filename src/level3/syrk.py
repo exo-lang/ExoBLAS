@@ -136,7 +136,7 @@ class SYRK:
 
     def generate_syrk_gepp_lower_notranspose(self, diag_handler: Procedure):
 
-        assert(self.M_blk >= 128) # Temporary
+        #assert(self.M_blk >= 128) # Temporary
 
         gepp_syrk_base = self.generate_syrk_gepp_base(self.syrk_win_lower_notranspose)
 
