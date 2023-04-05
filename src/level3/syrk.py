@@ -161,7 +161,7 @@ class SYRK:
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #1', diag_syrk_base)
         
         #TODO: generate GEBP procedures until M_blk is the size of the microkernel
-        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//4, self.precision)
+        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//2, self.precision)
         diag_syrk_scheduled = rename(diag_syrk_base, f'{self.prefix}_diag_handler_scheduled')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'i', gebp_diag_handler.M_blk, ['io', 'ii'], tail='cut')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'j', gebp_diag_handler.M_blk, ['jo', 'ji'], tail='cut')
