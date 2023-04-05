@@ -24,14 +24,15 @@ def symv_raw_major_Upper_template(n: size,
                                   y: [R][n]):
     assert stride(A, 1) == 1
     
-    # TODO: Rewrite for row-major
-    for j in seq(0, n):
-        temp2: R
-        temp2 = 0.0
-        for i in seq(0, j):
-            y[i] += alpha * x[j] * A[i, j]
-            temp2 += A[i, j] * x[i]
-        y[j] += alpha * x[j] * A[j, j] + alpha * temp2
+    for i in seq(0, n):
+        temp: R
+        temp = alpha * x[i]
+        dot: R
+        dot = 0.0
+        for j in seq(0, n - i - 1):
+            y[i + j + 1] += temp * A[i, i + j + 1]
+            dot += A[i, i + j + 1] * x[i + j + 1]
+        y[i] += temp * A[i, i] + alpha * dot
 
 @proc
 def symv_raw_major_Lower_template(n: size, 
@@ -41,15 +42,15 @@ def symv_raw_major_Lower_template(n: size,
                                   y: [R][n]):
     assert stride(A, 1) == 1
     
-    # TODO: Rewrite for row-major
-    for j in seq(0, n):
-        temp2: R
-        temp2 = 0.0
-        y[j] += alpha * x[j] * A[j, j]
-        for i in seq(0, n - j - 1):
-            y[j + i + 1] += alpha * x[j] * A[j + i + 1, j]
-            temp2 += A[j + i + 1, j] * x[j + i + 1]
-        y[j] += alpha * temp2        
+    for i in seq(0, n):
+        temp: R
+        temp = alpha * x[i]
+        dot: R
+        dot = 0.0
+        for j in seq(0, i):
+            y[j] += temp * A[i, j]
+            dot += A[i, j] * x[j]
+        y[i] += temp * A[i, i] + alpha * dot
 
 def specialize_symv(symv, precision):
     prefix = "s" if precision == "f32" else "d"
@@ -60,7 +61,7 @@ def specialize_symv(symv, precision):
     if "scal" in symv.name():
         args = ["y", "beta"]
     else:
-        args = ["x", "A", "alpha", "y", "temp2"]
+        args = ["x", "A", "alpha", "y", "temp", "dot"]
         
     for arg in args:
         specialized = set_precision(specialized, arg, precision)
