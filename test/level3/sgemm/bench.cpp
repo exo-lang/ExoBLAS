@@ -74,7 +74,7 @@ static void BM_SGEMM_EXO(benchmark::State& state) {
     const float beta = 1.0f;
 
     for (auto _: state) {
-        exo_sgemm('N', n, n, n, &alpha, &beta, a.data(), b.data(), c.data());
+        exo_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, n, n, &alpha, &beta, a.data(), b.data(), c.data());
     }
 
     state.counters["flops"] = benchmark::Counter(

@@ -8,17 +8,17 @@
 
 #include "exo_dgemm.h"
 
-void test_dgemm(const char transpose,
+void test_dgemm(const enum CBLAS_TRANSPOSE transa, const enum CBLAS_TRANSPOSE transb,
                 const int n, const int m, const int k,
                 const double alpha, const double beta) {
     
-    std::cout<<"Running dgemm test: N = "<<n<<", alpha = "<<alpha<<", beta = "<<beta<<"..."<<std::endl;
+    std::cout<<"Running dgemm test: N = "<<n<<", alpha = "<<alpha<<", beta = "<<beta<< ", trasnsa = "<<transa<<", transb = "<<transb<<"..."<<std::endl;
     auto a = AlignedBuffer2D<double>(m, k);
     auto b = AlignedBuffer2D<double>(k, n);
     auto c = AlignedBuffer2D<double>(m, n);
     auto c2 = c; 
 
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+    cblas_dgemm(CblasRowMajor, transa, transb,
                   m, n, k, 
                   alpha, 
                   a.data(), m,
@@ -26,7 +26,7 @@ void test_dgemm(const char transpose,
                   beta,
                   c.data(), m);
 
-    exo_dgemm('N', m, n, k, &alpha, &beta, a.data(), b.data(), c2.data());
+    exo_dgemm(CblasRowMajor, transa, transb, m, n, k, &alpha, &beta, a.data(), b.data(), c2.data());
 
     double epsilon = 0.01;
     for (int i=0; i<m*n; i++) {
@@ -45,21 +45,21 @@ void test_dgemm(const char transpose,
 int main() {
     
     std::vector<int> dims {32, 64, 256, 257};
+    std::vector<CBLAS_TRANSPOSE> transas {CblasTrans, CblasNoTrans};
+    std::vector<CBLAS_TRANSPOSE> transbs {CblasTrans, CblasNoTrans};
+    std::vector<double> alphas {0.0, 1.0, 2.0};
+    std::vector<double> betas {0.0, 1.0, 2.0};
 
     for (auto const n : dims) {
-        test_dgemm('N', n, n, n, 1.0, 1.0);
-        test_dgemm('N', n, n, n, 0.0, 1.0);
-        test_dgemm('N', n, n, n, 1.0, 0.0);
-
-        test_dgemm('N', n, n, n, 0.0, 0.0);
-
-        test_dgemm('N', n, n, n, 1.0, 2.0);
-        test_dgemm('N', n, n, n, 0.0, 2.0);
-
-        test_dgemm('N', n, n, n, 2.0, 1.0);
-        test_dgemm('N', n, n, n, 2.0, 0.0);
-
-        test_dgemm('N', n, n, n, 2.0, 2.0);
+        for (auto const transa : transas) {
+            for (auto const transb : transbs) {
+                for (auto const alpha : alphas) {
+                    for (auto const beta : betas) {
+                        test_dgemm(transa, transb, n, n, n, alpha, beta);
+                    }
+                }
+            }
+        }
     }
 
 }

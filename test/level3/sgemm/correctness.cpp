@@ -8,17 +8,17 @@
 
 #include "exo_sgemm.h"
 
-void test_sgemm(const char transpose,
+void test_sgemm(const enum CBLAS_TRANSPOSE transa, const enum CBLAS_TRANSPOSE transb,
                 const int n, const int m, const int k,
                 const float alpha, const float beta) {
     
-    std::cout<<"Running sgemm test: N = "<<n<<", alpha = "<<alpha<<", beta = "<<beta<<"..."<<std::endl;
+    std::cout<<"Running sgemm test: N = "<<n<<", alpha = "<<alpha<<", beta = "<<beta<< ", trasnsa = "<<transa<<", transb = "<<transb<<"..."<<std::endl;
     auto a = AlignedBuffer2D<float>(m, k);
     auto b = AlignedBuffer2D<float>(k, n);
     auto c = AlignedBuffer2D<float>(m, n);
     auto c2 = c; 
 
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+    cblas_sgemm(CblasRowMajor, transa, transb,
                   m, n, k, 
                   alpha, 
                   a.data(), m,
@@ -26,7 +26,7 @@ void test_sgemm(const char transpose,
                   beta,
                   c.data(), m);
 
-    exo_sgemm('N', m, n, k, &alpha, &beta, a.data(), b.data(), c2.data());
+    exo_sgemm(CblasRowMajor, transa, transb, m, n, k, &alpha, &beta, a.data(), b.data(), c2.data());
 
     double epsilon = 0.01;
     for (int i=0; i<m*n; i++) {
@@ -45,21 +45,21 @@ void test_sgemm(const char transpose,
 int main() {
     
     std::vector<int> dims {32, 64, 256, 257};
+    std::vector<CBLAS_TRANSPOSE> transas {CblasTrans, CblasNoTrans};
+    std::vector<CBLAS_TRANSPOSE> transbs {CblasTrans, CblasNoTrans};
+    std::vector<float> alphas {0.0, 1.0, 2.0};
+    std::vector<float> betas {0.0, 1.0, 2.0};
 
     for (auto const n : dims) {
-        test_sgemm('N', n, n, n, 1.0, 1.0);
-        test_sgemm('N', n, n, n, 0.0, 1.0);
-        test_sgemm('N', n, n, n, 1.0, 0.0);
-
-        test_sgemm('N', n, n, n, 0.0, 0.0);
-
-        test_sgemm('N', n, n, n, 1.0, 2.0);
-        test_sgemm('N', n, n, n, 0.0, 2.0);
-
-        test_sgemm('N', n, n, n, 2.0, 1.0);
-        test_sgemm('N', n, n, n, 2.0, 0.0);
-
-        test_sgemm('N', n, n, n, 2.0, 2.0);
+        for (auto const transa : transas) {
+            for (auto const transb : transbs) {
+                for (auto const alpha : alphas) {
+                    for (auto const beta : betas) {
+                        test_sgemm(transa, transb, n, n, n, alpha, beta);
+                    }
+                }
+            }
+        }
     }
 
 }
