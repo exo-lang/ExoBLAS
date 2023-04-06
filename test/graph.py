@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import math
 import os
 
+arith_intensity = {"nrm2": 0.5, "axpy": 1, "dot": 1, "asum": 1.25, "ger":3, "trmv":2, "gemv":2, "tbmv":2, "sdsdot": 1, "dsdot":1, "copy":0, "swap":0, "scal":1, "rot":3, "rotm":3}
+
 read_bound_kernels = {"nrm2", "axpy", "dot", "asum", "ger", "trmv", "gemv", "tbmv", "sdsdot", "dsdot"}
 write_bound_kernels = {"copy", "swap", "scal", "rot", "rotm"}
 level3_kernels = {"gemm", "symm", "syrk", "syr2k", "trmm", "trsm"}
@@ -114,6 +116,8 @@ for params in perf_res:
 
 def peak_bandwidth_plot(params, names_to_points):
     k_name = kernel_name if (kernel_name == "sdsdot" or kernel_name == "dsdot") else kernel_name[1:]
+    bandwidth = False if arith_intensity[k_name] != 0 else True
+    scale = lambda x : x * arith_intensity[k_name] if not bandwidth else x
 
     def get_gbyte_sec(size, time):
         return (mem_ops(k_name, size, wordsize)*10**9)/(time*2**30)
@@ -122,7 +126,7 @@ def peak_bandwidth_plot(params, names_to_points):
     for name in names_to_points:
         points = names_to_points[name]
         x = [log_2(mem_footprint(k_name, p[0], wordsize)) for p in points]
-        y = [get_gbyte_sec(p[0], p[1]) for p in points]
+        y = [scale(get_gbyte_sec(p[0], p[1])) for p in points]
         plt.plot(x, y, label=name)
     
     peak_x = [0, log_2(32*1024), log_2(256*1024), log_2(6*1024*1024), log_2(66*1024*1024)]
@@ -133,18 +137,27 @@ def peak_bandwidth_plot(params, names_to_points):
     else:
         assert False, f"unsupported kernel: {kernel_name}"
 
+    peak_y = [scale(y) for y in peak_y]
+
     peak_x[-1] = x[-1]
     peak_x[0] = x[0]
-
     plt.plot(peak_x, peak_y, drawstyle='steps-post', label="peak bandwidth")
+
+    if not bandwidth:
+        peak_compute_x = [x[0], x[-1]]
+        peak_compute_y = [128.0, 128.0]
+        plt.plot(peak_compute_x, peak_compute_y, label="peak compute")
     
     plt.legend()
     
     plt.title(f"""{kernel_name}, params: {params}""")
-    plt.ylabel('Gbytes/sec')
+    if not bandwidth:
+        plt.ylabel('GFLOPs/sec')
+    else:
+        plt.ylabel('Gbytes/sec')
     plt.xlabel('log2(bytes)')
     plt.xticks(range(int(x[0]), int(x[-1]), 2))
-    fig_file_name = f"{kernel_graphs_dir}/peak_bandwidth_{kernel_name}_{params}.png"
+    fig_file_name = f"{kernel_graphs_dir}/peak_{kernel_name}_{params}.png"
     fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
     plt.savefig(fig_file_name)
 
