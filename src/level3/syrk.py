@@ -156,11 +156,23 @@ class SYRK:
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
         gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for ii in _:_ #0').before(), n_lifts=1)
 
+
+        #gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ii #1', self.microkernel.M_r, ['iii', 'iio'], perfect=True)
+        #gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ji', self.microkernel.N_r, ['jii', 'jio'], tail='cut')
+        #gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
+        #gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for jii in _:_').after(), n_lifts=1)
+        #gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, 'iio jii')
+        #gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for iio in _:_ #0', self.microkernel.base_microkernel)
+        #gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, f'microkernel_{self.microkernel.this_id}(_)', self.microkernel.scheduled_microkernel)
+        #print(gepp_syrk_scheduled)
+        
+
+        #return gepp_syrk_scheduled, gepp_syrk_base
+
         diag_syrk_base = rename(diag_handler, "diag_handler")
         diag_syrk_base = diag_syrk_base.partial_eval(K=self.K_blk, N=self.M_blk)
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #1', diag_syrk_base)
         
-        #TODO: generate GEBP procedures until M_blk is the size of the microkernel
         gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//2, self.precision)
         diag_syrk_scheduled = rename(diag_syrk_base, f'{self.prefix}_diag_handler_scheduled')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'i', gebp_diag_handler.M_blk, ['io', 'ii'], tail='cut')
@@ -170,16 +182,17 @@ class SYRK:
         diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, 'ii jo')
         diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for ii in _:_ #0', gebp_diag_handler.base_gebp)
         diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'gebp_base_{gebp_diag_handler.this_id}(_)', gebp_diag_handler.scheduled_gebp)
+        print(diag_syrk_scheduled)
 
-        microkernel_diag_handler = Microkernel(self.machine, self.machine.vec_width, self.machine.vec_width, self.K_blk, self.precision)
+        microkernel_diag_handler = Microkernel(self.machine, self.microkernel.M_r, self.microkernel.N_r, self.K_blk, self.precision)
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ii in _:_', microkernel_diag_handler.M_r, ['iio', 'iii'], tail='cut')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ji in _:_', microkernel_diag_handler.N_r, ['jio', 'jii'], tail='cut')
         diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for jii in _:_ #1').before(), n_lifts=1)
         diag_syrk_scheduled = simplify(diag_syrk_scheduled)
         diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, 'iii jio')
-        print(diag_syrk_scheduled)
         diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for iii in _:_ #0', microkernel_diag_handler.base_microkernel)
         diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'microkernel_{microkernel_diag_handler.this_id}(_)', microkernel_diag_handler.scheduled_microkernel)
+        print(diag_syrk_scheduled)
 
         gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, 'diag_handler(_)', diag_syrk_scheduled)
 
