@@ -86,7 +86,7 @@ static void BM_SSYRK_EXO(benchmark::State& state) {
     float beta = 1.0f;
 
     for (auto _: state) {
-        exo_ssyrk('L', 'N', n, n, &alpha, a.data(), a.data(), &beta, c.data());
+        exo_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans, n, n, &alpha, a.data(), a.data(), &beta, c.data());
     }
 
     state.counters["flops"] = benchmark::Counter(
