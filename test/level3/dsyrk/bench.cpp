@@ -86,7 +86,7 @@ static void BM_DSYRK_EXO(benchmark::State& state) {
     double beta = 1.0f;
 
     for (auto _: state) {
-        exo_dsyrk('L', 'N', n, n, &alpha, a.data(), a.data(), &beta, c.data());
+        exo_dsyrk(CblasRowMajor, CblasLower, CblasNoTrans, n, n, &alpha, a.data(), a.data(), &beta, c.data());
     }
 
     state.counters["flops"] = benchmark::Counter(

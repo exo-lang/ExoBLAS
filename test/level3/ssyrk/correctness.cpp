@@ -19,27 +19,31 @@ static std::vector<float> _transpose(float * V, const int m, const int k ) {
     return V_t;
 }
 
-void test_ssyrk(const char uplo, const char transpose,
+void test_ssyrk(const enum CBLAS_UPLO uplo, const enum CBLAS_TRANSPOSE transpose,
                 const int n, const int k, 
                 const float alpha, const float beta) {
     
-    std::cout<<"Running syrk test: N = "<<n<<", alpha = "<<alpha<<", beta = "<<beta<<std::endl;
+    std::cout<<"Running syrk test: N = "<<n<<", alpha = "<<alpha<<", beta = "<<beta<<" uplo = "<<uplo<<", transpose = "<<transpose<<std::endl;
     auto a = AlignedBuffer2D<float>(n, k);
-    auto a2 = _transpose(a.data(), n, n);
+    auto a2 = a;
     auto c = AlignedBuffer2D<float>(n, k, 2.0f, 64);
     auto c2 = c;
 
-    cblas_ssyrk(CblasRowMajor, CblasLower, CblasNoTrans,
+    cblas_ssyrk(CblasRowMajor, uplo, transpose,
                 n, n, // M N
-                1.0, // alpha
+                alpha, // alpha
                 a.data(),
                 n, // M
-                1.0,
+                beta,
                 c.data(),
                 n  // M
                 );
-
-    exo_ssyrk(uplo, transpose, n, n, &alpha, a.data(), a2.data(), &beta, c2.data());
+    if (uplo==CblasLower && transpose==CblasNoTrans && alpha==1.0 && beta==1.0) {
+        auto at = _transpose(a.data(), n, n);
+        exo_ssyrk(CblasRowMajor, uplo, transpose, n, n, &alpha, a.data(), at.data(), &beta, c2.data());
+    } else {
+        exo_ssyrk(CblasRowMajor, uplo, transpose, n, n, &alpha, a.data(), a2.data(), &beta, c2.data());
+    }
 
     double epsilon = 0.01;
     for (int i=0; i<n*k; i++) {
@@ -58,9 +62,22 @@ void test_ssyrk(const char uplo, const char transpose,
 int main() {
     
     std::vector<int> dims {32, 64, 256, 512, 513};
+    std::vector<CBLAS_UPLO> uplos {CblasLower , CblasUpper};
+    std::vector<CBLAS_TRANSPOSE> transposes {CblasNoTrans , CblasTrans};
+    std::vector<float> alphas {0.0, 1.0, 2.0};
+    std::vector<float> betas {0.0, 1.0, 2.0};
 
     for (auto const n : dims) {
-        test_ssyrk('L', 'N', n, n, 1.0, 1.0);
+        for (auto const uplo : uplos) {
+            for (auto const transpose : transposes) {
+                for (auto const alpha : alphas) {
+                    for (auto const beta : betas) {
+                        test_ssyrk(uplo, transpose, n, n, alpha, beta);
+                    }
+                }
+            }
+        }
+        //test_ssyrk('L', 'N', n, n, 1.0, 1.0);
     }
 
 }
