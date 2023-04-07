@@ -1,4 +1,4 @@
-name: AVX2 and Mac-mini
+name: AVX2
 
 on:
   push:
@@ -15,7 +15,7 @@ env:
 
 jobs:
   build:
-    runs-on: [ubuntu-latest, self-hosted]
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
