@@ -296,6 +296,7 @@ def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instruc
     for i in range(4):
       stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
     
+    stride_1 = divide_loop(stride_1, stride_1.find_loop("io"), 64, ("ioo", "ioi"), tail="cut")
     
     return simplify(stride_1)
    
