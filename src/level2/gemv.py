@@ -178,39 +178,39 @@ def schedule_sgemv_on_neon_dot_product(i_tile=8):
 # neon_sgemv_transpose = rename(schedule_sgemv_transpose_on_neon(), "sgemv_transpose_exo")
 
 def schedule_sdot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instructions):
-    simple_stride_1 = rename(sgemv, sgemv.name() + "_simple_stride_1")
-    simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
-    simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
+    stride_1 = rename(sgemv, sgemv.name() + "_stride_1")
+    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
+    stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
         
-    simple_stride_1 = divide_loop(simple_stride_1, "for j in _:_", VEC_W * INTERLEAVE_FACTOR, ("jo", "ji"), tail = "cut")
-    simple_stride_1 = divide_loop(simple_stride_1, "for ji in _:_", VEC_W, ("jm", "ji"), perfect=True)
+    stride_1 = divide_loop(stride_1, "for j in _:_", VEC_W * INTERLEAVE_FACTOR, ("jo", "ji"), tail = "cut")
+    stride_1 = divide_loop(stride_1, "for ji in _:_", VEC_W, ("jm", "ji"), perfect=True)
     
-    simple_stride_1 = reorder_loops(simple_stride_1, "jo jm")
-    simple_stride_1 = reorder_loops(simple_stride_1, "jo ji")
-    simple_stride_1 = simplify(stage_mem(simple_stride_1, "for jo in _:_", "result", "resultReg", accum=True))
-    simple_stride_1 = expand_dim(simple_stride_1, "resultReg :_ ", VEC_W, "ji")
-    simple_stride_1 = expand_dim(simple_stride_1, "resultReg :_ ", INTERLEAVE_FACTOR, "jm")
-    simple_stride_1 = lift_alloc(simple_stride_1, "resultReg : _", n_lifts=2)
-    simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("for jo in _:_").before(), n_lifts=2)
-    simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("for jo in _:_").after(), n_lifts=2)
-    simple_stride_1 = reorder_loops(simple_stride_1, "ji jo")
-    simple_stride_1 = reorder_loops(simple_stride_1, "jm jo")    
+    stride_1 = reorder_loops(stride_1, "jo jm")
+    stride_1 = reorder_loops(stride_1, "jo ji")
+    stride_1 = simplify(stage_mem(stride_1, "for jo in _:_", "result", "resultReg", accum=True))
+    stride_1 = expand_dim(stride_1, "resultReg :_ ", VEC_W, "ji")
+    stride_1 = expand_dim(stride_1, "resultReg :_ ", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "resultReg : _", n_lifts=2)
+    stride_1 = fission(stride_1, stride_1.find("for jo in _:_").before(), n_lifts=2)
+    stride_1 = fission(stride_1, stride_1.find("for jo in _:_").after(), n_lifts=2)
+    stride_1 = reorder_loops(stride_1, "ji jo")
+    stride_1 = reorder_loops(stride_1, "jm jo")    
     
     lower_bound = f"{VEC_W * INTERLEAVE_FACTOR} * jo + jm * {VEC_W}"
-    simple_stride_1 = stage_mem(simple_stride_1, "for ji in _:_ #1", f"x[{lower_bound}: {lower_bound} + {VEC_W}]", "xReg")
-    simple_stride_1 = stage_mem(simple_stride_1, "for ji in _:_ #1", f"a[i, {lower_bound}: {lower_bound} + {VEC_W}]", "aReg")
+    stride_1 = stage_mem(stride_1, "for ji in _:_ #1", f"x[{lower_bound}: {lower_bound} + {VEC_W}]", "xReg")
+    stride_1 = stage_mem(stride_1, "for ji in _:_ #1", f"a[i, {lower_bound}: {lower_bound} + {VEC_W}]", "aReg")
     
     for buffer in ["xReg", "aReg", "resultReg"]:
-        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
+        stride_1 = set_memory(stride_1, buffer, memory)
+        stride_1 = set_precision(stride_1, buffer, "f32")
 
-    simple_stride_1 = simplify(simple_stride_1)
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
+    stride_1 = simplify(stride_1)
+    stride_1 = replace_all(stride_1, instructions)
 
-    simple_stride_1 = expand_dim(simple_stride_1, "xReg", INTERLEAVE_FACTOR, "jm")
-    simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _")
-    simple_stride_1 = expand_dim(simple_stride_1, "aReg", INTERLEAVE_FACTOR, "jm")
-    simple_stride_1 = lift_alloc(simple_stride_1, "aReg : _")
+    stride_1 = expand_dim(stride_1, "xReg", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "xReg : _")
+    stride_1 = expand_dim(stride_1, "aReg", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "aReg : _")
     def interleave_instructions(proc, iter):
         while True:
             main_loop = proc.find(f"for {iter} in _:_")
@@ -220,45 +220,131 @@ def schedule_sdot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruc
             proc = unroll_loop(proc, f"for {iter} in _:_")
         proc = unroll_loop(proc, "for jm in _:_")
         return proc
-    simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
-    simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
-    simple_stride_1 = interleave_instructions(simple_stride_1, "jm")
+    stride_1 = interleave_instructions(stride_1, "jm")
+    stride_1 = interleave_instructions(stride_1, "jm")
+    stride_1 = interleave_instructions(stride_1, "jm")
 
-    return simplify(simple_stride_1)
+    return simplify(stride_1)
 
+def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instructions):
+    
+    stride_1 = rename(sgemv, sgemv.name() + "_stride_1")
+    # stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
+    # stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
+        
+    stride_1 = divide_loop(stride_1, "for j in _:_", VEC_W * INTERLEAVE_FACTOR, ("jo", "ji"), tail = "cut")
+    stride_1 = divide_loop(stride_1, "for ji in _:_", VEC_W, ("jm", "ji"), perfect=True)
+    
+    stride_1 = reorder_loops(stride_1, "jo jm")
+    stride_1 = reorder_loops(stride_1, "jo ji")
+    stride_1 = simplify(stage_mem(stride_1, "for jo in _:_", "result", "resultReg", accum=True))
+    stride_1 = expand_dim(stride_1, "resultReg :_ ", VEC_W, "ji")
+    stride_1 = expand_dim(stride_1, "resultReg :_ ", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "resultReg : _", n_lifts=2)
+    stride_1 = fission(stride_1, stride_1.find("for jo in _:_").before(), n_lifts=2)
+    stride_1 = fission(stride_1, stride_1.find("for jo in _:_").after(), n_lifts=2)
+    stride_1 = reorder_loops(stride_1, "ji jo")
+    stride_1 = reorder_loops(stride_1, "jm jo")    
+    
+    lower_bound = f"{VEC_W * INTERLEAVE_FACTOR} * jo + jm * {VEC_W}"
+    stride_1 = stage_mem(stride_1, "for ji in _:_ #1", f"x[{lower_bound}: {lower_bound} + {VEC_W}]", "xReg")
+    stride_1 = stage_mem(stride_1, "for ji in _:_ #1", f"a[i, {lower_bound}: {lower_bound} + {VEC_W}]", "aReg")
+    
+    for buffer in ["xReg", "aReg", "resultReg"]:
+        stride_1 = set_memory(stride_1, buffer, memory)
+        stride_1 = set_precision(stride_1, buffer, "f32")
 
+    stride_1 = simplify(stride_1)
+
+    stride_1 = expand_dim(stride_1, "xReg", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "xReg : _")
+    stride_1 = expand_dim(stride_1, "aReg", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "aReg : _")
+    def interleave_instructions(proc, iter):
+        while True:
+            main_loop = proc.find(f"for {iter} in _:_")
+            if len(main_loop.body()) == 1:
+                break
+            proc = fission(proc, main_loop.body()[0].after())
+            proc = unroll_loop(proc, f"for {iter} in _:_")
+        proc = unroll_loop(proc, "for jm in _:_")
+        return proc
+    stride_1 = interleave_instructions(stride_1, "jm")
+    stride_1 = interleave_instructions(stride_1, "jm")
+    stride_1 = interleave_instructions(stride_1, "jm")
+  
+    stride_1 = divide_loop(stride_1, stride_1.find_loop("i"), ROW_FACTOR, ("io", "ii"), tail="cut")
+    
+    stride_1 = expand_dim(stride_1, "result : _", ROW_FACTOR, "ii")
+    stride_1 = lift_alloc(stride_1, "result: _ ")
+    stride_1 = expand_dim(stride_1, "resultReg : _", ROW_FACTOR, "ii")
+    stride_1 = lift_alloc(stride_1, "resultReg : _ ")
+    stride_1 = fission(stride_1, stride_1.find("result[_] = _").after())
+    stride_1 = fission(stride_1, stride_1.find_loop(f"ji #{INTERLEAVE_FACTOR - 1}").after())
+    stride_1 = fission(stride_1, stride_1.find_loop("jo").after())
+    stride_1 = reorder_loops(stride_1, "ii jo")
+    stride_1 = lift_alloc(stride_1, "xReg")
+    
+    for i in range(0, INTERLEAVE_FACTOR):
+      io0_loop_1 = stride_1.find(f"for i0 in _:_ #{i}")
+      stride_1 = reorder_stmts(stride_1, io0_loop_1.expand(-1))
+      stride_1 = fission(stride_1, stride_1.forward(io0_loop_1).after())
+      stride_1 = remove_loop(stride_1, stride_1.forward(io0_loop_1).parent())
+    
+    stride_1 = replace_all(stride_1, instructions)
+    
+    for i in range(4):
+      stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    
+    
+    return simplify(stride_1)
+   
 # TODO: add to EXO's Neon library
 @instr("*{result} += vaddvq_f32({x_data});")
 def neon_assoc_reduce_add_instr_4xf32(result: f32 @ DRAM, x: [f32][4] @ Neon4f):
   for i in seq(0, 4):
       result += x[i]
 
+@instr("*{result} += vaddvq_f32({x_data});")
+def neon_assoc_reduce_add_instr_4xf32_buffer(result: f32[1] @ DRAM, x: [f32][4] @ Neon4f):
+  for i in seq(0, 4):
+      result[0] += x[i]
+
+@instr(
+    """
+    {{
+        __m256 tmp = _mm256_hadd_ps({x_data}, {x_data});
+        tmp = _mm256_hadd_ps(tmp, tmp);
+        __m256 upper_bits = _mm256_castps128_ps256(_mm256_extractf128_ps(tmp, 1));
+        tmp = _mm256_add_ps(tmp, upper_bits);
+        {result_data} += _mm256_cvtss_f32(tmp);
+    }}
+    """
+)
+def avx2_assoc_reduce_add_ps_buffer(x: [f32][8] @ AVX2, result: [f32][1]):
+    # WARNING: This instruction assumes float addition associativity
+    assert stride(x, 0) == 1
+    assert stride(result, 0) == 1
+    
+    for i in seq(0, 8):
+        result[0] += x[i]
 
 f32_instructions = [C.Machine.load_instr_f32,
                      C.Machine.store_instr_f32,
                      C.Machine.set_zero_instr_f32,
-                     C.Machine.fmadd_instr_f32]
+                     C.Machine.fmadd_instr_f32,]
 if C.Machine.name == "neon":
     f32_instructions.append(neon_assoc_reduce_add_instr_4xf32)
 else:
     f32_instructions.append(C.Machine.assoc_reduce_add_instr_f32)
 
-sgemv_stride_1 = schedule_sdot_stride_1_interleaved(C.Machine.vec_width, 4, C.Machine.mem_type, f32_instructions)
-print("FINAL", sgemv_stride_1)
+if C.Machine.name == "neon":
+    f32_instructions.append(neon_assoc_reduce_add_instr_4xf32_buffer)
+else:
+    f32_instructions.append(avx2_assoc_reduce_add_ps_buffer)
 
-@proc
-def exo_sgemv(
-  alpha: f32,
-  beta: f32,
-  m: size,
-  n: size,
-  a: f32[m, n],
-  x: f32[n],
-  y: f32[m],
-):
-  assert (stride(x, 0) == 1)
-  assert (stride(y, 0) == 1)
-  assert (stride(a, 1) == 1)
-  sgemv_stride_1(alpha, beta, m, n, a, x, y)
+
+sgemv_stride_1 = schedule_multiple_rows(C.Machine.vec_width, 2, 4, C.Machine.mem_type, f32_instructions)
+
   
-__all__ = ["exo_sgemv"]
+__all__ = ["sgemv_stride_1"]
