@@ -344,7 +344,7 @@ else:
     f32_instructions.append(avx2_assoc_reduce_add_ps_buffer)
 
 
-sgemv_stride_1 = schedule_multiple_rows(C.Machine.vec_width, 2, 5, C.Machine.mem_type, f32_instructions)
+sgemv_stride_1 = schedule_multiple_rows(C.Machine.vec_width, 2, 4, C.Machine.mem_type, f32_instructions)
 
   
 __all__ = ["sgemv_stride_1"]
