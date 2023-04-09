@@ -616,15 +616,15 @@ class SYRK:
             instr_lst = [machine.load_instr_f32, machine.broadcast_instr_f32,
                                   machine.reg_copy_instr_f32,
                                   machine.mul_instr_f32, machine.store_instr_f32]
-            mul_hack_instr = machine.mul_instr_f32_hack
         else:
             instr_lst = [machine.load_instr_f64, machine.broadcast_instr_f64,
                                   machine.reg_copy_instr_f64,
                                   machine.mul_instr_f64, machine.store_instr_f64]
-            mul_hack_instr = machine.mul_instr_f64_hack
 
         if apply_hack:
-            instr_lst[3] = mul_hack_instr
+            proc = self.bind(proc, 'P_vec[_]', 'P_vec2', machine)
+            proc = set_memory(proc, 'P_vec2', machine.mem_type)
+            proc = set_precision(proc, 'P_vec2', self.precision)
 
         for instr in instr_lst:
             proc = replace_all(proc, instr)
