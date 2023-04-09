@@ -8,7 +8,7 @@ from .machine import MachineParameters
 
 @instr("{dst_data} = vmulq_f32({dst_data}, {rhs_data});")
 def neon_vmul_4xf32_alias_hack(
-    dst: [f32][4] @ Neon4f, rhs: [f32][4] @ Neon4f
+    dst: [f32][4] @ Neon, rhs: [f32][4] @ Neon
 ):
     assert stride(dst, 0) == 1
     assert stride(rhs, 0) == 1
@@ -18,7 +18,7 @@ def neon_vmul_4xf32_alias_hack(
 
 @instr("{dst_data} = {src_data};")
 def neon_reg_copy_4xf32(
-    dst: [f32][4] @ Neon4f, src: [f32][4] @ Neon4f
+    dst: [f32][4] @ Neon, src: [f32][4] @ Neon
 ):
     assert stride(dst, 0) == 1
     assert stride(src, 0) == 1
@@ -28,7 +28,7 @@ def neon_reg_copy_4xf32(
 
 Machine = MachineParameters(
     name="neon",
-    mem_type=Neon4f,
+    mem_type=Neon,
     n_vec_registers=32,
     vec_width=4,
     vec_units=4,

@@ -68,13 +68,13 @@ def shared_schedule(proc):
   print("\tvectorizing alpha[_] * x[_]")
   proc = neon_stage_expr(proc, "ji", "alpha_vec[_] * x[_]", "alpha_times_x", n_lifts=2)
   proc = simplify(stage_mem(proc, "for ji in _:_", "x[4*jo:4*jo+4]", "x_vec"))
-  proc = set_memory(proc, "x_vec", Neon4f)
+  proc = set_memory(proc, "x_vec", Neon)
   proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
   proc = replace(proc, "for ji in _:_", neon_vmul_4xf32)
 
   print("\tmaking y a vector")
   proc = simplify(stage_mem(proc, "for jo in _:_", "y[4*io:4*io+4]", "y_vec"))
-  proc = set_memory(proc, "y_vec", Neon4f)
+  proc = set_memory(proc, "y_vec", Neon)
   proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
   proc = replace(proc, "for i0 in _:_", neon_vst_4xf32)
 
@@ -89,7 +89,7 @@ def schedule_sgemv_transpose_on_neon():
   # NOTE: swapped some indices, removed the rearrange_dims since I don't need to transpose
   # prior to loading into the a vector registers
   proc = simplify(stage_mem(proc, "for ii in _:_", "a[4*jo:4*jo+4, 4*io:4*io+4]", "a_vecs"))
-  proc = set_memory(proc, "a_vecs", Neon4f)
+  proc = set_memory(proc, "a_vecs", Neon)
   proc = replace(proc, "for i1 in _:_", neon_vld_4xf32)
   proc = reorder_loops(proc, "ii ji")
   proc = commute_expr(proc, "alpha_times_x[_] * a_vecs[_]")
@@ -106,7 +106,7 @@ def schedule_sgemv_on_neon():
 
   print("\tvectorizing alpha_times_x[_] * a[_]")
   proc = simplify(stage_mem(proc, "for ii in _:_", "a[4*io:4*io+4, 4*jo:4*jo+4]", "a_vecs"))
-  proc = set_memory(proc, "a_vecs", Neon4f)
+  proc = set_memory(proc, "a_vecs", Neon)
   proc = simplify(stage_mem(proc, "for i0 in _:_", "a[4*io:4*io+4, 4*jo:4*jo+4]", "a_transposed"))
   proc = rearrange_dim(proc, "a_transposed", [1, 0])
   proc = rearrange_dim(proc, "a_vecs", [1, 0])
@@ -147,7 +147,7 @@ def schedule_sgemv_on_neon_dot_product(i_tile=8):
   proc = lift_alloc(proc, "y_partial_sums_vec", 2)
   proc = fission(proc, proc.find("for jo in _:_").before(), n_lifts=2)
   proc = fission(proc, proc.find("for jo in _:_").after(), n_lifts=2)
-  proc = set_memory(proc, "y_partial_sums_vec", Neon4f)
+  proc = set_memory(proc, "y_partial_sums_vec", Neon)
   proc = replace(proc, "for ji in _:_", neon_zero_4xf32)
   proc = reorder_loops(proc, "ji jo")
 
@@ -162,13 +162,13 @@ def schedule_sgemv_on_neon_dot_product(i_tile=8):
   proc = reorder_loops(proc, "ii jo")
   proc = neon_stage_expr(proc, "ji", "alpha_vec[_] * x[_]", "alpha_times_x", n_lifts=2)
   proc = simplify(stage_mem(proc, "for ji in _:_", "x[4*jo:4*jo+4]", "x_vec"))
-  proc = set_memory(proc, "x_vec", Neon4f)
+  proc = set_memory(proc, "x_vec", Neon)
   proc = replace(proc, "for i0 in _:_", neon_vld_4xf32)
   proc = replace(proc, "for ji in _:_", neon_vmul_4xf32)
 
   print("\tmaking a[i] a vector")
   proc = simplify(stage_mem(proc, "for ii in _:_ #2", f"a[{i_tile}*io:{i_tile}*(io+1), 4*jo:4*jo+4]", "a_vec"))
-  proc = set_memory(proc, "a_vec", Neon4f)
+  proc = set_memory(proc, "a_vec", Neon)
   proc = replace(proc, "for i1 in _:_", neon_vld_4xf32)
   proc = replace(proc, "for ji in _:_", neon_vfmadd_4xf32_4xf32)
 
@@ -302,12 +302,12 @@ def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instruc
    
 # TODO: add to EXO's Neon library
 @instr("*{result} += vaddvq_f32({x_data});")
-def neon_assoc_reduce_add_instr_4xf32(result: f32 @ DRAM, x: [f32][4] @ Neon4f):
+def neon_assoc_reduce_add_instr_4xf32(result: f32 @ DRAM, x: [f32][4] @ Neon):
   for i in seq(0, 4):
       result += x[i]
 
 @instr("*{result} += vaddvq_f32({x_data});")
-def neon_assoc_reduce_add_instr_4xf32_buffer(result: f32[1] @ DRAM, x: [f32][4] @ Neon4f):
+def neon_assoc_reduce_add_instr_4xf32_buffer(result: f32[1] @ DRAM, x: [f32][4] @ Neon):
   for i in seq(0, 4):
       result[0] += x[i]
 
