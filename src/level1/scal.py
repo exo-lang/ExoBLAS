@@ -7,6 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
+from composed_schedules import stage_expr
 
 @proc
 def scal_template(n: size, alpha: R, x: [R][n]):
@@ -38,29 +39,25 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
     simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     
+    stmt = simple_stride_1.find("x[_] = _")
     simple_stride_1 = divide_loop(simple_stride_1, "for i in _:_", VEC_W, ("io", "ii"), tail="cut")
-    
-    def stage(proc, expr_cursors, reg, cse=False):
-        proc = bind_expr(proc, expr_cursors, f"{reg}", cse=cse)
-        proc = expand_dim(proc, f"{reg}", VEC_W, "ii")
-        proc = lift_alloc(proc, f"{reg} : _", n_lifts=1)
-        proc = fission(proc, proc.find(f"{reg}[_] = _").after())
-        return proc
     
     if alpha != 0:
         constantReg = "alphaReg"
-        registers = ["xReg", "alphaReg", "mulReg"]
-        simple_stride_1 = stage(simple_stride_1, [simple_stride_1.find("x[_]")], "xReg")
-        simple_stride_1 = stage(simple_stride_1, [simple_stride_1.find("alpha")], "alphaReg")
-        simple_stride_1 = stage(simple_stride_1, [simple_stride_1.find("alphaReg[_] * xReg[_]")], "mulReg")
+        registers = [constantReg, "xReg", "mulReg"]
+        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs().lhs(), registers[0])
+        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs().rhs(), registers[1])
+        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs(), registers[2])
     else:
         constantReg = "zeroReg"
-        registers = ["zeroReg"]
-        simple_stride_1 = stage(simple_stride_1, [simple_stride_1.find("0.0")], "zeroReg")
+        registers = [constantReg]
+        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs(), registers[0])
     
     for buffer in registers:
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
         simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
+    
+    simple_stride_1 = replace_all(simple_stride_1, instructions)
     
     def hoist_const_broadcast(proc, constant):
         while True:
@@ -82,8 +79,6 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
             proc = unroll_loop(proc, f"for {iter} in _:_")
         proc = unroll_loop(proc, "for im in _:_")
         return proc
-    
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
     
     if INTERLEAVE_FACTOR > 1:
         simple_stride_1 = divide_loop(simple_stride_1, "for io in _:_", INTERLEAVE_FACTOR, ("io", "im"), tail="cut")
@@ -163,6 +158,10 @@ else:
 
 entry_points = [exo_sscal_stride_any, exo_sscal_stride_1, exo_sscal_alpha_0_stride_1, exo_sscal_alpha_0_stride_any,
                 exo_dscal_stride_any, exo_dscal_stride_1, exo_dscal_alpha_0_stride_1, exo_dscal_alpha_0_stride_any]
+
+for p in entry_points:
+    print(p)
+    
 
 if __name__ == "__main__":
     for p in entry_points:
