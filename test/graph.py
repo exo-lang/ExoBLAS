@@ -145,7 +145,8 @@ def peak_bandwidth_plot(params, names_to_points):
 
     if not bandwidth:
         peak_compute_x = [x[0], x[-1]]
-        peak_compute_y = [128.0, 128.0]
+        peak_c = 128.0/2 if wordsize == 8 or (kernel_name == "sdsdot" or kernel_name == "dsdot") else 128.0
+        peak_compute_y = [peak_c, peak_c]
         plt.plot(peak_compute_x, peak_compute_y, label="peak compute")
     
     plt.legend()

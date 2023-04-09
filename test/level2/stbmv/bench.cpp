@@ -68,7 +68,7 @@ static void CustomArgumentsPacked(benchmark::internal::Benchmark* b) {
                                             int lda = K + 1 + lda_diff;
                                             b -> Args({N, K, order, Uplo, TransA, Diag, lda, incX, alignmentX, alignmentA});       
                                         }
-                                        b -> Args({N, 1, order, Uplo, TransA, Diag, 1 + lda_diff, incX, alignmentX, alignmentA});
+                                        b -> Args({N, 0, order, Uplo, TransA, Diag, 1 + lda_diff, incX, alignmentX, alignmentA});
                                     }
                                 }
                             }
@@ -77,8 +77,7 @@ static void CustomArgumentsPacked(benchmark::internal::Benchmark* b) {
                 }
             }
         }
-    }
-  
+    } 
 }
 
 BENCHMARK(BM_cblas_stbmv)->ArgNames({"N", "K", "order", "Uplo", "TransA", "Diag", "lda", "incX", "alignmentX", "alignmentA"})->Apply(CustomArgumentsPacked);
