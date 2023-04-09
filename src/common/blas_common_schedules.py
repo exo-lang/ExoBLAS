@@ -16,7 +16,7 @@ stage_expr might be useful as a stdlib function still??
 def neon_stage_expr(proc, loop_var, expr, new_name, n_lifts=1):
   proc = bind_expr(proc, expr, new_name)
   proc = set_precision(proc, new_name, "f32")
-  proc = set_memory(proc, new_name, Neon4f)
+  proc = set_memory(proc, new_name, Neon)
   proc = expand_dim(proc, new_name, 4, loop_var)
   proc = lift_alloc(proc, new_name, n_lifts=n_lifts)
   proc = autofission(proc, proc.find(f"{new_name}[_] = _").after(), n_lifts=n_lifts)
@@ -54,7 +54,7 @@ def neon_vectorize_beta_times_y(proc):
   proc = replace(proc, "for ii in _:_", neon_vld_4xf32)
   # NOTE: need two registers for y because no duplicate arguments allowed
   proc = simplify(stage_mem(proc, "for ii in _:_", "y[4*io:4*io+4]", "new_y_vec"))
-  proc = set_memory(proc, "new_y_vec", Neon4f)
+  proc = set_memory(proc, "new_y_vec", Neon)
   proc = replace(proc, "for ii in _:_", neon_vmul_4xf32)
   proc = replace(proc, "for i0 in _:_", neon_vst_4xf32)
 
