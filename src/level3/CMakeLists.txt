@@ -21,3 +21,10 @@ add_exo_library(
   SOURCES trmm.py
   PYTHONPATH ${PYTHONPATH}
 )
+
+add_exo_library(
+  NAME exo_symm
+  SOURCES symm.py
+  PYTHONPATH ${PYTHONPATH}
+)
+

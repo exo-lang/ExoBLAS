@@ -19,3 +19,9 @@ class gemm:
     m_blk = @GEMM_M_BLK@
     m_reg = @GEMM_M_REG@
     n_reg = @GEMM_N_REG@
+
+class symm:
+    k_blk = @SYMM_K_BLK@
+    m_blk = @SYMM_M_BLK@
+    m_reg = @SYMM_M_REG@
+    n_reg = @SYMM_N_REG@
