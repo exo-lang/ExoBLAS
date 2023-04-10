@@ -23,16 +23,10 @@ class MachineParameters:
     l3_cache: int
 
     load_instr_f32: Any
-    load_instr_f32_str: str
     store_instr_f32: Any
     broadcast_instr_f32: Any
-    broadcast_instr_f32_str: str
     broadcast_scalar_instr_f32: Any
     fmadd_instr_f32: Any
-    zpad_ld_instr: Any
-    zpad_fmadd_instr: Any
-    zpad_broadcast_instr: Any
-    zpad_store_instr: Any
     set_zero_instr_f32: Any
     assoc_reduce_add_instr_f32: Any
     mul_instr_f32: Any
