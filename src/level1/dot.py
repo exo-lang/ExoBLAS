@@ -7,6 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
+from composed_schedules import vectorize
 
 @proc
 def sdot_template(n: size, x: [R][n], y: [R][n], result: R):
@@ -67,22 +68,20 @@ def schedule_dot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     simple_stride_1 = fission(simple_stride_1, simple_stride_1.find("for io in _:_").after(), n_lifts=2)
     simple_stride_1 = reorder_loops(simple_stride_1, "ii io")
     simple_stride_1 = reorder_loops(simple_stride_1, "im io")
+    simple_stride_1 = set_memory(simple_stride_1, "resultReg", memory)
+    
+    loop_cursor = simple_stride_1.find_loop("ii #1")
+    simple_stride_1 = vectorize(simple_stride_1, loop_cursor, VEC_W, memory, precision)
 
-    lower_bound = f"{VEC_W * INTERLEAVE_FACTOR} * io + im * {VEC_W}"
-    simple_stride_1 = stage_mem(simple_stride_1, "for ii in _:_ #1", f"x[{lower_bound}: {lower_bound} + {VEC_W}]", "xReg")
-    simple_stride_1 = stage_mem(simple_stride_1, "for ii in _:_ #1", f"y[{lower_bound}: {lower_bound} + {VEC_W}]", "yReg")
-    
-    for buffer in ["xReg", "yReg", "resultReg"]:
-        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
-    
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     simple_stride_1 = simplify(simple_stride_1)
     
-    simple_stride_1 = expand_dim(simple_stride_1, "xReg", INTERLEAVE_FACTOR, "im")
-    simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _")
-    simple_stride_1 = expand_dim(simple_stride_1, "yReg", INTERLEAVE_FACTOR, "im")
-    simple_stride_1 = lift_alloc(simple_stride_1, "yReg : _")
+    simple_stride_1 = expand_dim(simple_stride_1, "reg0", INTERLEAVE_FACTOR, "im")
+    simple_stride_1 = lift_alloc(simple_stride_1, "reg0 : _")
+    simple_stride_1 = expand_dim(simple_stride_1, "reg1", INTERLEAVE_FACTOR, "im")
+    simple_stride_1 = lift_alloc(simple_stride_1, "reg1 : _")
+    simple_stride_1 = expand_dim(simple_stride_1, "reg2", INTERLEAVE_FACTOR, "im")
+    simple_stride_1 = lift_alloc(simple_stride_1, "reg2 : _")
     def interleave_instructions(proc, iter):
         while True:
             main_loop = proc.find(f"for {iter} in _:_")
@@ -111,7 +110,8 @@ f32_instructions = [C.Machine.load_instr_f32,
                      C.Machine.store_instr_f32,
                      C.Machine.assoc_reduce_add_instr_f32,
                      C.Machine.set_zero_instr_f32,
-                     C.Machine.fmadd_instr_f32]
+                     C.Machine.fmadd_instr_f32,
+                     C.Machine.reg_copy_instr_f32]
 
 if None not in f32_instructions:
     exo_sdot_stride_1 = schedule_dot_stride_1_interleaved(C.Machine.vec_width, INTERLEAVE_FACTOR, C.Machine.mem_type, f32_instructions, "f32")
@@ -130,7 +130,8 @@ f64_instructions = [C.Machine.load_instr_f64,
                      C.Machine.store_instr_f64,
                      C.Machine.assoc_reduce_add_instr_f64,
                      C.Machine.set_zero_instr_f64,
-                     C.Machine.fmadd_instr_f64
+                     C.Machine.fmadd_instr_f64,
+                     C.Machine.reg_copy_instr_f64
                      ]
 
 if None not in f64_instructions:

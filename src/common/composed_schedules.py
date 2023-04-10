@@ -83,11 +83,16 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
     if not isinstance(loop_cursor, pc.ForSeqCursor):
         raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
     
-    proc = divide_loop(proc, loop_cursor, vec_width, \
-        (loop_cursor.name() + "o", loop_cursor.name() + "i"), tail="cut")
+    loop_cursor = proc.forward(loop_cursor)
     
-    outer_loop_cursor = proc.forward(loop_cursor)
-    inner_loop_cursor = outer_loop_cursor.body()[0]
+    if not (isinstance(loop_cursor.hi(), pc.LiteralCursor) and loop_cursor.hi().value() == vec_width):
+        proc = divide_loop(proc, loop_cursor, vec_width, \
+            (loop_cursor.name() + "o", loop_cursor.name() + "i"), tail="cut")
+    
+        outer_loop_cursor = proc.forward(loop_cursor)
+        inner_loop_cursor = outer_loop_cursor.body()[0]
+    else:
+        inner_loop_cursor = loop_cursor
     
     inner_loop_stmts = list(inner_loop_cursor.body())
     
