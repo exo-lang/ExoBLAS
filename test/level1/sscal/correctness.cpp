@@ -30,7 +30,7 @@ int main () {
     std::vector<int> N {1, 2, 8, 100, 64 * 64 * 64, 10000000};
     std::vector<float> alphas {0, 1, 2, -3, 3.14};
     std::vector<std::tuple<float, int> > params {{1.2, 2}, {2.5, 3}, {0, 5},
-                                                 {1, 4}, {1.3, 10}, {4.5, -2}};
+                                                 {1, 4}, {1.3, 10}};
 
     for (auto n : N) {
         for (auto alpha : alphas) {

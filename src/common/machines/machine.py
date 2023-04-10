@@ -50,3 +50,6 @@ class MachineParameters:
     reg_copy_instr_f64: Any
     sign_instr_f64: Any
     select_instr_f64: Any
+
+    convert_f32_lower_to_f64: Any
+    convert_f32_upper_to_f64: Any

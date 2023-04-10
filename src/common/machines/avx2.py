@@ -73,4 +73,7 @@ Machine = MachineParameters(
     reg_copy_instr_f64=avx2_reg_copy_pd,
     sign_instr_f64=avx2_sign_pd,
     select_instr_f64=avx2_select_pd,
+
+    convert_f32_lower_to_f64=avx2_convert_f32_lower_to_f64,
+    convert_f32_upper_to_f64=avx2_convert_f32_upper_to_f64
 )

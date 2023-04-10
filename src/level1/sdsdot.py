@@ -75,22 +75,6 @@ def schedule_sdsdot_stride_1(VEC_W, memory, instructions):
     
     return simple_stride_1
 
-@instr("{dst_data} = _mm256_cvtps_pd(_mm256_extractf128_ps({src_data}, 0));")
-def avx2_convert_f32_lower_to_f64(dst: [f64][4] @ AVX2, src: [f32][8] @ AVX2):
-    assert stride(dst, 0) == 1
-    assert stride(src, 0) == 1
-    
-    for i in seq(0, 4):
-        dst[i] = src[i]
-        
-@instr("{dst_data} = _mm256_cvtps_pd(_mm256_extractf128_ps({src_data}, 1));")
-def avx2_convert_f32_upper_to_f64(dst: [f64][4] @ AVX2, src: [f32][8] @ AVX2):
-    assert stride(dst, 0) == 1
-    assert stride(src, 0) == 1
-    
-    for i in seq(0, 4):
-        dst[i] = src[4 + i]
-
 exo_sdsdot_stride_any = sdsdot_template
 exo_sdsdot_stride_any = rename(exo_sdsdot_stride_any, "exo_sdsdot_stride_any")
 
@@ -104,10 +88,9 @@ instructions = [
 
 if None not in instructions:
     exo_sdsdot_stride_1 = schedule_sdsdot_stride_1(C.Machine.vec_width, C.Machine.mem_type, instructions)
-    if C.Machine.mem_type is AVX2:
-        for i in range(2):
-            exo_sdsdot_stride_1 = replace(exo_sdsdot_stride_1, "for ii in _:_", avx2_convert_f32_lower_to_f64)
-            exo_sdsdot_stride_1 = replace(exo_sdsdot_stride_1, "for ii in _:_", avx2_convert_f32_upper_to_f64)
+    for i in range(2):
+        exo_sdsdot_stride_1 = replace(exo_sdsdot_stride_1, "for ii in _:_", C.Machine.convert_f32_lower_to_f64)
+        exo_sdsdot_stride_1 = replace(exo_sdsdot_stride_1, "for ii in _:_", C.Machine.convert_f32_upper_to_f64)
 else:
     exo_sdsdot_stride_1 = sdsdot_template
     exo_sdsdot_stride_1 = rename(exo_sdsdot_stride_1, "exo_sdsdot_stride_1")
