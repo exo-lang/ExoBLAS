@@ -5,9 +5,10 @@ from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
+from exo.API_cursors import public_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import stage_expr
+from composed_schedules import vectorize
 
 @proc
 def scal_template(n: size, alpha: R, x: [R][n]):
@@ -39,24 +40,8 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
     simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     
-    stmt = simple_stride_1.find("x[_] = _")
-    simple_stride_1 = divide_loop(simple_stride_1, "for i in _:_", VEC_W, ("io", "ii"), tail="cut")
-    
-    if alpha != 0:
-        constantReg = "alphaReg"
-        registers = [constantReg, "xReg", "mulReg"]
-        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs().lhs(), registers[0])
-        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs().rhs(), registers[1])
-        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs(), registers[2])
-    else:
-        constantReg = "zeroReg"
-        registers = [constantReg]
-        simple_stride_1 = stage_expr(simple_stride_1, stmt.rhs(), registers[0])
-    
-    for buffer in registers:
-        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
-    
+    main_loop = simple_stride_1.find_loop("i")
+    simple_stride_1 = vectorize(simple_stride_1, main_loop, VEC_W, memory, precision)
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
     def hoist_const_broadcast(proc, constant):
@@ -82,25 +67,29 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
     
     if INTERLEAVE_FACTOR > 1:
         simple_stride_1 = divide_loop(simple_stride_1, "for io in _:_", INTERLEAVE_FACTOR, ("io", "im"), tail="cut")
+        registers = [cur.name() for cur in simple_stride_1.find_loop("im").body() \
+            if isinstance(cur, pc.AllocCursor)]
         
         for reg in registers:
             simple_stride_1 = expand_dim(simple_stride_1, reg, INTERLEAVE_FACTOR, "im")
             simple_stride_1 = lift_alloc(simple_stride_1, reg, n_lifts=2)
-            
+        
+        constantReg = "reg0"
         simple_stride_1 = lift_alloc(simple_stride_1, f"{constantReg} #1", n_lifts=1) # Tail loop to allow broadcast hoisting
         
         simple_stride_1 = interleave_instructions(simple_stride_1, "im")
     else:
+        constantReg = "reg0"
         simple_stride_1 = lift_alloc(simple_stride_1, f"{constantReg}", n_lifts=1) # Main loop to allow broadcast hoisting
     
-    if alpha != 0:
-        for i in range(INTERLEAVE_FACTOR + 1):
-            simple_stride_1 = hoist_const_broadcast(simple_stride_1, f"alpha #{i}")
-    else:
-        zero_instr = C.Machine.set_zero_instr_f32 if precision == "f32" else C.Machine.set_zero_instr_f64
-        for i in range(INTERLEAVE_FACTOR + 1):
-            zero_call_cursor = simple_stride_1.find(f"{zero_instr.name()}(_) #{i}")
-            simple_stride_1 = autofission(simple_stride_1, zero_call_cursor.after())
+    # if alpha != 0:
+    #     for i in range(INTERLEAVE_FACTOR + 1):
+    #         simple_stride_1 = hoist_const_broadcast(simple_stride_1, f"alpha #{i}")
+    # else:
+    #     zero_instr = C.Machine.set_zero_instr_f32 if precision == "f32" else C.Machine.set_zero_instr_f64
+    #     for i in range(INTERLEAVE_FACTOR + 1):
+    #         zero_call_cursor = simple_stride_1.find(f"{zero_instr.name()}(_) #{i}")
+    #         simple_stride_1 = autofission(simple_stride_1, zero_call_cursor.after())
 
     return simple_stride_1
 
@@ -158,9 +147,6 @@ else:
 
 entry_points = [exo_sscal_stride_any, exo_sscal_stride_1, exo_sscal_alpha_0_stride_1, exo_sscal_alpha_0_stride_any,
                 exo_dscal_stride_any, exo_dscal_stride_1, exo_dscal_alpha_0_stride_1, exo_dscal_alpha_0_stride_any]
-
-for p in entry_points:
-    print(p)
     
 
 if __name__ == "__main__":

@@ -5,8 +5,10 @@ from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
+from exo.API_cursors import public_cursors as pc
 
 import exo_blas_config as C
+from composed_schedules import vectorize, get_enclosing_loop
 
 @proc
 def axpy_template(
@@ -48,30 +50,12 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
-    def stage_expr(proc, expr, buffer):
-        proc = bind_expr(proc, expr, buffer)
-        proc = expand_dim(proc, buffer, VEC_W, "ii")
-        proc = lift_alloc(proc, f"{buffer}:_", n_lifts=1)
-        proc = fission(proc, proc.find(f"{buffer}[_] = _").after())
-        return proc
-
-    loop_fragment = lambda iter, idx=0: f"for {iter} in _:_ #{idx}"
-    simple_stride_1 = divide_loop(simple_stride_1, loop_fragment("i"), VEC_W, ("io", "ii"), tail="cut")
-
-    registers = ["xReg", "yReg"]
+    loop_cursor = simple_stride_1.find_loop("i")
+    simple_stride_1 = vectorize(simple_stride_1, loop_cursor, VEC_W, memory, precision)
+    registers = [cur.name() for cur in simple_stride_1.find_loop("io").body() \
+            if isinstance(cur, pc.AllocCursor)]
     
-    if alpha != 1:
-        simple_stride_1 = stage_expr(simple_stride_1, "alpha", "alphaReg")
-        registers.append("alphaReg")
-
-    simple_stride_1 = stage_expr(simple_stride_1, "x[_]", "xReg")
-    simple_stride_1 = simplify(stage_mem(simple_stride_1, simple_stride_1.find("y[_] += _").parent(), f"y[io * {VEC_W}:(io + 1) * {VEC_W}]", "yReg"))
-    
-    for buffer in registers:
-        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
-
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
+    simple_stride_1 = replace_all(simple_stride_1, instructions)    
     
     def hoist_const_broadcast(proc, constant):
         while True:
@@ -95,19 +79,19 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
         return proc
     
     if INTERLEAVE_FACTOR > 1:
-        simple_stride_1 = divide_loop(simple_stride_1, loop_fragment("io"), INTERLEAVE_FACTOR, ("io", "im"), tail="cut")
+        simple_stride_1 = divide_loop(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR, ("io", "im"), tail="cut")
         
         for reg in registers:
             simple_stride_1 = expand_dim(simple_stride_1, reg, INTERLEAVE_FACTOR, "im")
             simple_stride_1 = lift_alloc(simple_stride_1, reg, n_lifts=2)
             
         if alpha != 1:
-            simple_stride_1 = lift_alloc(simple_stride_1, "alphaReg #1", n_lifts=1) # Tail loop
+            simple_stride_1 = lift_alloc(simple_stride_1, "reg0 #1", n_lifts=1) # Tail loop
         
         simple_stride_1 = interleave_instructions(simple_stride_1, "im")
     else:
         if alpha != 1:
-            simple_stride_1 = lift_alloc(simple_stride_1, "alphaReg", n_lifts=1)
+            simple_stride_1 = lift_alloc(simple_stride_1, "reg0", n_lifts=1)
     
     if alpha != 1:
         for i in range(INTERLEAVE_FACTOR + 1):
