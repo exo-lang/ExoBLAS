@@ -13,7 +13,7 @@ void test_ssymm(const enum CBLAS_SIDE side, const enum CBLAS_UPLO uplo,
                 const float alpha, const float beta) {
     
     std::cout<<"Running ssymm test: N = "<<n<<", alpha = "<<alpha<<", beta = "<<beta<< ", side = "<<side<<", uplo = "<<uplo<<"..."<<std::endl;
-    auto a = AlignedBuffer2D<float>(m, m, 64, 2.0);
+    auto a = AlignedBuffer2D<float>(m, m, 2.0f, 64);
     auto b = AlignedBuffer2D<float>(m, n);
     auto c = AlignedBuffer2D<float>(m, n);
     auto c2 = c; 
@@ -25,7 +25,6 @@ void test_ssymm(const enum CBLAS_SIDE side, const enum CBLAS_UPLO uplo,
                   b.data(), m,
                   beta,
                   c.data(), m);
-
     exo_ssymm(CblasRowMajor, side, uplo, m, n, &alpha, a.data(), m, b.data(), m, &beta, c2.data(), m);
 
     double epsilon = 0.01;
