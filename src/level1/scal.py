@@ -82,14 +82,14 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
         constantReg = "reg0"
         simple_stride_1 = lift_alloc(simple_stride_1, f"{constantReg}", n_lifts=1) # Main loop to allow broadcast hoisting
     
-    # if alpha != 0:
-    #     for i in range(INTERLEAVE_FACTOR + 1):
-    #         simple_stride_1 = hoist_const_broadcast(simple_stride_1, f"alpha #{i}")
-    # else:
-    #     zero_instr = C.Machine.set_zero_instr_f32 if precision == "f32" else C.Machine.set_zero_instr_f64
-    #     for i in range(INTERLEAVE_FACTOR + 1):
-    #         zero_call_cursor = simple_stride_1.find(f"{zero_instr.name()}(_) #{i}")
-    #         simple_stride_1 = autofission(simple_stride_1, zero_call_cursor.after())
+    if alpha != 0:
+        for i in range(INTERLEAVE_FACTOR + 1):
+            simple_stride_1 = hoist_const_broadcast(simple_stride_1, f"alpha #{i}")
+    else:
+        zero_instr = C.Machine.set_zero_instr_f32 if precision == "f32" else C.Machine.set_zero_instr_f64
+        for i in range(INTERLEAVE_FACTOR + 1):
+            zero_call_cursor = simple_stride_1.find(f"{zero_instr.name()}(_) #{i}")
+            simple_stride_1 = autofission(simple_stride_1, zero_call_cursor.after())
 
     return simple_stride_1
 
