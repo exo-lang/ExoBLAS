@@ -6,16 +6,6 @@ from exo import instr
 from .machine import MachineParameters
 
 
-@instr("{dst_data} = vmulq_f32({dst_data}, {rhs_data});")
-def neon_vmul_4xf32_alias_hack(
-    dst: [f32][4] @ Neon, rhs: [f32][4] @ Neon
-):
-    assert stride(dst, 0) == 1
-    assert stride(rhs, 0) == 1
-
-    for i in seq(0, 4):
-        dst[i] = dst[i] * rhs[i]
-
 @instr("{dst_data} = {src_data};")
 def neon_reg_copy_4xf32(
     dst: [f32][4] @ Neon, src: [f32][4] @ Neon
@@ -25,6 +15,21 @@ def neon_reg_copy_4xf32(
 
     for i in seq(0, 4):
         dst[i] = src[i]
+
+# TODO: add to EXO's Neon library
+@instr("*{result} += vaddvq_f32({x_data});")
+def neon_assoc_reduce_add_instr_4xf32(result: f32 @ DRAM, x: [f32][4] @ Neon):
+  assert stride(x, 0) == 1
+  for i in seq(0, 4):
+      result += x[i]
+
+@instr("{result_data} += vaddvq_f32({x_data});")
+def neon_assoc_reduce_add_instr_4xf32_buffer(result: [f32][1] @ DRAM, x: [f32][4] @ Neon):
+  assert stride(x, 0) == 1
+  assert stride(result, 0) == 1
+  for i in seq(0, 4):
+      result[0] += x[i]
+
 
 Machine = MachineParameters(
     name="neon",
@@ -47,14 +52,14 @@ Machine = MachineParameters(
     zpad_broadcast_instr=None,
     zpad_store_instr=None,
     set_zero_instr_f32=neon_zero_4xf32,
-    assoc_reduce_add_instr_f32=None,
-    mul_instr_f32_hack=neon_vmul_4xf32_alias_hack,
+    assoc_reduce_add_instr_f32=neon_assoc_reduce_add_instr_4xf32,
     mul_instr_f32=neon_vmul_4xf32,
     add_instr_f32=None,
     reduce_add_wide_instr_f32=None,
     reg_copy_instr_f32=neon_reg_copy_4xf32,
     sign_instr_f32=None,
     select_instr_f32=None,
+    assoc_reduce_add_f32_buffer=neon_assoc_reduce_add_instr_4xf32_buffer,
     
     load_instr_f64=None,
     store_instr_f64=None,

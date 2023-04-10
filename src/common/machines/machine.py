@@ -35,13 +35,13 @@ class MachineParameters:
     zpad_store_instr: Any
     set_zero_instr_f32: Any
     assoc_reduce_add_instr_f32: Any
-    mul_instr_f32_hack: Any
     mul_instr_f32: Any
     add_instr_f32: Any
     reduce_add_wide_instr_f32: Any
     reg_copy_instr_f32: Any
     sign_instr_f32: Any
     select_instr_f32: Any
+    assoc_reduce_add_f32_buffer: Any
     
     load_instr_f64: Any
     store_instr_f64: Any
@@ -50,7 +50,6 @@ class MachineParameters:
     fmadd_instr_f64: Any
     set_zero_instr_f64: Any
     assoc_reduce_add_instr_f64: Any
-    mul_instr_f64_hack : Any
     mul_instr_f64: Any
     add_instr_f64: Any
     reduce_add_wide_instr_f64: Any

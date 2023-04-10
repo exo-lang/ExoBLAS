@@ -4,26 +4,6 @@ from exo.platforms.x86 import *
 
 from .machine import MachineParameters
 
-@instr("{dst_data} = _mm256_mul_ps({dst_data}, {rhs_data});")
-def mm256_mul_ps_hack(
-    dst: [f32][8] @ AVX2, rhs: [f32][8] @ AVX2
-):
-    assert stride(dst, 0) == 1
-    assert stride(rhs, 0) == 1
-
-    for i in seq(0, 8):
-        dst[i] = dst[i] * rhs[i]
-
-@instr("{dst_data} = _mm256_mul_pd({dst_data}, {rhs_data});")
-def mm256_mul_sd_hack(
-    dst: [f64][4] @ AVX2, rhs: [f64][4] @ AVX2
-):
-    assert stride(dst, 0) == 1
-    assert stride(rhs, 0) == 1
-
-    for i in seq(0, 4):
-        dst[i] = dst[i] * rhs[i]
-
 @instr("{dst_data} = _mm256_maskz_loadu_ps(((1 << {N}) - 1), &{src_data});")
 def mm256_maskz_loadu_ps(
     N: size,
@@ -36,6 +16,25 @@ def mm256_maskz_loadu_ps(
 
     for i in seq(0, N):
         dst[i] = src[i]
+
+@instr(
+    """
+    {{
+        __m256 tmp = _mm256_hadd_ps({x_data}, {x_data});
+        tmp = _mm256_hadd_ps(tmp, tmp);
+        __m256 upper_bits = _mm256_castps128_ps256(_mm256_extractf128_ps(tmp, 1));
+        tmp = _mm256_add_ps(tmp, upper_bits);
+        {result_data} += _mm256_cvtss_f32(tmp);
+    }}
+    """
+)
+def avx2_assoc_reduce_add_ps_buffer(x: [f32][8] @ AVX2, result: [f32][1]):
+    # WARNING: This instruction assumes float addition associativity
+    assert stride(x, 0) == 1
+    assert stride(result, 0) == 1
+    
+    for i in seq(0, 8):
+        result[0] += x[i]
 
 Machine = MachineParameters(
     name="avx2",
@@ -59,7 +58,7 @@ Machine = MachineParameters(
     zpad_store_instr=None,
     set_zero_instr_f32=mm256_setzero_ps,
     assoc_reduce_add_instr_f32=avx2_assoc_reduce_add_ps,
-    mul_instr_f32_hack=mm256_mul_ps_hack,
+    assoc_reduce_add_f32_buffer=avx2_assoc_reduce_add_ps_buffer,
     mul_instr_f32=mm256_mul_ps,
     add_instr_f32=mm256_add_ps,
     reduce_add_wide_instr_f32=avx2_reduce_add_wide_ps,
@@ -74,7 +73,6 @@ Machine = MachineParameters(
     fmadd_instr_f64=mm256_fmadd_pd,
     set_zero_instr_f64=mm256_setzero_pd,
     assoc_reduce_add_instr_f64=avx2_assoc_reduce_add_pd,
-    mul_instr_f64_hack=mm256_mul_sd_hack,
     mul_instr_f64=mm256_mul_pd,
     add_instr_f64=mm256_add_pd,
     reduce_add_wide_instr_f64=avx2_reduce_add_wide_pd,

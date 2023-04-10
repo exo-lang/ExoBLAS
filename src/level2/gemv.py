@@ -300,50 +300,13 @@ def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instruc
     
     return simplify(stride_1)
    
-# TODO: add to EXO's Neon library
-@instr("*{result} += vaddvq_f32({x_data});")
-def neon_assoc_reduce_add_instr_4xf32(result: f32 @ DRAM, x: [f32][4] @ Neon):
-  for i in seq(0, 4):
-      result += x[i]
-
-@instr("*{result} += vaddvq_f32({x_data});")
-def neon_assoc_reduce_add_instr_4xf32_buffer(result: f32[1] @ DRAM, x: [f32][4] @ Neon):
-  for i in seq(0, 4):
-      result[0] += x[i]
-
-@instr(
-    """
-    {{
-        __m256 tmp = _mm256_hadd_ps({x_data}, {x_data});
-        tmp = _mm256_hadd_ps(tmp, tmp);
-        __m256 upper_bits = _mm256_castps128_ps256(_mm256_extractf128_ps(tmp, 1));
-        tmp = _mm256_add_ps(tmp, upper_bits);
-        {result_data} += _mm256_cvtss_f32(tmp);
-    }}
-    """
-)
-def avx2_assoc_reduce_add_ps_buffer(x: [f32][8] @ AVX2, result: [f32][1]):
-    # WARNING: This instruction assumes float addition associativity
-    assert stride(x, 0) == 1
-    assert stride(result, 0) == 1
-    
-    for i in seq(0, 8):
-        result[0] += x[i]
-
 f32_instructions = [C.Machine.load_instr_f32,
-                     C.Machine.store_instr_f32,
-                     C.Machine.set_zero_instr_f32,
-                     C.Machine.fmadd_instr_f32,]
-if C.Machine.name == "neon":
-    f32_instructions.append(neon_assoc_reduce_add_instr_4xf32)
-else:
-    f32_instructions.append(C.Machine.assoc_reduce_add_instr_f32)
-
-if C.Machine.name == "neon":
-    f32_instructions.append(neon_assoc_reduce_add_instr_4xf32_buffer)
-else:
-    f32_instructions.append(avx2_assoc_reduce_add_ps_buffer)
-
+                    C.Machine.store_instr_f32,
+                    C.Machine.set_zero_instr_f32,
+                    C.Machine.fmadd_instr_f32,
+                    C.Machine.assoc_reduce_add_instr_f32,
+                    C.Machine.assoc_reduce_add_f32_buffer
+                    ]
 
 sgemv_stride_1 = schedule_multiple_rows(C.Machine.vec_width, 2, 4, C.Machine.mem_type, f32_instructions)
 
