@@ -5,7 +5,7 @@ from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
-from exo.API_cursors import public_cursors as pc
+import exo.API_cursors as pc
 
 import exo_blas_config as C
 from composed_schedules import vectorize, get_enclosing_loop
