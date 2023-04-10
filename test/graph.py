@@ -190,27 +190,10 @@ def peak_compute_plot(params, names_to_points):
     plt.savefig(fig_file_name)
 
 
-def raw_runtime_plot(params, names_to_points):
-    plt.clf()
-    for name in names_to_points:
-        points = names_to_points[name]
-        x = [log_2(p[0]) for p in points]
-        y = [p[1] for p in points]
-        plt.plot(x, y, label=name)
-    
-    plt.legend()
-    
-    plt.title(f"""{kernel_name}, params: {params}""")
-    plt.ylabel('runtime (ns)')
-    plt.xlabel('log2(words)')
-    plt.xticks(range(0, 30, 2))
-    fig_file_name = f"{kernel_graphs_dir}/raw_runtime_{kernel_name}_{params}.png"
-    fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
-    plt.savefig(fig_file_name, bbox_inches='tight')
-
 def ratio_and_gm_plot(params, names_to_points):
     names_list = list(names_to_points.keys())
     
+    res = {"sum": 0, "iter":0}
     for i in range(len(names_list)):
         for j in range(i + 1, len(names_list)):
             name1 = names_list[i]
@@ -218,6 +201,8 @@ def ratio_and_gm_plot(params, names_to_points):
             
             if "exo" not in name2 and "EXO" not in name2:
                 name1, name2 = name2, name1
+            if name2 != "Exo":
+                continue
             
             points1 = names_to_points[name1]
             points2 = names_to_points[name2]
@@ -242,6 +227,9 @@ def ratio_and_gm_plot(params, names_to_points):
             for r in y:
                 GM *= r
             GM = GM ** (1 / len(sizes1))
+
+            res["sum"] += GM
+            res["iter"] += 1
             
             plt.title(f"""
                       {kernel_name}, params: {params}
@@ -254,6 +242,11 @@ def ratio_and_gm_plot(params, names_to_points):
             fig_file_name = f"{kernel_graphs_dir}/ratios_{name1}_vs_{name2}_{params}.png"
             fig_file_name = fig_file_name.replace(":", "=") # For Windows compatibility
             plt.savefig(fig_file_name, bbox_inches='tight')
+
+    with open("summary.txt", 'a') as f:
+        line = f"{kernel_name}| {params}| {res['sum'] / res['iter']}\n"
+        f.write(line)
+
     
 for params in perf_res:
     if kernel_name[1:] in level3_kernels:
@@ -261,5 +254,6 @@ for params in perf_res:
     else:
         peak_bandwidth_plot(params, perf_res[params])
 
-    raw_runtime_plot(params, perf_res[params])
+    #raw_runtime_plot(params, perf_res[params])
     ratio_and_gm_plot(params, perf_res[params])
+
