@@ -53,7 +53,8 @@ def schedule_swap_stride_1(VEC_W, memory, instructions, precision):
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
     # TODO: remove once set_memory takes allocation cursor
-    tail_loop_block = simple_stride_1.find("tmp = x[_]").expand(2)
+    tmp_c = simple_stride_1.find("tmp = x[_]")
+    tail_loop_block = tmp_c.expand(0, 2)
     simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "tmp", "Tmp")
     tmp_buffer = simple_stride_1.find("Tmp : _")
     xReg_buffer = tmp_buffer.prev()

@@ -48,7 +48,7 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
         while True:
             try:
                 call_cursor = proc.find(constant).parent()
-                proc = reorder_stmts(proc, call_cursor.expand(-1))
+                proc = reorder_stmts(proc, call_cursor.expand(1,0))
             except:
                 break
         call_cursor = proc.find(constant).parent()

@@ -66,7 +66,7 @@ def schedule_sdsdot_stride_1(VEC_W, memory, instructions):
     for p in [("d_x", "x"), ("d_y", "y")]:
         buffer = p[0]
         rhs = p[1]
-        tail_loop_block = simple_stride_1.find(f"{buffer} = {rhs}[_]").expand(2)
+        tail_loop_block = simple_stride_1.find(f"{buffer} = {rhs}[_]").expand(0,2)
         simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, buffer, f"{buffer}_tmp")
         tmp_buffer = simple_stride_1.find(f"{buffer}_tmp : _")
         xReg_buffer = tmp_buffer.prev()

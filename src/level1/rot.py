@@ -64,11 +64,12 @@ def schedule_rot_stride_1(VEC_W, memory, instructions, precision):
         while True:
             try:
                 loop_cursor = proc.find(constant).parent().parent()
-                proc = reorder_stmts(proc, loop_cursor.expand(-1))
+                proc = reorder_stmts(proc, loop_cursor.expand(1, 0))
             except:
                 break
         loop_cursor = proc.find(constant).parent().parent()
-        proc = autofission(proc, loop_cursor.after())
+        proc = fission(proc, loop_cursor.after())
+        proc = remove_loop(proc, proc.forward(loop_cursor).parent())
         return proc
 
     simple_stride_1 = hoist_const_loop(simple_stride_1, "c")
@@ -100,7 +101,7 @@ def schedule_rot_stride_1(VEC_W, memory, instructions, precision):
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
     # TODO: remove once set_memory takes allocation cursor
-    tail_loop_block = simple_stride_1.find("xReg = x[_]").expand(2)
+    tail_loop_block = simple_stride_1.find("xReg = x[_]").expand(0, 2)
     simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "xReg", "xTmp")
     tmp_buffer = simple_stride_1.find("xTmp : _")
     xReg_buffer = tmp_buffer.prev()

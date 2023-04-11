@@ -287,7 +287,7 @@ def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instruc
     
     for i in range(0, INTERLEAVE_FACTOR):
       io0_loop_1 = stride_1.find(f"for i0 in _:_ #{i}")
-      stride_1 = reorder_stmts(stride_1, io0_loop_1.expand(-1))
+      stride_1 = reorder_stmts(stride_1, io0_loop_1.expand(1,0))
       stride_1 = fission(stride_1, stride_1.forward(io0_loop_1).after())
       stride_1 = remove_loop(stride_1, stride_1.forward(io0_loop_1).parent())
     
