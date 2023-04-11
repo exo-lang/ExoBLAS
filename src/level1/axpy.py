@@ -8,7 +8,7 @@ from exo.stdlib.scheduling import *
 import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import vectorize, get_enclosing_loop
+from composed_schedules import vectorize
 
 @proc
 def axpy_template(

@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import inspect
-import textwrap
-
 from exo import *
 from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
@@ -79,6 +76,13 @@ def stage_expr(proc, expr_cursor, new_name, cse = False):
     proc = fission(proc, proc.find(f"{new_name}[_] = _").after())
     return proc
 
+def stage_alloc(proc, alloc_cursor):
+    alloc_cursor = proc.forward(alloc_cursor)
+    enclosing_loop = get_enclosing_loop(alloc_cursor)
+    proc = expand_dim(proc, alloc_cursor, expr_to_string(enclosing_loop.hi()), enclosing_loop.name())
+    proc = lift_alloc(proc, alloc_cursor, n_lifts=1)
+    return proc
+
 def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
     if not isinstance(loop_cursor, pc.ForSeqCursor):
         raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
@@ -96,11 +100,19 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
     
     inner_loop_stmts = list(inner_loop_cursor.body())
     
+    staged_allocs = []
+    
     for stmt in inner_loop_stmts:
-        assert not isinstance(stmt, pc.AllocCursor)
+        if isinstance(stmt, pc.AllocCursor):
+            proc = stage_alloc(proc, stmt)
+            staged_allocs.append(stmt.name())
 
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
+    inner_loop_stmts = list(inner_loop_cursor.body())
+    
     for stmt in inner_loop_stmts[:-1]:
-        proc = fission(proc, stmt.after())
+        forwarded_stmt = proc.forward(stmt)
+        proc = fission(proc, forwarded_stmt.after())
     
     def detect_madd(expr):
         return isinstance(expr, pc.BinaryOpCursor) and \
@@ -134,12 +146,10 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
             
             proc = stage_mem(proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}]", lhs_reg)
             
-            forwarded_stmt = proc.forward(stmt)
-            enclosing_loop = get_enclosing_loop(forwarded_stmt)
-            proc = expand_dim(proc, lhs_reg, vec_width, enclosing_loop.name())
-            proc = lift_alloc(proc, lhs_reg)
+            alloc_cursor = proc.find(f"{lhs_reg} : _")
+            proc = stage_alloc(proc, alloc_cursor)
             
-            forwarded_stmt = proc.forward(forwarded_stmt)
+            forwarded_stmt = proc.forward(stmt)
             proc = fission(proc, forwarded_stmt.after())
             forwarded_stmt = proc.forward(forwarded_stmt)
             proc = fission(proc, forwarded_stmt.before())
@@ -147,5 +157,9 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
     for i in range(reg_name_counter):
         proc = set_memory(proc, f"reg{i}", memory_type)
         proc = set_precision(proc, f"reg{i}", precision)
+        
+    for alloc in staged_allocs:
+        proc = set_memory(proc, alloc, memory_type)
+        proc = set_precision(proc, alloc, precision)
 
     return proc
