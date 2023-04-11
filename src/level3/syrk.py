@@ -22,12 +22,13 @@ class SYRK:
     """
     def __init__(self, machine: "MachineParameters",
                  precision: str,
-                 K_blk: int, M_blk: int, N_blk:int,
+                 K_blk: int, M_blk: int,
                  M_r: int, N_r: int):
         
         # Precision
         self.precision = precision
         self.prefix = 's' if precision=='f32' else 'd'
+        print(M_r, N_r)
 
         # Generate kernels
         self.microkernel = Microkernel(machine, M_r, N_r, K_blk, self.precision)
@@ -36,7 +37,6 @@ class SYRK:
         # Blocking dimensions
         self.K_blk = K_blk
         self.M_blk = M_blk
-        self.N_blk = N_blk
 
         # Machine
         self.machine = machine
@@ -550,7 +550,7 @@ class SYRK:
         diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, 'ii jo')
         diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for ii in _:_ #0', gebp_diag_handler.base_gebp)
         diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'gebp_base_{gebp_diag_handler.this_id}(_)', gebp_diag_handler.scheduled_gebp)
-        print(diag_syrk_scheduled)
+        #print(diag_syrk_scheduled)
 
         microkernel_diag_handler = Microkernel(self.machine, self.microkernel.M_r, self.microkernel.N_r, self.K_blk, self.precision)
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for ii in _:_', microkernel_diag_handler.M_r, ['iio', 'iii'], tail='cut')
@@ -560,7 +560,7 @@ class SYRK:
         diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, 'iii jio')
         diag_syrk_scheduled = replace(diag_syrk_scheduled, 'for iii in _:_ #0', microkernel_diag_handler.base_microkernel)
         diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, f'microkernel_{microkernel_diag_handler.this_id}(_)', microkernel_diag_handler.scheduled_microkernel)
-        print(diag_syrk_scheduled)
+        #print(diag_syrk_scheduled)
 
         gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, 'diag_handler(_)', diag_syrk_scheduled)
 
@@ -646,13 +646,12 @@ class SYRK:
  
 k_blk = C.syrk.k_blk
 m_blk = C.syrk.m_blk
-n_blk = 512
 m_reg = C.syrk.m_reg
 n_reg = C.syrk.n_reg
 
 
 ssyrk = SYRK(C.Machine, 'f32',
-             k_blk, m_blk, n_blk,
+             k_blk, m_blk,
              m_reg, n_reg
              )
 
@@ -673,9 +672,10 @@ exo_ssyrk_upper_alphazero_beta = ssyrk.entry_points[13]
 
 C.Machine.vec_width //= 2
 dsyrk = SYRK(C.Machine, 'f64',
-             k_blk, m_blk, n_blk,
+             k_blk, m_blk,
              m_reg, n_reg//2
              )
+C.Machine.vec_width *= 2
 
 exo_dsyrk_lower_notranspose_noalpha_nobeta = dsyrk.entry_points[0]
 exo_dsyrk_lower_notranspose_alpha_nobeta = dsyrk.entry_points[1]

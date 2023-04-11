@@ -306,7 +306,7 @@ class GEBP_kernel:
         scheduled_gebp = rename(gebp, f"gebp_{self.M_blk}x{self.microkernel.K_blk}_{self.gebp_id}")
         scheduled_gebp = divide_loop(scheduled_gebp, 'i', self.microkernel.M_r, ['io', 'ii'], tail='cut_and_guard')
         scheduled_gebp = simplify(divide_loop(scheduled_gebp, 'j', self.microkernel.N_r, ['jo', 'ji'], perfect=True))
-        print(scheduled_gebp)
+        #print(scheduled_gebp)
         
         #scheduled_gebp = autofission(scheduled_gebp, scheduled_gebp.find('for jo in _: _').after(), n_lifts=2)
         scheduled_gebp = reorder_loops(scheduled_gebp, 'ii jo')
@@ -316,7 +316,7 @@ class GEBP_kernel:
 
         scheduled_gebp = reorder_loops(scheduled_gebp, 'io jo')
         scheduled_gebp = stage_mem(scheduled_gebp, 'for io in _:_ #0', f'B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]', 'B_strip')
-        print(scheduled_gebp)
+        #print(scheduled_gebp)
         return scheduled_gebp, gebp
 
 

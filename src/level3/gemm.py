@@ -471,9 +471,9 @@ class GEMM:
             exo_gemm_transa_transb_alpha_beta
         ]
         
-        print(self.microkernel.scheduled_microkernel)
-        print(apply_beta)
-        print(apply_alpha)
+        #print(self.microkernel.scheduled_microkernel)
+        #print(apply_beta)
+        #print(apply_alpha)
         #print(self.gebp.scheduled_gebp)
         #print(self.gepp.gepp_scheduled)
 
@@ -492,7 +492,7 @@ class GEMM:
         gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for jo in _:_ #0').after(), n_lifts=2)
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i jo')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'ko jo')
-        print(gemm_scheduled)
+        #print(gemm_scheduled)
         #gemm_scheduled = stage_mem(gemm_scheduled, 'for i in _:_ #0', f'B[{self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko, 0:N]', 'B_packed')
         if self.gepp.K_blk>256:
             gemm_scheduled = stage_mem(gemm_scheduled, 'for i in _:_ #0', f'A[0:M, {self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko]', 'A_packed')
@@ -508,11 +508,11 @@ class GEMM:
         gemm_scheduled = reorder_loops(gemm_scheduled, 'j ko')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i ko')
         gemm_scheduled = divide_loop(gemm_scheduled, 'j #1', self.gebp.N_blk, ['jo', 'ji'], tail='cut')
-        print(gemm_scheduled)
+        #print(gemm_scheduled)
         gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for jo in _:_ #0ß').after(), n_lifts=2)
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i jo')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'ko jo')
-        print(gemm_scheduled)
+        #print(gemm_scheduled)
 
         gemm_scheduled = replace(gemm_scheduled, 'for i in _:_ #0', self.gepp.gepp_base)
         gemm_scheduled = call_eqv(gemm_scheduled, f'gepp_base_{self.gepp.this_id}(_)', self.gepp.gepp_scheduled)
@@ -709,7 +709,7 @@ sgemm_entry_points = [p.name() for p in sgemm_main.entry_points] + [p.name() for
 #################################################
 
 C.Machine.vec_width //= 2
-print(C.Machine.vec_width)
+#print(C.Machine.vec_width)
 
 dgemm_main = GEMM(
     C.Machine,
@@ -805,4 +805,4 @@ for kernel in dgemm_backup_kernels:
 dgemm_entry_points = [p.name() for p in dgemm_main.entry_points] + [p.name() for p in dgemm_backup_entry_points]
 
 __all__ = sgemm_entry_points + dgemm_entry_points
-print(__all__)
+#print(__all__)

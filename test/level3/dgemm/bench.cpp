@@ -78,7 +78,7 @@ static void BM_DGEMM_EXO(benchmark::State& state) {
     }
 
     state.counters["flops"] = benchmark::Counter(
-        static_cast<double>(state.iterations()) * 2 * n * n * n,
+        static_cast<double>(state.iterations()) * 2 * n * n * n *2,
         benchmark::Counter::kIsRate,
         benchmark::Counter::kIs1000	
     );

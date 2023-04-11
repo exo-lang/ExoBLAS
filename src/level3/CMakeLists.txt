@@ -11,6 +11,12 @@ add_exo_library(
 )
 
 add_exo_library(
+  NAME exo_syr2k
+  SOURCES syr2k.py
+  PYTHONPATH ${PYTHONPATH}
+)
+
+add_exo_library(
   NAME exo_gemm
   SOURCES gemm.py
   PYTHONPATH ${PYTHONPATH}
