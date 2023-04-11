@@ -163,3 +163,39 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
         proc = set_precision(proc, alloc, precision)
 
     return proc
+
+def interleave_execution(proc, loop_cursor, interleave_factor):
+    if not isinstance(loop_cursor, pc.ForSeqCursor):
+        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
+    
+    loop_cursor = proc.forward(loop_cursor)
+    
+    if not (isinstance(loop_cursor.hi(), pc.LiteralCursor) and loop_cursor.hi().value() == interleave_factor):
+        proc = divide_loop(proc, loop_cursor, interleave_factor, \
+            (loop_cursor.name() + "o", loop_cursor.name() + "i"), tail="cut")
+    
+        outer_loop_cursor = proc.forward(loop_cursor)
+        inner_loop_cursor = outer_loop_cursor.body()[0]
+    else:
+        inner_loop_cursor = loop_cursor
+
+    inner_loop_stmts = list(inner_loop_cursor.body())
+    
+    for stmt in inner_loop_stmts:
+        if isinstance(stmt, pc.AllocCursor):
+            proc = stage_alloc(proc, stmt)
+            
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
+    
+    inner_loop_stmts = list(inner_loop_cursor.body())
+    
+    for stmt in inner_loop_stmts[:-1]:
+        forwarded_stmt = proc.forward(stmt)
+        proc = fission(proc, forwarded_stmt.after())
+        forwarded_stmt = proc.forward(stmt).parent()
+        proc = unroll_loop(proc, forwarded_stmt)
+    
+    last_loop = proc.forward(inner_loop_stmts[-1]).parent()
+    proc = unroll_loop(proc, last_loop)
+    
+    return proc

@@ -7,7 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-from composed_schedules import vectorize
+from composed_schedules import vectorize, interleave_execution
 
 @proc
 def rot_template(n: size, x: [R][n], y: [R][n], c: R, s: R):
@@ -24,7 +24,7 @@ def specialize_precision(precision):
         specialized_copy = set_precision(specialized_copy, arg, precision)
     return specialized_copy
 
-def schedule_rot_stride_1(VEC_W, memory, instructions, precision):
+def schedule_rot_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision):
     simple_stride_1 = specialize_precision(precision)
     simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
@@ -64,6 +64,8 @@ def schedule_rot_stride_1(VEC_W, memory, instructions, precision):
 
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
+    simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
+    
     # TODO: remove once set_memory takes allocation cursor
     tail_loop_block = simple_stride_1.find("xReg = x[_]").expand(0, 2)
     simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "xReg", "xTmp")
@@ -95,6 +97,8 @@ def schedule_rot_stride_1(VEC_W, memory, instructions, precision):
     
     return simple_stride_1
     
+INTERLEAVE_FACTOR = C.Machine.vec_units   
+
 #################################################
 # Generate specialized kernels for f32 precision
 #################################################
@@ -112,7 +116,7 @@ f32_instructions = [C.Machine.load_instr_f32,
                     ]
 
 if None not in f32_instructions:
-    exo_srot_stride_1 = schedule_rot_stride_1(C.Machine.vec_width, C.Machine.mem_type, f32_instructions, "f32")
+    exo_srot_stride_1 = schedule_rot_stride_1(C.Machine.vec_width, INTERLEAVE_FACTOR, C.Machine.mem_type, f32_instructions, "f32")
 else:
     exo_srot_stride_1 = specialize_precision("f32")
     exo_srot_stride_1 = rename(exo_srot_stride_1, exo_srot_stride_1.name() + "_stride_1")
@@ -134,7 +138,7 @@ f64_instructions = [C.Machine.load_instr_f64,
                     ]
 
 if None not in f64_instructions:
-    exo_drot_stride_1 = schedule_rot_stride_1(C.Machine.vec_width // 2, C.Machine.mem_type, f64_instructions, "f64")
+    exo_drot_stride_1 = schedule_rot_stride_1(C.Machine.vec_width // 2, INTERLEAVE_FACTOR, C.Machine.mem_type, f64_instructions, "f64")
 else:
     exo_drot_stride_1 = specialize_precision("f64")
     exo_drot_stride_1 = rename(exo_drot_stride_1, exo_drot_stride_1.name() + "_stride_1")

@@ -8,7 +8,7 @@ from exo.stdlib.scheduling import *
 import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import vectorize
+from composed_schedules import vectorize, interleave_execution
 
 @proc
 def scal_template(n: size, alpha: R, x: [R][n]):
@@ -55,33 +55,16 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
         proc = autofission(proc, call_cursor.after(), n_lifts=2)
         return proc
     
-    def interleave_instructions(proc, iter):
-        while True:
-            main_loop = proc.find(f"for {iter} in _:_")
-            if len(main_loop.body()) == 1:
-                break
-            proc = fission(proc, main_loop.body()[0].after())
-            proc = unroll_loop(proc, f"for {iter} in _:_")
-        proc = unroll_loop(proc, "for im in _:_")
-        return proc
+    simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
     
     if INTERLEAVE_FACTOR > 1:
-        simple_stride_1 = divide_loop(simple_stride_1, "for io in _:_", INTERLEAVE_FACTOR, ("io", "im"), tail="cut")
-        registers = [cur.name() for cur in simple_stride_1.find_loop("im").body() \
-            if isinstance(cur, pc.AllocCursor)]
-        
-        for reg in registers:
-            simple_stride_1 = expand_dim(simple_stride_1, reg, INTERLEAVE_FACTOR, "im")
-            simple_stride_1 = lift_alloc(simple_stride_1, reg, n_lifts=2)
-        
         constantReg = "reg0"
         simple_stride_1 = lift_alloc(simple_stride_1, f"{constantReg} #1", n_lifts=1) # Tail loop to allow broadcast hoisting
-        
-        simple_stride_1 = interleave_instructions(simple_stride_1, "im")
     else:
         constantReg = "reg0"
         simple_stride_1 = lift_alloc(simple_stride_1, f"{constantReg}", n_lifts=1) # Main loop to allow broadcast hoisting
     
+    simple_stride_1 = lift_alloc(simple_stride_1, "reg0")
     if alpha != 0:
         for i in range(INTERLEAVE_FACTOR + 1):
             simple_stride_1 = hoist_const_broadcast(simple_stride_1, f"alpha #{i}")

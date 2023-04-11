@@ -8,7 +8,7 @@ from exo.stdlib.scheduling import *
 import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import vectorize
+from composed_schedules import vectorize, interleave_execution
 
 @proc
 def axpy_template(
@@ -52,9 +52,6 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
 
     loop_cursor = simple_stride_1.find_loop("i")
     simple_stride_1 = vectorize(simple_stride_1, loop_cursor, VEC_W, memory, precision)
-    registers = [cur.name() for cur in simple_stride_1.find_loop("io").body() \
-            if isinstance(cur, pc.AllocCursor)]
-    
     simple_stride_1 = replace_all(simple_stride_1, instructions)    
     
     def hoist_const_broadcast(proc, constant):
@@ -68,27 +65,12 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
         proc = autofission(proc, call_cursor.after(), n_lifts=2)
         return proc
 
-    def interleave_instructions(proc, iter):
-        while True:
-            main_loop = proc.find(f"for {iter} in _:_")
-            if len(main_loop.body()) == 1:
-                break
-            proc = fission(proc, main_loop.body()[0].after())
-            proc = unroll_loop(proc, f"for {iter} in _:_")
-        proc = unroll_loop(proc, "for im in _:_")
-        return proc
+    simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
     
-    if INTERLEAVE_FACTOR > 1:
-        simple_stride_1 = divide_loop(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR, ("io", "im"), tail="cut")
-        
-        for reg in registers:
-            simple_stride_1 = expand_dim(simple_stride_1, reg, INTERLEAVE_FACTOR, "im")
-            simple_stride_1 = lift_alloc(simple_stride_1, reg, n_lifts=2)
-            
+    if INTERLEAVE_FACTOR > 1:            
         if alpha != 1:
+            simple_stride_1 = lift_alloc(simple_stride_1, "reg0", n_lifts=1) # Main loop
             simple_stride_1 = lift_alloc(simple_stride_1, "reg0 #1", n_lifts=1) # Tail loop
-        
-        simple_stride_1 = interleave_instructions(simple_stride_1, "im")
     else:
         if alpha != 1:
             simple_stride_1 = lift_alloc(simple_stride_1, "reg0", n_lifts=1)

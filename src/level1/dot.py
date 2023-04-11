@@ -7,7 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-from composed_schedules import vectorize
+from composed_schedules import vectorize, interleave_execution
 
 @proc
 def sdot_template(n: size, x: [R][n], y: [R][n], result: R):
@@ -76,24 +76,9 @@ def schedule_dot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     simple_stride_1 = simplify(simple_stride_1)
     
-    simple_stride_1 = expand_dim(simple_stride_1, "reg0", INTERLEAVE_FACTOR, "im")
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg0 : _")
-    simple_stride_1 = expand_dim(simple_stride_1, "reg1", INTERLEAVE_FACTOR, "im")
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg1 : _")
-    simple_stride_1 = expand_dim(simple_stride_1, "reg2", INTERLEAVE_FACTOR, "im")
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg2 : _")
-    def interleave_instructions(proc, iter):
-        while True:
-            main_loop = proc.find(f"for {iter} in _:_")
-            if len(main_loop.body()) == 1:
-                break
-            proc = fission(proc, main_loop.body()[0].after())
-            proc = unroll_loop(proc, f"for {iter} in _:_")
-        proc = unroll_loop(proc, "for im in _:_")
-        return proc
-    simple_stride_1 = interleave_instructions(simple_stride_1, "im")
-    simple_stride_1 = interleave_instructions(simple_stride_1, "im")
-    simple_stride_1 = interleave_instructions(simple_stride_1, "im")
+    simple_stride_1 = unroll_loop(simple_stride_1, simple_stride_1.find_loop("im"))
+    simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("im"), INTERLEAVE_FACTOR)
+    simple_stride_1 = unroll_loop(simple_stride_1, simple_stride_1.find_loop("im"))
     
     return simplify(simple_stride_1)
 
