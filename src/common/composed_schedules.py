@@ -199,3 +199,32 @@ def interleave_execution(proc, loop_cursor, interleave_factor):
     proc = unroll_loop(proc, last_loop)
     
     return proc
+
+def hoist_stmt(proc, stmt_cursor):
+    if not isinstance(stmt_cursor, pc.StmtCursor):
+        raise BLAS_SchedulingError("Cannot hoist cursor that are not statements")
+    
+    if isinstance(stmt_cursor, pc.AllocCursor):
+        return lift_alloc(proc, stmt_cursor)
+    
+    stmt_cursor = proc.forward(stmt_cursor)
+    while not isinstance(stmt_cursor.prev(), pc.InvalidCursor):
+        proc = reorder_stmts(proc, stmt_cursor.expand(1,0))
+        stmt_cursor = proc.forward(stmt_cursor)
+
+    proc = fission(proc, stmt_cursor.after())
+    stmt_cursor = proc.forward(stmt_cursor)
+    proc = remove_loop(proc, stmt_cursor.parent())
+    return proc
+
+def apply_to_block(proc, block_cursor, stmt_scheduling_op):
+    if not isinstance(block_cursor, pc.BlockCursor):
+        raise BLAS_SchedulingError("cannot apply to a non-block cursor")
+
+    for stmt in block_cursor:
+        try:
+            proc = stmt_scheduling_op(proc, stmt)
+        except:
+            pass
+        
+    return proc

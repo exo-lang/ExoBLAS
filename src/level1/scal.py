@@ -8,7 +8,7 @@ from exo.stdlib.scheduling import *
 import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import vectorize, interleave_execution
+from composed_schedules import vectorize, interleave_execution, hoist_stmt, apply_to_block
 
 @proc
 def scal_template(n: size, alpha: R, x: [R][n]):
@@ -43,36 +43,8 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
     main_loop = simple_stride_1.find_loop("i")
     simple_stride_1 = vectorize(simple_stride_1, main_loop, VEC_W, memory, precision)
     simple_stride_1 = replace_all(simple_stride_1, instructions)
-    
-    def hoist_const_broadcast(proc, constant):
-        while True:
-            try:
-                call_cursor = proc.find(constant).parent()
-                proc = reorder_stmts(proc, call_cursor.expand(1,0))
-            except:
-                break
-        call_cursor = proc.find(constant).parent()
-        proc = autofission(proc, call_cursor.after(), n_lifts=2)
-        return proc
-    
+    simple_stride_1 = apply_to_block(simple_stride_1, simple_stride_1.find_loop("io").body(), hoist_stmt)
     simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
-    
-    if INTERLEAVE_FACTOR > 1:
-        constantReg = "reg0"
-        simple_stride_1 = lift_alloc(simple_stride_1, f"{constantReg} #1", n_lifts=1) # Tail loop to allow broadcast hoisting
-    else:
-        constantReg = "reg0"
-        simple_stride_1 = lift_alloc(simple_stride_1, f"{constantReg}", n_lifts=1) # Main loop to allow broadcast hoisting
-    
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg0")
-    if alpha != 0:
-        for i in range(INTERLEAVE_FACTOR + 1):
-            simple_stride_1 = hoist_const_broadcast(simple_stride_1, f"alpha #{i}")
-    else:
-        zero_instr = C.Machine.set_zero_instr_f32 if precision == "f32" else C.Machine.set_zero_instr_f64
-        for i in range(INTERLEAVE_FACTOR + 1):
-            zero_call_cursor = simple_stride_1.find(f"{zero_instr.name()}(_) #{i}")
-            simple_stride_1 = autofission(simple_stride_1, zero_call_cursor.after())
 
     return simple_stride_1
 
