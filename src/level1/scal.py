@@ -42,10 +42,9 @@ def schedule_scal_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, preci
     
     main_loop = simple_stride_1.find_loop("i")
     simple_stride_1 = vectorize(simple_stride_1, main_loop, VEC_W, memory, precision)
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
-    simple_stride_1 = apply_to_block(simple_stride_1, simple_stride_1.find_loop("io").body(), hoist_stmt)
     simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
-
+    simple_stride_1 = apply_to_block(simple_stride_1, simple_stride_1.find_loop("ioo").body(), hoist_stmt)
+    simple_stride_1 = replace_all(simple_stride_1, instructions)
     return simple_stride_1
 
 #################################################

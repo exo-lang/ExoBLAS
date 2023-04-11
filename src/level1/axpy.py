@@ -8,7 +8,7 @@ from exo.stdlib.scheduling import *
 import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import vectorize, interleave_execution
+from composed_schedules import vectorize, interleave_execution, apply_to_block, hoist_stmt
 
 @proc
 def axpy_template(
@@ -50,35 +50,11 @@ def schedule_interleave_axpy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instruct
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
-    loop_cursor = simple_stride_1.find_loop("i")
-    simple_stride_1 = vectorize(simple_stride_1, loop_cursor, VEC_W, memory, precision)
-    simple_stride_1 = replace_all(simple_stride_1, instructions)    
-    
-    def hoist_const_broadcast(proc, constant):
-        while True:
-            try:
-                call_cursor = proc.find(constant).parent()
-                proc = reorder_stmts(proc, call_cursor.expand(1, 0))
-            except:
-                break
-        call_cursor = proc.find(constant).parent()
-        proc = autofission(proc, call_cursor.after(), n_lifts=2)
-        return proc
-
+    main_loop = simple_stride_1.find_loop("i")
+    simple_stride_1 = vectorize(simple_stride_1, main_loop, VEC_W, memory, precision)
     simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
-    
-    if INTERLEAVE_FACTOR > 1:            
-        if alpha != 1:
-            simple_stride_1 = lift_alloc(simple_stride_1, "reg0", n_lifts=1) # Main loop
-            simple_stride_1 = lift_alloc(simple_stride_1, "reg0 #1", n_lifts=1) # Tail loop
-    else:
-        if alpha != 1:
-            simple_stride_1 = lift_alloc(simple_stride_1, "reg0", n_lifts=1)
-    
-    if alpha != 1:
-        for i in range(INTERLEAVE_FACTOR + 1):
-            simple_stride_1 = hoist_const_broadcast(simple_stride_1, f"alpha #{i}")
-    
+    simple_stride_1 = apply_to_block(simple_stride_1, simple_stride_1.find_loop("ioo").body(), hoist_stmt)
+    simple_stride_1 = replace_all(simple_stride_1, instructions)
     return simplify(simple_stride_1)
 
 #################################################
