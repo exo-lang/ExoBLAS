@@ -22,7 +22,7 @@ class SYRK:
     """
     def __init__(self, machine: "MachineParameters",
                  precision: str,
-                 K_blk: int, M_blk: int, 
+                 K_blk: int, M_blk: int, N_blk:int,
                  M_r: int, N_r: int):
         
         # Precision
@@ -36,6 +36,7 @@ class SYRK:
         # Blocking dimensions
         self.K_blk = K_blk
         self.M_blk = M_blk
+        self.N_blk = N_blk
 
         # Machine
         self.machine = machine
@@ -512,7 +513,7 @@ class SYRK:
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, 'for j in _:_', 1)
         gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'j #1', self.M_blk, ['jo', 'ji'], tail='cut')
 
-        gepp_syrk_scheduled = reorder_stmts(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_ #0').expand(0,1))
+        gepp_syrk_scheduled = reorder_stmts(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_ #0').expand(1))
         gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_').after(), n_lifts=1)
         gepp_syrk_scheduled = autofission(gepp_syrk_scheduled, gepp_syrk_scheduled.find('for j in _:_').before(), n_lifts=1)
         gepp_syrk_scheduled = simplify(gepp_syrk_scheduled)
@@ -540,7 +541,7 @@ class SYRK:
         diag_syrk_base = diag_syrk_base.partial_eval(K=self.K_blk, N=self.M_blk)
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #1', diag_syrk_base)
         
-        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//2, self.precision)
+        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//2, self.N_blk, self.precision)
         diag_syrk_scheduled = rename(diag_syrk_base, f'{self.prefix}_diag_handler_scheduled')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'i', gebp_diag_handler.M_blk, ['io', 'ii'], tail='cut')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'j', gebp_diag_handler.M_blk, ['jo', 'ji'], tail='cut')
