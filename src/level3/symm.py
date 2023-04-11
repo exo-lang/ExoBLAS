@@ -20,11 +20,12 @@ class SYMM:
 
     def __init__(self, machine: "MachineParameters",
                  precision: str,
-                 K_blk: int, M_blk: int, 
+                 K_blk: int, M_blk: int, N_blk: int,
                  M_r: int, N_r: int, main=True):
 
                 self.K_blk = K_blk
                 self.M_blk = M_blk
+                self.N_blk = N_blk
                 self.M_r = M_r
                 self.N_r = N_r
                 self.machine = machine
@@ -32,7 +33,7 @@ class SYMM:
                 self.main = main
 
                 self.microkernel = Microkernel(machine, M_r, N_r, K_blk, precision)
-                self.gebp = GEBP_kernel(self.microkernel, M_blk, precision)
+                self.gebp = GEBP_kernel(self.microkernel, M_blk, N_blk, precision)
                 self.gepp = GEPP_kernel(self.gebp, precision)
 
                 ### Base Procedures
@@ -64,6 +65,13 @@ class SYMM:
         symm = autofission(symm, symm.find('for ko in _:_ #0').after(), n_lifts=2)
         symm = reorder_loops(symm, 'j ko')
         symm = reorder_loops(symm, 'i ko')
+
+
+        symm = divide_loop(symm, 'for j in _:_ #0', self.N_blk, ['jo', 'ji'], tail='cut')
+        symm = autofission(symm, symm.find('for jo in _:_ #0').after(), n_lifts=2)
+        symm = reorder_loops(symm, 'i jo')
+        symm = reorder_loops(symm, 'ko jo')
+
         symm = replace_all(symm, self.gepp.gepp_base)
         symm = call_eqv(symm, f'gepp_base_{self.gepp.this_id}(_)', self.gepp.gepp_scheduled)
 
@@ -87,12 +95,13 @@ class SYMM:
 
 k_blk = C.symm.k_blk
 m_blk = C.symm.m_blk
+n_blk = C.symm.n_blk
 m_reg = C.symm.m_reg
 n_reg = C.symm.n_reg
 
 
 ssymm = SYMM(C.Machine, 'f32',
-             k_blk, m_blk, 
+             k_blk, m_blk, n_blk,
              m_reg, n_reg
              )
 

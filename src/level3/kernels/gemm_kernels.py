@@ -51,20 +51,39 @@ class Microkernel:
                 for j in seq(0, N):
                     for k in seq(0, K):
                         C[i, j] += A[i,k] * B[k,j] 
+        
+        @proc
+        def SGEMM_TRANSPOSEA(
+            M: size,
+            N: size,
+            K: size,
+            C: f32[M, N] @ DRAM,
+            A: f32[K, M] @ DRAM,
+            B: f32[K, N] @ DRAM,
+        ):
+            assert K==M
+            for i in seq(0, M):
+                for j in seq(0, N):
+                    for k in seq(0, K):
+                        C[i, j] += A[k,i] * B[k,j] 
+                        
 
-        self.sgemm_window = (rename(SGEMM, 'sgemm_win'))
-        self.sgemm_window = set_window(self.sgemm_window, 'A', True)
-        self.sgemm_window = set_window(self.sgemm_window, 'B', True)
-        self.sgemm_window = set_window(self.sgemm_window, 'C', True)
+        self.sgemm_window = self.generate_sgemm_window(SGEMM, 'sgemm_win')
+        self.sgemm_window2 = self.generate_sgemm_window(SGEMM2, 'sgemm_win2')
+        self.sgemm_window_transa = self.generate_sgemm_window(SGEMM_TRANSPOSEA, 'sgemm_win_transa')
 
-        self.sgemm_window2 = (rename(SGEMM2, 'sgemm_win2'))
-        self.sgemm_window2 = set_window(self.sgemm_window2, 'A', True)
-        self.sgemm_window2 = set_window(self.sgemm_window2, 'B', True)
-        self.sgemm_window2 = set_window(self.sgemm_window2, 'C', True)
+
 
         self.sgemm_base = SGEMM
         self.scheduled_microkernel, self.base_microkernel = self.generate_microkernel(machine, M_r, N_r, K_blk)
         self.scheduled_zpad_microkernel, self.base_zpad_microkernel = self.generate_microkernel_zpad(machine, 8 if precision=='f32' else 16, N_r, K_blk)
+    
+    def generate_sgemm_window(self, proc, name):
+        proc = (rename(proc, name))
+        proc = set_window(proc, 'A', True)
+        proc = set_window(proc, 'B', True)
+        proc = set_window(proc, 'C', True)
+        return proc
 
     def generate_microkernel(self, machine: MachineParameters, M_r: int, N_r: int, K_blk: int):
         """
@@ -230,10 +249,12 @@ class GEBP_kernel:
     gebp_id = 0
 
     def __init__(self, microkernel: Microkernel, 
-                 M_blk: int, precision:str='f32'):
+                 M_blk: int, N_blk: int,
+                 precision:str='f32'):
 
         # Problem dimensions
         self.M_blk = M_blk
+        self.N_blk = N_blk
         self.microkernel = microkernel
         self.precision=precision
         self.this_id = GEBP_kernel.gebp_id
@@ -263,9 +284,9 @@ class GEBP_kernel:
         self.scheduled_gebp, self.base_gebp = self.generate_gebp()
 
 
-    def generate_base_gebp(self, M_blk: int, K_blk: int):
+    def generate_base_gebp(self, M_blk: int, K_blk: int, N_blk: int):
         base_microkernel = rename(self.sgemm_window, f"gebp_base_{self.this_id}")
-        return simplify(base_microkernel.partial_eval(M=M_blk, K=K_blk)) 
+        return simplify(base_microkernel.partial_eval(M=M_blk, K=K_blk, N=N_blk)) 
     
 
     def generate_gebp(self):
@@ -279,14 +300,15 @@ class GEBP_kernel:
 
     def do_generate_gebp(self):
 
-        gebp = self.generate_base_gebp(self.M_blk, self.microkernel.K_blk)
+        gebp = self.generate_base_gebp(self.M_blk, self.microkernel.K_blk, self.N_blk)
         gebp = self.specialize_gebp(gebp, self.precision)
 
         scheduled_gebp = rename(gebp, f"gebp_{self.M_blk}x{self.microkernel.K_blk}_{self.gebp_id}")
         scheduled_gebp = divide_loop(scheduled_gebp, 'i', self.microkernel.M_r, ['io', 'ii'], tail='cut_and_guard')
-        scheduled_gebp = simplify(divide_loop(scheduled_gebp, 'j', self.microkernel.N_r, ['jo', 'ji'], tail='cut_and_guard'))
+        scheduled_gebp = simplify(divide_loop(scheduled_gebp, 'j', self.microkernel.N_r, ['jo', 'ji'], perfect=True))
+        print(scheduled_gebp)
         
-        scheduled_gebp = autofission(scheduled_gebp, scheduled_gebp.find('for jo in _: _').after(), n_lifts=2)
+        #scheduled_gebp = autofission(scheduled_gebp, scheduled_gebp.find('for jo in _: _').after(), n_lifts=2)
         scheduled_gebp = reorder_loops(scheduled_gebp, 'ii jo')
        
         scheduled_gebp = replace_all(scheduled_gebp, self.microkernel.base_microkernel)
@@ -294,7 +316,8 @@ class GEBP_kernel:
 
         scheduled_gebp = reorder_loops(scheduled_gebp, 'io jo')
         scheduled_gebp = stage_mem(scheduled_gebp, 'for io in _:_ #0', f'B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]', 'B_strip')
-        return simplify(scheduled_gebp), gebp
+        print(scheduled_gebp)
+        return scheduled_gebp, gebp
 
 
     def specialize_gebp(self, gebp: Procedure, precision:str):
@@ -310,6 +333,7 @@ class GEPP_kernel:
     def __init__(self, gebp: GEBP_kernel, precision:str='f32'):
 
         self.K_blk = gebp.microkernel.K_blk
+        self.N_blk = gebp.N_blk
         self.precision = precision
         self.gebp = gebp
         self.this_id = GEPP_kernel.gepp_id
@@ -341,7 +365,7 @@ class GEPP_kernel:
     
     def generate_base_gepp(self):
         base_gepp = rename(self.sgemm_window, f"gepp_base_{self.this_id}")
-        return base_gepp.partial_eval(K=self.K_blk)
+        return base_gepp.partial_eval(K=self.K_blk, N=self.N_blk)
 
 
     def generate_gepp(self):

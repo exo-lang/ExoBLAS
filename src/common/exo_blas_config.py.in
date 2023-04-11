@@ -17,11 +17,13 @@ class syrk:
 class gemm:
     k_blk = @GEMM_K_BLK@
     m_blk = @GEMM_M_BLK@
+    n_blk = @GEMM_N_BLK@
     m_reg = @GEMM_M_REG@
     n_reg = @GEMM_N_REG@
 
 class symm:
     k_blk = @SYMM_K_BLK@
     m_blk = @SYMM_M_BLK@
+    n_blk = @SYMM_N_BLK@
     m_reg = @SYMM_M_REG@
     n_reg = @SYMM_N_REG@

@@ -28,7 +28,7 @@ class GEMM:
 
     def __init__(self, machine: "MachineParameters",
                  precision: str,
-                 K_blk: int, M_blk: int, 
+                 K_blk: int, M_blk: int, N_blk:int,
                  M_reg: int, N_reg: int,
                  do_rename: bool = False,
                  main: bool = True):
@@ -226,7 +226,7 @@ class GEMM:
 
         ### GEMM kernels
         self.microkernel = Microkernel(machine, M_reg, N_reg, K_blk, self.precision) #TODO: Add precision args to microkernel, gebp, gepp
-        self.gebp = GEBP_kernel(self.microkernel, M_blk, self.precision)
+        self.gebp = GEBP_kernel(self.microkernel, M_blk, N_blk, self.precision)
         self.gepp = GEPP_kernel(self.gebp, self.precision)
         
 
@@ -487,6 +487,12 @@ class GEMM:
         gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for ko in _:_ #0').after(), n_lifts=2)
         gemm_scheduled = reorder_loops(gemm_scheduled, 'j ko')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i ko')
+        
+        gemm_scheduled = divide_loop(gemm_scheduled, 'j', self.gebp.N_blk, ['jo', 'ji'], tail='cut')
+        gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for jo in _:_ #0').after(), n_lifts=2)
+        gemm_scheduled = reorder_loops(gemm_scheduled, 'i jo')
+        gemm_scheduled = reorder_loops(gemm_scheduled, 'ko jo')
+        print(gemm_scheduled)
         #gemm_scheduled = stage_mem(gemm_scheduled, 'for i in _:_ #0', f'B[{self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko, 0:N]', 'B_packed')
         if self.gepp.K_blk>256:
             gemm_scheduled = stage_mem(gemm_scheduled, 'for i in _:_ #0', f'A[0:M, {self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko]', 'A_packed')
@@ -501,6 +507,12 @@ class GEMM:
         gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for ko in _:_ #0').after(), n_lifts=2)
         gemm_scheduled = reorder_loops(gemm_scheduled, 'j ko')
         gemm_scheduled = reorder_loops(gemm_scheduled, 'i ko')
+        gemm_scheduled = divide_loop(gemm_scheduled, 'j #1', self.gebp.N_blk, ['jo', 'ji'], tail='cut')
+        print(gemm_scheduled)
+        gemm_scheduled = autofission(gemm_scheduled, gemm_scheduled.find('for jo in _:_ #0ß').after(), n_lifts=2)
+        gemm_scheduled = reorder_loops(gemm_scheduled, 'i jo')
+        gemm_scheduled = reorder_loops(gemm_scheduled, 'ko jo')
+        print(gemm_scheduled)
 
         gemm_scheduled = replace(gemm_scheduled, 'for i in _:_ #0', self.gepp.gepp_base)
         gemm_scheduled = call_eqv(gemm_scheduled, f'gepp_base_{self.gepp.this_id}(_)', self.gepp.gepp_scheduled)
@@ -593,6 +605,7 @@ class GEMM:
 
 k_blk = C.gemm.k_blk
 m_blk = C.gemm.m_blk
+n_blk = C.gemm.n_blk
 m_reg = C.gemm.m_reg
 n_reg = C.gemm.n_reg
 
@@ -603,12 +616,12 @@ n_reg = C.gemm.n_reg
 sgemm_main = GEMM(
     C.Machine,
     'f32', 
-    k_blk, m_blk, 
+    k_blk, m_blk, n_blk,
     m_reg, n_reg,
 )
 
 blk_sizes = [2**i for i in range(5, 9)]
-sgemm_backup_kernels = [GEMM(C.Machine, 'f32', blk, blk, m_reg, n_reg, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
+sgemm_backup_kernels = [GEMM(C.Machine, 'f32', blk, blk, blk, m_reg, n_reg, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
 exo_sgemm_notranspose_noalpha_nobeta_32_32 = sgemm_backup_kernels[0].entry_points[0]
 exo_sgemm_alphazero_nobeta_32_32 = sgemm_backup_kernels[0].entry_points[1]
@@ -701,11 +714,11 @@ print(C.Machine.vec_width)
 dgemm_main = GEMM(
     C.Machine,
     'f64', 
-    k_blk, m_blk, 
+    k_blk, m_blk, n_blk,
     m_reg, n_reg//2
 )
 
-dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, m_reg, n_reg//2, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
+dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, blk, m_reg, n_reg//2, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
 exo_dgemm_notranspose_noalpha_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[0]
 exo_dgemm_alphazero_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[1]

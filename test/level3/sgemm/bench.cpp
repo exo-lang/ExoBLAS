@@ -85,15 +85,6 @@ static void BM_SGEMM_EXO(benchmark::State& state) {
 
 }
 
-BENCHMARK(BM_SGEMM_CBLAS)->ArgNames({"n"})->ArgsProduct({
-      benchmark::CreateRange(32, (32 << 8), 2),
-    })->ArgsProduct({
-      benchmark::CreateRange(33, (32 << 8) - 1, 3),
-    });
-BENCHMARK(BM_SGEMM_EXO)->ArgNames({"n"})->ArgsProduct({
-      benchmark::CreateRange(32, (32 << 8), 2),
-    })->ArgsProduct({
-      benchmark::CreateRange(33, (32 << 8) - 1, 3),
-    });
-
+BENCHMARK(BM_SGEMM_CBLAS)->ArgNames({"n"}) -> RangeMultiplier(2) -> Range(4096, 8192);
+BENCHMARK(BM_SGEMM_EXO)->ArgNames({"n"}) -> RangeMultiplier(2) -> Range(4096, 8192);
 

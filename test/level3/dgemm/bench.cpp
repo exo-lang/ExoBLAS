@@ -56,7 +56,7 @@ static void BM_DGEMM_CBLAS(benchmark::State& state) {
     }
 
     state.counters["flops"] = benchmark::Counter(
-        static_cast<double>(state.iterations()) * 2 * n * n * n,
+        static_cast<double>(state.iterations()) * 2 * n * n * n *2,
         benchmark::Counter::kIsRate,
         benchmark::Counter::kIs1000	
     );
@@ -85,15 +85,7 @@ static void BM_DGEMM_EXO(benchmark::State& state) {
 
 }
 
-BENCHMARK(BM_DGEMM_CBLAS)->ArgNames({"n"})->ArgsProduct({
-      benchmark::CreateRange(32, (32 << 8), 2),
-    })->ArgsProduct({
-      benchmark::CreateRange(33, (32 << 8) - 1, 3),
-    });
-BENCHMARK(BM_DGEMM_EXO)->ArgNames({"n"})->ArgsProduct({
-      benchmark::CreateRange(32, (32 << 8), 2),
-    })->ArgsProduct({
-      benchmark::CreateRange(33, (32 << 8) - 1, 3),
-    });
+BENCHMARK(BM_DGEMM_CBLAS)->ArgNames({"n"}) -> RangeMultiplier(2) -> Range(16, 8192);
+BENCHMARK(BM_DGEMM_EXO)->ArgNames({"n"}) -> RangeMultiplier(2) -> Range(16, 8192);
 
 

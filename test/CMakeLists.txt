@@ -49,14 +49,14 @@ function(add_exo_blas_test kernel precision)
   set_tests_properties(
     cblas_${precision_kernel}_bench
     PROPERTIES
-    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=json;BENCHMARK_OUT=${bla_vendor_benchmark_json_output}"
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=console;BENCHMARK_OUT=${bla_vendor_benchmark_json_output}"
   )
 
   add_test(NAME exo_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=exo|EXO)
   set_tests_properties(
     exo_${precision_kernel}_bench
     PROPERTIES
-    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=json;BENCHMARK_OUT=${exo_benchmark_json_output}"
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=console;BENCHMARK_OUT=${exo_benchmark_json_output}"
   )
 
   # Add the correctness test
