@@ -311,11 +311,11 @@ def interleave_outer_loop_with_inner_loop(proc, outer_loop_cursor, inner_loop_cu
     
     inner_loop_cursor = proc.forward(inner_loop_cursor)
     
-    if inner_loop_cursor.prev() != pc.InvalidCursor:
+    if not isinstance(inner_loop_cursor.prev(), pc.InvalidCursor):
         proc = fission(proc, inner_loop_cursor.before())
     
     inner_loop_cursor = proc.forward(inner_loop_cursor)
-    if inner_loop_cursor.next() != pc.InvalidCursor:
+    if not isinstance(inner_loop_cursor.next(), pc.InvalidCursor):
         proc = fission(proc, inner_loop_cursor.after())
 
     inner_loop_cursor = proc.forward(inner_loop_cursor)
