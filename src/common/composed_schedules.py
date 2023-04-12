@@ -293,3 +293,32 @@ def parallelize_reduction(proc, loop_cursor, reduction_buffer, vec_width, accumu
     proc = set_memory(proc, reg_name, memory_type)
     proc = set_precision(proc, reg_name, precision)
     return proc
+
+def interleave_outer_loop_with_inner_loop(proc, outer_loop_cursor, inner_loop_cursor, interleave_factor):
+    #TODO: check if inner_loop is directly in the body of outer_loop
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
+    
+    proc = divide_loop(proc, outer_loop_cursor, interleave_factor, (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"), tail="cut")
+    
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    middle_loop_cursor = outer_loop_cursor.body()[0]
+    middle_loop_stmts = list(middle_loop_cursor.body())
+
+    for stmt in middle_loop_stmts:
+        if isinstance(stmt, pc.AllocCursor):
+            proc = stage_alloc(proc, stmt)
+    
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
+    
+    if inner_loop_cursor.prev() != pc.InvalidCursor:
+        proc = fission(proc, inner_loop_cursor.before())
+    
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
+    if inner_loop_cursor.next() != pc.InvalidCursor:
+        proc = fission(proc, inner_loop_cursor.after())
+
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
+    proc = reorder_loops(proc, inner_loop_cursor.parent())
+    
+    return proc
