@@ -30,7 +30,7 @@ def specialize_syr(syr, precision):
     name = name.replace("_template", "")
     specialized = rename(syr, "exo_" + prefix + name)
     
-    args = ["alpha", "x", "y", "A"]
+    args = ["alpha", "x", "A"]
         
     for arg in args:
         specialized = set_precision(specialized, arg, precision)

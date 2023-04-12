@@ -17,7 +17,7 @@ def nrm2_template(n: size, x: [R][n], result: R):
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(nrm2_template, "exo_" + prefix + "nrm2")
-    for arg in ["x", "y", "result"]:
+    for arg in ["x", "result"]:
         specialized_copy = set_precision(specialized_copy, arg, precision)
     return specialized_copy
 

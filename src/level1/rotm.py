@@ -42,7 +42,10 @@ def specialize_precision(template, precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(template, "exo_" + prefix + template.name())
     for arg in ["x", "y", "xReg", "H"]:
-        specialized_copy = set_precision(specialized_copy, arg, precision)
+        try:
+            specialized_copy = set_precision(specialized_copy, arg, precision)
+        except:
+            pass
     return specialized_copy
 
 def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions, precision):
@@ -126,8 +129,11 @@ def schedule_rotm_stride_1(template, flag, VEC_W, memory, instructions, precisio
         simple_stride_1 = stage(simple_stride_1, [y_compute_stmt.rhs().rhs()], "yReg1")
     
     for buffer in ["xReg", "xReg1", "negXReg", "yReg", "yReg1", "H00Reg", "H01Reg", "H10Reg", "H11Reg", "H00_Mul_X_Reg", "H01_Mul_Y_Reg", "H10_Mul_X_Reg", "H11_Mul_Y_Reg", "H00X_Add_H01Y_Reg"]:
-        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
+        try:
+            simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
+            simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
+        except:
+            pass
     
     simple_stride_1 = replace_all(simple_stride_1, instructions)
     
