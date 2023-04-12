@@ -34,9 +34,16 @@ jobs:
         python -m pip install dist/*.whl
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build --preset apple-silicon
+      run: |
+        source venv/bin/activate
+        cmake -B ${{github.workspace}}/build --preset apple-silicon
+        
     - name: Build
-      run: cmake --build ${{github.workspace}}/build
+      run: |
+        source venv/bin/activate
+        cmake --build ${{github.workspace}}/build
 
     - name: Test
-      run: ctest --test-dir ${{github.workspace}}/build -R correctness
+      run: |
+        source venv/bin/activate
+        ctest --test-dir ${{github.workspace}}/build -R correctness
