@@ -24,14 +24,14 @@ jobs:
     - name: Install Exo
       run: |
         git clone https://github.com/exo-lang/exo.git
-        cd exo
+        
     - name: Install Python venv
       run: |
         python3 -m venv venv
         source venv/bin/activate
         python -m pip install -U pip setuptools wheel build
-        python -m build .
-        python -m pip install dist/*.whl
+        python -m build exo/
+        python -m pip install exo/dist/*.whl
 
     - name: Configure CMake
       run: |
