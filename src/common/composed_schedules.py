@@ -68,6 +68,19 @@ def get_enclosing_if(cursor):
     return get_enclosing_scope(cursor, pc.IfCursor)
 
 def stage_expr(proc, expr_cursor, new_name, cse = False):
+    """
+    for i in seq(0, hi):
+        s (e(i));
+        
+    ----->
+    
+    new_name: R[hi]
+    for i in seq(0, hi):
+        new_name[i] = e(i)
+    for i in seq(0, hi):
+        s (new_name[i]);    
+    """
+    
     expr_cursor = proc.forward(expr_cursor)
     enclosing_loop = get_enclosing_loop(expr_cursor)
     proc = bind_expr(proc, [expr_cursor], new_name, cse=cse)
@@ -77,6 +90,19 @@ def stage_expr(proc, expr_cursor, new_name, cse = False):
     return proc
 
 def stage_alloc(proc, alloc_cursor):
+    """
+    for i in seq(0, hi):
+        B1;
+        name: type[shape];
+        B2;
+        
+    ----->
+    
+    name: type[hi][shape]
+    for i in seq(0, hi):
+        B1;
+        B2;
+    """
     alloc_cursor = proc.forward(alloc_cursor)
     enclosing_loop = get_enclosing_loop(alloc_cursor)
     proc = expand_dim(proc, alloc_cursor, expr_to_string(enclosing_loop.hi()), enclosing_loop.name())
@@ -84,6 +110,34 @@ def stage_alloc(proc, alloc_cursor):
     return proc
 
 def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
+    """
+    for i in seq(0, hi):
+        lhs(i) = (e_0(i), e_1(i), ..., e_n(i));
+        
+    ----->
+    
+    for io in seq(0, hi / vec_width):
+        reg0: precision[vec_width]
+        for ii in seq(0, vec_width):
+            reg0[ii] = e_0(ii)
+
+        reg1: precision[vec_width]
+        for ii in seq(0, vec_width):
+            reg1[ii] = e_1(ii)
+        
+        ....
+        
+        regn: precision[vec_width]
+        for ii in seq(0, vec_width):
+            regn[ii] = e_n(ii)
+        
+        for ii in seq(0, vec_width):
+            lhs(io * vec_width + ii) = e_n(ii); 
+        
+    for i in seq(0, hi % vec_width):
+        lhs(i + delta) = (e_0(i + delta), e_1(i + delta), ..., e_n(i + delta));    
+    """
+    
     if not isinstance(loop_cursor, pc.ForSeqCursor):
         raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
     
@@ -201,6 +255,19 @@ def interleave_execution(proc, loop_cursor, interleave_factor):
     return proc
 
 def hoist_stmt(proc, stmt_cursor):
+    """
+    for i in seq(0, hi):
+        B1;
+        s;
+        B2;
+    
+    --->
+    
+    s;
+    for i in seq(0, hi):
+        B1;
+        B2;
+    """
     if not isinstance(stmt_cursor, pc.StmtCursor):
         raise BLAS_SchedulingError("Cannot hoist cursor that are not statements")
     
@@ -295,6 +362,30 @@ def parallelize_reduction(proc, loop_cursor, reduction_buffer, vec_width, accumu
     return proc
 
 def interleave_outer_loop_with_inner_loop(proc, outer_loop_cursor, inner_loop_cursor, interleave_factor):
+    """
+    for i in seq(0, hi):
+        B1;
+        for j in seq(0, hi'):
+            B;
+        B2;    
+
+    --->
+    
+    for io in seq(0, hi / interleave_factor):
+        for ii in seq(0, interleave_factor):
+            B1;
+        for j in seq(0, hi'):
+            for ii in seq(0, interleave_factor):
+                B;
+        for ii in seq(0, interleave_factor):
+            B2;
+    
+    for io in seq(0, hi % interleave_factor):
+        B1;
+        for j in seq(0, hi'):
+            B;
+        B2; 
+    """
     #TODO: check if inner_loop is directly in the body of outer_loop
     outer_loop_cursor = proc.forward(outer_loop_cursor)
     inner_loop_cursor = proc.forward(inner_loop_cursor)
