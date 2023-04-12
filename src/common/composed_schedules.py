@@ -219,6 +219,22 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
     return proc
 
 def interleave_execution(proc, loop_cursor, interleave_factor):
+    """
+    for i in seq(0, n):
+        S1
+        S2
+        S3
+
+    ----->
+
+    for io in seq(0, n / interleave_factor):
+        S1
+        ... x interleave_factor
+        S2
+        ... x interleave_factor
+        S3
+        ... x interleave_factor
+    """
     if not isinstance(loop_cursor, pc.ForSeqCursor):
         raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
     
@@ -297,6 +313,24 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
     return proc
     
 def parallelize_reduction(proc, loop_cursor, reduction_buffer, vec_width, accumulators_count, memory_type, precision):
+    """
+    for i in seq(0, n):
+        x += y[i]
+
+    ----->
+
+    xReg: f32[accumulator_count][vec_width]
+    for im in seq(0, accumulator_count):
+        for ii in seq(0, vec_width):
+            xReg[im][ii] = 0.0
+    for io in seq(0, n / vec_width):
+        for im in seq(0, accumulator_count):
+            for ii in seq(0, vec_width):
+                xReg[im][ii] += y[i]
+    for im in seq(0, accumulator_count):
+        for ii in seq(0, vec_width):
+            x += xReg[im][ii]
+    """
     if not isinstance(loop_cursor, pc.ForSeqCursor):
         raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
     
