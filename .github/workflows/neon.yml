@@ -24,7 +24,7 @@ jobs:
       run: git clone https://github.com/exo-lang/exo.git ; cd exo; python3 -m pip install build ; yes | python3 -m pip uninstall exo-lang; python3 -m build . ; python3 -m pip install dist/*.whl
 
     - name: Configure CMake
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} --preset apple-silicon -DCMAKE_PREFIX_PATH=/Users/yuka/benchmark/build
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} --preset apple-silicon -DCMAKE_PREFIX_PATH=/Users/yuka/benchmark/build:/Users/yuka/exo/src/exo/cmake
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
