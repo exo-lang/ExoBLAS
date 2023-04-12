@@ -227,10 +227,84 @@ def schedule_sdot_stride_1_interleaved(VEC_W, INTERLEAVE_FACTOR, memory, instruc
 
     return simplify(stride_1)
 
+def schedule_multiple_rows_old(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instructions):
+    
+    stride_1 = rename(sgemv, sgemv.name() + "_stride_1")
+    # stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
+    # stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
+        
+    stride_1 = divide_loop(stride_1, "for j in _:_", VEC_W * INTERLEAVE_FACTOR, ("jo", "ji"), tail = "cut")
+    stride_1 = divide_loop(stride_1, "for ji in _:_", VEC_W, ("jm", "ji"), perfect=True)
+    
+    stride_1 = reorder_loops(stride_1, "jo jm")
+    stride_1 = reorder_loops(stride_1, "jo ji")
+    stride_1 = simplify(stage_mem(stride_1, "for jo in _:_", "result", "resultReg", accum=True))
+    stride_1 = expand_dim(stride_1, "resultReg :_ ", VEC_W, "ji")
+    stride_1 = expand_dim(stride_1, "resultReg :_ ", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "resultReg : _", n_lifts=2)
+    stride_1 = fission(stride_1, stride_1.find("for jo in _:_").before(), n_lifts=2)
+    stride_1 = fission(stride_1, stride_1.find("for jo in _:_").after(), n_lifts=2)
+    stride_1 = reorder_loops(stride_1, "ji jo")
+    stride_1 = reorder_loops(stride_1, "jm jo")    
+    
+    lower_bound = f"{VEC_W * INTERLEAVE_FACTOR} * jo + jm * {VEC_W}"
+    stride_1 = stage_mem(stride_1, "for ji in _:_ #1", f"x[{lower_bound}: {lower_bound} + {VEC_W}]", "xReg")
+    stride_1 = stage_mem(stride_1, "for ji in _:_ #1", f"a[i, {lower_bound}: {lower_bound} + {VEC_W}]", "aReg")
+    
+    for buffer in ["xReg", "aReg", "resultReg"]:
+        stride_1 = set_memory(stride_1, buffer, memory)
+        stride_1 = set_precision(stride_1, buffer, "f32")
+
+    stride_1 = simplify(stride_1)
+
+    stride_1 = expand_dim(stride_1, "xReg", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "xReg : _")
+    stride_1 = expand_dim(stride_1, "aReg", INTERLEAVE_FACTOR, "jm")
+    stride_1 = lift_alloc(stride_1, "aReg : _")
+    def interleave_instructions(proc, iter):
+        while True:
+            main_loop = proc.find(f"for {iter} in _:_")
+            if len(main_loop.body()) == 1:
+                break
+            proc = fission(proc, main_loop.body()[0].after())
+            proc = unroll_loop(proc, f"for {iter} in _:_")
+        proc = unroll_loop(proc, "for jm in _:_")
+        return proc
+    stride_1 = interleave_instructions(stride_1, "jm")
+    stride_1 = interleave_instructions(stride_1, "jm")
+    stride_1 = interleave_instructions(stride_1, "jm")
+  
+    stride_1 = divide_loop(stride_1, stride_1.find_loop("i"), ROW_FACTOR, ("io", "ii"), tail="cut")
+    
+    stride_1 = expand_dim(stride_1, "result : _", ROW_FACTOR, "ii")
+    stride_1 = lift_alloc(stride_1, "result: _ ")
+    stride_1 = expand_dim(stride_1, "resultReg : _", ROW_FACTOR, "ii")
+    stride_1 = lift_alloc(stride_1, "resultReg : _ ")
+    stride_1 = fission(stride_1, stride_1.find("result[_] = _").after())
+    stride_1 = fission(stride_1, stride_1.find_loop(f"ji #{INTERLEAVE_FACTOR - 1}").after())
+    stride_1 = fission(stride_1, stride_1.find_loop("jo").after())
+    stride_1 = reorder_loops(stride_1, "ii jo")
+    stride_1 = lift_alloc(stride_1, "xReg")
+    
+    for i in range(0, INTERLEAVE_FACTOR):
+      io0_loop_1 = stride_1.find(f"for i0 in _:_ #{i}")
+      stride_1 = reorder_stmts(stride_1, io0_loop_1.expand(1,0))
+      stride_1 = fission(stride_1, stride_1.forward(io0_loop_1).after())
+      stride_1 = remove_loop(stride_1, stride_1.forward(io0_loop_1).parent())
+    
+    stride_1 = replace_all(stride_1, instructions)
+    
+    for i in range(4):
+      stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    
+    stride_1 = divide_loop(stride_1, stride_1.find_loop("io"), 64, ("ioo", "ioi"), tail="cut")
+    
+    return simplify(stride_1)
+
 def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instructions):
     stride_1 = rename(sgemv, sgemv.name() + "_stride_1")
-    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
-    stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
+    # stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
+    # stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
     
     stride_1 = parallelize_reduction(stride_1, stride_1.find_loop("j"), "result",\
         VEC_W, INTERLEAVE_FACTOR, memory, "f32")
@@ -243,6 +317,10 @@ def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instruc
     stride_1 = expand_dim(stride_1, "result #1", 1, 0)
     stride_1 = set_memory(stride_1, "result", DRAM_STATIC)
     stride_1 = replace_all(stride_1, instructions)
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+
     return simplify(stride_1)
    
 f32_instructions = [C.Machine.load_instr_f32,
