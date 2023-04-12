@@ -226,5 +226,70 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
             proc = stmt_scheduling_op(proc, stmt)
         except:
             pass
+    
+    return proc
+    
+def parallelize_reduction(proc, loop_cursor, reduction_buffer, vec_width, accumulators_count, memory_type, precision):
+    if not isinstance(loop_cursor, pc.ForSeqCursor):
+        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
+    
+    loop_cursor = proc.forward(loop_cursor)
+    reg_name = "parallel_reduction_reg"
+    
+    if accumulators_count == 1:
+        if not (isinstance(loop_cursor.hi(), pc.LiteralCursor) and loop_cursor.hi().value() > vec_width):
+            proc = divide_loop(proc, loop_cursor, vec_width, \
+                (loop_cursor.name() + "o", loop_cursor.name() + "i"), tail="cut")
+            outer_loop_cursor = proc.forward(loop_cursor)
+            inner_loop_cursor = outer_loop_cursor.body()[0]
+        else:
+            raise BLAS_SchedulingError("Cannot parallelize reduction over a loop with hi smaller than vector width")
         
+        proc = reorder_loops(proc, outer_loop_cursor)
+        outer_loop_cursor = proc.forward(outer_loop_cursor)
+        proc = simplify(stage_mem(proc, outer_loop_cursor, reduction_buffer, reg_name, accum=True))
+        outer_loop_cursor = proc.forward(outer_loop_cursor)
+        proc = stage_alloc(proc, outer_loop_cursor.prev().prev())
+        forwarded_outer_loop = proc.forward(outer_loop_cursor)
+        proc = fission(proc, forwarded_outer_loop.before())
+        forwarded_outer_loop = proc.forward(outer_loop_cursor)
+        proc = fission(proc, forwarded_outer_loop.after())
+        forwarded_outer_loop = proc.forward(outer_loop_cursor)
+        proc = reorder_loops(proc, forwarded_outer_loop.parent())
+    else:
+        if not (isinstance(loop_cursor.hi(), pc.LiteralCursor) and loop_cursor.hi().value() > vec_width * accumulators_count):
+            proc = divide_loop(proc, loop_cursor, vec_width * accumulators_count, \
+                (loop_cursor.name() + "o", loop_cursor.name() + "i"), tail="cut")
+            outer_loop_cursor = proc.forward(loop_cursor)
+            inner_loop_cursor = outer_loop_cursor.body()[0]
+            proc = divide_loop(proc, inner_loop_cursor, vec_width, \
+            (loop_cursor.name() + "m", loop_cursor.name() + "i"), perfect=True)
+            outer_loop_cursor = proc.forward(loop_cursor)
+            middle_loop_cursor = proc.forward(inner_loop_cursor)
+            inner_loop_cursor = middle_loop_cursor.body()[0]
+        else:
+            raise BLAS_SchedulingError("Cannot parallelize reduction over a loop with hi smaller than vector_width * accumulators_count")
+        
+        proc = reorder_loops(proc, outer_loop_cursor)
+        proc = reorder_loops(proc, outer_loop_cursor)
+        proc = simplify(stage_mem(proc, outer_loop_cursor, reduction_buffer, reg_name, accum=True))
+        outer_loop_cursor = proc.forward(outer_loop_cursor)
+        alloc_cursor = outer_loop_cursor.prev().prev()
+        proc = stage_alloc(proc, alloc_cursor)
+        proc = stage_alloc(proc, alloc_cursor)
+        forwarded_outer_loop = proc.forward(outer_loop_cursor)
+        proc = fission(proc, forwarded_outer_loop.before(), n_lifts=2)
+        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
+        proc = fission(proc, forwarded_outer_loop.after(), n_lifts=2)
+        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
+        proc = reorder_loops(proc, forwarded_outer_loop.parent())
+        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
+        proc = reorder_loops(proc, forwarded_outer_loop.parent())
+        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
+        proc = unroll_loop(proc, forwarded_outer_loop.prev())
+        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
+        proc = unroll_loop(proc, forwarded_outer_loop.next())
+
+    proc = set_memory(proc, reg_name, memory_type)
+    proc = set_precision(proc, reg_name, precision)
     return proc
