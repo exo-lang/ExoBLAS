@@ -10,12 +10,14 @@ import exo_blas_config as C
 from composed_schedules import vectorize, interleave_execution
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def copy_template(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
         y[i] = x[i]
+### EXO_LOC ALGORITHM END ###
 
-
+### EXO_LOC SCHEDULE START ###
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(copy_template, "exo_" + prefix + "copy")
@@ -73,6 +75,7 @@ exo_dcopy_stride_any = specialize_precision("f64")
 exo_dcopy_stride_any = rename(
     exo_dcopy_stride_any, exo_dcopy_stride_any.name() + "_stride_any"
 )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_scopy_stride_1,

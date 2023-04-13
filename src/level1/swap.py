@@ -10,6 +10,7 @@ import exo_blas_config as C
 from composed_schedules import vectorize, interleave_execution
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def swap_template(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
@@ -17,8 +18,10 @@ def swap_template(n: size, x: [R][n], y: [R][n]):
         tmp = x[i]
         x[i] = y[i]
         y[i] = tmp
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(swap_template, "exo_" + prefix + "swap")
@@ -74,6 +77,7 @@ else:
     exo_dswap_stride_1 = rename(
         exo_dswap_stride_1, exo_dswap_stride_1.name() + "_stride_1"
     )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_sswap_stride_any,

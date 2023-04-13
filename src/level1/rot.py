@@ -16,6 +16,7 @@ from composed_schedules import (
 )
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def rot_template(n: size, x: [R][n], y: [R][n], c: R, s: R):
     for i in seq(0, n):
@@ -23,8 +24,10 @@ def rot_template(n: size, x: [R][n], y: [R][n], c: R, s: R):
         xReg = x[i]
         x[i] = c * xReg + s * y[i]
         y[i] = -s * xReg + c * y[i]
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(rot_template, "exo_" + prefix + "rot")
@@ -139,6 +142,7 @@ else:
     exo_drot_stride_1 = rename(
         exo_drot_stride_1, exo_drot_stride_1.name() + "_stride_1"
     )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_srot_stride_any,

@@ -10,6 +10,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def dsdot_template(n: size, x: [f32][n], y: [f32][n], result: f64):
     d_result: f64
@@ -21,8 +22,10 @@ def dsdot_template(n: size, x: [f32][n], y: [f32][n], result: f64):
         d_y = y[i]
         d_result += d_x * d_y
     result = d_result
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def schedule_dsdot_stride_1(VEC_W, memory, instructions):
     simple_stride_1 = rename(dsdot_template, "exo_dsdot_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
@@ -138,6 +141,7 @@ if None not in instructions:
 else:
     exo_dsdot_stride_1 = dsdot_template
     exo_dsdot_stride_1 = rename(exo_dsdot_stride_1, "exo_dsdot_stride_1")
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [exo_dsdot_stride_any, exo_dsdot_stride_1]
 

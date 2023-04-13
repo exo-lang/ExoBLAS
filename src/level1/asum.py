@@ -14,7 +14,7 @@ from composed_schedules import (
     stage_expr,
 )
 
-
+### EXO_LOC ALGORITHM START ###
 @proc
 def exo_sasum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
     result = 0.0
@@ -27,8 +27,9 @@ def exo_dasum(n: size, x: [f64][n] @ DRAM, result: f64 @ DRAM):
     result = 0.0
     for i in seq(0, n):
         result += select(0.0, x[i], x[i], -x[i])
+### EXO_LOC ALGORITHM END ###
 
-
+### EXO_LOC SCHEDULE START ###
 def schedule_asum_stride_1_interleaved(
     asum, VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision
 ):
@@ -176,6 +177,7 @@ if None not in f64_instructions:
 else:
     exo_dasum_stride_1 = exo_dasum_stride_any
     exo_dasum_stride_1 = rename(exo_dasum_stride_1, "exo_dasum_stride_1")
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_sasum_stride_any,

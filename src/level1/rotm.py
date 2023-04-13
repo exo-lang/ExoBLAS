@@ -9,6 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def rotm_template_flag_neg_one(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
@@ -41,8 +42,10 @@ def rotm_template_flag_neg_two(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
         x[i] = x[i]
         y[i] = y[i]
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def specialize_precision(template, precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(template, "exo_" + prefix + template.name())
@@ -352,6 +355,7 @@ def exo_drotm_stride_any(n: size, x: [f64][n], y: [f64][n], Hflag: size, H: f64[
         drotm_flag_one_stride_any(n, x, y, H)
     if Hflag == -2:
         drotm_flag_two_stride_any(n, x, y, H)
+### EXO_LOC SCHEDULE END ###
 
 
 entry_points = [

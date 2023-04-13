@@ -9,6 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def exo_isamax(n: size, x: [f32][n], index: i32):
     maxVal: f32
@@ -49,8 +50,10 @@ def exo_idamax(n: size, x: [f64][n], index: i32):
         index = select(maxVal, xAbs, counter, index)
         maxVal = select(maxVal, xAbs, xAbs, maxVal)
         counter += 1.0
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def schedule_iamax_stride_1(iamax, VEC_W, memory, instructions, precision):
     simple_stride_1 = rename(iamax, iamax.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
@@ -102,6 +105,7 @@ else:
     exo_idamax_stride_1 = rename(
         exo_idamax_stride_1, exo_idamax_stride_1.name() + "_stride_1"
     )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_isamax_stride_any,

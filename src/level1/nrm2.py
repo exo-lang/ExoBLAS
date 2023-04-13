@@ -9,13 +9,16 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def nrm2_template(n: size, x: [R][n], result: R):
     result = 0.0
     for i in seq(0, n):
         result += x[i] * x[i]
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(nrm2_template, "exo_" + prefix + "nrm2")
@@ -213,6 +216,7 @@ else:
     exo_dnrm2_stride_1 = rename(
         exo_dnrm2_stride_1, exo_dnrm2_stride_1.name() + "_stride_1"
     )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_snrm2_stride_any,

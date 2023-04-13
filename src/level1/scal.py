@@ -16,6 +16,7 @@ from composed_schedules import (
 )
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def scal_template(n: size, alpha: R, x: [R][n]):
     for i in seq(0, n):
@@ -26,8 +27,10 @@ def scal_template(n: size, alpha: R, x: [R][n]):
 def scal_template_alpha_0(n: size, x: [R][n]):
     for i in seq(0, n):
         x[i] = 0.0
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def specialize_scal(precision, alpha):
     prefix = "s" if precision == "f32" else "d"
     specialized_scal = scal_template if alpha != 0 else scal_template_alpha_0
@@ -160,6 +163,7 @@ else:
     exo_dscal_alpha_0_stride_1 = rename(
         exo_dscal_alpha_0_stride_1, exo_dscal_alpha_0_stride_1.name() + "_stride_1"
     )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_sscal_stride_any,

@@ -16,6 +16,7 @@ from composed_schedules import (
 )
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def axpy_template(n: size, alpha: R, x: [R][n], y: [R][n]):
     for i in seq(0, n):
@@ -26,8 +27,10 @@ def axpy_template(n: size, alpha: R, x: [R][n], y: [R][n]):
 def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
         y[i] += x[i]
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def specialize_axpy(precision, alpha):
     prefix = "s" if precision == "f32" else "d"
     specialized_axpy = axpy_template if alpha != 1 else axpy_template_alpha_1
@@ -152,6 +155,7 @@ else:
     exo_daxpy_alpha_1_stride_1 = rename(
         exo_daxpy_alpha_1_stride_1, exo_daxpy_alpha_1_stride_1.name() + "_stride_1"
     )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_saxpy_stride_any,

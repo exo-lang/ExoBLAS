@@ -10,13 +10,16 @@ import exo_blas_config as C
 from composed_schedules import vectorize, interleave_execution, parallelize_reduction
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def sdot_template(n: size, x: [R][n], y: [R][n], result: R):
     result = 0.0
     for i in seq(0, n):
         result += x[i] * y[i]
+### EXO_LOC ALGORITHM END ###
 
 
+### EXO_LOC SCHEDULE START ###
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
     specialized_copy = rename(sdot_template, "exo_" + prefix + "dot")
@@ -116,6 +119,7 @@ else:
     exo_ddot_stride_1 = rename(
         exo_ddot_stride_1, exo_ddot_stride_1.name() + "_stride_1"
     )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_sdot_stride_any,
