@@ -55,32 +55,23 @@ static void BM_exo_dsbmv(benchmark::State& state) {
 
 static void CustomArgumentsPacked(benchmark::internal::Benchmark* b) {
     for (int order = 0; order < 1; ++order) {
-        for (int Uplo = 0; Uplo <= 1; ++Uplo) {
-            for (int alpha = 0; alpha <= 2; ++alpha) {
-                for (int lda_diff = 0; lda_diff <= 1; ++lda_diff) {
+        for (int Uplo = 0; Uplo <= 0; ++Uplo) {
+            for (int alpha = 3; alpha <= 3; ++alpha) {
+                for (int lda_diff = 0; lda_diff <= 0; ++lda_diff) {
                     for (int incX = 1; incX <= 1; ++incX) {
-                        for (int beta = 0; beta <= 2; ++beta) {
+                        for (int beta = 7; beta <= 7; ++beta) {
                             for (int incY = 1; incY <= 1; ++incY) {
                                 for (int alignmentA = 64; alignmentA <= 64; ++alignmentA) {
                                     for (int alignmentX = 64; alignmentX <= 64; ++alignmentX) {
                                         for (int alignmentY = 64; alignmentY <= 64; ++alignmentY) {
                                             for (int N = 1; N <= (1 << 10); N *= 2) {
-                                                for (int K = N - 1; K >= 1; K /= 2) {
+                                                for (int K = N / 4; K >= 4; K /= 4) {
                                                     int lda = K + 1 + lda_diff;
                                                     b->Args({N, K, order, Uplo, alpha, lda, incX, beta, incY,
                                                     alignmentA, alignmentX, alignmentY});
                                                 }
-                                                b->Args({N, 0, order, Uplo, alpha, 1 + lda_diff, incX, beta, incY,
-                                                    alignmentA, alignmentX, alignmentY});
-                                            }
-                                            for (int N = 7; N <= (1 << 10); N *= 7) {
-                                                for (int K = N - 1; K >= 1; K /= 2) {
-                                                    int lda = K + 1 + lda_diff;
-                                                    b->Args({N, K, order, Uplo, alpha, lda, incX, beta, incY,
-                                                    alignmentA, alignmentX, alignmentY});
-                                                }
-                                                b->Args({N, 0, order, Uplo, alpha, 1 + lda_diff, incX, beta, incY,
-                                                    alignmentA, alignmentX, alignmentY});
+                                                //b->Args({N, 0, order, Uplo, alpha, 1 + lda_diff, incX, beta, incY,
+                                                    //alignmentA, alignmentX, alignmentY});
                                             }
                                         }
                                     }

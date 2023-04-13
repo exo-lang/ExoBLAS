@@ -58,26 +58,19 @@ static void BM_exo_stbsv(benchmark::State& state) {
 
 static void CustomArgumentsPacked(benchmark::internal::Benchmark* b) {
     for (int order = 0; order < 1; ++order) {
-        for (int Uplo = 0; Uplo <= 1; ++Uplo) {
-            for (int TransA = 0; TransA <= 1; ++TransA) {
-                for (int Diag = 0; Diag <= 1; ++Diag) {
-                    for (int lda_diff = 0; lda_diff <= 1; ++lda_diff) {
+        for (int Uplo = 0; Uplo <= 0; ++Uplo) {
+            for (int TransA = 0; TransA <= 0; ++TransA) {
+                for (int Diag = 0; Diag <= 0; ++Diag) {
+                    for (int lda_diff = 0; lda_diff <= 0; ++lda_diff) {
                         for (int incX = 1; incX <= 1; ++incX) {
                             for (int alignmentX = 64; alignmentX <= 64; ++alignmentX) {
                                 for (int alignmentA = 64; alignmentA <= 64; ++alignmentA) {
-                                    for (int N = 1; N <= (1 << 13); N *= 2) {
-                                        for (int K = N - 1; K >= 1; K /= 2) {
+                                    for (int N = 1; N <= (1 << 12); N *= 2) {
+                                        for (int K = N / 4; K >= 4; K /= 4) {
                                             int lda = K + 1 + lda_diff;
                                             b -> Args({N, K, order, Uplo, TransA, Diag, lda, incX, alignmentX, alignmentA});       
                                         }
-                                        b -> Args({N, 0, order, Uplo, TransA, Diag, 1 + lda_diff, incX, alignmentX, alignmentA});
-                                    }
-                                    for (int N = 1; N <= (1 << 13); N *= 7) {
-                                        for (int K = N - 1; K >= 1; K /= 7) {
-                                            int lda = K + 1 + lda_diff;
-                                            b -> Args({N, K, order, Uplo, TransA, Diag, lda, incX, alignmentX, alignmentA});       
-                                        }
-                                        b -> Args({N, 0, order, Uplo, TransA, Diag, 1 + lda_diff, incX, alignmentX, alignmentA});
+                                        //b -> Args({N, 0, order, Uplo, TransA, Diag, 1 + lda_diff, incX, alignmentX, alignmentA});
                                     }
                                 }
                             }
@@ -87,7 +80,6 @@ static void CustomArgumentsPacked(benchmark::internal::Benchmark* b) {
             }
         }
     }
-  
 }
 
 BENCHMARK(BM_cblas_stbsv)->ArgNames({"N", "K", "order", "Uplo", "TransA", "Diag", "lda", "incX", "alignmentX", "alignmentA"})->Apply(CustomArgumentsPacked);
