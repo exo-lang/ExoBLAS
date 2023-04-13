@@ -5,9 +5,10 @@ from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
+import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import vectorize, interleave_execution
+from composed_schedules import vectorize, interleave_execution, apply_to_block, hoist_stmt
 
 @proc
 def rot_template(n: size, x: [R][n], y: [R][n], c: R, s: R):
@@ -35,66 +36,23 @@ def schedule_rot_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, precis
     simple_stride_1 = bind_expr(simple_stride_1, simple_stride_1.find("s", many=True), "sReg", cse=True)
     simple_stride_1 = bind_expr(simple_stride_1, simple_stride_1.find("c", many=True), "cReg", cse=True)
     simple_stride_1 = vectorize(simple_stride_1, loop_cursor, VEC_W, memory, precision)
-        
-    # Const loops hoisting
-    def hoist_const_loop(proc, constant):
-        while True:
-            try:
-                loop_cursor = proc.find(constant).parent().parent()
-                proc = reorder_stmts(proc, loop_cursor.expand(1, 0))
-            except:
-                break
-        loop_cursor = proc.find(constant).parent().parent()
-        proc = fission(proc, loop_cursor.after())
-        proc = remove_loop(proc, proc.forward(loop_cursor).parent())
-        return proc
-
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg3")
-    simple_stride_1 = hoist_const_loop(simple_stride_1, "c")
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg2")
-    simple_stride_1 = hoist_const_loop(simple_stride_1, "s")
-    simple_stride_1 = lift_alloc(simple_stride_1, "sReg")
-    simple_stride_1 = hoist_const_loop(simple_stride_1, "reg2[_]")
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg11")
-    simple_stride_1 = hoist_const_loop(simple_stride_1, "-sReg[_]")
-    simple_stride_1 = lift_alloc(simple_stride_1, "cReg")
-    simple_stride_1 = hoist_const_loop(simple_stride_1, "reg3[_]")
-    simple_stride_1 = lift_alloc(simple_stride_1, "reg4")
-    simple_stride_1 = hoist_const_loop(simple_stride_1, "cReg[_]")
+    simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
+            
+    regs_to_hoist = ["reg3", "reg2", "sReg", "reg11", "cReg", "reg4"]
+    stmts_to_hoist = ["c", "s", "reg2[_]", "-sReg[_]", "reg3[_]", "cReg[_]"]
+    for reg in regs_to_hoist:
+        simple_stride_1 = lift_alloc(simple_stride_1, reg)
+    for stmt in stmts_to_hoist:
+        loop = simple_stride_1.find(stmt).parent().parent()
+        simple_stride_1 = hoist_stmt(simple_stride_1, loop)
 
     simple_stride_1 = replace_all(simple_stride_1, instructions)
-    
-    simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR)
-    
-    # TODO: remove once set_memory takes allocation cursor
-    tail_loop_block = simple_stride_1.find("xReg = x[_]").expand(0, 2)
-    simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "xReg", "xTmp")
-    tmp_buffer = simple_stride_1.find("xTmp : _")
-    xReg_buffer = tmp_buffer.prev()
-    simple_stride_1 = reuse_buffer(simple_stride_1, tmp_buffer, xReg_buffer)
-    simple_stride_1 = set_memory(simple_stride_1, "xTmp", DRAM)
-    
-    tail_loop_block = simple_stride_1.find("yReg = y[_]").expand(0, 2)
-    simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "yReg", "yTmp")
-    tmp_buffer = simple_stride_1.find("yTmp : _")
-    xReg_buffer = tmp_buffer.prev()
-    simple_stride_1 = reuse_buffer(simple_stride_1, tmp_buffer, xReg_buffer)
-    simple_stride_1 = set_memory(simple_stride_1, "yTmp", DRAM)
-    
-    tail_loop_block = simple_stride_1.find("sReg = s").expand(0, 2)
-    simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "sReg", "sTmp")
-    tmp_buffer = simple_stride_1.find("sTmp : _")
-    xReg_buffer = tmp_buffer.prev()
-    simple_stride_1 = reuse_buffer(simple_stride_1, tmp_buffer, f"sReg :_ #1")
-    simple_stride_1 = set_memory(simple_stride_1, "sTmp", DRAM)
-    
-    tail_loop_block = simple_stride_1.find("cReg = c").expand(0, 2)
-    simple_stride_1 = stage_mem(simple_stride_1, tail_loop_block, "cReg", "cTmp")
-    tmp_buffer = simple_stride_1.find("cTmp : _")
-    xReg_buffer = tmp_buffer.prev()
-    simple_stride_1 = reuse_buffer(simple_stride_1, tmp_buffer, f"cReg :_ #1")
-    simple_stride_1 = set_memory(simple_stride_1, "cTmp", DRAM)
-    
+        
+    # Set temporary variables in tail loop
+    for stmt in simple_stride_1.find_loop("ii").body():
+        if isinstance(stmt, pc.AllocCursor):
+            simple_stride_1 = set_precision(simple_stride_1, stmt, precision)
+
     return simple_stride_1
     
 INTERLEAVE_FACTOR = C.Machine.vec_units   
