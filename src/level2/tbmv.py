@@ -15,8 +15,8 @@ def tbmv_row_major_Upper_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-
-    for i in seq(0, n):
+    
+    for i in seq(0, n - k):
         dot: R
         dot = 0.0
 
@@ -26,10 +26,23 @@ def tbmv_row_major_Upper_NonTrans_template(
             dot = x[i]
 
         for j in seq(0, k):
-            if i + j + 1 < n:
-                dot += A[i, j + 1] * x[i + j + 1]
-
+            dot += A[i, j + 1] * x[i + j + 1]
+            
         x[i] = dot
+        
+    for i in seq(0, k):
+        dot: R
+        dot = 0.0
+        
+        if Diag == 0:
+            dot = x[n - k + i] * A[n - k + i, 0]
+        else:
+            dot = x[n - k + i]
+
+        for j in seq(0, k - i - 1):
+            dot += A[n - k + i, j + 1] * x[n - k + i + j + 1]
+            
+        x[n - k + i] = dot
 
 
 @proc
@@ -38,23 +51,34 @@ def tbmv_row_major_Lower_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-
-    for i in seq(0, n):
-        # Row (n - i - 1)
+    
+    for i in seq(0, n - k):
         dot: R
         dot = 0.0
 
         for j in seq(0, k):
-            # Col (n - i - 1 - j - 1)
-            if n - i - 1 - j - 1 >= 0:
-                dot += A[n - i - 1, k - j - 1] * x[n - i - 1 - j - 1]
-
+            dot += A[n - i - 1, k - j - 1] * x[n - i - 1 - j - 1]
+            
         if Diag == 0:
             dot += x[n - i - 1] * A[n - i - 1, k]
         else:
             dot += x[n - i - 1]
 
         x[n - i - 1] = dot
+        
+    for i in seq(0, k):
+        dot: R
+        dot = 0.0
+        
+        for j in seq(0, k - i - 1):
+            dot += A[n - (n - k + i) - 1, k - j - 1] * x[n - (n - k + i) - 1 - j - 1]
+            
+        if Diag == 0:
+            dot += x[n - (n - k + i) - 1] * A[n - (n - k + i) - 1, k]
+        else:
+            dot += x[n - (n - k + i) - 1]
+
+        x[n - (n - k + i) - 1] = dot
 
 
 @proc
@@ -68,16 +92,24 @@ def tbmv_row_major_Upper_Trans_template(
     for i in seq(0, n):
         xRes[i] = 0.0
 
-    for i in seq(0, n):
+    for i in seq(0, n - k):
         if Diag == 0:
             xRes[i] += x[i] * A[i, 0]
         else:
             xRes[i] += x[i]
 
         for j in seq(0, k):
-            if i + j + 1 < n:
-                xRes[i + j + 1] += A[i, j + 1] * x[i]
+            xRes[i + j + 1] += A[i, j + 1] * x[i]
 
+    for i in seq(0, k):
+        if Diag == 0:
+            xRes[n - k + i] += x[n - k + i] * A[n - k + i, 0]
+        else:
+            xRes[n - k + i] += x[n - k + i]
+
+        for j in seq(0, k - i - 1):
+            xRes[n - k + i + j + 1] += A[n - k + i, j + 1] * x[n - k + i]
+    
     for i in seq(0, n):
         x[i] = xRes[i]
 
@@ -92,20 +124,27 @@ def tbmv_row_major_Lower_Trans_template(
     xRes: R[n]
     for i in seq(0, n):
         xRes[i] = 0.0
-
-    for i in seq(0, n):
-        # Row (n - i - 1)
+    
+    for i in seq(0, n - k):
 
         for j in seq(0, k):
-            # Col (n - i - 1 - j - 1)
-            if n - i - 1 - j - 1 >= 0:
-                xRes[n - i - 1 - j - 1] += A[n - i - 1, k - j - 1] * x[n - i - 1]
+            xRes[n - i - 1 - j - 1] += A[n - i - 1, k - j - 1] * x[n - i - 1]
 
         if Diag == 0:
             xRes[n - i - 1] += x[n - i - 1] * A[n - i - 1, k]
         else:
             xRes[n - i - 1] += x[n - i - 1]
+    
+    for i in seq(0, k):
 
+        for j in seq(0,  k - i - 1):
+            xRes[n - (n - k + i) - 1 - j - 1] += A[n - (n - k + i) - 1, k - j - 1] * x[n - (n - k + i) - 1]
+
+        if Diag == 0:
+            xRes[n - (n - k + i) - 1] += x[n - (n - k + i) - 1] * A[n - (n - k + i) - 1, k]
+        else:
+            xRes[n - (n - k + i) - 1] += x[n - (n - k + i) - 1]
+    
     for i in seq(0, n):
         x[i] = xRes[i]
 
