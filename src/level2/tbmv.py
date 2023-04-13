@@ -161,7 +161,8 @@ def specialize_tbmv(tbmv, precision):
         args.append("xRes")
     else:
         args.append("dot")
-
+        args.append("dot #1")
+        
     for arg in args:
         specialized = set_precision(specialized, arg, precision)
 
