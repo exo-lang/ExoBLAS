@@ -15,10 +15,8 @@ def tbsv_row_major_Upper_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-
-    for i in seq(0, n):
-        # Row (n - i - 1)
-
+    
+    for i in seq(0, k):        
         pivot: R
         if Diag == 0:
             pivot = A[n - i - 1, 0]
@@ -27,12 +25,26 @@ def tbsv_row_major_Upper_NonTrans_template(
 
         dot: R
         dot = 0.0
-
-        for j in seq(0, k):
-            if n - i + j < n:
-                dot += A[n - i - 1, j + 1] * x[n - i + j]
-
+        
+        for j in seq(0, i):
+            dot += A[n - i - 1, j + 1] * x[n - i + j]
+        
         x[n - i - 1] = (x[n - i - 1] - dot) / pivot
+    
+    for i in seq(0, n - k):        
+        pivot: R
+        if Diag == 0:
+            pivot = A[n - (k + i) - 1, 0]
+        else:
+            pivot = 1.0
+        
+        dot: R
+        dot = 0.0
+        
+        for j in seq(0, k):
+            dot += A[n - (k + i) - 1, j + 1] * x[n - (k + i) + j]
+        
+        x[n - (k + i) - 1] = (x[n - (k + i) - 1] - dot) / pivot
 
 
 @proc
@@ -41,17 +53,14 @@ def tbsv_row_major_Lower_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-
-    for i in seq(0, n):
-        # Row (i)
-
+    
+    for i in seq(0, k):        
         dot: R
         dot = 0.0
-
-        for j in seq(0, k):
-            if i - j - 1 >= 0:
-                dot += A[i, k - j - 1] * x[i - j - 1]
-
+        
+        for j in seq(0, i):
+            dot += A[i, k - j - 1] * x[i - j - 1]
+        
         pivot: R
         if Diag == 0:
             pivot = A[i, k]
@@ -59,6 +68,21 @@ def tbsv_row_major_Lower_NonTrans_template(
             pivot = 1.0
 
         x[i] = (x[i] - dot) / pivot
+    
+    for i in seq(0, n - k):        
+        dot: R
+        dot = 0.0
+        
+        for j in seq(0, k):
+            dot += A[i + k, k - j - 1] * x[i + k - j - 1]
+        
+        pivot: R
+        if Diag == 0:
+            pivot = A[i + k, k]
+        else:
+            pivot = 1.0
+            
+        x[i + k] = (x[i + k] - dot) / pivot
 
 
 @proc
@@ -120,9 +144,16 @@ def specialize_tbsv(tbsv, precision):
     specialized = rename(tbsv, "exo_" + prefix + name)
 
     args = ["x", "A", "dot", "pivot"]
-
+    
+    if "NonTrans" in specialized.name():
+        args.append("dot #1")
+        args.append("pivot #1")
+    
     for arg in args:
-        specialized = set_precision(specialized, arg, precision)
+        try:
+            specialized = set_precision(specialized, arg, precision)
+        except:
+            pass
 
     return specialized
 
