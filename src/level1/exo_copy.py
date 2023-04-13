@@ -7,7 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-
+from composed_schedules import vectorize, interleave_execution
 
 @proc
 def copy_template(n: size, x: [R][n], y: [R][n]):
@@ -27,34 +27,9 @@ def schedule_scopy_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, prec
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
-    def loop_fragment(it, idx=0):
-        return f"for {it} in _: _ #{idx}"
-
-    simple_stride_1 = divide_loop(
-        simple_stride_1, loop_fragment("i"), VEC_W, ("io", "ii"), tail="cut"
-    )
-
-    simple_stride_1 = simplify(stage_mem(
-        simple_stride_1,
-        loop_fragment("ii"),
-        f"x[{VEC_W} * io:(io+1) * {VEC_W}]",
-        "xRegs",
-    ))
-
-    simple_stride_1 = set_memory(simple_stride_1, "xRegs", memory)
-
+    simple_stride_1 = vectorize(simple_stride_1, simple_stride_1.find_loop("i"), VEC_W, memory, precision)
+    simple_stride_1 = interleave_execution(simple_stride_1, simple_stride_1.find_loop("io"),INTERLEAVE_FACTOR)
     simple_stride_1 = replace_all(simple_stride_1, instructions)
-    
-    if INTERLEAVE_FACTOR > 1:
-        simple_stride_1 = divide_loop(
-            simple_stride_1, loop_fragment("io"), INTERLEAVE_FACTOR, ("io", "im"), tail="cut"
-        )
-        simple_stride_1 = expand_dim(simple_stride_1, "xRegs", INTERLEAVE_FACTOR, "im")
-        simple_stride_1 = lift_alloc(simple_stride_1, "xRegs")
-        load_instr_name = C.Machine.load_instr_f32.name() if precision == "f32" else C.Machine.load_instr_f64.name()
-        simple_stride_1 = fission(simple_stride_1, simple_stride_1.find(load_instr_name + "(_)").after())
-        simple_stride_1 = unroll_loop(simple_stride_1, loop_fragment("im"))
-        simple_stride_1 = unroll_loop(simple_stride_1, loop_fragment("im"))
 
     return simplify(simple_stride_1)
 
