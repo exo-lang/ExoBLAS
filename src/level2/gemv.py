@@ -314,7 +314,6 @@ def schedule_multiple_rows(VEC_W, INTERLEAVE_FACTOR, ROW_FACTOR, memory, instruc
     stride_1 = interleave_outer_loop_with_inner_loop(stride_1, stride_1.find_loop("i"), stride_1.find_loop("jo"), ROW_FACTOR)
     stride_1 = apply_to_block(stride_1, stride_1.find_loop("jo").body()[0].body(), hoist_stmt)
     # TODO: remove next two lines once set_memory takes cursors
-    stride_1 = expand_dim(stride_1, "result #1", 1, 0)
     stride_1 = set_memory(stride_1, "result", DRAM_STATIC)
     stride_1 = replace_all(stride_1, instructions)
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
