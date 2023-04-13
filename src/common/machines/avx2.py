@@ -4,18 +4,16 @@ from exo.platforms.x86 import *
 
 from .machine import MachineParameters
 
+
 @instr("{dst_data} = _mm256_maskz_loadu_ps(((1 << {N}) - 1), &{src_data});")
-def mm256_maskz_loadu_ps(
-    N: size,
-    dst: [f32][8] @ AVX2,
-    src: [f32][N] @ DRAM,
-):
+def mm256_maskz_loadu_ps(N: size, dst: [f32][8] @ AVX2, src: [f32][N] @ DRAM):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
     assert N <= 8
 
     for i in seq(0, N):
         dst[i] = src[i]
+
 
 @instr(
     """
@@ -32,9 +30,10 @@ def avx2_assoc_reduce_add_ps_buffer(x: [f32][8] @ AVX2, result: [f32][1]):
     # WARNING: This instruction assumes float addition associativity
     assert stride(x, 0) == 1
     assert stride(result, 0) == 1
-    
+
     for i in seq(0, 8):
         result[0] += x[i]
+
 
 Machine = MachineParameters(
     name="avx2",
@@ -59,7 +58,6 @@ Machine = MachineParameters(
     reg_copy_instr_f32=avx2_reg_copy_ps,
     sign_instr_f32=avx2_sign_ps,
     select_instr_f32=avx2_select_ps,
-    
     load_instr_f64=mm256_loadu_pd,
     store_instr_f64=mm256_storeu_pd,
     broadcast_instr_f64=mm256_broadcast_sd,
@@ -73,7 +71,6 @@ Machine = MachineParameters(
     reg_copy_instr_f64=avx2_reg_copy_pd,
     sign_instr_f64=avx2_sign_pd,
     select_instr_f64=avx2_select_pd,
-
     convert_f32_lower_to_f64=avx2_convert_f32_lower_to_f64,
-    convert_f32_upper_to_f64=avx2_convert_f32_upper_to_f64
+    convert_f32_upper_to_f64=avx2_convert_f32_upper_to_f64,
 )

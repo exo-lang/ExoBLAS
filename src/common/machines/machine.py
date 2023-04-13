@@ -36,7 +36,7 @@ class MachineParameters:
     sign_instr_f32: Any
     select_instr_f32: Any
     assoc_reduce_add_f32_buffer: Any
-    
+
     load_instr_f64: Any
     store_instr_f64: Any
     broadcast_instr_f64: Any
