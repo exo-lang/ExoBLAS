@@ -85,7 +85,10 @@ class Microkernel:
         self.scheduled_microkernel, self.base_microkernel = self.generate_microkernel(
             machine, M_r, N_r, K_blk
         )
-        self.scheduled_zpad_microkernel, self.base_zpad_microkernel = self.generate_microkernel_zpad(
+        (
+            self.scheduled_zpad_microkernel,
+            self.base_zpad_microkernel,
+        ) = self.generate_microkernel_zpad(
             machine, 8 if precision == "f32" else 16, N_r, K_blk
         )
 

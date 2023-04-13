@@ -178,7 +178,7 @@ def peak_bandwidth_plot(params, names_to_points):
     scale = lambda x: x * arith_intensity[k_name] if not bandwidth else x
 
     def get_gbyte_sec(size, time):
-        return (mem_ops(k_name, size, wordsize) * 10 ** 9) / (time * 2 ** 30)
+        return (mem_ops(k_name, size, wordsize) * 10**9) / (time * 2**30)
 
     plt.clf()
     for name in names_to_points:

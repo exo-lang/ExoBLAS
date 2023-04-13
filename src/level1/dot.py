@@ -16,6 +16,8 @@ def sdot_template(n: size, x: [R][n], y: [R][n], result: R):
     result = 0.0
     for i in seq(0, n):
         result += x[i] * y[i]
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

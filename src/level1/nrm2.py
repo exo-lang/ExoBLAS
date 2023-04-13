@@ -15,6 +15,8 @@ def nrm2_template(n: size, x: [R][n], result: R):
     result = 0.0
     for i in seq(0, n):
         result += x[i] * x[i]
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

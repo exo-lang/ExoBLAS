@@ -15,8 +15,8 @@ def tbsv_row_major_Upper_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-    
-    for i in seq(0, k):        
+
+    for i in seq(0, k):
         pivot: R
         if Diag == 0:
             pivot = A[n - i - 1, 0]
@@ -25,25 +25,25 @@ def tbsv_row_major_Upper_NonTrans_template(
 
         dot: R
         dot = 0.0
-        
+
         for j in seq(0, i):
             dot += A[n - i - 1, j + 1] * x[n - i + j]
-        
+
         x[n - i - 1] = (x[n - i - 1] - dot) / pivot
-    
-    for i in seq(0, n - k):        
+
+    for i in seq(0, n - k):
         pivot: R
         if Diag == 0:
             pivot = A[n - (k + i) - 1, 0]
         else:
             pivot = 1.0
-        
+
         dot: R
         dot = 0.0
-        
+
         for j in seq(0, k):
             dot += A[n - (k + i) - 1, j + 1] * x[n - (k + i) + j]
-        
+
         x[n - (k + i) - 1] = (x[n - (k + i) - 1] - dot) / pivot
 
 
@@ -53,14 +53,14 @@ def tbsv_row_major_Lower_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-    
-    for i in seq(0, k):        
+
+    for i in seq(0, k):
         dot: R
         dot = 0.0
-        
+
         for j in seq(0, i):
             dot += A[i, k - j - 1] * x[i - j - 1]
-        
+
         pivot: R
         if Diag == 0:
             pivot = A[i, k]
@@ -68,20 +68,20 @@ def tbsv_row_major_Lower_NonTrans_template(
             pivot = 1.0
 
         x[i] = (x[i] - dot) / pivot
-    
-    for i in seq(0, n - k):        
+
+    for i in seq(0, n - k):
         dot: R
         dot = 0.0
-        
+
         for j in seq(0, k):
             dot += A[i + k, k - j - 1] * x[i + k - j - 1]
-        
+
         pivot: R
         if Diag == 0:
             pivot = A[i + k, k]
         else:
             pivot = 1.0
-            
+
         x[i + k] = (x[i + k] - dot) / pivot
 
 
@@ -144,11 +144,11 @@ def specialize_tbsv(tbsv, precision):
     specialized = rename(tbsv, "exo_" + prefix + name)
 
     args = ["x", "A", "dot", "pivot"]
-    
+
     if "NonTrans" in specialized.name():
         args.append("dot #1")
         args.append("pivot #1")
-    
+
     for arg in args:
         try:
             specialized = set_precision(specialized, arg, precision)
@@ -216,21 +216,25 @@ f32_instructions = [
     C.Machine.broadcast_scalar_instr_f32,
 ]
 
-exo_stbsv_row_major_Upper_NonTrans_stride_1 = schedule_interleave_tbsv_row_major_stride_1(
-    tbsv_row_major_Upper_NonTrans_template,
-    C.Machine.vec_width,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
+exo_stbsv_row_major_Upper_NonTrans_stride_1 = (
+    schedule_interleave_tbsv_row_major_stride_1(
+        tbsv_row_major_Upper_NonTrans_template,
+        C.Machine.vec_width,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
 )
-exo_stbsv_row_major_Lower_NonTrans_stride_1 = schedule_interleave_tbsv_row_major_stride_1(
-    tbsv_row_major_Lower_NonTrans_template,
-    C.Machine.vec_width,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
+exo_stbsv_row_major_Lower_NonTrans_stride_1 = (
+    schedule_interleave_tbsv_row_major_stride_1(
+        tbsv_row_major_Lower_NonTrans_template,
+        C.Machine.vec_width,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
 )
 
 #################################################
@@ -275,21 +279,25 @@ f64_instructions = [
     C.Machine.broadcast_scalar_instr_f64,
 ]
 
-exo_dtbsv_row_major_Upper_NonTrans_stride_1 = schedule_interleave_tbsv_row_major_stride_1(
-    tbsv_row_major_Upper_NonTrans_template,
-    C.Machine.vec_width // 2,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
+exo_dtbsv_row_major_Upper_NonTrans_stride_1 = (
+    schedule_interleave_tbsv_row_major_stride_1(
+        tbsv_row_major_Upper_NonTrans_template,
+        C.Machine.vec_width // 2,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
 )
-exo_dtbsv_row_major_Lower_NonTrans_stride_1 = schedule_interleave_tbsv_row_major_stride_1(
-    tbsv_row_major_Lower_NonTrans_template,
-    C.Machine.vec_width // 2,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
+exo_dtbsv_row_major_Lower_NonTrans_stride_1 = (
+    schedule_interleave_tbsv_row_major_stride_1(
+        tbsv_row_major_Lower_NonTrans_template,
+        C.Machine.vec_width // 2,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
 )
 
 entry_points = [

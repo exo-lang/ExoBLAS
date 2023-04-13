@@ -9,6 +9,7 @@ $ python3 -m venv ~/.venv/exo-blas
 $ source ~/.venv/exo-blas/bin/activate
 $ python -m pip install -U pip setuptools wheel build
 $ python -m pip install -Ur requirements.txt
+$ pre-commit install
 ```
 
 We suggest using the latest version of Exo, following its build

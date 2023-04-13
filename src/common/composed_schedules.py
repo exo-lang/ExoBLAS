@@ -77,14 +77,14 @@ def stage_expr(proc, expr_cursor, new_name, cse=False):
     """
     for i in seq(0, hi):
         s (e(i));
-        
+
     ----->
-    
+
     new_name: R[hi]
     for i in seq(0, hi):
         new_name[i] = e(i)
     for i in seq(0, hi):
-        s (new_name[i]);    
+        s (new_name[i]);
     """
 
     expr_cursor = proc.forward(expr_cursor)
@@ -104,9 +104,9 @@ def stage_alloc(proc, alloc_cursor):
         B1;
         name: type[shape];
         B2;
-        
+
     ----->
-    
+
     name: type[hi][shape]
     for i in seq(0, hi):
         B1;
@@ -125,9 +125,9 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
     """
     for i in seq(0, hi):
         lhs(i) = (e_0(i), e_1(i), ..., e_n(i));
-        
+
     ----->
-    
+
     for io in seq(0, hi / vec_width):
         reg0: precision[vec_width]
         for ii in seq(0, vec_width):
@@ -136,18 +136,18 @@ def vectorize(proc, loop_cursor, vec_width, memory_type, precision):
         reg1: precision[vec_width]
         for ii in seq(0, vec_width):
             reg1[ii] = e_1(ii)
-        
+
         ....
-        
+
         regn: precision[vec_width]
         for ii in seq(0, vec_width):
             regn[ii] = e_n(ii)
-        
+
         for ii in seq(0, vec_width):
-            lhs(io * vec_width + ii) = e_n(ii); 
-        
+            lhs(io * vec_width + ii) = e_n(ii);
+
     for i in seq(0, hi % vec_width):
-        lhs(i + delta) = (e_0(i + delta), e_1(i + delta), ..., e_n(i + delta));    
+        lhs(i + delta) = (e_0(i + delta), e_1(i + delta), ..., e_n(i + delta));
     """
 
     if not isinstance(loop_cursor, pc.ForSeqCursor):
@@ -310,9 +310,9 @@ def hoist_stmt(proc, stmt_cursor):
         B1;
         s;
         B2;
-    
+
     --->
-    
+
     s;
     for i in seq(0, hi):
         B1;
@@ -477,10 +477,10 @@ def interleave_outer_loop_with_inner_loop(
         B1;
         for j in seq(0, hi'):
             B;
-        B2;    
+        B2;
 
     --->
-    
+
     for io in seq(0, hi / interleave_factor):
         for ii in seq(0, interleave_factor):
             B1;
@@ -489,12 +489,12 @@ def interleave_outer_loop_with_inner_loop(
                 B;
         for ii in seq(0, interleave_factor):
             B2;
-    
+
     for io in seq(0, hi % interleave_factor):
         B1;
         for j in seq(0, hi'):
             B;
-        B2; 
+        B2;
     """
     # TODO: check if inner_loop is directly in the body of outer_loop
     outer_loop_cursor = proc.forward(outer_loop_cursor)

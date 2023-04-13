@@ -24,6 +24,8 @@ def rot_template(n: size, x: [R][n], y: [R][n], c: R, s: R):
         xReg = x[i]
         x[i] = c * xReg + s * y[i]
         y[i] = -s * xReg + c * y[i]
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

@@ -50,6 +50,8 @@ def exo_idamax(n: size, x: [f64][n], index: i32):
         index = select(maxVal, xAbs, counter, index)
         maxVal = select(maxVal, xAbs, xAbs, maxVal)
         counter += 1.0
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

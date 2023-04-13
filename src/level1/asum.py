@@ -27,6 +27,8 @@ def exo_dasum(n: size, x: [f64][n] @ DRAM, result: f64 @ DRAM):
     result = 0.0
     for i in seq(0, n):
         result += select(0.0, x[i], x[i], -x[i])
+
+
 ### EXO_LOC ALGORITHM END ###
 
 ### EXO_LOC SCHEDULE START ###

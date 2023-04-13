@@ -355,11 +355,14 @@ class SYRK:
         )
 
         ### Create scheduled procedures
-        self.gepp_syrk_scheduled_lower_notranspose, self.gepp_syrk_base_lower_notranspose = self.generate_syrk_gepp_lower_notranspose_noalpha(
+        (
+            self.gepp_syrk_scheduled_lower_notranspose,
+            self.gepp_syrk_base_lower_notranspose,
+        ) = self.generate_syrk_gepp_lower_notranspose_noalpha(
             syrk_lower_notranspose_noalpha, diag_handler_lower_notranspose
         )
-        syrk_scheduled_lower_notranspose_noalpha = self.schedule_syrk_lower_notranspose_noalpha(
-            syrk_lower_notranspose_noalpha
+        syrk_scheduled_lower_notranspose_noalpha = (
+            self.schedule_syrk_lower_notranspose_noalpha(syrk_lower_notranspose_noalpha)
         )
 
         ### Entry points

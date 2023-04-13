@@ -27,6 +27,8 @@ def axpy_template(n: size, alpha: R, x: [R][n], y: [R][n]):
 def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
         y[i] += x[i]
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

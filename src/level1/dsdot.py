@@ -22,6 +22,8 @@ def dsdot_template(n: size, x: [f32][n], y: [f32][n], result: f64):
         d_y = y[i]
         d_result += d_x * d_y
     result = d_result
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

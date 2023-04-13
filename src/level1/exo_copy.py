@@ -15,6 +15,8 @@ from composed_schedules import vectorize, interleave_execution
 def copy_template(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
         y[i] = x[i]
+
+
 ### EXO_LOC ALGORITHM END ###
 
 ### EXO_LOC SCHEDULE START ###

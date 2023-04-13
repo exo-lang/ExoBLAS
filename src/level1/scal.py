@@ -27,6 +27,8 @@ def scal_template(n: size, alpha: R, x: [R][n]):
 def scal_template_alpha_0(n: size, x: [R][n]):
     for i in seq(0, n):
         x[i] = 0.0
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

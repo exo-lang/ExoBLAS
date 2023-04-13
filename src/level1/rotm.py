@@ -42,6 +42,8 @@ def rotm_template_flag_neg_two(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
         x[i] = x[i]
         y[i] = y[i]
+
+
 ### EXO_LOC ALGORITHM END ###
 
 
@@ -355,6 +357,8 @@ def exo_drotm_stride_any(n: size, x: [f64][n], y: [f64][n], Hflag: size, H: f64[
         drotm_flag_one_stride_any(n, x, y, H)
     if Hflag == -2:
         drotm_flag_two_stride_any(n, x, y, H)
+
+
 ### EXO_LOC SCHEDULE END ###
 
 

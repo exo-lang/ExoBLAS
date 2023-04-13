@@ -175,21 +175,25 @@ f32_instructions = [
     C.Machine.broadcast_scalar_instr_f32,
 ]
 
-exo_strsv_row_major_Upper_NonTrans_stride_1 = schedule_interleave_trsv_row_major_stride_1(
-    trsv_row_major_Upper_NonTrans_template,
-    C.Machine.vec_width,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
+exo_strsv_row_major_Upper_NonTrans_stride_1 = (
+    schedule_interleave_trsv_row_major_stride_1(
+        trsv_row_major_Upper_NonTrans_template,
+        C.Machine.vec_width,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
 )
-exo_strsv_row_major_Lower_NonTrans_stride_1 = schedule_interleave_trsv_row_major_stride_1(
-    trsv_row_major_Lower_NonTrans_template,
-    C.Machine.vec_width,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
+exo_strsv_row_major_Lower_NonTrans_stride_1 = (
+    schedule_interleave_trsv_row_major_stride_1(
+        trsv_row_major_Lower_NonTrans_template,
+        C.Machine.vec_width,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
 )
 
 #################################################
@@ -234,21 +238,25 @@ f64_instructions = [
     C.Machine.broadcast_scalar_instr_f64,
 ]
 
-exo_dtrsv_row_major_Upper_NonTrans_stride_1 = schedule_interleave_trsv_row_major_stride_1(
-    trsv_row_major_Upper_NonTrans_template,
-    C.Machine.vec_width // 2,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
+exo_dtrsv_row_major_Upper_NonTrans_stride_1 = (
+    schedule_interleave_trsv_row_major_stride_1(
+        trsv_row_major_Upper_NonTrans_template,
+        C.Machine.vec_width // 2,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
 )
-exo_dtrsv_row_major_Lower_NonTrans_stride_1 = schedule_interleave_trsv_row_major_stride_1(
-    trsv_row_major_Lower_NonTrans_template,
-    C.Machine.vec_width // 2,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
+exo_dtrsv_row_major_Lower_NonTrans_stride_1 = (
+    schedule_interleave_trsv_row_major_stride_1(
+        trsv_row_major_Lower_NonTrans_template,
+        C.Machine.vec_width // 2,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
 )
 
 entry_points = [

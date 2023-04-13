@@ -21,6 +21,8 @@ def sdsdot_template(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
         d_y = y[i]
         d_result += d_x * d_y
     result = d_result
+
+
 ### EXO_LOC ALGORITHM END ###
 
 

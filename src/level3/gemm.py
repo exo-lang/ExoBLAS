@@ -794,7 +794,7 @@ n_reg = C.gemm.n_reg
 
 sgemm_main = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg)
 
-blk_sizes = [2 ** i for i in range(5, 9)]
+blk_sizes = [2**i for i in range(5, 9)]
 sgemm_backup_kernels = [
     GEMM(C.Machine, "f32", blk, blk, blk, m_reg, n_reg, True, False)
     for blk in blk_sizes

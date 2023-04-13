@@ -15,7 +15,7 @@ def tbmv_row_major_Upper_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-    
+
     for i in seq(0, n - k):
         dot: R
         dot = 0.0
@@ -27,13 +27,13 @@ def tbmv_row_major_Upper_NonTrans_template(
 
         for j in seq(0, k):
             dot += A[i, j + 1] * x[i + j + 1]
-            
+
         x[i] = dot
-        
+
     for i in seq(0, k):
         dot: R
         dot = 0.0
-        
+
         if Diag == 0:
             dot = x[n - k + i] * A[n - k + i, 0]
         else:
@@ -41,7 +41,7 @@ def tbmv_row_major_Upper_NonTrans_template(
 
         for j in seq(0, k - i - 1):
             dot += A[n - k + i, j + 1] * x[n - k + i + j + 1]
-            
+
         x[n - k + i] = dot
 
 
@@ -51,28 +51,28 @@ def tbmv_row_major_Lower_NonTrans_template(
 ):
     assert stride(A, 1) == 1
     assert k <= n - 1
-    
+
     for i in seq(0, n - k):
         dot: R
         dot = 0.0
 
         for j in seq(0, k):
             dot += A[n - i - 1, k - j - 1] * x[n - i - 1 - j - 1]
-            
+
         if Diag == 0:
             dot += x[n - i - 1] * A[n - i - 1, k]
         else:
             dot += x[n - i - 1]
 
         x[n - i - 1] = dot
-        
+
     for i in seq(0, k):
         dot: R
         dot = 0.0
-        
+
         for j in seq(0, k - i - 1):
             dot += A[n - (n - k + i) - 1, k - j - 1] * x[n - (n - k + i) - 1 - j - 1]
-            
+
         if Diag == 0:
             dot += x[n - (n - k + i) - 1] * A[n - (n - k + i) - 1, k]
         else:
@@ -109,7 +109,7 @@ def tbmv_row_major_Upper_Trans_template(
 
         for j in seq(0, k - i - 1):
             xRes[n - k + i + j + 1] += A[n - k + i, j + 1] * x[n - k + i]
-    
+
     for i in seq(0, n):
         x[i] = xRes[i]
 
@@ -124,7 +124,7 @@ def tbmv_row_major_Lower_Trans_template(
     xRes: R[n]
     for i in seq(0, n):
         xRes[i] = 0.0
-    
+
     for i in seq(0, n - k):
 
         for j in seq(0, k):
@@ -134,17 +134,21 @@ def tbmv_row_major_Lower_Trans_template(
             xRes[n - i - 1] += x[n - i - 1] * A[n - i - 1, k]
         else:
             xRes[n - i - 1] += x[n - i - 1]
-    
+
     for i in seq(0, k):
 
-        for j in seq(0,  k - i - 1):
-            xRes[n - (n - k + i) - 1 - j - 1] += A[n - (n - k + i) - 1, k - j - 1] * x[n - (n - k + i) - 1]
+        for j in seq(0, k - i - 1):
+            xRes[n - (n - k + i) - 1 - j - 1] += (
+                A[n - (n - k + i) - 1, k - j - 1] * x[n - (n - k + i) - 1]
+            )
 
         if Diag == 0:
-            xRes[n - (n - k + i) - 1] += x[n - (n - k + i) - 1] * A[n - (n - k + i) - 1, k]
+            xRes[n - (n - k + i) - 1] += (
+                x[n - (n - k + i) - 1] * A[n - (n - k + i) - 1, k]
+            )
         else:
             xRes[n - (n - k + i) - 1] += x[n - (n - k + i) - 1]
-    
+
     for i in seq(0, n):
         x[i] = xRes[i]
 
@@ -162,7 +166,7 @@ def specialize_tbmv(tbmv, precision):
     else:
         args.append("dot")
         args.append("dot #1")
-        
+
     for arg in args:
         specialized = set_precision(specialized, arg, precision)
 
@@ -227,21 +231,25 @@ f32_instructions = [
     C.Machine.broadcast_scalar_instr_f32,
 ]
 
-exo_stbmv_row_major_Upper_NonTrans_stride_1 = schedule_interleave_tbmv_row_major_stride_1(
-    tbmv_row_major_Upper_NonTrans_template,
-    C.Machine.vec_width,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
+exo_stbmv_row_major_Upper_NonTrans_stride_1 = (
+    schedule_interleave_tbmv_row_major_stride_1(
+        tbmv_row_major_Upper_NonTrans_template,
+        C.Machine.vec_width,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
 )
-exo_stbmv_row_major_Lower_NonTrans_stride_1 = schedule_interleave_tbmv_row_major_stride_1(
-    tbmv_row_major_Lower_NonTrans_template,
-    C.Machine.vec_width,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
+exo_stbmv_row_major_Lower_NonTrans_stride_1 = (
+    schedule_interleave_tbmv_row_major_stride_1(
+        tbmv_row_major_Lower_NonTrans_template,
+        C.Machine.vec_width,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
 )
 exo_stbmv_row_major_Upper_Trans_stride_1 = schedule_interleave_tbmv_row_major_stride_1(
     tbmv_row_major_Upper_Trans_template,
@@ -302,21 +310,25 @@ f64_instructions = [
     C.Machine.broadcast_scalar_instr_f64,
 ]
 
-exo_dtbmv_row_major_Upper_NonTrans_stride_1 = schedule_interleave_tbmv_row_major_stride_1(
-    tbmv_row_major_Upper_NonTrans_template,
-    C.Machine.vec_width // 2,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
+exo_dtbmv_row_major_Upper_NonTrans_stride_1 = (
+    schedule_interleave_tbmv_row_major_stride_1(
+        tbmv_row_major_Upper_NonTrans_template,
+        C.Machine.vec_width // 2,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
 )
-exo_dtbmv_row_major_Lower_NonTrans_stride_1 = schedule_interleave_tbmv_row_major_stride_1(
-    tbmv_row_major_Lower_NonTrans_template,
-    C.Machine.vec_width // 2,
-    ROW_INTERLEAVE_FACTOR,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
+exo_dtbmv_row_major_Lower_NonTrans_stride_1 = (
+    schedule_interleave_tbmv_row_major_stride_1(
+        tbmv_row_major_Lower_NonTrans_template,
+        C.Machine.vec_width // 2,
+        ROW_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
 )
 exo_dtbmv_row_major_Upper_Trans_stride_1 = schedule_interleave_tbmv_row_major_stride_1(
     tbmv_row_major_Upper_Trans_template,

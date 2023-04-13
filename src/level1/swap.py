@@ -18,6 +18,8 @@ def swap_template(n: size, x: [R][n], y: [R][n]):
         tmp = x[i]
         x[i] = y[i]
         y[i] = tmp
+
+
 ### EXO_LOC ALGORITHM END ###
 
 
