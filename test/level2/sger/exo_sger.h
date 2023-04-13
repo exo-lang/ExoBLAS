@@ -9,7 +9,7 @@ void exo_sger(const int M, const int N,
         return;
     }
     if (incX == 1 && incY == 1) {
-        exo_sger_raw_major_stride_1(nullptr, M, N, &alpha, 
+        exo_sger_row_major_stride_1(nullptr, M, N, &alpha, 
             exo_win_1f32c{.data = X, .strides = {incX}},
             exo_win_1f32c{.data = Y, .strides = {incY}},
             exo_win_2f32{.data  = A, .strides = {lda, 1}});
@@ -20,7 +20,7 @@ void exo_sger(const int M, const int N,
         if (incY < 0) {
             Y = Y + (1 - N) * incY;
         }
-        exo_sger_raw_major_stride_any(nullptr, M, N, &alpha, 
+        exo_sger_row_major_stride_any(nullptr, M, N, &alpha, 
             exo_win_1f32c{.data = X, .strides = {incX}},
             exo_win_1f32c{.data = Y, .strides = {incY}},
             exo_win_2f32{.data  = A, .strides = {lda, 1}});

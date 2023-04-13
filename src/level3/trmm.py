@@ -9,7 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 @proc
-def trmm_raw_major_Left_Upper_NoneTrans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
+def trmm_row_major_Left_Upper_NonTrans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     
@@ -22,7 +22,7 @@ def trmm_raw_major_Left_Upper_NoneTrans_template(m: size, n: size, alpha: R, A: 
             B[i, j] = alpha * B[i, j]
 
 @proc
-def trmm_raw_major_Left_Lower_NoneTrans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
+def trmm_row_major_Left_Lower_NonTrans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     
@@ -44,7 +44,7 @@ def trmm_raw_major_Left_Lower_NoneTrans_template(m: size, n: size, alpha: R, A: 
             B[m - i - 1, j] = alpha * B[m - i - 1, j]
 
 @proc
-def trmm_raw_major_Left_Upper_Trans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
+def trmm_row_major_Left_Upper_Trans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     
@@ -66,7 +66,7 @@ def trmm_raw_major_Left_Upper_Trans_template(m: size, n: size, alpha: R, A: [R][
             B[m - i - 1, j] = alpha * B[m - i - 1, j]
 
 @proc
-def trmm_raw_major_Left_Lower_Trans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
+def trmm_row_major_Left_Lower_Trans_template(m: size, n: size, alpha: R, A: [R][m, m], B: [R][m, n], Diag: size):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     
@@ -99,18 +99,18 @@ def specialize_trmm(trmm, precision):
 # Generate specialized kernels for f32 precision
 #################################################
 
-exo_strmm_raw_major_Left_Upper_NoneTrans = specialize_trmm(trmm_raw_major_Left_Upper_NoneTrans_template, "f32")
-exo_strmm_raw_major_Left_Upper_NoneTrans = rename(exo_strmm_raw_major_Left_Upper_NoneTrans, 
-                                                                 exo_strmm_raw_major_Left_Upper_NoneTrans.name() + "")
-exo_strmm_raw_major_Left_Lower_NoneTrans = specialize_trmm(trmm_raw_major_Left_Lower_NoneTrans_template, "f32")
-exo_strmm_raw_major_Left_Lower_NoneTrans = rename(exo_strmm_raw_major_Left_Lower_NoneTrans, 
-                                                        exo_strmm_raw_major_Left_Lower_NoneTrans.name() + "")
-exo_strmm_raw_major_Left_Upper_Trans = specialize_trmm(trmm_raw_major_Left_Upper_Trans_template, "f32")
-exo_strmm_raw_major_Left_Upper_Trans = rename(exo_strmm_raw_major_Left_Upper_Trans, 
-                                                    exo_strmm_raw_major_Left_Upper_Trans.name() + "")
-exo_strmm_raw_major_Left_Lower_Trans = specialize_trmm(trmm_raw_major_Left_Lower_Trans_template, "f32")
-exo_strmm_raw_major_Left_Lower_Trans = rename(exo_strmm_raw_major_Left_Lower_Trans, 
-                                                    exo_strmm_raw_major_Left_Lower_Trans.name() + "")
+exo_strmm_row_major_Left_Upper_NonTrans = specialize_trmm(trmm_row_major_Left_Upper_NonTrans_template, "f32")
+exo_strmm_row_major_Left_Upper_NonTrans = rename(exo_strmm_row_major_Left_Upper_NonTrans, 
+                                                                 exo_strmm_row_major_Left_Upper_NonTrans.name() + "")
+exo_strmm_row_major_Left_Lower_NonTrans = specialize_trmm(trmm_row_major_Left_Lower_NonTrans_template, "f32")
+exo_strmm_row_major_Left_Lower_NonTrans = rename(exo_strmm_row_major_Left_Lower_NonTrans, 
+                                                        exo_strmm_row_major_Left_Lower_NonTrans.name() + "")
+exo_strmm_row_major_Left_Upper_Trans = specialize_trmm(trmm_row_major_Left_Upper_Trans_template, "f32")
+exo_strmm_row_major_Left_Upper_Trans = rename(exo_strmm_row_major_Left_Upper_Trans, 
+                                                    exo_strmm_row_major_Left_Upper_Trans.name() + "")
+exo_strmm_row_major_Left_Lower_Trans = specialize_trmm(trmm_row_major_Left_Lower_Trans_template, "f32")
+exo_strmm_row_major_Left_Lower_Trans = rename(exo_strmm_row_major_Left_Lower_Trans, 
+                                                    exo_strmm_row_major_Left_Lower_Trans.name() + "")
 
 f32_instructions = [C.Machine.load_instr_f32,
                      C.Machine.store_instr_f32,
@@ -125,17 +125,17 @@ f32_instructions = [C.Machine.load_instr_f32,
 #################################################
 
 entry_points = [
-                exo_strmm_raw_major_Left_Upper_NoneTrans,
-                # exo_dtrmm_raw_major_Left_Upper_NoneTrans,
+                exo_strmm_row_major_Left_Upper_NonTrans,
+                # exo_dtrmm_row_major_Left_Upper_NonTrans,
                 
-                exo_strmm_raw_major_Left_Lower_NoneTrans,
-                # exo_dtrmm_raw_major_Lower_NoneTrans,
+                exo_strmm_row_major_Left_Lower_NonTrans,
+                # exo_dtrmm_row_major_Lower_NonTrans,
                 
-                exo_strmm_raw_major_Left_Upper_Trans, 
-                # exo_dtrmm_raw_major_Upper_Trans,
+                exo_strmm_row_major_Left_Upper_Trans, 
+                # exo_dtrmm_row_major_Upper_Trans,
                 
-                exo_strmm_raw_major_Left_Lower_Trans,
-                # exo_dtrmm_raw_major_Lower_Trans,
+                exo_strmm_row_major_Left_Lower_Trans,
+                # exo_dtrmm_row_major_Lower_Trans,
                 ]
 
 if __name__ == "__main__":

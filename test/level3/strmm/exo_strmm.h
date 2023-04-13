@@ -14,12 +14,12 @@ void exo_strmm(const enum CBLAS_ORDER Order, const enum CBLAS_SIDE Side,
     if (Side == CBLAS_SIDE::CblasLeft) {
         if (Uplo == CBLAS_UPLO::CblasUpper) {
             if (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {
-                exo_strmm_raw_major_Left_Upper_NoneTrans(nullptr, M, N, &alpha,
+                exo_strmm_row_major_Left_Upper_NonTrans(nullptr, M, N, &alpha,
                     exo_win_2f32c{.data=A, .strides={lda, 1}},
                     exo_win_2f32{.data=B, .strides={ldb, 1}},
                     Diag == CBLAS_DIAG::CblasUnit);
             } else {
-                exo_strmm_raw_major_Left_Upper_Trans(nullptr, M, N, &alpha,
+                exo_strmm_row_major_Left_Upper_Trans(nullptr, M, N, &alpha,
                     exo_win_2f32c{.data=A, .strides={lda, 1}},
                     exo_win_2f32{.data=B, .strides={ldb, 1}},
                     Diag == CBLAS_DIAG::CblasUnit
@@ -27,12 +27,12 @@ void exo_strmm(const enum CBLAS_ORDER Order, const enum CBLAS_SIDE Side,
             }
         } else {
             if (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {
-               exo_strmm_raw_major_Left_Lower_NoneTrans(nullptr, M, N, &alpha,
+               exo_strmm_row_major_Left_Lower_NonTrans(nullptr, M, N, &alpha,
                     exo_win_2f32c{.data=A, .strides={lda, 1}},
                     exo_win_2f32{.data=B, .strides={ldb, 1}},
                     Diag == CBLAS_DIAG::CblasUnit);
             } else {
-                exo_strmm_raw_major_Left_Lower_Trans(nullptr, M, N, &alpha,
+                exo_strmm_row_major_Left_Lower_Trans(nullptr, M, N, &alpha,
                     exo_win_2f32c{.data=A, .strides={lda, 1}},
                     exo_win_2f32{.data=B, .strides={ldb, 1}},
                     Diag == CBLAS_DIAG::CblasUnit);
