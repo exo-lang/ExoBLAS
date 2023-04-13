@@ -103,10 +103,12 @@ def specialize_tbmv(tbmv, precision):
     name = name.replace("_template", "")
     specialized = rename(tbmv, "exo_" + prefix + name)
     
-    args = ["x", "A", "dot"]
+    args = ["x", "A"]
     
     if "_Trans_" in tbmv.name():
         args.append("xRes")
+    else:
+        args.append("dot")
         
     for arg in args:
         specialized = set_precision(specialized, arg, precision)

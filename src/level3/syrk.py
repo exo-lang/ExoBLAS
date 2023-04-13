@@ -138,7 +138,7 @@ class SYRK:
                 for k in seq(0, K):
                     for i in seq(0, j+1):
                         C[i, j] += A1[i,k]*A2[j,k]
-        syrk_upper_notranspose_noalpha = self.specialize_syrk(syrk_upper_notranspose_noalpha, self.precision, ["A1", "A2", "C", "alpha"])
+        syrk_upper_notranspose_noalpha = self.specialize_syrk(syrk_upper_notranspose_noalpha, self.precision, ["A1", "A2", "C"])
         syrk_upper_notranspose_noalpha = rename(syrk_upper_notranspose_noalpha, f"{self.prefix}{syrk_upper_notranspose_noalpha.name()}")
 
         @proc
@@ -154,7 +154,7 @@ class SYRK:
                 for k in seq(0, K):
                     for i in seq(0, j+1):
                         C[i, j] += A1[k,i]*A2[k,j]
-        syrk_upper_transpose_noalpha = self.specialize_syrk(syrk_upper_transpose_noalpha, self.precision, ["A1", "A2", "C", "alpha"])
+        syrk_upper_transpose_noalpha = self.specialize_syrk(syrk_upper_transpose_noalpha, self.precision, ["A1", "A2", "C"])
         syrk_upper_transpose_noalpha = rename(syrk_upper_transpose_noalpha, f"{self.prefix}{syrk_upper_transpose_noalpha.name()}")
 
         @proc 
