@@ -767,17 +767,17 @@ class SYRK:
             n_lifts=1,
         )
         diag_syrk_scheduled = simplify(diag_syrk_scheduled)
-        #diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, "iii jio")
-        #diag_syrk_scheduled = replace(
-        #    diag_syrk_scheduled,
-        #    "for iii in _:_ #0",
-        #    microkernel_diag_handler.base_microkernel,
-        #)
-        #diag_syrk_scheduled = call_eqv(
-        #    diag_syrk_scheduled,
-        ##    f"microkernel_{microkernel_diag_handler.this_id}(_)",
-        #    microkernel_diag_handler.scheduled_microkernel,
-        #)
+        diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, "iii jio")
+        diag_syrk_scheduled = replace(
+            diag_syrk_scheduled,
+            "for iii in _:_ #0",
+            microkernel_diag_handler.base_microkernel,
+        )
+        diag_syrk_scheduled = call_eqv(
+            diag_syrk_scheduled,
+            f"microkernel_{microkernel_diag_handler.this_id}(_)",
+            microkernel_diag_handler.scheduled_microkernel,
+        )
         print(simplify(diag_syrk_scheduled))
 
         # Unsafe microkernel
