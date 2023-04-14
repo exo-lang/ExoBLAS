@@ -620,6 +620,7 @@ sgemm_main = GEMM(
     m_reg, n_reg,
 )
 
+"""
 blk_sizes = [2**i for i in range(5, 9)]
 sgemm_backup_kernels = [GEMM(C.Machine, 'f32', blk, blk, blk, m_reg, n_reg, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
@@ -682,6 +683,7 @@ exo_sgemm_transb_alpha_beta_256_256 = sgemm_backup_kernels[3].entry_points[10]
 exo_sgemm_transa_transb_noalpha_nobeta_256_256 = sgemm_backup_kernels[3].entry_points[11]
 exo_sgemm_transa_transb_alpha_nobeta_256_256 = sgemm_backup_kernels[3].entry_points[12]
 exo_sgemm_transa_transb_alpha_beta_256_256 = sgemm_backup_kernels[3].entry_points[13]
+"""
 
 exo_sgemm_notranspose_noalpha_nobeta_main = sgemm_main.entry_points[0]
 exo_sgemm_alphazero_nobeta_main = sgemm_main.entry_points[1]
@@ -698,11 +700,11 @@ exo_sgemm_transa_transb_noalpha_nobeta_main = sgemm_main.entry_points[11]
 exo_sgemm_transa_transb_alpha_nobeta_main = sgemm_main.entry_points[12]
 exo_sgemm_transa_transb_alpha_beta_main = sgemm_main.entry_points[13]
 
-sgemm_backup_entry_points = []
-for kernel in sgemm_backup_kernels:
-    sgemm_backup_entry_points.extend(kernel.entry_points)
+#sgemm_backup_entry_points = []
+#for kernel in sgemm_backup_kernels:
+#    sgemm_backup_entry_points.extend(kernel.entry_points)
 
-sgemm_entry_points = [p.name() for p in sgemm_main.entry_points] + [p.name() for p in sgemm_backup_entry_points]
+sgemm_entry_points = [p.name() for p in sgemm_main.entry_points] #+ [p.name() for p in sgemm_backup_entry_points]
 
 #################################################
 # Generate f64 kernels
@@ -717,7 +719,7 @@ dgemm_main = GEMM(
     k_blk, m_blk, n_blk,
     m_reg, n_reg//2
 )
-
+"""
 dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, blk, m_reg, n_reg//2, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
 exo_dgemm_notranspose_noalpha_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[0]
@@ -779,7 +781,7 @@ exo_dgemm_transb_alpha_beta_256_256 = dgemm_backup_kernels[3].entry_points[10]
 exo_dgemm_transa_transb_noalpha_nobeta_256_256 = dgemm_backup_kernels[3].entry_points[11]
 exo_dgemm_transa_transb_alpha_nobeta_256_256 = dgemm_backup_kernels[3].entry_points[12]
 exo_dgemm_transa_transb_alpha_beta_256_256 = dgemm_backup_kernels[3].entry_points[13]
-
+"""
 exo_dgemm_notranspose_noalpha_nobeta_main = dgemm_main.entry_points[0]
 exo_dgemm_alphazero_nobeta_main = dgemm_main.entry_points[1]
 exo_dgemm_alphazero_beta_main = dgemm_main.entry_points[2]
@@ -798,11 +800,10 @@ exo_dgemm_transa_transb_alpha_beta_main = dgemm_main.entry_points[13]
 
 
 
-dgemm_backup_entry_points = []
-for kernel in dgemm_backup_kernels:
-    dgemm_backup_entry_points.extend(kernel.entry_points)
-
-dgemm_entry_points = [p.name() for p in dgemm_main.entry_points] + [p.name() for p in dgemm_backup_entry_points]
+#dgemm_backup_entry_points = []
+#for kernel in dgemm_backup_kernels:
+#    dgemm_backup_entry_points.extend(kernel.entry_points)
+dgemm_entry_points = [p.name() for p in dgemm_main.entry_points] #+ [p.name() for p in dgemm_backup_entry_points]
 
 __all__ = sgemm_entry_points + dgemm_entry_points
 #print(__all__)

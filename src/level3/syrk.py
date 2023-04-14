@@ -527,7 +527,7 @@ class SYRK:
         diag_syrk_base = diag_syrk_base.partial_eval(K=self.K_blk, N=self.M_blk)
         gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for ii in _:_ #1', diag_syrk_base)
         
-        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//2, self.M_blk//2, self.precision)
+        gebp_diag_handler = GEBP_kernel(self.microkernel, self.M_blk//4, self.M_blk//4, self.precision)
         diag_syrk_scheduled = rename(diag_syrk_base, f'{self.prefix}_diag_handler_scheduled')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'i', gebp_diag_handler.M_blk, ['io', 'ii'], tail='cut')
         diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'j', gebp_diag_handler.M_blk, ['jo', 'ji'], tail='cut')
@@ -556,67 +556,62 @@ class SYRK:
                           io] += A1[iii + 4 * iio + 64 * io,
                                     k] * A2[k, jii + iio / 2 * 8 + 64 * io]
         """
-        @proc
-        def unsafe_smicrokernel_base(A1: [f32][128, 256], A2: [f32][256, 128],
-                            C: [f32][128, 128], iio: index, io: index):
-            assert io>=0
-            assert iio>=0
-            assert iio<16
-            assert io<2
-            for iii in seq(0, 4):
-                for jii in seq(0, (iii + 4 * iio) % 16):
-                    for k in seq(0, 256):
-                        C[iii + 4 * iio + 64 * io, jii + iio / 4 * 16 +
-                        64 * io] += A1[iii + 4 * iio + 64 * io,
-                                        k] * A2[k, jii + iio / 4 * 16 + 64 * io]
-        
-        @proc
-        def unsafe_dmicrokernel_base(A1: [f64][128, 256], A2: [f64][256, 128],
-                            C: [f64][128, 128], iio: index, io: index):
-            assert io>=0
-            assert iio>=0
-            assert iio<16
-            assert io<2
-            for iii in seq(0, 4):
-                for jii in seq(0, (iii + 4 * iio) % 8):
-                    for k in seq(0, 256):
-                        C[iii + 4 * iio + 64 * io, jii + iio / 2 * 8 +
-                        64 * io] += A1[iii + 4 * iio + 64 * io,
-                                        k] * A2[k, jii + iio / 2 * 8 + 64 * io]
         
         if self.precision=='f32':
-            unsafe_microkernel_base = simplify(unsafe_smicrokernel_base)
-        else:
-            unsafe_microkernel_base = simplify(unsafe_dmicrokernel_base)
-        
-        print(unsafe_microkernel_base)
+            diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find("for iii in _:_").before(), n_lifts=1)
+            #diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for jii in _:_', microkernel_diag_handler.N_r, ['jiio', 'jiii'], tail='cut')
+            #diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for jiio in _:_').after(), n_lifts=2)
+            diag_syrk_scheduled = simplify(diag_syrk_scheduled)
+            print(diag_syrk_scheduled)
 
-        diag_syrk_scheduled = replace(diag_syrk_scheduled, "for iii in _:_ #0", unsafe_microkernel_base)
-        print(diag_syrk_scheduled)
+            diag_syrk_scheduled, unsafe_microkernel_base = extract_subproc(diag_syrk_scheduled, "unsafe_microkernel_base", diag_syrk_scheduled.find('for iii in _:_'),
+                                                            order={"iio":0, "io":1, "A1":2, "A2":3, "C":4})
+            microkernel_diag_base = microkernel_diag_handler.base_microkernel
+            microkernel_diag_scheduled = microkernel_diag_handler.scheduled_microkernel
+            print(diag_syrk_scheduled)
+            print(unsafe_microkernel_base)
 
-        #diag_syrk_scheduled, unsafe_microkernel_base = extract_subproc(diag_syrk_scheduled, "unsafe_microkernel_base", diag_syrk_scheduled.find('for iii in _:_'))
-        #print(diag_syrk_scheduled)
-        #print(unsafe_microkernel_base)
+            @proc
+            def unsafe_microkernel_scheduled(
+                M:size,
+                N:size,
+                A:[f32][4, 256],
+                B:[f32][256, 16],
+                C:[f32][4, 16]
+            ):
+                C_intermediate : f32[4, 16] @ DRAM
+                microkernel_diag_scheduled(C_intermediate, A, B)
+                C[0, 0] = C_intermediate[0, 0]
+            
+            #unsafe_microkernel_scheduled = unsafe_microkernel_scheduled.partial_eval(M=microkernel_diag_handler.M_r, N=)
+            
+            unsafe_microkernel_scheduled = set_precision(unsafe_microkernel_scheduled, "A", self.precision)
+            unsafe_microkernel_scheduled = set_precision(unsafe_microkernel_scheduled, "B", self.precision)
+            unsafe_microkernel_scheduled = set_precision(unsafe_microkernel_scheduled, "C", self.precision)
+            unsafe_microkernel_scheduled = rename(unsafe_microkernel_scheduled, self.prefix + "_" + unsafe_microkernel_scheduled.name())
 
-        @proc
-        def unsafe_microkernel_scheduled(
-            M:size,
-            N:size,
-            A:f32[M, N],
-            B:f32[N, M],
-            C:f32[M, M]
-        ):
-            pass
-        
+            unsafe_microkernel_base.unsafe_assert_eq(unsafe_microkernel_scheduled)
 
-        unsafe_microkernel_base.unsafe_assert_eq(unsafe_microkernel_scheduled)
+            diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, "unsafe_microkernel_base", unsafe_microkernel_scheduled)
 
-        diag_syrk_scheduled = call_eqv(diag_syrk_scheduled, "unsafe_microkernel_base", unsafe_microkernel_scheduled)
+            print(diag_syrk_scheduled)
 
-        print(diag_syrk_scheduled)
+            gepp_syrk_scheduled, dummy = extract_subproc(gepp_syrk_scheduled, "dummy", gepp_syrk_scheduled.find('for ii in _:_ #0'), order={"io":0, "A1":1, "A2":2, "C":3})
+            @proc
+            def dummy2(
+                M:size,
+                A:[f32][4, 256],
+                B:[f32][256, 16],
+                C:[f32][4, 16]
+            ):
+                C[0, 0] = 1.0
+            dummy.unsafe_assert_eq(dummy2)
+            gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, "dummy", dummy2)
         
 
         gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, 'diag_handler(_)', diag_syrk_scheduled)
+        
+        print(gepp_syrk_scheduled)
 
         return gepp_syrk_scheduled, gepp_syrk_base
 
