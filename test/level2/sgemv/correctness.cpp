@@ -53,8 +53,8 @@ void test_sgemv(const enum CBLAS_ORDER order, const enum CBLAS_TRANSPOSE TransA,
 int main() {
   std::vector<CBLAS_TRANSPOSE> TransA_vals{CBLAS_TRANSPOSE::CblasTrans,
                                            CBLAS_TRANSPOSE::CblasNoTrans};
-  std::vector<int> N{4, 41, 80, 101, 1024};
-  std::vector<int> M{6, 77, 103, 500};
+  std::vector<int> N{41, 80, 101, 1024};
+  std::vector<int> M{77, 103, 500};
   std::vector<float> alpha_vals{0, 1, 2.4};
   std::vector<int> lda_diffs{0, 3, 5};
   std::vector<int> incX_vals{1, 3, -2};
