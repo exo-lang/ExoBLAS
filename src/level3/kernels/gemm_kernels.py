@@ -222,19 +222,32 @@ class Microkernel:
         )
 
         # Move A_vec and B_vec into proper sites
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=3)
+        scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=4)
         scheduled_microkernel = autofission(
             scheduled_microkernel,
             scheduled_microkernel.find("A_vec[_] = _").after(),
             n_lifts=3,
         )
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "B_vec", n_lifts=3)
+        scheduled_microkernel = lift_alloc(scheduled_microkernel, "B_vec", n_lifts=4)
         scheduled_microkernel = autofission(
             scheduled_microkernel,
             scheduled_microkernel.find("B_vec[_] = _").after(),
             n_lifts=3,
         )
 
+        #Unroll loops
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C load
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C load
+
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i #0") #A load
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #B load
+        
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #computation 
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #computation
+        
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C store
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C store
+        
         # Replace
         if self.precision == "f32":
             scheduled_microkernel = replace_all(
@@ -264,7 +277,7 @@ class Microkernel:
                 scheduled_microkernel, machine.fmadd_instr_f64
             )
             scheduled_microkernel = simplify(scheduled_microkernel)
-
+        
         return scheduled_microkernel, microkernel
 
     def generate_microkernel_zpad(
