@@ -437,7 +437,7 @@ class Microkernel:
 
 
 """
-TODO: Generate transpose version of all of these 
+TODO: Generate transpose version of all of these
 """
 
 

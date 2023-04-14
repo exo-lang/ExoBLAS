@@ -33,4 +33,3 @@ add_exo_library(
   SOURCES symm.py
   PYTHONPATH ${PYTHONPATH}
 )
-

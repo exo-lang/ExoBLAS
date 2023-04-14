@@ -20,11 +20,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-          
+
     - name: Install Exo
       run: |
         git clone https://github.com/exo-lang/exo.git
-        
+
     - name: Install Python venv
       run: |
         python3 -m venv venv
@@ -37,7 +37,7 @@ jobs:
       run: |
         source venv/bin/activate
         cmake -B ${{github.workspace}}/build --preset apple-silicon
-        
+
     - name: Build
       run: |
         source venv/bin/activate

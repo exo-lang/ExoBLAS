@@ -1,16 +1,17 @@
+#include <benchmark/benchmark.h>
+#include <cblas.h>
+
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <random>
 #include <vector>
 
-#include <chrono>
-
 #include "exo_gemv.h"
-#include <cblas.h>
-#include <benchmark/benchmark.h>
 
-void naive_sgemv_square(const float* alpha, const float* beta, const float *a, const float *x, float *y, long m, long n) {
+void naive_sgemv_square(const float *alpha, const float *beta, const float *a,
+                        const float *x, float *y, long m, long n) {
   for (long i = 0; i < m; i++) {
     y[i] = *beta * y[i];
     for (long j = 0; j < n; j++) {
@@ -31,8 +32,8 @@ static std::vector<float> gen_matrix(long m, long n) {
 }
 
 class GEMVFixture : public benchmark::Fixture {
-public:
-  void SetUp(const ::benchmark::State& state) {
+ public:
+  void SetUp(const ::benchmark::State &state) {
     n = state.range(0);
     a = gen_matrix(n, n);
     x = gen_matrix(n, 1);
@@ -41,7 +42,7 @@ public:
     beta = 0.7f;
   }
 
-  void TearDown(const ::benchmark::State& state) {
+  void TearDown(const ::benchmark::State &state) {
     a.clear();
     x.clear();
     y.clear();
@@ -55,52 +56,46 @@ public:
   float beta;
 };
 
-BENCHMARK_DEFINE_F(GEMVFixture, NAIVE)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(GEMVFixture, NAIVE)(benchmark::State &state) {
   for (auto _ : state) {
     naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y.data(), n, n);
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
+      static_cast<double>(state.iterations()) * 3 * n * n,
+      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK_DEFINE_F(GEMVFixture, CBLAS)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(GEMVFixture, CBLAS)(benchmark::State &state) {
   for (auto _ : state) {
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
+    cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n, alpha, a.data(), n, x.data(),
+                1, beta, y.data(), 1);
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
+      static_cast<double>(state.iterations()) * 3 * n * n,
+      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK_DEFINE_F(GEMVFixture, APPLE_GEMM)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(GEMVFixture, APPLE_GEMM)(benchmark::State &state) {
   for (auto _ : state) {
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, 1, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
+    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, 1, n, alpha,
+                a.data(), n, x.data(), 1, beta, y.data(), 1);
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
+      static_cast<double>(state.iterations()) * 3 * n * n,
+      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State &state) {
   for (auto _ : state) {
     sgemv_stride_1(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
   }
 
   state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
+      static_cast<double>(state.iterations()) * 3 * n * n,
+      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 
   auto y2 = y;
   auto y3 = y;
@@ -119,6 +114,12 @@ BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
 
 // Register the function as a benchmark
 // BENCHMARK_REGISTER_F(GEMVFixture, NAIVE) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, CBLAS) -> ArgNames({"n"}) -> RangeMultiplier(2) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, CBLAS)
+    ->ArgNames({"n"})
+    ->RangeMultiplier(2)
+    ->Range(16, 16384);
 // BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> ArgNames({"n"}) -> RangeMultiplier(2) -> Range(16, 16384);
+BENCHMARK_REGISTER_F(GEMVFixture, EXO_8)
+    ->ArgNames({"n"})
+    ->RangeMultiplier(2)
+    ->Range(16, 16384);
