@@ -1,4 +1,5 @@
 add_exo_blas_test(gemv s)
+add_exo_blas_test(gbmv s)
 add_exo_blas_test(ger s)
 add_exo_blas_test(ger d)
 add_exo_blas_test(trmv s)

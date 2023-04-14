@@ -31,7 +31,7 @@ function(add_exo_blas_test kernel precision)
   set(exo_benchmark_results_dir ${PROJECT_SOURCE_DIR}/benchmark_results/exo)
   file(MAKE_DIRECTORY ${exo_benchmark_results_dir})
   set(exo_benchmark_json_output "${exo_benchmark_results_dir}/${precision_kernel}.json")
-  
+
   # Add the benchmark test
   add_executable(${precision_kernel}_bench ${precision_kernel}/bench.cpp)
 
@@ -86,4 +86,3 @@ endfunction()
 add_subdirectory(level1)
 add_subdirectory(level2)
 add_subdirectory(level3)
-
