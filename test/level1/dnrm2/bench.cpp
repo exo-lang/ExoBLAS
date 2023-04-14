@@ -1,54 +1,56 @@
+#include <benchmark/benchmark.h>
+#include <cblas.h>
+
 #include <vector>
 
-#include <cblas.h>
-#include <benchmark/benchmark.h>
-
+#include "exo_dnrm2.h"
 #include "generate_buffer.h"
 
-#include "exo_dnrm2.h"
+static void BM_cblas_dnrm2(benchmark::State &state) {
+  auto N = state.range(0);
+  auto incX = state.range(1);
+  size_t alignmentX = state.range(2);
 
-static void BM_cblas_dnrm2(benchmark::State& state) {
-    auto N = state.range(0);
-    auto incX = state.range(1);
-    size_t alignmentX = state.range(2);
-    
-    auto X = AlignedBuffer<double>(N, incX, alignmentX);
+  auto X = AlignedBuffer<double>(N, incX, alignmentX);
 
-    for (auto _ : state) {
-        cblas_dnrm2(N, X.data(), incX);
-    }
+  for (auto _ : state) {
+    cblas_dnrm2(N, X.data(), incX);
+  }
 }
 
-static void BM_exo_dnrm2(benchmark::State& state) {
-    auto N = state.range(0);
-    auto incX = state.range(1);
-    size_t alignmentX = state.range(2);
-    
-    auto X = AlignedBuffer<double>(N, incX, alignmentX);
+static void BM_exo_dnrm2(benchmark::State &state) {
+  auto N = state.range(0);
+  auto incX = state.range(1);
+  size_t alignmentX = state.range(2);
 
-    for (auto _ : state) {
-        exo_dnrm2(N, X.data(), incX);
-    }
+  auto X = AlignedBuffer<double>(N, incX, alignmentX);
+
+  for (auto _ : state) {
+    exo_dnrm2(N, X.data(), incX);
+  }
 }
 
-BENCHMARK(BM_cblas_dnrm2)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {1}, {64}
-    })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {64}
-    });
-BENCHMARK(BM_exo_dnrm2)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
-      benchmark::CreateRange(1, (1 << 26), 2), {1}, {64}
-    })->ArgsProduct({
-      benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {64}
-    });
+BENCHMARK(BM_cblas_dnrm2)
+    ->ArgNames({"n", "incX", "alignmentX"})
+    ->ArgsProduct({benchmark::CreateRange(1, (1 << 26), 2), {1}, {64}})
+    ->ArgsProduct({benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {64}});
+BENCHMARK(BM_exo_dnrm2)
+    ->ArgNames({"n", "incX", "alignmentX"})
+    ->ArgsProduct({benchmark::CreateRange(1, (1 << 26), 2), {1}, {64}})
+    ->ArgsProduct({benchmark::CreateRange(7, (1 << 26) - 1, 7), {1}, {64}});
 
-// BENCHMARK(BM_cblas_dnrm2)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {64}
+// BENCHMARK(BM_cblas_dnrm2)->ArgNames({"n", "incX",
+// "alignmentX"})->ArgsProduct({
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10},
+//       {64}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {64}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4,
+//       10}, {64}
 //     });
 // BENCHMARK(BM_exo_dnrm2)->ArgNames({"n", "incX", "alignmentX"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10}, {64}
+//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10},
+//       {64}
 //     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4, 10}, {64}
+//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4,
+//       10}, {64}
 //     });

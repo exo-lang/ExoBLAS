@@ -1,124 +1,117 @@
-#include <algorithm>
-#include <cstdio>
-#include <cstdlib>
-#include <random>
+#include <benchmark/benchmark.h>
+#include <cblas.h>
+
 #include <vector>
 
-#include <chrono>
+#include "exo_sgemv.h"
+#include "generate_buffer.h"
 
-#include "exo_gemv.h"
-#include <cblas.h>
-#include <benchmark/benchmark.h>
+static void BM_cblas_sgemv(benchmark::State &state) {
+  const int N = state.range(0);
+  const int M = N;
+  const enum CBLAS_ORDER order = state.range(1) == 0
+                                     ? CBLAS_ORDER::CblasRowMajor
+                                     : CBLAS_ORDER::CblasColMajor;
+  const enum CBLAS_TRANSPOSE TransA = state.range(2) == 0
+                                          ? CBLAS_TRANSPOSE::CblasNoTrans
+                                          : CBLAS_TRANSPOSE::CblasTrans;
+  const float alpha = state.range(3);
+  const int lda = state.range(4) + N;
+  const int incX = state.range(5);
+  const float beta = state.range(6);
+  const int incY = state.range(7);
+  size_t alignmentA = state.range(8);
+  size_t alignmentX = state.range(9);
+  size_t alignmentY = state.range(10);
 
-void naive_sgemv_square(const float* alpha, const float* beta, const float *a, const float *x, float *y, long m, long n) {
-  for (long i = 0; i < m; i++) {
-    y[i] = *beta * y[i];
-    for (long j = 0; j < n; j++) {
-      y[i] += *alpha * a[i * n + j] * x[j];
+  auto A = AlignedBuffer<float>(N * lda, 1, alignmentA);
+  int sizeX = N;
+  int sizeY = M;
+  if (TransA == CBLAS_TRANSPOSE::CblasTrans) {
+    sizeX = M;
+    sizeY = N;
+  }
+
+  auto X = AlignedBuffer<float>(sizeX, incX);
+  auto Y = AlignedBuffer<float>(sizeY, incY);
+
+  for (auto _ : state) {
+    cblas_sgemv(order, TransA, N, N, alpha, A.data(), lda, X.data(), incX, beta,
+                Y.data(), incY);
+  }
+}
+
+static void BM_exo_sgemv(benchmark::State &state) {
+  const int N = state.range(0);
+  const int M = N;
+  const enum CBLAS_ORDER order = state.range(1) == 0
+                                     ? CBLAS_ORDER::CblasRowMajor
+                                     : CBLAS_ORDER::CblasColMajor;
+  const enum CBLAS_TRANSPOSE TransA = state.range(2) == 0
+                                          ? CBLAS_TRANSPOSE::CblasNoTrans
+                                          : CBLAS_TRANSPOSE::CblasTrans;
+  const float alpha = state.range(3);
+  const int lda = state.range(4) + N;
+  const int incX = state.range(5);
+  const float beta = state.range(6);
+  const int incY = state.range(7);
+  size_t alignmentA = state.range(8);
+  size_t alignmentX = state.range(9);
+  size_t alignmentY = state.range(10);
+
+  auto A = AlignedBuffer<float>(M * lda, 1, alignmentA);
+  int sizeX = N;
+  int sizeY = M;
+  if (TransA == CBLAS_TRANSPOSE::CblasTrans) {
+    sizeX = M;
+    sizeY = N;
+  }
+
+  auto X = AlignedBuffer<float>(sizeX, incX);
+  auto Y = AlignedBuffer<float>(sizeY, incY);
+
+  for (auto _ : state) {
+    exo_sgemv(order, TransA, N, N, alpha, A.data(), lda, X.data(), incX, beta,
+              Y.data(), incY);
+  }
+}
+
+static void CustomArgumentsPacked(benchmark::internal::Benchmark *b) {
+  for (int order = 0; order < 1; ++order) {
+    for (int TransA = 0; TransA <= 1; ++TransA) {
+      for (int alpha = 3; alpha <= 3; ++alpha) {
+        for (int lda_diff = 0; lda_diff <= 0; ++lda_diff) {
+          for (int incX = 1; incX <= 1; ++incX) {
+            for (int beta = 5; beta <= 5; ++beta) {
+              for (int incY = 1; incY <= 1; ++incY) {
+                for (int alignmentA = 64; alignmentA <= 64; ++alignmentA) {
+                  for (int alignmentX = 64; alignmentX <= 64; ++alignmentX) {
+                    for (int alignmentY = 64; alignmentY <= 64; ++alignmentY) {
+                      for (int N = 1; N <= (1 << 13); N *= 2) {
+                        b->Args({N, order, TransA, alpha, lda_diff, incX, beta,
+                                 incY, alignmentA, alignmentX, alignmentY});
+                      }
+                      for (int N = 1; N <= (1 << 13); N *= 7) {
+                        b->Args({N, order, TransA, alpha, lda_diff, incX, beta,
+                                 incY, alignmentA, alignmentX, alignmentY});
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
 
-static std::vector<float> gen_matrix(long m, long n) {
-  static std::random_device rd;
-  static std::mt19937 rng{rd()};
-  std::uniform_real_distribution<> rv{-1.0f, 1.0f};
-
-  std::vector<float> mat(m * n);
-  std::generate(std::begin(mat), std::end(mat), [&]() { return rv(rng); });
-
-  return mat;
-}
-
-class GEMVFixture : public benchmark::Fixture {
-public:
-  void SetUp(const ::benchmark::State& state) {
-    n = state.range(0);
-    a = gen_matrix(n, n);
-    x = gen_matrix(n, 1);
-    y = gen_matrix(n, 1);
-    alpha = 0.9f;
-    beta = 0.7f;
-  }
-
-  void TearDown(const ::benchmark::State& state) {
-    a.clear();
-    x.clear();
-    y.clear();
-  }
-
-  int n;
-  std::vector<float> a;
-  std::vector<float> x;
-  std::vector<float> y;
-  float alpha;
-  float beta;
-};
-
-BENCHMARK_DEFINE_F(GEMVFixture, NAIVE)(benchmark::State& state) {
-  for (auto _ : state) {
-    naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y.data(), n, n);
-  }
-
-  state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
-}
-
-BENCHMARK_DEFINE_F(GEMVFixture, CBLAS)(benchmark::State& state) {
-  for (auto _ : state) {
-    cblas_sgemv(CblasRowMajor, CblasNoTrans, n, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
-  }
-
-  state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
-}
-
-BENCHMARK_DEFINE_F(GEMVFixture, APPLE_GEMM)(benchmark::State& state) {
-  for (auto _ : state) {
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, n, 1, n, alpha, a.data(), n, x.data(), 1, beta, y.data(), 1);
-  }
-
-  state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
-}
-
-BENCHMARK_DEFINE_F(GEMVFixture, EXO_8)(benchmark::State& state) {
-  for (auto _ : state) {
-    sgemv_stride_1(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y.data());
-  }
-
-  state.counters["flops"] = benchmark::Counter(
-    static_cast<double>(state.iterations()) * 3 * n * n,
-    benchmark::Counter::kIsRate,
-    benchmark::Counter::kIs1000
-  );
-
-  auto y2 = y;
-  auto y3 = y;
-  naive_sgemv_square(&alpha, &beta, a.data(), x.data(), y2.data(), n, n);
-  sgemv_stride_1(nullptr, &alpha, &beta, n, n, a.data(), x.data(), y3.data());
-
-  for (int i = 0; i < y2.size(); i++) {
-    float expected = y2[i];
-    float actual = y3[i];
-    double relerr = fabsf(actual - expected) / expected;
-    if (relerr > 1e-2) {
-      printf("index %d: %.6f != %.6f (expected)\n", i, actual, expected);
-    }
-  }
-}
-
-// Register the function as a benchmark
-// BENCHMARK_REGISTER_F(GEMVFixture, NAIVE) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, CBLAS) -> ArgNames({"n"}) -> RangeMultiplier(2) -> Range(16, 16384);
-// BENCHMARK_REGISTER_F(GEMVFixture, APPLE_GEMM) -> Range(16, 16384);
-BENCHMARK_REGISTER_F(GEMVFixture, EXO_8) -> ArgNames({"n"}) -> RangeMultiplier(2) -> Range(16, 16384);
+BENCHMARK(BM_cblas_sgemv)
+    ->ArgNames({"N", "order", "TransA", "alpha", "lda_diff", "incX", "beta",
+                "incY", "alignmentA", "alignmentX", "alignmentY"})
+    ->Apply(CustomArgumentsPacked);
+BENCHMARK(BM_exo_sgemv)
+    ->ArgNames({"N", "order", "TransA", "alpha", "lda_diff", "incX", "beta",
+                "incY", "alignmentA", "alignmentX", "alignmentY"})
+    ->Apply(CustomArgumentsPacked);

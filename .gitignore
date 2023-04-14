@@ -5,3 +5,4 @@ graphs/
 .DS_Store
 .vscode/*
 benchmark_results/
+Testing/
