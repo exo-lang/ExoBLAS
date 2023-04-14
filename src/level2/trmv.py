@@ -45,12 +45,19 @@ def trmv_row_major_Upper_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n,
 def trmv_row_major_Lower_NonTrans_Unit_template(n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
+    xCopy: R[n]
+    for k in seq(0, n):
+        xCopy[k] = 0.0
+
     for i in seq(0, n):
         dot: R
         dot = 0.0
-        for j in seq(0, n - i - 1):
-            dot += A[n - i - 1, j] * x[j]
-        x[n - i - 1] += dot
+        for j in seq(0, i):
+            dot += A[i, j] * x[j]
+        xCopy[i] = dot
+
+    for l in seq(0, n):
+        x[l] += xCopy[l]
 
 
 @proc
@@ -128,21 +135,45 @@ def schedule_interleave_trmv_row_major_stride_1(
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
 
+    if "row_major_Lower_NonTrans_Unit" not in stride_1.name():
+        return simplify(stride_1)
+
     stride_1 = parallelize_reduction(
         stride_1,
         stride_1.find_loop("j"),
         "dot",
         VEC_W,
-        VECTORIZATION_INTERLEAVE_FACTOR,
+        1,
         memory,
         precision,
     )
-    loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
+    loop_cursor = stride_1.find_loop("jo").body()[0]
     stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
-    stride_1 = interleave_execution(
-        stride_1, stride_1.find_loop("jm"), VECTORIZATION_INTERLEAVE_FACTOR
-    )
     stride_1 = simplify(stride_1)
+    stride_1 = interleave_outer_loop_with_inner_loop(
+        stride_1, stride_1.find_loop("i"), stride_1.find_loop("jo"), VEC_W
+    )
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    print(stride_1)
+    stride_1 = apply_to_block(stride_1, stride_1.find_loop("ii").body(), hoist_stmt)
+    print(stride_1)
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = replace_all(stride_1, instructions)
+    stride_1 = set_memory(stride_1, "dot", DRAM_STATIC)
+
+    # main_loop = stride_1.find_loop("k")
+    # stride_1 = vectorize(stride_1, main_loop, VEC_W, memory, precision)
+    # stride_1 = interleave_execution(
+    #     stride_1, stride_1.find_loop("ko"), 4
+    # )
+
+    # main_loop = stride_1.find_loop("l")
+    # stride_1 = vectorize(stride_1, main_loop, VEC_W, memory, precision)
+    # stride_1 = interleave_execution(
+    #     stride_1, stride_1.find_loop("lo"), 4
+    # )
+
     stride_1 = replace_all(stride_1, instructions)
 
     return simplify(stride_1)
@@ -207,6 +238,7 @@ f32_instructions = [
     C.Machine.fmadd_instr_f32,
     C.Machine.reg_copy_instr_f32,
     C.Machine.set_zero_instr_f32,
+    C.Machine.assoc_reduce_add_f32_buffer,
     C.Machine.assoc_reduce_add_instr_f32,
 ]
 
@@ -304,6 +336,7 @@ f64_instructions = [
     C.Machine.fmadd_instr_f64,
     C.Machine.reg_copy_instr_f64,
     C.Machine.set_zero_instr_f64,
+    C.Machine.assoc_reduce_add_f64_buffer,
     C.Machine.assoc_reduce_add_instr_f64,
 ]
 
@@ -347,6 +380,8 @@ exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_1 = (
         "f64",
     )
 )
+
+print(exo_strmv_row_major_Lower_NonTrans_Unit_stride_1)
 
 entry_points = [
     exo_strmv_row_major_Upper_NonTrans_Unit_stride_any,

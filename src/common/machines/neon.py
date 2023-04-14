@@ -33,6 +33,16 @@ def neon_assoc_reduce_add_instr_4xf32_buffer(
         result[0] += x[i]
 
 
+@instr("{result_data} += vaddvq_f64({x_data});")
+def neon_assoc_reduce_add_instr_2xf64_buffer(
+    result: [f64][1] @ DRAM, x: [f64][2] @ Neon
+):
+    assert stride(x, 0) == 1
+    assert stride(result, 0) == 1
+    for i in seq(0, 2):
+        result[0] += x[i]
+
+
 Machine = MachineParameters(
     name="neon",
     mem_type=Neon,
@@ -63,6 +73,7 @@ Machine = MachineParameters(
     fmadd_instr_f64=neon_vfmadd_2xf64_2xf64,
     set_zero_instr_f64=neon_zero_2xf64,
     assoc_reduce_add_instr_f64=neon_assoc_reduce_add_instr_2xf64,
+    assoc_reduce_add_f64_buffer=neon_assoc_reduce_add_instr_2xf64_buffer,
     mul_instr_f64=neon_vmul_2xf64,
     add_instr_f64=neon_vadd_2xf64,
     reduce_add_wide_instr_f64=neon_reduce_vadd_2xf64,

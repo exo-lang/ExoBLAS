@@ -525,6 +525,8 @@ def interleave_outer_loop_with_inner_loop(
     if not isinstance(inner_loop_cursor.next(), pc.InvalidCursor):
         proc = fission(proc, inner_loop_cursor.after())
 
+    proc = simplify(proc)
+    print(proc)
     inner_loop_cursor = proc.forward(inner_loop_cursor)
     proc = reorder_loops(proc, inner_loop_cursor.parent())
 
