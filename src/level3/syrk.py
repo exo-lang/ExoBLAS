@@ -13,6 +13,15 @@ from exo.stdlib.scheduling import *
 
 from kernels.gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
+from composed_schedules import (
+    vectorize,
+    interleave_execution,
+    parallelize_reduction,
+    interleave_outer_loop_with_inner_loop,
+    apply_to_block,
+    hoist_stmt,
+    stage_expr,
+)
 
 import exo_blas_config as C
 
@@ -778,7 +787,7 @@ class SYRK:
             f"microkernel_{microkernel_diag_handler.this_id}(_)",
             microkernel_diag_handler.scheduled_microkernel,
         )
-        print(simplify(diag_syrk_scheduled))
+        # print(simplify(diag_syrk_scheduled))
 
         # Unsafe microkernel
         """
@@ -811,14 +820,66 @@ class SYRK:
             microkernel_diag_scheduled = microkernel_diag_handler.scheduled_microkernel
             print(diag_syrk_scheduled)
             print(unsafe_microkernel_base)
+            print(microkernel_diag_scheduled)
+
+            @proc
+            def microkernel_diag_manual(
+                C_reg: f32[4, 2, 8] @ AVX2,
+                A: [f32][4, 256] @ DRAM,
+                B: [f32][256, 16] @ DRAM,
+            ):
+                assert stride(C_reg, 2) == 1
+                assert stride(B, 1) == 1
+                assert stride(A, 1) == 1
+                A_vec: f32[4, 8] @ AVX2
+                B_vec: f32[2, 8] @ AVX2
+                for k in seq(0, 256):
+                    mm256_broadcast_ss(A_vec[0, 0:8], A[0:1, k])
+                    mm256_broadcast_ss(A_vec[1, 0:8], A[1, k : 1 + k])
+                    mm256_broadcast_ss(A_vec[2, 0:8], A[2, k : 1 + k])
+                    mm256_broadcast_ss(A_vec[3, 0:8], A[3, k : 1 + k])
+                    mm256_loadu_ps(B_vec[0, 0:8], B[k, 0:8])
+                    mm256_loadu_ps(B_vec[1, 0:8], B[k, 8:16])
+                    mm256_fmadd_ps(C_reg[0, 0, 0:8], A_vec[0, 0:8], B_vec[0, 0:8])
+                    mm256_fmadd_ps(C_reg[0, 1, 0:8], A_vec[0, 0:8], B_vec[1, 0:8])
+                    mm256_fmadd_ps(C_reg[1, 0, 0:8], A_vec[1, 0:8], B_vec[0, 0:8])
+                    mm256_fmadd_ps(C_reg[1, 1, 0:8], A_vec[1, 0:8], B_vec[1, 0:8])
+                    mm256_fmadd_ps(C_reg[2, 0, 0:8], A_vec[2, 0:8], B_vec[0, 0:8])
+                    mm256_fmadd_ps(C_reg[2, 1, 0:8], A_vec[2, 0:8], B_vec[1, 0:8])
+                    mm256_fmadd_ps(C_reg[3, 0, 0:8], A_vec[3, 0:8], B_vec[0, 0:8])
+                    mm256_fmadd_ps(C_reg[3, 1, 0:8], A_vec[3, 0:8], B_vec[1, 0:8])
 
             @proc
             def unsafe_microkernel_scheduled(
-                M: size, N: size, A: [f32][4, 256], B: [f32][256, 16], C: [f32][4, 16]
+                iio: size,
+                io: size,
+                A: [f32][4, 256],
+                B: [f32][256, 16],
+                C: [f32][4, 16],
             ):
-                C_intermediate: f32[4, 16] @ DRAM
-                microkernel_diag_scheduled(C_intermediate, A, B)
-                C[0, 0] = C_intermediate[0, 0]
+                assert iio < 8
+                assert io < 4
+                assert stride(C, 1) == 1
+                assert stride(B, 1) == 1
+                assert stride(A, 1) == 1
+                # C[0, 0] = 0.0
+                C_intermediate: f32[4, 2, 8] @ DRAM
+                microkernel_diag_manual(C_intermediate, A, B)
+                for i in seq(0, 4):
+                    for j in seq(0, (i + iio + io) / 8):
+                        for k in seq(0, 8):
+                            C[i, j * 8 + k] = C_intermediate[i, j, k]
+
+            # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j', self.machine.vec_width, ['jo', 'ji'], tail='cut')
+            unsafe_microkernel_scheduled = set_memory(
+                unsafe_microkernel_scheduled, "C_intermediate: _ #0", AVX2
+            )
+            unsafe_microkernel_scheduled = replace(
+                unsafe_microkernel_scheduled,
+                "for k in _:_ #0",
+                self.machine.store_instr_f32,
+            )
+            print(unsafe_microkernel_scheduled)
 
             # unsafe_microkernel_scheduled = unsafe_microkernel_scheduled.partial_eval(M=microkernel_diag_handler.M_r, N=)
 
@@ -846,23 +907,202 @@ class SYRK:
 
             print(diag_syrk_scheduled)
 
-            gepp_syrk_scheduled, dummy = extract_subproc(
-                gepp_syrk_scheduled,
-                "dummy",
-                gepp_syrk_scheduled.find("for ii in _:_ #0"),
-                order={"io": 0, "A1": 1, "A2": 2, "C": 3},
-            )
+            # gepp_syrk_scheduled, dummy = extract_subproc(
+            #    gepp_syrk_scheduled,
+            #    "dummy",
+            #    gepp_syrk_scheduled.find("for ii in _:_ #0"),
+            #    order={"io": 0, "A1": 1, "A2": 2, "C": 3},
+            # )
 
             @proc
             def dummy2(M: size, A: [f32][4, 256], B: [f32][256, 16], C: [f32][4, 16]):
                 C[0, 0] = 1.0
 
-            dummy.unsafe_assert_eq(dummy2)
-            gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, "dummy", dummy2)
+            # dummy.unsafe_assert_eq(dummy2)
+            # gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, "dummy", dummy2)
 
         gepp_syrk_scheduled = call_eqv(
             gepp_syrk_scheduled, "diag_handler(_)", diag_syrk_scheduled
         )
+
+        print(gepp_syrk_scheduled)
+
+        ### Vectorize K loop
+        if self.precision == "f32":
+            # k_gebp = rename(self.microkernel.sgemm_window, "gebp_k_dim")
+            # k_gebp = k_gebp.partial_eval(M=self.M_blk, N=1, K=self.K_blk)
+            # k_gebp = reorder_loops(k_gebp, 'i j')
+
+            gepp_syrk_scheduled = autofission(
+                gepp_syrk_scheduled,
+                gepp_syrk_scheduled.find("for ii in _:_ #0").after(),
+                n_lifts=1,
+            )
+            gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, "ii j")
+            gepp_syrk_scheduled = divide_loop(
+                gepp_syrk_scheduled,
+                "ii",
+                self.machine.vec_width,
+                ["iio", "iii"],
+                perfect=True,
+            )
+            gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, "j iio")
+            # gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ii', self.machine.vec_width, ['iio', 'iii'], perfect=True)
+            # gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for j in _:_ #0', k_gebp)
+            print(gepp_syrk_scheduled)
+
+            # k_gebp_scheduled = rename(k_gebp, "gebp_k_dim_scheduled")
+            # k_gebp_scheduled = divide_loop(k_gebp_scheduled, 'k', self.microkernel.N_r, ['ko', 'ki'], perfect=True)
+            # k_gebp_scheduled = divide_loop(k_gebp_scheduled, 'i', self.machine.vec_width, ['io', 'ii'], perfect=True)
+            # k_gebp_scheduled = reorder_loops(k_gebp_scheduled, 'j io')
+            # k_gebp_scheduled = reorder_loops(k_gebp_scheduled, 'ii ko')
+            # k_gebp_scheduled = reorder_loops(k_gebp_scheduled, 'j ko')
+
+            # gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, 'gebp_k_dim(_)', k_gebp_scheduled)
+
+            k_microkernel = rename(self.microkernel.sgemm_window, "k_microkernel")
+            k_microkernel = k_microkernel.partial_eval(
+                M=self.machine.vec_width, N=1, K=self.K_blk
+            )
+            k_microkernel = reorder_loops(k_microkernel, "i j")
+            gepp_syrk_scheduled = replace(
+                gepp_syrk_scheduled, "for j in _:_ #0", k_microkernel
+            )
+
+            k_microkernel_scheduled = rename(k_microkernel, "k_microkernel_scheduled")
+            # k_microkernel_scheduled = divide_loop(k_microkernel_scheduled, 'k',
+            #                                        self.machine.vec_width,
+            #                                        ['ko', 'ki'],
+            #                                        perfect=True)
+            c_reg_str = f"C[i, j]"
+            k_microkernel_scheduled = stage_mem(
+                k_microkernel_scheduled, "C[_] += _", c_reg_str, "C_reg"
+            )
+            k_microkernel_scheduled = set_memory(
+                k_microkernel_scheduled, "C_reg", self.machine.mem_type
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "C_reg",
+                self.machine.vec_width,
+                "i",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = lift_alloc(
+                k_microkernel_scheduled, "C_reg", n_lifts=3
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("C_reg[_] = _").after(),
+                n_lifts=3,
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("C[_] = _").before(),
+                n_lifts=3,
+            )
+
+            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "i ko")
+            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "i ki")
+            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "i k")
+            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "j k")
+            print(k_microkernel_scheduled)
+
+            # Setup A buffer in vector mem
+            k_microkernel_scheduled = bind_expr(
+                k_microkernel_scheduled, "A[_]", "A_vec"
+            )
+            k_microkernel_scheduled = set_memory(
+                k_microkernel_scheduled, "A_vec", self.machine.mem_type
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "A_vec",
+                self.machine.vec_width,
+                "i",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "A_vec",
+                self.K_blk,
+                "k",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = set_precision(
+                k_microkernel_scheduled, "A_vec", self.precision
+            )
+            print(k_microkernel_scheduled)
+
+            # Setup B buffer in vector mem
+            k_microkernel_scheduled = bind_expr(
+                k_microkernel_scheduled, "B[_]", "B_vec"
+            )
+
+            k_microkernel_scheduled = set_memory(
+                k_microkernel_scheduled, "B_vec", self.machine.mem_type
+            )
+
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "B_vec",
+                self.machine.vec_width,
+                f"i",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "B_vec",
+                1,
+                f"j",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = set_precision(
+                k_microkernel_scheduled, "B_vec", self.precision
+            )
+            print(k_microkernel_scheduled)
+
+            # Move A_vec and B_vec into proper sites
+            k_microkernel_scheduled = lift_alloc(
+                k_microkernel_scheduled, "A_vec", n_lifts=3
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("A_vec[_] = _").after(),
+                n_lifts=3,
+            )
+            k_microkernel_scheduled = lift_alloc(
+                k_microkernel_scheduled, "B_vec", n_lifts=3
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("B_vec[_] = _").after(),
+                n_lifts=3,
+            )
+            print(k_microkernel_scheduled)
+
+            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, 'i ko #2')
+            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, 'i ki')
+            # print(k_microkernel_scheduled)
+
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.load_instr_f32
+            )
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.broadcast_instr_f32
+            )
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.store_instr_f32
+            )
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.fmadd_instr_f32
+            )
+            k_microkernel_scheduled = simplify(k_microkernel_scheduled)
+            print(k_microkernel_scheduled)
+
+            gepp_syrk_scheduled = call_eqv(
+                gepp_syrk_scheduled, "k_microkernel(_)", k_microkernel_scheduled
+            )
 
         print(gepp_syrk_scheduled)
 
