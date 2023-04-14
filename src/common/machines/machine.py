@@ -47,6 +47,7 @@ class MachineParameters:
     mul_instr_f64: Any
     add_instr_f64: Any
     reduce_add_wide_instr_f64: Any
+    assoc_reduce_add_f64_buffer: Any
     reg_copy_instr_f64: Any
     sign_instr_f64: Any
     select_instr_f64: Any

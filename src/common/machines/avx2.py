@@ -35,6 +35,25 @@ def avx2_assoc_reduce_add_ps_buffer(x: [f32][8] @ AVX2, result: [f32][1]):
         result[0] += x[i]
 
 
+@instr(
+    """
+    {{
+        __m256d tmp = _mm256_hadd_pd({x_data}, {x_data});
+        __m256d upper_bits = _mm256_castpd128_pd256(_mm256_extractf128_pd (tmp, 1));
+        tmp = _mm256_add_pd(tmp, upper_bits);
+        {result_data} += _mm256_cvtsd_f64(tmp);
+    }}
+    """
+)
+def avx2_assoc_reduce_add_pd_buffer(x: [f64][4] @ AVX2, result: [f64][1]):
+    # WARNING: This instruction assumes float addition associativity
+    assert stride(x, 0) == 1
+    assert stride(result, 0) == 1
+
+    for i in seq(0, 4):
+        result[0] += x[i]
+
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -68,6 +87,7 @@ Machine = MachineParameters(
     mul_instr_f64=mm256_mul_pd,
     add_instr_f64=mm256_add_pd,
     reduce_add_wide_instr_f64=avx2_reduce_add_wide_pd,
+    assoc_reduce_add_f64_buffer=avx2_assoc_reduce_add_pd_buffer,
     reg_copy_instr_f64=avx2_reg_copy_pd,
     sign_instr_f64=avx2_sign_pd,
     select_instr_f64=avx2_select_pd,
