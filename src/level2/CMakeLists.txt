@@ -12,6 +12,13 @@ PYTHONPATH
     "${PROJECT_SOURCE_DIR}/src/common")
 
 add_exo_library(
+NAME exo_gbmv
+SOURCES gbmv.py
+PYTHONPATH
+    "${PROJECT_BINARY_DIR}/src/common"
+    "${PROJECT_SOURCE_DIR}/src/common")
+
+add_exo_library(
   NAME exo_ger
   SOURCES ger.py
   PYTHONPATH
