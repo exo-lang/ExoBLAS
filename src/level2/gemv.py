@@ -82,34 +82,34 @@ def schedule_NonTrans(
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
 
-    stride_1 = parallelize_reduction(
-        stride_1,
-        stride_1.find_loop("j"),
-        "result",
-        VEC_W,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        memory,
-        precision,
-    )
-    loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
-    stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
-    stride_1 = interleave_execution(
-        stride_1, stride_1.find_loop("jm"), VECTORIZATION_INTERLEAVE_FACTOR
-    )
-    stride_1 = interleave_outer_loop_with_inner_loop(
-        stride_1,
-        stride_1.find_loop("i"),
-        stride_1.find_loop("jo"),
-        ROWS_INTERLEAVE_FACTOR,
-    )
-    stride_1 = apply_to_block(
-        stride_1, stride_1.find_loop("jo").body()[0].body(), hoist_stmt
-    )
-    stride_1 = set_memory(stride_1, "result", DRAM_STATIC)
-    stride_1 = replace_all(stride_1, instructions)
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    # stride_1 = parallelize_reduction(
+    #     stride_1,
+    #     stride_1.find_loop("j"),
+    #     "result",
+    #     VEC_W,
+    #     VECTORIZATION_INTERLEAVE_FACTOR,
+    #     memory,
+    #     precision,
+    # )
+    # loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
+    # stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
+    # stride_1 = interleave_execution(
+    #     stride_1, stride_1.find_loop("jm"), VECTORIZATION_INTERLEAVE_FACTOR
+    # )
+    # stride_1 = interleave_outer_loop_with_inner_loop(
+    #     stride_1,
+    #     stride_1.find_loop("i"),
+    #     stride_1.find_loop("jo"),
+    #     ROWS_INTERLEAVE_FACTOR,
+    # )
+    # stride_1 = apply_to_block(
+    #     stride_1, stride_1.find_loop("jo").body()[0].body(), hoist_stmt
+    # )
+    # stride_1 = set_memory(stride_1, "result", DRAM_STATIC)
+    # stride_1 = replace_all(stride_1, instructions)
+    # stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    # stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    # stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
 
     return simplify(stride_1)
 
@@ -126,6 +126,19 @@ def schedule_Trans(
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
+
+    # stride_1 = vectorize(stride_1, stride_1.find_loop("j"), VEC_W, memory, precision)
+    # stride_1 = interleave_execution(
+    #     stride_1, stride_1.find_loop("jo"), VECTORIZATION_INTERLEAVE_FACTOR
+    # )
+    # stride_1 = interleave_outer_loop_with_inner_loop(
+    #     stride_1, stride_1.find_loop("i #1"), stride_1.find_loop("joo"), ROWS_INTERLEAVE_FACTOR
+    # )
+    # stride_1 = apply_to_block(
+    #     stride_1, stride_1.find_loop("joo").body()[0].body(), hoist_stmt
+    # )
+    # stride_1 = hoist_stmt(stride_1, stride_1.find("y[_] #1").parent().parent())
+    # stride_1 = replace_all(stride_1, instructions)
 
     return simplify(stride_1)
 
