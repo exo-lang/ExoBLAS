@@ -10,12 +10,12 @@ static void BM_cblas_sger(benchmark::State &state) {
   int M = state.range(0);
   int N = state.range(0);
   float alpha = state.range(1);
-  int incX = state.range(2);
-  int incY = state.range(3);
+  int incX = 1;
+  int incY = 1;
   int lda = N;
-  size_t alignmentX = state.range(4);
-  size_t alignmentY = state.range(5);
-  size_t alignmentA = state.range(6);
+  size_t alignmentX = 64;
+  size_t alignmentY = 64;
+  size_t alignmentA = 64;
 
   auto X = AlignedBuffer<float>(M, incX, alignmentX);
   auto Y = AlignedBuffer<float>(N, incY, alignmentY);
@@ -31,12 +31,12 @@ static void BM_exo_sger(benchmark::State &state) {
   int M = state.range(0);
   int N = state.range(0);
   float alpha = state.range(1);
-  int incX = state.range(2);
-  int incY = state.range(3);
+  int incX = 1;
+  int incY = 1;
   int lda = N;
-  size_t alignmentX = state.range(4);
-  size_t alignmentY = state.range(5);
-  size_t alignmentA = state.range(6);
+  size_t alignmentX = 64;
+  size_t alignmentY = 64;
+  size_t alignmentA = 64;
 
   auto X = AlignedBuffer<float>(M, incX, alignmentX);
   auto Y = AlignedBuffer<float>(N, incY, alignmentY);
@@ -51,33 +51,13 @@ BENCHMARK(BM_cblas_sger)
     ->ArgNames({"n", "alpha", "incX", "incY", "alignmentX", "alignmentY",
                 "alignmentA"})
     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2),
-                   {0, 1, 3},
-                   {1},
-                   {1},
-                   {64},
-                   {64},
-                   {64}})
+                   {1, 3}})
     ->ArgsProduct({benchmark::CreateRange(7, (1 << 13) - 1, 7),
-                   {0, 1, 3},
-                   {1},
-                   {1},
-                   {64},
-                   {64},
-                   {64}});
+                   {1, 3}});
 BENCHMARK(BM_exo_sger)
     ->ArgNames({"n", "alpha", "incX", "incY", "alignmentX", "alignmentY",
                 "alignmentA"})
     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2),
-                   {0, 1, 3},
-                   {1},
-                   {1},
-                   {64},
-                   {64},
-                   {64}})
+                   {1, 3}})
     ->ArgsProduct({benchmark::CreateRange(7, (1 << 13) - 1, 7),
-                   {0, 1, 3},
-                   {1},
-                   {1},
-                   {64},
-                   {64},
-                   {64}});
+                   {1, 3},});
