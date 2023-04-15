@@ -13,16 +13,6 @@
 #include "exo_ssymm.h"
 #include "generate_buffer.h"
 
-static std::vector<float> gen_matrix(long m, long n) {
-  static std::random_device rd;
-  static std::mt19937 rng{rd()};
-  std::uniform_real_distribution<> rv{-1.0f, 1.0f};
-
-  std::vector<float> mat(m * n);
-  std::generate(std::begin(mat), std::end(mat), [&]() { return rv(rng); });
-
-  return mat;
-}
 
 static void print_matrix(std::vector<float> M, int n, int k) {
   for (int i = 0; i < k; i++) {
@@ -55,9 +45,9 @@ static void BM_SSYMM_CBLAS(benchmark::State &state) {
 
 static void BM_SSYMM_EXO(benchmark::State &state) {
   int n = state.range(0);
-  auto a = gen_matrix(n, n);
-  auto b = gen_matrix(n, n);
-  auto c = gen_matrix(n, n);
+  auto a = AlignedBuffer2D<float>(n, n);
+  auto b = AlignedBuffer2D<float>(n, n);
+  auto c = AlignedBuffer2D<float>(n, n);
 
   const float alpha = 1.0f;
   const float beta = 1.0f;
