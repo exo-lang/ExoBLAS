@@ -12,6 +12,7 @@ arith_intensity = {
     "ger": 3,
     "trmv": 2,
     "gemv": 2,
+    "gbmv": 2,
     "tbmv": 2,
     "sdsdot": 1,
     "dsdot": 1,
@@ -27,18 +28,18 @@ read_bound_kernels = {
     "axpy",
     "dot",
     "asum",
-    "ger",
     "trmv",
     "gemv",
+    "gbmv",
     "tbmv",
     "sdsdot",
     "dsdot",
 }
-write_bound_kernels = {"copy", "swap", "scal", "rot", "rotm"}
+write_bound_kernels = {"copy", "swap", "scal", "rot", "rotm", "ger"}
 level3_kernels = {"gemm", "symm", "syrk", "syr2k", "trmm", "trsm"}
 
 
-def mem_footprint(kernel_name, size, wordsize):
+def mem_footprint(kernel_name, size, wordsize, **kwargs):
     if kernel_name in [
         "nrm2",
         "scal",
@@ -55,11 +56,14 @@ def mem_footprint(kernel_name, size, wordsize):
         return size * wordsize
     elif kernel_name in ["gemv", "ger", "trmv", "tbmv", "gemm", "syrk"]:
         return size * size * wordsize
+    elif kernel_name == "gbmv":
+        kl = int(kwargs.get('kl'))
+        return (size - kl/2) * (2 * kl + 1) * wordsize + size * 2
     else:
         raise NotImplementedError(f"Input size of {kernel_name} is not implemented")
 
 
-def mem_ops(kernel_name, size, wordsize):
+def mem_ops(kernel_name, size, wordsize, **kwargs):
     """
     Returns total memory usage of `kernel_name` of dimension `size` in bytes.
     """
@@ -77,7 +81,8 @@ def mem_ops(kernel_name, size, wordsize):
             "sdsdot": 2,
             "dsdot": 2,
         },
-        2: {"gemv": 1, "ger": 2, "trmv": 0.5, "tbmv": 0.5},
+        2: {"gemv": 1, "ger": 1, "trmv": 0.5, "tbmv": 0.5},
+        3: {}
     }
 
     if kernel_name in mem_ops[1].keys():
@@ -87,6 +92,9 @@ def mem_ops(kernel_name, size, wordsize):
         return wordsize * size * size * mem_ops[2].get(kernel_name, 1)
     elif kernel_name in mem_ops[3].keys():
         return wordsize * size * size * mem_ops[3].get(kernel_name, 1)
+    elif kernel_name == "gbmv":
+        kl = int(kwargs.get('kl'))
+        return (size - kl/2) * (2 * kl + 1) * wordsize + size * 2
     else:
         raise NotImplementedError(f"Memory usage of {kernel_name} is not implemented")
 
@@ -177,14 +185,17 @@ def peak_bandwidth_plot(params, names_to_points):
     bandwidth = False if arith_intensity[k_name] != 0 else True
     scale = lambda x: x * arith_intensity[k_name] if not bandwidth else x
 
-    def get_gbyte_sec(size, time):
-        return (mem_ops(k_name, size, wordsize) * 10**9) / (time * 2**30)
+    def get_gbyte_sec(size, time, **kwargs):
+        return (mem_ops(k_name, size, wordsize, **kwargs) * 10**9) / (time * 2**30)
 
     plt.clf()
     for name in names_to_points:
         points = names_to_points[name]
-        x = [log_2(mem_footprint(k_name, p[0], wordsize)) for p in points]
-        y = [scale(get_gbyte_sec(p[0], p[1])) for p in points]
+        
+        args = {f : s for f, s in [ele.split(":") for ele in params]}
+        x = [log_2(mem_footprint(k_name, p[0], wordsize, **args)) for p in points]
+        y = [scale(get_gbyte_sec(p[0], p[1], **args)) for p in points]
+
         plt.plot(x, y, label=name)
 
     peak_x = [

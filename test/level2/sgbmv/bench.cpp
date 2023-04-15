@@ -17,8 +17,8 @@ static void BM_cblas_sgbmv(benchmark::State &state) {
   int incY = 1;
   int lda = KL + KU + 1;
 
-  auto X = AlignedBuffer<float>(M, incX, 64);
-  auto Y = AlignedBuffer<float>(N, incY, 64);
+  auto X = AlignedBuffer<float>(N, incX, 64);
+  auto Y = AlignedBuffer<float>(M, incY, 64);
   auto A = AlignedBuffer<float>(M * lda, 1, 64);
 
   for (auto _ : state) {
@@ -38,8 +38,8 @@ static void BM_exo_sgbmv(benchmark::State &state) {
   int incY = 1;
   int lda = KL + KU + 1;
 
-  auto X = AlignedBuffer<float>(M, incX, 64);
-  auto Y = AlignedBuffer<float>(N, incY, 64);
+  auto X = AlignedBuffer<float>(N, incX, 64);
+  auto Y = AlignedBuffer<float>(M, incY, 64);
   auto A = AlignedBuffer<float>(M * lda, 1, 64);
 
   for (auto _ : state) {
@@ -48,20 +48,18 @@ static void BM_exo_sgbmv(benchmark::State &state) {
   }
 }
 
+// CBLAS SGBMV segfaults on M=N=(1 << 19) and KL=KU=1...
+// Is it possible they just resort to GEMV's routine?
 BENCHMARK(BM_cblas_sgbmv)
-    ->ArgNames({"m", "n", "kl", "ku", "alpha", "beta", "incX", "incY"})
+    ->ArgNames({"m", "kl", "alpha", "beta"})
     ->ArgsProduct(
-        {benchmark::CreateRange(8, (1 << 13), 2), {1, 2}, {0, 1, 3}, {0, 1, 3}})
-    ->ArgsProduct({benchmark::CreateRange(7, (1 << 13) - 1, 7),
-                   {1, 2},
-                   {0, 1, 3},
-                   {0, 1, 3}});
+      {benchmark::CreateRange(8, (1 << 13), 2), {1, 2}, {3}, {3}})
+    ->ArgsProduct(
+      {benchmark::CreateRange(7, (1 << 13) - 1, 7), {1, 2}, {3}, {3}});
 
 BENCHMARK(BM_exo_sgbmv)
     ->ArgNames({"m", "kl", "alpha", "beta"})
     ->ArgsProduct(
-        {benchmark::CreateRange(8, (1 << 13), 2), {1, 2}, {0, 1, 3}, {0, 1, 3}})
-    ->ArgsProduct({benchmark::CreateRange(7, (1 << 13) - 1, 7),
-                   {1, 2},
-                   {0, 1, 3},
-                   {0, 1, 3}});
+      {benchmark::CreateRange(8, (1 << 13), 2), {1, 2}, {3}, {3}})
+    ->ArgsProduct(
+      {benchmark::CreateRange(7, (1 << 13) - 1, 7), {1, 2}, {3}, {3}});

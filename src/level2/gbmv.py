@@ -19,7 +19,7 @@ def gbmv_row_major_template(
     ku: size,
     alpha: f32,
     beta: f32,
-    a: [f32][m, n],
+    a: [f32][m, ku+kl+1],
     x: [f32][n],
     y: [f32][m],
 ):
@@ -28,7 +28,7 @@ def gbmv_row_major_template(
     for i in seq(0, m):
         y[i] = beta * y[i]
         for j in seq(0, ku + kl + 1):
-            if i + (j - kl) >= 0 and i + (j - kl) < n and j < n:
+            if i + (j - kl) >= 0 and i + (j - kl) < n:
                 y[i] += alpha * a[i, j] * x[i + (j - kl)]
 
 
