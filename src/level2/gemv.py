@@ -96,6 +96,7 @@ def schedule_NonTrans(
     stride_1 = interleave_execution(
         stride_1, stride_1.find_loop("jm"), VECTORIZATION_INTERLEAVE_FACTOR
     )
+
     stride_1 = interleave_outer_loop_with_inner_loop(
         stride_1,
         stride_1.find_loop("i"),
@@ -128,6 +129,8 @@ def schedule_Trans(
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
 
+    stride_1 = stage_mem(stride_1, stride_1.body(), "alpha", "alpha_")
+    stride_1 = stage_mem(stride_1, stride_1.body(), "beta", "beta_")
     stride_1 = vectorize(stride_1, stride_1.find_loop("j"), VEC_W, memory, precision)
     stride_1 = interleave_execution(
         stride_1, stride_1.find_loop("jo"), VECTORIZATION_INTERLEAVE_FACTOR
@@ -163,9 +166,12 @@ def schedule_Trans(
     stride_1 = simplify(stride_1)
     stride_1 = replace_all(stride_1, instructions)
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = fission(stride_1, stride_1.find_loop("joi").after())
+    stride_1 = reorder_loops(stride_1, stride_1.find_loop("ii"))
+    stride_1 = reorder_loops(stride_1, stride_1.find_loop("ii #1"))
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = stage_mem(stride_1, stride_1.body(), "alpha", "alpha_")
-    stride_1 = stage_mem(stride_1, stride_1.body(), "beta", "beta_")
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = set_memory(stride_1, "alphaXi", DRAM_STATIC)
     return simplify(stride_1)
 
 
@@ -216,7 +222,7 @@ exo_sgemv_row_major_NonTrans_stride_1 = schedule_NonTrans(
 exo_sgemv_row_major_Trans_stride_1 = schedule_Trans(
     C.Machine.vec_width,
     VECTORIZATION_INTERLEAVE_FACTOR,
-    ROWS_INTERLEAVE_FACTOR,
+    ROWS_INTERLEAVE_FACTOR * 2,
     C.Machine.mem_type,
     f32_instructions,
     "f32",
