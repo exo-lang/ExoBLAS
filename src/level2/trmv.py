@@ -68,17 +68,22 @@ def trmv_row_major_Lower_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n,
 @proc
 def trmv_row_major_Upper_Trans_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
     assert stride(A, 1) == 1
+    
+    xCopy: R[n]
+    for i in seq(0, n):
+        xCopy[i] = 0.0
 
-    for j in seq(0, n):
-        dot: R
-        dot = 0.0
-        for i in seq(0, n - j - 1):
-            dot += A[i, n - j - 1] * x[i]
+    for i in seq(0, n):
         if Diag == 0:
-            dot += A[n - j - 1, n - j - 1] * x[n - j - 1]
+            xCopy[i] += A[i, i] * x[i]
         else:
-            dot += x[n - j - 1]
-        x[n - j - 1] = dot
+            xCopy[i] += x[i]
+                
+        for j in seq(0, n - i - 1):
+            xCopy[i + j + 1] += A[i, i + j + 1] * x[i]
+            
+    for i in seq(0, n):
+        x[i] = xCopy[i]
 
 
 @proc
@@ -112,8 +117,8 @@ def specialize_trmv(trmv, precision):
     args = ["x", "A"]
     if "NonTrans" in specialized.name():
         args.append("dot")
-    # else:
-    #     args.append("xCopy")
+    else:
+        args.append("xCopy")
 
     for arg in args:
         specialized = set_precision(specialized, arg, precision)
@@ -121,7 +126,7 @@ def specialize_trmv(trmv, precision):
     return specialized
 
 
-def schedule_interleave_trmv_row_major_stride_1(
+def schedule_interleave_trmv_row_major_NonTrans_stride_1(
     trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
 ):
     stride_1 = specialize_trmv(trmv, precision)
@@ -147,6 +152,14 @@ def schedule_interleave_trmv_row_major_stride_1(
 
     return simplify(stride_1)
 
+def schedule_interleave_trmv_row_major_Trans_stride_1(
+    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
+):
+    stride_1 = specialize_trmv(trmv, precision)
+    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
+    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
+
+    return simplify(stride_1)
 
 #################################################
 # Kernel Parameters
@@ -211,7 +224,7 @@ f32_instructions = [
 ]
 
 exo_strmv_row_major_Upper_NonTrans_Unit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Upper_NonTrans_Unit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
@@ -221,7 +234,7 @@ exo_strmv_row_major_Upper_NonTrans_Unit_stride_1 = (
     )
 )
 exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Upper_NonTrans_NonUnit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
@@ -231,7 +244,7 @@ exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
     )
 )
 exo_strmv_row_major_Lower_NonTrans_Unit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Lower_NonTrans_Unit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
@@ -241,8 +254,28 @@ exo_strmv_row_major_Lower_NonTrans_Unit_stride_1 = (
     )
 )
 exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Lower_NonTrans_NonUnit_template,
+        C.Machine.vec_width,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
+)
+exo_strmv_row_major_Upper_Trans_stride_1 = (
+    schedule_interleave_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Upper_Trans_template,
+        C.Machine.vec_width,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
+)
+exo_strmv_row_major_Lower_Trans_stride_1 = (
+    schedule_interleave_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Lower_Trans_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -308,7 +341,7 @@ f64_instructions = [
 ]
 
 exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Upper_NonTrans_Unit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
@@ -318,7 +351,7 @@ exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_1 = (
     )
 )
 exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Upper_NonTrans_NonUnit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
@@ -328,7 +361,7 @@ exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
     )
 )
 exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Lower_NonTrans_Unit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
@@ -338,8 +371,28 @@ exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_1 = (
     )
 )
 exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_1 = (
-    schedule_interleave_trmv_row_major_stride_1(
+    schedule_interleave_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Lower_NonTrans_NonUnit_template,
+        C.Machine.vec_width // 2,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
+)
+exo_dtrmv_row_major_Upper_Trans_stride_1 = (
+    schedule_interleave_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Upper_Trans_template,
+        C.Machine.vec_width // 2,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
+)
+exo_dtrmv_row_major_Lower_Trans_stride_1 = (
+    schedule_interleave_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Lower_Trans_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -366,9 +419,13 @@ entry_points = [
     exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any,
     exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_1,
     exo_strmv_row_major_Upper_Trans_stride_any,
+    exo_strmv_row_major_Upper_Trans_stride_1,
     exo_dtrmv_row_major_Upper_Trans_stride_any,
+    exo_dtrmv_row_major_Upper_Trans_stride_1,
     exo_strmv_row_major_Lower_Trans_stride_any,
+    exo_strmv_row_major_Lower_Trans_stride_1,
     exo_dtrmv_row_major_Lower_Trans_stride_any,
+    exo_dtrmv_row_major_Lower_Trans_stride_1,
 ]
 
 if __name__ == "__main__":
