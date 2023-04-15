@@ -13,22 +13,6 @@
 #include "exo_ssyrk.h"
 #include "generate_buffer.h"
 
-static std::vector<float> gen_matrix(long m, long n, float v) {
-  static std::random_device rd;
-  static std::mt19937 rng{rd()};
-  std::uniform_real_distribution<> rv{-1.0f, 1.0f};
-
-  std::vector<float> mat(m * n);
-  if (v == -1)
-    std::generate(std::begin(mat), std::end(mat), [&]() { return rv(rng); });
-  else
-    std::generate(std::begin(mat), std::end(mat), [&]() {
-      return v;
-    });  // Used for generating symmetric matrices
-
-  return mat;
-}
-
 static void print_matrix(std::vector<float> M, int n, int k) {
   for (int i = 0; i < k; i++) {
     for (int j = 0; j < n; j++) {
