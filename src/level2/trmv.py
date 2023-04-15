@@ -73,7 +73,7 @@ def trmv_row_major_Lower_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n,
 
 
 @proc
-def trmv_row_major_Upper_Trans_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+def trmv_row_major_Upper_Trans_Unit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
     assert stride(A, 1) == 1
     
     xCopy: R[n]
@@ -81,11 +81,23 @@ def trmv_row_major_Upper_Trans_template(n: size, x: [R][n], A: [R][n, n], Diag: 
         xCopy[i] = 0.0
 
     for i in seq(0, n):
-        if Diag == 0:
-            xCopy[i] += A[i, i] * x[i]
-        else:
-            xCopy[i] += x[i]
-                
+        for j in seq(0, n - i - 1):
+            xCopy[i + j + 1] += A[i, i + j + 1] * x[i]
+            
+    for i in seq(0, n):
+        x[i] += xCopy[i]
+
+
+@proc
+def trmv_row_major_Upper_Trans_NonUnit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+    assert stride(A, 1) == 1
+    
+    xCopy: R[n]
+    for i in seq(0, n):
+        xCopy[i] = 0.0
+
+    for i in seq(0, n):
+        xCopy[i] += A[i, i] * x[i]
         for j in seq(0, n - i - 1):
             xCopy[i + j + 1] += A[i, i + j + 1] * x[i]
             
@@ -94,7 +106,7 @@ def trmv_row_major_Upper_Trans_template(n: size, x: [R][n], A: [R][n, n], Diag: 
 
 
 @proc
-def trmv_row_major_Lower_Trans_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+def trmv_row_major_Lower_Trans_Unit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -102,14 +114,25 @@ def trmv_row_major_Lower_Trans_template(n: size, x: [R][n], A: [R][n, n], Diag: 
         xCopy[i] = 0.0
 
     for i in seq(0, n):
-
         for j in seq(0, i):
             xCopy[j] += A[i, j] * x[i]
 
-        if Diag == 0:
-            xCopy[i] += A[i, i] * x[i]
-        else:
-            xCopy[i] += x[i]
+    for i in seq(0, n):
+        x[i] += xCopy[i]
+
+
+@proc
+def trmv_row_major_Lower_Trans_NonUnit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+    assert stride(A, 1) == 1
+
+    xCopy: R[n]
+    for i in seq(0, n):
+        xCopy[i] = 0.0
+
+    for i in seq(0, n):
+        for j in seq(0, i):
+            xCopy[j] += A[i, j] * x[i]
+        xCopy[i] += A[i, i] * x[i]
 
     for i in seq(0, n):
         x[i] = xCopy[i]
@@ -249,19 +272,33 @@ exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any = rename(
     exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any,
     exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any.name() + "_stride_any",
 )
-exo_strmv_row_major_Upper_Trans_stride_any = specialize_trmv(
-    trmv_row_major_Upper_Trans_template, "f32"
+exo_strmv_row_major_Upper_Trans_Unit_stride_any = specialize_trmv(
+    trmv_row_major_Upper_Trans_Unit_template, "f32"
 )
-exo_strmv_row_major_Upper_Trans_stride_any = rename(
-    exo_strmv_row_major_Upper_Trans_stride_any,
-    exo_strmv_row_major_Upper_Trans_stride_any.name() + "_stride_any",
+exo_strmv_row_major_Upper_Trans_Unit_stride_any = rename(
+    exo_strmv_row_major_Upper_Trans_Unit_stride_any,
+    exo_strmv_row_major_Upper_Trans_Unit_stride_any.name() + "_stride_any",
 )
-exo_strmv_row_major_Lower_Trans_stride_any = specialize_trmv(
-    trmv_row_major_Lower_Trans_template, "f32"
+exo_strmv_row_major_Upper_Trans_NonUnit_stride_any = specialize_trmv(
+    trmv_row_major_Upper_Trans_NonUnit_template, "f32"
 )
-exo_strmv_row_major_Lower_Trans_stride_any = rename(
-    exo_strmv_row_major_Lower_Trans_stride_any,
-    exo_strmv_row_major_Lower_Trans_stride_any.name() + "_stride_any",
+exo_strmv_row_major_Upper_Trans_NonUnit_stride_any = rename(
+    exo_strmv_row_major_Upper_Trans_NonUnit_stride_any,
+    exo_strmv_row_major_Upper_Trans_NonUnit_stride_any.name() + "_stride_any",
+)
+exo_strmv_row_major_Lower_Trans_Unit_stride_any = specialize_trmv(
+    trmv_row_major_Lower_Trans_Unit_template, "f32"
+)
+exo_strmv_row_major_Lower_Trans_Unit_stride_any = rename(
+    exo_strmv_row_major_Lower_Trans_Unit_stride_any,
+    exo_strmv_row_major_Lower_Trans_Unit_stride_any.name() + "_stride_any",
+)
+exo_strmv_row_major_Lower_Trans_NonUnit_stride_any = specialize_trmv(
+    trmv_row_major_Lower_Trans_NonUnit_template, "f32"
+)
+exo_strmv_row_major_Lower_Trans_NonUnit_stride_any = rename(
+    exo_strmv_row_major_Lower_Trans_NonUnit_stride_any,
+    exo_strmv_row_major_Lower_Trans_NonUnit_stride_any.name() + "_stride_any",
 )
 
 f32_instructions = [
@@ -315,9 +352,9 @@ exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_1 = (
         "f32",
     )
 )
-exo_strmv_row_major_Upper_Trans_stride_1 = (
+exo_strmv_row_major_Upper_Trans_Unit_stride_1 = (
     schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Upper_Trans_template,
+        trmv_row_major_Upper_Trans_Unit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -325,9 +362,29 @@ exo_strmv_row_major_Upper_Trans_stride_1 = (
         "f32",
     )
 )
-exo_strmv_row_major_Lower_Trans_stride_1 = (
+exo_strmv_row_major_Lower_Trans_Unit_stride_1 = (
     schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Lower_Trans_template,
+        trmv_row_major_Lower_Trans_Unit_template,
+        C.Machine.vec_width,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
+)
+exo_strmv_row_major_Upper_Trans_NonUnit_stride_1 = (
+    schedule_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Upper_Trans_NonUnit_template,
+        C.Machine.vec_width,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f32_instructions,
+        "f32",
+    )
+)
+exo_strmv_row_major_Lower_Trans_NonUnit_stride_1 = (
+    schedule_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Lower_Trans_NonUnit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -368,19 +425,33 @@ exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any = rename(
     exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any,
     exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any.name() + "_stride_any",
 )
-exo_dtrmv_row_major_Upper_Trans_stride_any = specialize_trmv(
-    trmv_row_major_Upper_Trans_template, "f64"
+exo_dtrmv_row_major_Upper_Trans_Unit_stride_any = specialize_trmv(
+    trmv_row_major_Upper_Trans_Unit_template, "f64"
 )
-exo_dtrmv_row_major_Upper_Trans_stride_any = rename(
-    exo_dtrmv_row_major_Upper_Trans_stride_any,
-    exo_dtrmv_row_major_Upper_Trans_stride_any.name() + "_stride_any",
+exo_dtrmv_row_major_Upper_Trans_Unit_stride_any = rename(
+    exo_dtrmv_row_major_Upper_Trans_Unit_stride_any,
+    exo_dtrmv_row_major_Upper_Trans_Unit_stride_any.name() + "_stride_any",
 )
-exo_dtrmv_row_major_Lower_Trans_stride_any = specialize_trmv(
-    trmv_row_major_Lower_Trans_template, "f64"
+exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any = specialize_trmv(
+    trmv_row_major_Upper_Trans_NonUnit_template, "f64"
 )
-exo_dtrmv_row_major_Lower_Trans_stride_any = rename(
-    exo_dtrmv_row_major_Lower_Trans_stride_any,
-    exo_dtrmv_row_major_Lower_Trans_stride_any.name() + "_stride_any",
+exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any = rename(
+    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any,
+    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any.name() + "_stride_any",
+)
+exo_dtrmv_row_major_Lower_Trans_Unit_stride_any = specialize_trmv(
+    trmv_row_major_Lower_Trans_Unit_template, "f64"
+)
+exo_dtrmv_row_major_Lower_Trans_Unit_stride_any = rename(
+    exo_dtrmv_row_major_Lower_Trans_Unit_stride_any,
+    exo_dtrmv_row_major_Lower_Trans_Unit_stride_any.name() + "_stride_any",
+)
+exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any = specialize_trmv(
+    trmv_row_major_Lower_Trans_Unit_template, "f64"
+)
+exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any = rename(
+    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any,
+    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any.name() + "_stride_any",
 )
 
 f64_instructions = [
@@ -434,9 +505,9 @@ exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_1 = (
         "f64",
     )
 )
-exo_dtrmv_row_major_Upper_Trans_stride_1 = (
+exo_dtrmv_row_major_Upper_Trans_Unit_stride_1 = (
     schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Upper_Trans_template,
+        trmv_row_major_Upper_Trans_Unit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -444,9 +515,29 @@ exo_dtrmv_row_major_Upper_Trans_stride_1 = (
         "f64",
     )
 )
-exo_dtrmv_row_major_Lower_Trans_stride_1 = (
+exo_dtrmv_row_major_Lower_Trans_Unit_stride_1 = (
     schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Lower_Trans_template,
+        trmv_row_major_Lower_Trans_Unit_template,
+        C.Machine.vec_width // 2,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
+)
+exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_1 = (
+    schedule_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Upper_Trans_NonUnit_template,
+        C.Machine.vec_width // 2,
+        VECTORIZATION_INTERLEAVE_FACTOR,
+        C.Machine.mem_type,
+        f64_instructions,
+        "f64",
+    )
+)
+exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_1 = (
+    schedule_trmv_row_major_Trans_stride_1(
+        trmv_row_major_Lower_Trans_NonUnit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -472,14 +563,22 @@ entry_points = [
     exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_1,
     exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any,
     exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_1,
-    exo_strmv_row_major_Upper_Trans_stride_any,
-    exo_strmv_row_major_Upper_Trans_stride_1,
-    exo_dtrmv_row_major_Upper_Trans_stride_any,
-    exo_dtrmv_row_major_Upper_Trans_stride_1,
-    exo_strmv_row_major_Lower_Trans_stride_any,
-    exo_strmv_row_major_Lower_Trans_stride_1,
-    exo_dtrmv_row_major_Lower_Trans_stride_any,
-    exo_dtrmv_row_major_Lower_Trans_stride_1,
+    exo_strmv_row_major_Upper_Trans_Unit_stride_any,
+    exo_strmv_row_major_Upper_Trans_Unit_stride_1,
+    exo_strmv_row_major_Upper_Trans_NonUnit_stride_any,
+    exo_strmv_row_major_Upper_Trans_NonUnit_stride_1,
+    exo_dtrmv_row_major_Upper_Trans_Unit_stride_any,
+    exo_dtrmv_row_major_Upper_Trans_Unit_stride_1,
+    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any,
+    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_1,
+    exo_strmv_row_major_Lower_Trans_Unit_stride_any,
+    exo_strmv_row_major_Lower_Trans_Unit_stride_1,
+    exo_strmv_row_major_Lower_Trans_NonUnit_stride_any,
+    exo_strmv_row_major_Lower_Trans_NonUnit_stride_1,
+    exo_dtrmv_row_major_Lower_Trans_Unit_stride_any,
+    exo_dtrmv_row_major_Lower_Trans_Unit_stride_1,
+    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any,
+    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_1,
 ]
 
 if __name__ == "__main__":
