@@ -182,7 +182,7 @@ def schedule_trmv_row_major_NonTrans_stride_1(
 
     return simplify(stride_1)
 
-def schedule_trmv_row_major_Lower_NonTrans_stride_1(
+def schedule_trmv_row_major_Lower_NonTrans_Unit_stride_1(
     trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
 ):
     stride_1 = specialize_trmv(trmv, precision)
@@ -218,6 +218,30 @@ def schedule_trmv_row_major_Lower_NonTrans_stride_1(
 
     return simplify(stride_1)
 
+
+def schedule_trmv_row_major_Lower_Trans_Unit_stride_1(
+    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, ROWS_INTERLEAVE_FACTOR, memory, instructions, precision
+):
+    stride_1 = specialize_trmv(trmv, precision)
+    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
+    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
+
+    loop_cursor = stride_1.find_loop("j")
+    stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
+    stride_1 = interleave_execution(stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR)
+    stride_1 = simplify(stride_1)
+    stride_1 = interleave_outer_loop_with_inner_loop(
+        stride_1, stride_1.find_loop("i #1"), stride_1.find_loop("joo"), ROWS_INTERLEAVE_FACTOR
+    )
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = apply_to_block(stride_1, stride_1.find_loop("ii").body(), hoist_stmt)
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = replace_all(stride_1, instructions)
+
+    stride_1 = replace_all(stride_1, instructions)
+
+    return simplify(stride_1)
+
 def schedule_trmv_row_major_Trans_stride_1(
     trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
 ):
@@ -238,7 +262,8 @@ def schedule_trmv_row_major_Trans_stride_1(
 # Kernel Parameters
 #################################################
 
-VECTORIZATION_INTERLEAVE_FACTOR = C.Machine.vec_units * 2
+ROWS_INTERLEAVE_FACTOR = 4
+VECTORIZATION_INTERLEAVE_FACTOR = 2
 
 #################################################
 # Generate specialized kernels for f32 precision
@@ -333,7 +358,7 @@ exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
     )
 )
 exo_strmv_row_major_Lower_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_Lower_NonTrans_stride_1(
+    schedule_trmv_row_major_Lower_NonTrans_Unit_stride_1(
         trmv_row_major_Lower_NonTrans_Unit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
@@ -363,15 +388,17 @@ exo_strmv_row_major_Upper_Trans_Unit_stride_1 = (
     )
 )
 exo_strmv_row_major_Lower_Trans_Unit_stride_1 = (
-    schedule_trmv_row_major_Trans_stride_1(
+    schedule_trmv_row_major_Lower_Trans_Unit_stride_1(
         trmv_row_major_Lower_Trans_Unit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
+        ROWS_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f32_instructions,
         "f32",
     )
 )
+print(exo_strmv_row_major_Lower_Trans_Unit_stride_1)
 exo_strmv_row_major_Upper_Trans_NonUnit_stride_1 = (
     schedule_trmv_row_major_Trans_stride_1(
         trmv_row_major_Upper_Trans_NonUnit_template,
