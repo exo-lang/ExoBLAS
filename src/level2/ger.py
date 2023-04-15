@@ -19,12 +19,22 @@ def ger_row_major_template(
         for j in seq(0, n):
             A[i, j] += alpha * x[i] * y[j]
 
+@proc
+def ger_row_major_template_alpha_1(
+    m: size, n: size, alpha: R, x: [R][m], y: [R][n], A: [R][m, n]
+):
+    assert stride(A, 1) == 1
 
-def specialize_ger(precision):
+    for i in seq(0, m):
+        for j in seq(0, n):
+            A[i, j] += x[i] * y[j]
+
+
+def specialize_ger(precision, alpha):
     prefix = "s" if precision == "f32" else "d"
-    name = ger_row_major_template.name()
-    name = name.replace("_template", "")
-    specialized = rename(ger_row_major_template, "exo_" + prefix + name)
+    specialized = ger_row_major_template if alpha != 1 else ger_row_major_template_alpha_1
+    name = specialized.name().replace("_template", "")
+    specialized = rename(specialized, "exo_" + prefix + name)
 
     args = ["alpha", "x", "y", "A"]
 
@@ -34,10 +44,10 @@ def specialize_ger(precision):
     return specialized
 
 
-def schedule_interleave_ger_row_major_stride_1(
-    VEC_W, ROW_INTERLEAVE_FACTOR, memory, instructions, precision
+def schedule_ger_row_major_stride_1(
+    VEC_W, ROW_INTERLEAVE_FACTOR, memory, instructions, precision, alpha
 ):
-    stride_1 = specialize_ger(precision)
+    stride_1 = specialize_ger(precision, alpha)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
@@ -116,7 +126,7 @@ ROW_INTERLEAVE_FACTOR = C.Machine.vec_units
 # Generate specialized kernels for f32 precision
 #################################################
 
-exo_sger_row_major_stride_any = specialize_ger("f32")
+exo_sger_row_major_stride_any = specialize_ger("f32", None)
 exo_sger_row_major_stride_any = rename(
     exo_sger_row_major_stride_any, exo_sger_row_major_stride_any.name() + "_stride_any"
 )
@@ -130,19 +140,28 @@ f32_instructions = [
     C.Machine.broadcast_scalar_instr_f32,
 ]
 
-exo_sger_row_major_stride_1 = schedule_interleave_ger_row_major_stride_1(
+exo_sger_row_major_stride_1 = schedule_ger_row_major_stride_1(
     C.Machine.vec_width,
     ROW_INTERLEAVE_FACTOR,
     C.Machine.mem_type,
     f32_instructions,
     "f32",
+    None
+)
+exo_sger_row_major_alpha_1_stride_1 = schedule_ger_row_major_stride_1(
+    C.Machine.vec_width,
+    ROW_INTERLEAVE_FACTOR,
+    C.Machine.mem_type,
+    f32_instructions,
+    "f32",
+    1
 )
 
 #################################################
 # Generate specialized kernels for f64 precision
 #################################################
 
-exo_dger_row_major_stride_any = specialize_ger("f64")
+exo_dger_row_major_stride_any = specialize_ger("f64", None)
 exo_dger_row_major_stride_any = rename(
     exo_dger_row_major_stride_any, exo_dger_row_major_stride_any.name() + "_stride_any"
 )
@@ -156,12 +175,13 @@ f64_instructions = [
     C.Machine.broadcast_scalar_instr_f64,
 ]
 
-exo_dger_row_major_stride_1 = schedule_interleave_ger_row_major_stride_1(
+exo_dger_row_major_stride_1 = schedule_ger_row_major_stride_1(
     C.Machine.vec_width // 2,
     ROW_INTERLEAVE_FACTOR,
     C.Machine.mem_type,
     f64_instructions,
     "f64",
+    None
 )
 
 entry_points = [

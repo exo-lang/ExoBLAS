@@ -330,9 +330,9 @@ def ratio_and_gm_plot(params, names_to_points):
             fig_file_name = fig_file_name.replace(":", "=")  # For Windows compatibility
             plt.savefig(fig_file_name, bbox_inches="tight")
 
-    with open("summary.txt", "a") as f:
-        line = f"{kernel_name}| {params}| {res['sum'] / res['iter']}\n"
-        f.write(line)
+    # with open("summary.txt", "a") as f:
+    #     line = f"{kernel_name}| {params}| {res['sum'] / res['iter']}\n"
+    #     f.write(line)
 
 
 for params in perf_res:
