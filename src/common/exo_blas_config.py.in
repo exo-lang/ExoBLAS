@@ -11,8 +11,10 @@ else:
 class syrk:
     k_blk = @SYRK_K_BLK@
     m_blk = @SYRK_M_BLK@
+    m_blk_small = @SYRK_M_BLK_SMALL@
     m_reg = @SYRK_M_REG@
     n_reg = @SYRK_N_REG@
+    e_reg = @SYRK_E_REG@
 
 class gemm:
     k_blk = @GEMM_K_BLK@

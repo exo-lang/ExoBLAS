@@ -37,8 +37,10 @@ class SYRK:
         precision: str,
         K_blk: int,
         M_blk: int,
+        M_blk_small: int,
         M_r: int,
         N_r: int,
+        e_reg: int,
     ):
 
         # Precision
@@ -53,6 +55,8 @@ class SYRK:
         # Blocking dimensions
         self.K_blk = K_blk
         self.M_blk = M_blk
+        self.M_blk_small = M_blk_small
+        self.e_reg = e_reg
 
         # Machine
         self.machine = machine
@@ -722,7 +726,7 @@ class SYRK:
         )
 
         gebp_diag_handler = GEBP_kernel(
-            self.microkernel, self.M_blk // 4, self.M_blk // 4, self.precision
+            self.microkernel, self.M_blk_small, self.M_blk_small, self.precision
         )
         diag_syrk_scheduled = rename(
             diag_syrk_base, f"{self.prefix}_diag_handler_scheduled"
@@ -932,6 +936,7 @@ class SYRK:
             # k_gebp = rename(self.microkernel.sgemm_window, "gebp_k_dim")
             # k_gebp = k_gebp.partial_eval(M=self.M_blk, N=1, K=self.K_blk)
             # k_gebp = reorder_loops(k_gebp, 'i j')
+            k_microkernel_dim = self.e_reg
 
             gepp_syrk_scheduled = autofission(
                 gepp_syrk_scheduled,
@@ -942,27 +947,16 @@ class SYRK:
             gepp_syrk_scheduled = divide_loop(
                 gepp_syrk_scheduled,
                 "ii",
-                self.machine.vec_width,
+                k_microkernel_dim,
                 ["iio", "iii"],
                 perfect=True,
             )
             gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, "j iio")
-            # gepp_syrk_scheduled = divide_loop(gepp_syrk_scheduled, 'ii', self.machine.vec_width, ['iio', 'iii'], perfect=True)
-            # gepp_syrk_scheduled = replace(gepp_syrk_scheduled, 'for j in _:_ #0', k_gebp)
             print(gepp_syrk_scheduled)
-
-            # k_gebp_scheduled = rename(k_gebp, "gebp_k_dim_scheduled")
-            # k_gebp_scheduled = divide_loop(k_gebp_scheduled, 'k', self.microkernel.N_r, ['ko', 'ki'], perfect=True)
-            # k_gebp_scheduled = divide_loop(k_gebp_scheduled, 'i', self.machine.vec_width, ['io', 'ii'], perfect=True)
-            # k_gebp_scheduled = reorder_loops(k_gebp_scheduled, 'j io')
-            # k_gebp_scheduled = reorder_loops(k_gebp_scheduled, 'ii ko')
-            # k_gebp_scheduled = reorder_loops(k_gebp_scheduled, 'j ko')
-
-            # gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, 'gebp_k_dim(_)', k_gebp_scheduled)
 
             k_microkernel = rename(self.microkernel.sgemm_window, "k_microkernel")
             k_microkernel = k_microkernel.partial_eval(
-                M=self.machine.vec_width, N=1, K=self.K_blk
+                M=k_microkernel_dim, N=1, K=self.K_blk
             )
             k_microkernel = reorder_loops(k_microkernel, "i j")
             gepp_syrk_scheduled = replace(
@@ -970,11 +964,16 @@ class SYRK:
             )
 
             k_microkernel_scheduled = rename(k_microkernel, "k_microkernel_scheduled")
-            # k_microkernel_scheduled = divide_loop(k_microkernel_scheduled, 'k',
-            #                                        self.machine.vec_width,
-            #                                        ['ko', 'ki'],
-            #                                        perfect=True)
-            c_reg_str = f"C[i, j]"
+            k_microkernel_scheduled = divide_loop(
+                k_microkernel_scheduled,
+                "i",
+                self.machine.vec_width,
+                ["io", "ii"],
+                perfect=True,
+            )
+            print(k_microkernel_scheduled)
+
+            c_reg_str = f"C[{self.machine.vec_width}*io+ii, j]"
             k_microkernel_scheduled = stage_mem(
                 k_microkernel_scheduled, "C[_] += _", c_reg_str, "C_reg"
             )
@@ -985,26 +984,25 @@ class SYRK:
                 k_microkernel_scheduled,
                 "C_reg",
                 self.machine.vec_width,
-                "i",
+                "ii",
                 unsafe_disable_checks=True,
             )
             k_microkernel_scheduled = lift_alloc(
-                k_microkernel_scheduled, "C_reg", n_lifts=3
+                k_microkernel_scheduled, "C_reg", n_lifts=4
             )
             k_microkernel_scheduled = autofission(
                 k_microkernel_scheduled,
                 k_microkernel_scheduled.find("C_reg[_] = _").after(),
-                n_lifts=3,
+                n_lifts=4,
             )
             k_microkernel_scheduled = autofission(
                 k_microkernel_scheduled,
                 k_microkernel_scheduled.find("C[_] = _").before(),
-                n_lifts=3,
+                n_lifts=4,
             )
 
-            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "i ko")
-            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "i ki")
-            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "i k")
+            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "ii k")
+            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "io k")
             k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "j k")
             print(k_microkernel_scheduled)
 
@@ -1019,7 +1017,7 @@ class SYRK:
                 k_microkernel_scheduled,
                 "A_vec",
                 self.machine.vec_width,
-                "i",
+                "ii",
                 unsafe_disable_checks=True,
             )
             k_microkernel_scheduled = expand_dim(
@@ -1047,7 +1045,7 @@ class SYRK:
                 k_microkernel_scheduled,
                 "B_vec",
                 self.machine.vec_width,
-                f"i",
+                f"ii",
                 unsafe_disable_checks=True,
             )
             k_microkernel_scheduled = expand_dim(
@@ -1064,26 +1062,22 @@ class SYRK:
 
             # Move A_vec and B_vec into proper sites
             k_microkernel_scheduled = lift_alloc(
-                k_microkernel_scheduled, "A_vec", n_lifts=3
+                k_microkernel_scheduled, "A_vec", n_lifts=4
             )
             k_microkernel_scheduled = autofission(
                 k_microkernel_scheduled,
                 k_microkernel_scheduled.find("A_vec[_] = _").after(),
-                n_lifts=3,
+                n_lifts=4,
             )
             k_microkernel_scheduled = lift_alloc(
-                k_microkernel_scheduled, "B_vec", n_lifts=3
+                k_microkernel_scheduled, "B_vec", n_lifts=4
             )
             k_microkernel_scheduled = autofission(
                 k_microkernel_scheduled,
                 k_microkernel_scheduled.find("B_vec[_] = _").after(),
-                n_lifts=3,
+                n_lifts=4,
             )
             print(k_microkernel_scheduled)
-
-            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, 'i ko #2')
-            # k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, 'i ki')
-            # print(k_microkernel_scheduled)
 
             k_microkernel_scheduled = replace_all(
                 k_microkernel_scheduled, self.machine.load_instr_f32
@@ -1210,11 +1204,13 @@ class SYRK:
 
 k_blk = C.syrk.k_blk
 m_blk = C.syrk.m_blk
+m_blk_small = C.syrk.m_blk_small
 m_reg = C.syrk.m_reg
 n_reg = C.syrk.n_reg
+e_reg = C.syrk.e_reg
 
 
-ssyrk = SYRK(C.Machine, "f32", k_blk, m_blk, m_reg, n_reg)
+ssyrk = SYRK(C.Machine, "f32", k_blk, m_blk, m_blk_small, m_reg, n_reg, e_reg)
 
 exo_ssyrk_lower_notranspose_noalpha_nobeta = ssyrk.entry_points[0]
 exo_ssyrk_lower_notranspose_alpha_nobeta = ssyrk.entry_points[1]
@@ -1232,7 +1228,7 @@ exo_ssyrk_lower_alphazero_beta = ssyrk.entry_points[12]
 exo_ssyrk_upper_alphazero_beta = ssyrk.entry_points[13]
 
 C.Machine.vec_width //= 2
-dsyrk = SYRK(C.Machine, "f64", k_blk, m_blk, m_reg, n_reg // 2)
+dsyrk = SYRK(C.Machine, "f64", k_blk, m_blk, m_blk_small, m_reg, n_reg // 2, e_reg)
 C.Machine.vec_width *= 2
 
 exo_dsyrk_lower_notranspose_noalpha_nobeta = dsyrk.entry_points[0]
