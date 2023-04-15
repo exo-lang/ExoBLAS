@@ -45,9 +45,9 @@ static void BM_SSYMM_CBLAS(benchmark::State &state) {
 
 static void BM_SSYMM_EXO(benchmark::State &state) {
   int n = state.range(0);
-  auto a = AlignedBuffer2D<double>(n, n);
-  auto b = AlignedBuffer2D<double>(n, n);
-  auto c = AlignedBuffer2D<double>(n, n);
+  auto a = AlignedBuffer2D<float>(n, n);
+  auto b = AlignedBuffer2D<float>(n, n);
+  auto c = AlignedBuffer2D<float>(n, n);
 
   const float alpha = 1.0f;
   const float beta = 1.0f;
