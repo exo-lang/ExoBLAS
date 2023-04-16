@@ -73,9 +73,9 @@ class SYRK:
             # C = A*A**T + C
             assert N >= 1
             assert K >= 1
-            # assert stride(A1, 1) == 1
-            # assert stride(A2, 1) == 1
-            # assert stride(C, 1) == 1
+            assert stride(A1, 1) == 1
+            assert stride(A2, 1) == 1
+            assert stride(C, 1) == 1
 
             for i in seq(0, N):
                 for j in seq(0, i + 1):
@@ -101,9 +101,9 @@ class SYRK:
             # C = A**T*A + C
             assert N >= 1
             assert K >= 1
-            # assert stride(A1, 1) == 1
-            # assert stride(A2, 1) == 1
-            # assert stride(C, 1) == 1
+            assert stride(A1, 1) == 1
+            assert stride(A2, 1) == 1
+            assert stride(C, 1) == 1
             assert N == K
             for i in seq(0, N):
                 for j in seq(0, i + 1):
@@ -275,9 +275,9 @@ class SYRK:
             # C = A*A**T + C
             assert N >= 1
             assert K >= 1
-            # assert stride(A1, 1) == 1
-            # assert stride(A2, 1) == 1
-            # assert stride(C, 1) == 1
+            assert stride(A1, 1) == 1
+            assert stride(A2, 1) == 1
+            assert stride(C, 1) == 1
 
             for i in seq(0, N):
                 for j in seq(0, i):
@@ -719,11 +719,11 @@ class SYRK:
             n_lifts=1,
         )
 
-        diag_syrk_base = rename(diag_handler, "diag_handler")
+        diag_syrk_base = rename(diag_handler, f"diag_handler")
         diag_syrk_base = diag_syrk_base.partial_eval(K=self.K_blk, N=self.M_blk)
-        gepp_syrk_scheduled = replace(
-            gepp_syrk_scheduled, "for ii in _:_ #1", diag_syrk_base
-        )
+        # gepp_syrk_scheduled = replace(
+        #    gepp_syrk_scheduled, "for ii in _:_ #1", diag_syrk_base
+        # )
 
         gebp_diag_handler = GEBP_kernel(
             self.microkernel, self.M_blk_small, self.M_blk_small, self.precision
@@ -786,6 +786,7 @@ class SYRK:
             "for iii in _:_ #0",
             microkernel_diag_handler.base_microkernel,
         )
+
         diag_syrk_scheduled = call_eqv(
             diag_syrk_scheduled,
             f"microkernel_{microkernel_diag_handler.this_id}(_)",
@@ -803,7 +804,7 @@ class SYRK:
                                     k] * A2[k, jii + iio / 2 * 8 + 64 * io]
         """
 
-        if self.precision == "f32":  ##UNDER CONSTRUCTION
+        if self.precision == "f32" and False:  ##UNDER CONSTRUCTION
             diag_syrk_scheduled = autofission(
                 diag_syrk_scheduled,
                 diag_syrk_scheduled.find("for iii in _:_").before(),
@@ -832,9 +833,12 @@ class SYRK:
                 B: [f32][32, 32],
                 C: [f32][32, 32],
             ):
-                # assert stride(C, 1) == 1
-                # assert stride(B, 1) == 1
-                # assert stride(A, 1) == 1
+                assert stride(C, 1) == 1
+                assert stride(B, 1) == 1
+                assert stride(A, 1) == 1
+                assert stride(C, 0) == 32
+                assert stride(B, 0) == 32
+                assert stride(A, 0) == 32
                 # C[0, 0] = 0.0
                 # A_vec: f32[4, 8] @ AVX2
                 # B_vec: f32[2, 8] @ AVX2
@@ -853,12 +857,12 @@ class SYRK:
             gebp_unsafe = GEBP_kernel(
                 self.microkernel, self.M_blk, self.M_blk, self.precision
             )
-            gebp_unsafe.scheduled_gebp = inline(
-                gebp_unsafe.scheduled_gebp,
-                f"avx2_microkernel_4x16_{self.microkernel.this_id}(_)",
-            )
+            # gebp_unsafe.scheduled_gebp = inline(
+            #    gebp_unsafe.scheduled_gebp,
+            #    f"avx2_microkernel_4x16_{self.microkernel.this_id}(_)",
+            # )
 
-            print(gebp_unsafe.scheduled_gebp)
+            # print(gebp_unsafe.scheduled_gebp)
 
             unsafe_microkernel_scheduled = replace(
                 unsafe_microkernel_scheduled, "for i in _:_ #1", gebp_unsafe.base_gebp
@@ -911,9 +915,21 @@ class SYRK:
             )
             # diag_syrk_scheduled = inline(diag_syrk_scheduled, "s_unsafe_microkernel_scheduled(_)")
 
-        gepp_syrk_scheduled = call_eqv(
-            gepp_syrk_scheduled, "diag_handler(_)", diag_syrk_scheduled
+        diag_syrk_scheduled = diag_syrk_scheduled.add_assertion("stride(A1, 0)==32")
+        diag_syrk_scheduled = diag_syrk_scheduled.add_assertion("stride(A2, 0)==32")
+        diag_syrk_scheduled = diag_syrk_scheduled.add_assertion("stride(C, 0)==32")
+        diag_syrk_scheduled.unsafe_assert_eq(diag_syrk_base)
+
+        # gepp_syrk_scheduled = call_eqv(
+        #    gepp_syrk_scheduled, "diag_handler(_)", diag_syrk_scheduled
+        # )
+
+        gepp_syrk_scheduled = gepp_syrk_scheduled.add_assertion(
+            f"stride(A1, 0) == {self.M_blk}"
         )
+        # gepp_syrk_scheduled = gepp_syrk_scheduled.add_assertion(f"stride(A2, 0) == N")
+        # gepp_syrk_scheduled = gepp_syrk_scheduled.add_assertion(f"stride(C, 0) == N")
+        gepp_syrk_base.unsafe_assert_eq(gepp_syrk_scheduled)
 
         # print(gepp_syrk_scheduled)
 
