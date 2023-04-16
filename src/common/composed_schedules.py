@@ -500,16 +500,19 @@ def interleave_outer_loop_with_inner_loop(
     outer_loop_cursor = proc.forward(outer_loop_cursor)
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
-    proc = divide_loop(
-        proc,
-        outer_loop_cursor,
-        interleave_factor,
-        (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"),
-        tail="cut",
-    )
+    if isinstance(outer_loop_cursor.hi(), pc.LiteralCursor) and outer_loop_cursor.hi().value() == interleave_factor:
+        middle_loop_cursor = outer_loop_cursor
+    else:
+        proc = divide_loop(
+            proc,
+            outer_loop_cursor,
+            interleave_factor,
+            (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"),
+            tail="cut",
+        )
 
-    outer_loop_cursor = proc.forward(outer_loop_cursor)
-    middle_loop_cursor = outer_loop_cursor.body()[0]
+        outer_loop_cursor = proc.forward(outer_loop_cursor)
+        middle_loop_cursor = outer_loop_cursor.body()[0]
     middle_loop_stmts = list(middle_loop_cursor.body())
 
     for stmt in middle_loop_stmts:
@@ -525,6 +528,7 @@ def interleave_outer_loop_with_inner_loop(
     if not isinstance(inner_loop_cursor.next(), pc.InvalidCursor):
         proc = fission(proc, inner_loop_cursor.after())
 
+    proc = simplify(proc)
     inner_loop_cursor = proc.forward(inner_loop_cursor)
     proc = reorder_loops(proc, inner_loop_cursor.parent())
 
