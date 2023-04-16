@@ -381,7 +381,6 @@ class GEMM:
         exo_gemm_transa_transb_noalpha_nobeta = self.specialize_gemm(
             exo_gemm_transa_transb_noalpha_nobeta, self.precision
         )
-        # print(exo_gemm_transa_noalpha_nobeta)
 
         # Alpha = 0, Beta = 0
         @proc
@@ -584,12 +583,6 @@ class GEMM:
             exo_gemm_transa_transb_alpha_beta,
         ]
 
-        # print(self.microkernel.scheduled_microkernel)
-        # print(apply_beta)
-        # print(apply_alpha)
-        # print(self.gebp.scheduled_gebp)
-        # print(self.gepp.gepp_scheduled)
-
         if do_rename:
             for i in range(len(self.entry_points)):
                 self.entry_points[i] = rename(
@@ -619,22 +612,41 @@ class GEMM:
         )
         gemm_scheduled = reorder_loops(gemm_scheduled, "i jo")
         gemm_scheduled = reorder_loops(gemm_scheduled, "ko jo")
-        # print(gemm_scheduled)
         # gemm_scheduled = stage_mem(gemm_scheduled, 'for i in _:_ #0', f'B[{self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko, 0:N]', 'B_packed')
-        if self.gepp.K_blk > 256:
-            gemm_scheduled = stage_mem(
-                gemm_scheduled,
-                "for i in _:_ #0",
-                f"A[0:M, {self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko]",
-                "A_packed",
-            )
+        #A_str = "A"
+        #if self.gepp.K_blk > 256:
+        #    gemm_scheduled = stage_mem(
+        #        gemm_scheduled,
+        #        "for i in _:_ #0",
+        #        f"A[0:M, {self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko]",
+        #        "A_packed",
+        #    )
+        #    A_str = "A_packed"
         gemm_scheduled = replace(gemm_scheduled, "for i in _:_ #0", self.gepp.gepp_base)
+        call_c = gemm_scheduled.find(f"gepp_base_{self.gepp.this_id}(_)")
         gemm_scheduled = call_eqv(
             gemm_scheduled,
-            f"gepp_base_{self.gepp.this_id}(_)",
+            call_c,
             self.gepp.gepp_scheduled,
         )
-        return simplify(gemm_scheduled)
+        gemm_scheduled = inline(gemm_scheduled, call_c)
+        gemm_scheduled = inline_window(gemm_scheduled, "C = C[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, f"A = A[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, "B = B[_]")
+        gemm_scheduled = simplify(gemm_scheduled)
+
+        while True:
+            try:
+                gemm_scheduled = lift_alloc(gemm_scheduled, "B_strip:_")
+            except:
+                break
+        while True:
+            try:
+                gemm_scheduled = lift_alloc(gemm_scheduled, "A_strip:_")
+            except:
+                break
+
+        return gemm_scheduled
 
     def schedule_gemm_notranspose_alpha(
         self,
@@ -658,13 +670,11 @@ class GEMM:
         gemm_scheduled = divide_loop(
             gemm_scheduled, "j #1", self.gebp.N_blk, ["jo", "ji"], tail="cut"
         )
-        # print(gemm_scheduled)
         gemm_scheduled = autofission(
             gemm_scheduled, gemm_scheduled.find("for jo in _:_ #0ß").after(), n_lifts=2
         )
         gemm_scheduled = reorder_loops(gemm_scheduled, "i jo")
         gemm_scheduled = reorder_loops(gemm_scheduled, "ko jo")
-        # print(gemm_scheduled)
 
         gemm_scheduled = replace(gemm_scheduled, "for i in _:_ #0", self.gepp.gepp_base)
         gemm_scheduled = call_eqv(
@@ -802,15 +812,12 @@ sgemm_square_kernels = [
 ]
 
 n_blk_sizes = [2**i for i in range(9, 14)]
-m_blk = 256
-k_blk = 512
 sgemm_large_kernels = [
     GEMM(C.Machine, "f32", k_blk, m_blk, _n_blk, m_reg, n_reg, True, False)
     for _n_blk in n_blk_sizes
 ]
 
-
-exo_sgemm_notranspose_noalpha_nobeta_32_32_32 = sgemm_square_kernels[0].entry_points[0]
+"""
 exo_sgemm_alphazero_nobeta_32_32_32 = sgemm_square_kernels[0].entry_points[1]
 exo_sgemm_alphazero_beta_32_32_32 = sgemm_square_kernels[0].entry_points[2]
 exo_sgemm_notranspose_alpha_nobeta_32_32_32 = sgemm_square_kernels[0].entry_points[3]
@@ -827,7 +834,6 @@ exo_sgemm_transa_transb_noalpha_nobeta_32_32_32 = sgemm_square_kernels[0].entry_
 exo_sgemm_transa_transb_alpha_nobeta_32_32_32 = sgemm_square_kernels[0].entry_points[12]
 exo_sgemm_transa_transb_alpha_beta_32_32_32 = sgemm_square_kernels[0].entry_points[13]
 
-exo_sgemm_notranspose_noalpha_nobeta_64_64_64 = sgemm_square_kernels[1].entry_points[0]
 exo_sgemm_alphazero_nobeta_64_64_64 = sgemm_square_kernels[1].entry_points[1]
 exo_sgemm_alphazero_beta_64_64_64 = sgemm_square_kernels[1].entry_points[2]
 exo_sgemm_notranspose_alpha_nobeta_64_64_64 = sgemm_square_kernels[1].entry_points[3]
@@ -844,9 +850,6 @@ exo_sgemm_transa_transb_noalpha_nobeta_64_64_64 = sgemm_square_kernels[1].entry_
 exo_sgemm_transa_transb_alpha_nobeta_64_64_64 = sgemm_square_kernels[1].entry_points[12]
 exo_sgemm_transa_transb_alpha_beta_64_64_64 = sgemm_square_kernels[1].entry_points[13]
 
-exo_sgemm_notranspose_noalpha_nobeta_128_128_128 = sgemm_square_kernels[2].entry_points[
-    0
-]
 exo_sgemm_alphazero_nobeta_128_128_128 = sgemm_square_kernels[2].entry_points[1]
 exo_sgemm_alphazero_beta_128_128_128 = sgemm_square_kernels[2].entry_points[2]
 exo_sgemm_notranspose_alpha_nobeta_128_128_128 = sgemm_square_kernels[2].entry_points[3]
@@ -867,9 +870,6 @@ exo_sgemm_transa_transb_alpha_beta_128_128_128 = sgemm_square_kernels[2].entry_p
     13
 ]
 
-exo_sgemm_notranspose_noalpha_nobeta_256_256_256 = sgemm_square_kernels[3].entry_points[
-    0
-]
 exo_sgemm_alphazero_nobeta_256_256_256 = sgemm_square_kernels[3].entry_points[1]
 exo_sgemm_alphazero_beta_256_256_256 = sgemm_square_kernels[3].entry_points[2]
 exo_sgemm_notranspose_alpha_nobeta_256_256_256 = sgemm_square_kernels[3].entry_points[3]
@@ -890,9 +890,6 @@ exo_sgemm_transa_transb_alpha_beta_256_256_256 = sgemm_square_kernels[3].entry_p
     13
 ]
 
-exo_sgemm_notranspose_noalpha_nobeta_512_256_512 = sgemm_large_kernels[0].entry_points[
-    0
-]
 exo_sgemm_alphazero_nobeta_512_256_512 = sgemm_large_kernels[0].entry_points[1]
 exo_sgemm_alphazero_beta_512_256_512 = sgemm_large_kernels[0].entry_points[2]
 exo_sgemm_notranspose_alpha_nobeta_512_256_512 = sgemm_large_kernels[0].entry_points[3]
@@ -910,98 +907,87 @@ exo_sgemm_transa_transb_alpha_nobeta_512_256_512 = sgemm_large_kernels[0].entry_
     12
 ]
 exo_sgemm_transa_transb_alpha_beta_512_256_512 = sgemm_large_kernels[0].entry_points[13]
+"""
 
-exo_sgemm_notranspose_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[
-    0
-]
-exo_sgemm_alphazero_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[1]
-exo_sgemm_alphazero_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[2]
-exo_sgemm_notranspose_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[3]
-exo_sgemm_notranspose_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[4]
-exo_sgemm_transa_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[5]
-exo_sgemm_transa_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[6]
-exo_sgemm_transa_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[7]
-exo_sgemm_transb_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[8]
-exo_sgemm_transb_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[9]
-exo_sgemm_transb_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[10]
-exo_sgemm_transa_transb_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[
-    1
-].entry_points[11]
-exo_sgemm_transa_transb_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[
-    12
-]
-exo_sgemm_transa_transb_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[
-    13
-]
+#exo_sgemm_alphazero_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[1]
+#exo_sgemm_alphazero_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[2]
+#exo_sgemm_notranspose_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[3]
+#exo_sgemm_notranspose_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[4]
+#exo_sgemm_transa_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[5]
+#exo_sgemm_transa_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[6]
+#exo_sgemm_transa_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[7]
+#exo_sgemm_transb_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[8]
+#exo_sgemm_transb_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[9]
+#exo_sgemm_transb_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[10]
+#exo_sgemm_transa_transb_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[
+#    1
+#].entry_points[11]
+#exo_sgemm_transa_transb_alpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[
+#    12
+#]
+#exo_sgemm_transa_transb_alpha_beta_1024_256_512 = sgemm_large_kernels[1].entry_points[
+#    13
+#]
+#
+#exo_sgemm_alphazero_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[1]
+#exo_sgemm_alphazero_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[2]
+#exo_sgemm_notranspose_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[3]
+#exo_sgemm_notranspose_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[4]
+#exo_sgemm_transa_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[5]
+#exo_sgemm_transa_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[6]
+#exo_sgemm_transa_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[7]
+#exo_sgemm_transb_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[8]
+#exo_sgemm_transb_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[9]
+#exo_sgemm_transb_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[10]
+#exo_sgemm_transa_transb_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[
+#    2
+#].entry_points[11]
+#exo_sgemm_transa_transb_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[
+#    12
+#]
+#exo_sgemm_transa_transb_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[
+#    13
+#]
 
-exo_sgemm_notranspose_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[
-    0
-]
-exo_sgemm_alphazero_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[1]
-exo_sgemm_alphazero_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[2]
-exo_sgemm_notranspose_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[3]
-exo_sgemm_notranspose_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[4]
-exo_sgemm_transa_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[5]
-exo_sgemm_transa_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[6]
-exo_sgemm_transa_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[7]
-exo_sgemm_transb_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[8]
-exo_sgemm_transb_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[9]
-exo_sgemm_transb_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[10]
-exo_sgemm_transa_transb_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[
-    2
-].entry_points[11]
-exo_sgemm_transa_transb_alpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[
-    12
-]
-exo_sgemm_transa_transb_alpha_beta_2048_256_512 = sgemm_large_kernels[2].entry_points[
-    13
-]
+#exo_sgemm_alphazero_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[1]
+#exo_sgemm_alphazero_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[2]
+#exo_sgemm_notranspose_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[3]
+#exo_sgemm_notranspose_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[4]
+#exo_sgemm_transa_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[5]
+#exo_sgemm_transa_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[6]
+#exo_sgemm_transa_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[7]
+#exo_sgemm_transb_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[8]
+#exo_sgemm_transb_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[9]
+#exo_sgemm_transb_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[10]
+#exo_sgemm_transa_transb_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[
+#    3
+#].entry_points[11]
+#exo_sgemm_transa_transb_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[
+#    12
+#]
+#exo_sgemm_transa_transb_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[
+#    13
+#]
 
-exo_sgemm_notranspose_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[
-    0
-]
-exo_sgemm_alphazero_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[1]
-exo_sgemm_alphazero_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[2]
-exo_sgemm_notranspose_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[3]
-exo_sgemm_notranspose_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[4]
-exo_sgemm_transa_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[5]
-exo_sgemm_transa_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[6]
-exo_sgemm_transa_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[7]
-exo_sgemm_transb_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[8]
-exo_sgemm_transb_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[9]
-exo_sgemm_transb_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[10]
-exo_sgemm_transa_transb_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[
-    3
-].entry_points[11]
-exo_sgemm_transa_transb_alpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[
-    12
-]
-exo_sgemm_transa_transb_alpha_beta_4096_256_512 = sgemm_large_kernels[3].entry_points[
-    13
-]
-
-exo_sgemm_notranspose_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[
-    0
-]
-exo_sgemm_alphazero_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[1]
-exo_sgemm_alphazero_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[2]
-exo_sgemm_notranspose_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[3]
-exo_sgemm_notranspose_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[4]
-exo_sgemm_transa_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[5]
-exo_sgemm_transa_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[6]
-exo_sgemm_transa_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[7]
-exo_sgemm_transb_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[8]
-exo_sgemm_transb_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[9]
-exo_sgemm_transb_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[10]
-exo_sgemm_transa_transb_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[
-    4
-].entry_points[11]
-exo_sgemm_transa_transb_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[
-    12
-]
-exo_sgemm_transa_transb_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[
-    13
-]
+#exo_sgemm_alphazero_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[1]
+#exo_sgemm_alphazero_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[2]
+#exo_sgemm_notranspose_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[3]
+#exo_sgemm_notranspose_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[4]
+#exo_sgemm_transa_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[5]
+#exo_sgemm_transa_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[6]
+#exo_sgemm_transa_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[7]
+#exo_sgemm_transb_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[8]
+#exo_sgemm_transb_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[9]
+#exo_sgemm_transb_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[10]
+#exo_sgemm_transa_transb_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[
+#    4
+#].entry_points[11]
+#exo_sgemm_transa_transb_alpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[
+#    12
+#]
+#exo_sgemm_transa_transb_alpha_beta_8192_256_512 = sgemm_large_kernels[4].entry_points[
+#    13
+#]
 
 sgemm_square_entry_points = []
 for kernel in sgemm_square_kernels:
@@ -1011,16 +997,15 @@ sgemm_large_entry_points = []
 for kernel in sgemm_large_kernels:
     sgemm_large_entry_points.extend(kernel.entry_points)
 
-sgemm_entry_points = [p.name() for p in sgemm_square_entry_points] + [
-    p.name() for p in sgemm_large_entry_points
-]
+#sgemm_entry_points = [p.name() for p in sgemm_square_entry_points] + [
+#    p.name() for p in sgemm_large_entry_points
+#]
 
 #################################################
 # Generate f64 kernels
 #################################################
 
 C.Machine.vec_width //= 2
-# print(C.Machine.vec_width)
 
 dgemm_main = GEMM(C.Machine, "f64", k_blk, m_blk, n_blk, m_reg, n_reg // 2)
 """
@@ -1089,7 +1074,6 @@ exo_dgemm_transa_transb_noalpha_nobeta_256_256_256 = dgemm_backup_kernels[3].ent
 ]
 exo_dgemm_transa_transb_alpha_nobeta_256_256_256 = dgemm_backup_kernels[3].entry_points[12]
 exo_dgemm_transa_transb_alpha_beta_256_256_256 = dgemm_backup_kernels[3].entry_points[13]
-"""
 exo_dgemm_notranspose_noalpha_nobeta_main = dgemm_main.entry_points[0]
 exo_dgemm_alphazero_nobeta_main = dgemm_main.entry_points[1]
 exo_dgemm_alphazero_beta_main = dgemm_main.entry_points[2]
@@ -1104,6 +1088,7 @@ exo_dgemm_transb_alpha_beta_main = dgemm_main.entry_points[10]
 exo_dgemm_transa_transb_noalpha_nobeta_main = dgemm_main.entry_points[11]
 exo_dgemm_transa_transb_alpha_nobeta_main = dgemm_main.entry_points[12]
 exo_dgemm_transa_transb_alpha_beta_main = dgemm_main.entry_points[13]
+"""
 
 
 # dgemm_backup_entry_points = []
@@ -1113,5 +1098,31 @@ dgemm_entry_points = [
     p.name() for p in dgemm_main.entry_points
 ]  # + [p.name() for p in dgemm_backup_entry_points]
 
-__all__ = sgemm_entry_points + dgemm_entry_points
-# print(__all__)
+exo_sgemm_notranspose_noalpha_nobeta_2048_256_512 = sgemm_large_kernels[2].entry_points[
+    0
+]
+exo_sgemm_notranspose_noalpha_nobeta_1024_256_512 = sgemm_large_kernels[1].entry_points[
+    0
+]
+exo_sgemm_notranspose_noalpha_nobeta_512_256_512 = sgemm_large_kernels[0].entry_points[
+    0
+]
+exo_sgemm_notranspose_noalpha_nobeta_256_256_256 = sgemm_square_kernels[3].entry_points[
+    0
+]
+exo_sgemm_notranspose_noalpha_nobeta_64_64_64 = sgemm_square_kernels[1].entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_32_32_32 = sgemm_square_kernels[0].entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_128_128_128 = sgemm_square_kernels[2].entry_points[
+    0
+]
+exo_sgemm_notranspose_noalpha_nobeta_4096_256_512 = sgemm_large_kernels[3].entry_points[
+    0
+]
+exo_sgemm_notranspose_noalpha_nobeta_8192_256_512 = sgemm_large_kernels[4].entry_points[
+    0
+]
+
+__all__ = ['exo_sgemm_notranspose_noalpha_nobeta_2048_256_512',  'exo_sgemm_notranspose_noalpha_nobeta_1024_256_512', 'exo_sgemm_notranspose_noalpha_nobeta_512_256_512', 'exo_sgemm_notranspose_noalpha_nobeta_256_256_256', 'exo_sgemm_notranspose_noalpha_nobeta_64_64_64',  'exo_sgemm_notranspose_noalpha_nobeta_32_32_32', 'exo_sgemm_notranspose_noalpha_nobeta_128_128_128', 'exo_sgemm_notranspose_noalpha_nobeta_4096_256_512', 'exo_sgemm_notranspose_noalpha_nobeta_8192_256_512']
+
+
+
