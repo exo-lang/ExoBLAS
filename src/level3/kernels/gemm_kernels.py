@@ -568,7 +568,6 @@ class GEBP_kernel:
         scheduled_gebp = reorder_loops(scheduled_gebp, "io jo")
         #scheduled_gebp = divide_loop(scheduled_gebp, "io", 2, ["ioo", "ioi"], perfect=True)
 
-        print(scheduled_gebp)
         scheduled_gebp = stage_mem(
             scheduled_gebp,
             "for io in _:_ #0",
@@ -576,15 +575,16 @@ class GEBP_kernel:
             "B_strip",
         )
         scheduled_gebp = simplify(scheduled_gebp)
-        print(scheduled_gebp)
 
-        #scheduled_gebp = stage_mem(
-        #    scheduled_gebp,
-        #    "for jo in _:_ #0",
-        #    f"A[0: {self.M_blk}, 0:{self.microkernel.K_blk}]",
-        #    "A_strip",
-        #)
+        print(scheduled_gebp)
+        scheduled_gebp = stage_mem(
+            scheduled_gebp,
+            "for ii in _:_ #0",
+            f"A[ii + 4 * io, 0:{self.microkernel.K_blk}]",
+            "A_strip",
+        )
         scheduled_gebp = simplify(scheduled_gebp)
+        print(scheduled_gebp)
 
         scheduled_gebp = replace_all(scheduled_gebp, self.microkernel.base_microkernel)
         call_c = scheduled_gebp.find(f"microkernel_{self.microkernel.this_id}(_)")
@@ -597,6 +597,7 @@ class GEBP_kernel:
 
         scheduled_gebp = inline(scheduled_gebp, call_c)
         scheduled_gebp = inline_window(scheduled_gebp, "C = C[_]")
+        #scheduled_gebp = inline_window(scheduled_gebp, "A = A_strip[_]")
         scheduled_gebp = inline_window(scheduled_gebp, "A = A[_]")
         scheduled_gebp = inline_window(scheduled_gebp, "B = B_strip[_]")
         scheduled_gebp = simplify(scheduled_gebp)

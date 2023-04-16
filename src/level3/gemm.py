@@ -9,6 +9,7 @@ from exo.platforms.x86 import *
 from exo.platforms.neon import *
 from exo import *
 from exo.syntax import *
+from exo.libs.memories import DRAM_STATIC
 
 from exo.stdlib.scheduling import *
 
@@ -645,6 +646,7 @@ class GEMM:
                 gemm_scheduled = lift_alloc(gemm_scheduled, "A_strip:_")
             except:
                 break
+        gemm_scheduled = set_memory(gemm_scheduled, "B_strip:_", DRAM_STATIC)
 
         return gemm_scheduled
 
