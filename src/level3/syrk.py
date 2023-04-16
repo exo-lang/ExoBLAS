@@ -828,275 +828,46 @@ class SYRK:
 
             @proc
             def unsafe_microkernel_scheduled(
-                A: [f32][128, 256],
-                B: [f32][256, 128],
-                C: [f32][128, 128],
+                A: [f32][32, 32],
+                B: [f32][32, 32],
+                C: [f32][32, 32],
             ):
-                assert stride(C, 1) == 1
-                assert stride(B, 1) == 1
-                assert stride(A, 1) == 1
+                # assert stride(C, 1) == 1
+                # assert stride(B, 1) == 1
+                # assert stride(A, 1) == 1
                 # C[0, 0] = 0.0
                 # A_vec: f32[4, 8] @ AVX2
                 # B_vec: f32[2, 8] @ AVX2
-                # C_reg_r: f32[128, 128] @ AVX2
-                # for i in seq(0, 128):
-                #    for j in seq(0, 128):
-                #        C_reg_r[i, j] = 0.0
-                for jo in seq(0, 8):
-                    for io in seq(0, 32):
-                        C_reg: f32[4, 2, 8] @ AVX2
-                        # for i in
-                        # C_1 = C[4 * io + 0:4 * io + 4, 16 * jo + 0:16 * jo + 16]
-                        # A_1 = A[4 * io + 0:4 * io + 4, 0:256]
-                        # B_1 = B[0:256, 16 * jo + 0:16 * jo + 16]
-                        # mm256_loadu_ps(C_reg[0, 0, 0:8], C_reg_r[0, 0:8])
-                        # mm256_loadu_ps(C_reg[0, 1, 0:8], C_reg_r[0, 8:16])
-                        # mm256_loadu_ps(C_reg[1, 0, 0:8], C_reg_r[1, 0:8])
-                        # mm256_loadu_ps(C_reg[1, 1, 0:8], C_reg_r[1, 8:16])
-                        # mm256_loadu_ps(C_reg[2, 0, 0:8], C_reg_r[2, 0:8])
-                        # mm256_loadu_ps(C_reg[2, 1, 0:8], C_reg_r[2, 8:16])
-                        # mm256_loadu_ps(C_reg[3, 0, 0:8], C_reg_r[3, 0:8])
-                        # mm256_loadu_ps(C_reg[3, 1, 0:8], C_reg_r[3, 8:16])
-                        mm256_setzero_ps(C_reg[0, 0, 0:8])
-                        mm256_setzero_ps(C_reg[0, 1, 0:8])
-                        mm256_setzero_ps(C_reg[1, 0, 0:8])
-                        mm256_setzero_ps(C_reg[1, 1, 0:8])
-                        mm256_setzero_ps(C_reg[2, 0, 0:8])
-                        mm256_setzero_ps(C_reg[2, 1, 0:8])
-                        mm256_setzero_ps(C_reg[3, 0, 0:8])
-                        mm256_setzero_ps(C_reg[3, 1, 0:8])
-                        A_vec: f32[4, 8] @ AVX2
-                        B_vec: f32[2, 8] @ AVX2
-                        for ko in seq(0, 64):
-                            mm256_broadcast_ss(
-                                A_vec[0, 0:8],
-                                A[0 + 4 * io, 4 * ko + 0 : 1 + (4 * ko + 0)],
-                            )
-                            mm256_loadu_ps(
-                                B_vec[0, 0:8], B[4 * ko + 0, 16 * jo + 0 : 16 * jo + 8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 0, 0:8], A_vec[0, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_loadu_ps(
-                                B_vec[1, 0:8], B[4 * ko + 0, 16 * jo + 8 : 16 * jo + 16]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 1, 0:8], A_vec[0, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[1, 0:8],
-                                A[1 + 4 * io, 4 * ko + 0 : 1 + (4 * ko + 0)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 0, 0:8], A_vec[1, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 1, 0:8], A_vec[1, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[2, 0:8],
-                                A[2 + 4 * io, 4 * ko + 0 : 1 + (4 * ko + 0)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 0, 0:8], A_vec[2, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 1, 0:8], A_vec[2, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[3, 0:8],
-                                A[3 + 4 * io, 4 * ko + 0 : 1 + (4 * ko + 0)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 0, 0:8], A_vec[3, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 1, 0:8], A_vec[3, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[0, 0:8],
-                                A[0 + 4 * io, 4 * ko + 1 : 1 + (4 * ko + 1)],
-                            )
-                            mm256_loadu_ps(
-                                B_vec[0, 0:8], B[4 * ko + 1, 16 * jo + 0 : 16 * jo + 8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 0, 0:8], A_vec[0, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_loadu_ps(
-                                B_vec[1, 0:8], B[4 * ko + 1, 16 * jo + 8 : 16 * jo + 16]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 1, 0:8], A_vec[0, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[1, 0:8],
-                                A[1 + 4 * io, 4 * ko + 1 : 1 + (4 * ko + 1)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 0, 0:8], A_vec[1, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 1, 0:8], A_vec[1, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[2, 0:8],
-                                A[2 + 4 * io, 4 * ko + 1 : 1 + (4 * ko + 1)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 0, 0:8], A_vec[2, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 1, 0:8], A_vec[2, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[3, 0:8],
-                                A[3 + 4 * io, 4 * ko + 1 : 1 + (4 * ko + 1)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 0, 0:8], A_vec[3, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 1, 0:8], A_vec[3, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[0, 0:8],
-                                A[0 + 4 * io, 4 * ko + 2 : 1 + (4 * ko + 2)],
-                            )
-                            mm256_loadu_ps(
-                                B_vec[0, 0:8], B[4 * ko + 2, 16 * jo + 0 : 16 * jo + 8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 0, 0:8], A_vec[0, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_loadu_ps(
-                                B_vec[1, 0:8], B[4 * ko + 2, 16 * jo + 8 : 16 * jo + 16]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 1, 0:8], A_vec[0, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[1, 0:8],
-                                A[1 + 4 * io, 4 * ko + 2 : 1 + (4 * ko + 2)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 0, 0:8], A_vec[1, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 1, 0:8], A_vec[1, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[2, 0:8],
-                                A[2 + 4 * io, 4 * ko + 2 : 1 + (4 * ko + 2)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 0, 0:8], A_vec[2, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 1, 0:8], A_vec[2, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[3, 0:8],
-                                A[3 + 4 * io, 4 * ko + 2 : 1 + (4 * ko + 2)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 0, 0:8], A_vec[3, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 1, 0:8], A_vec[3, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[0, 0:8],
-                                A[0 + 4 * io, 4 * ko + 3 : 1 + (4 * ko + 3)],
-                            )
-                            mm256_loadu_ps(
-                                B_vec[0, 0:8], B[4 * ko + 3, 16 * jo + 0 : 16 * jo + 8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 0, 0:8], A_vec[0, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_loadu_ps(
-                                B_vec[1, 0:8], B[4 * ko + 3, 16 * jo + 8 : 16 * jo + 16]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[0, 1, 0:8], A_vec[0, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[1, 0:8],
-                                A[1 + 4 * io, 4 * ko + 3 : 1 + (4 * ko + 3)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 0, 0:8], A_vec[1, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[1, 1, 0:8], A_vec[1, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[2, 0:8],
-                                A[2 + 4 * io, 4 * ko + 3 : 1 + (4 * ko + 3)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 0, 0:8], A_vec[2, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[2, 1, 0:8], A_vec[2, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_broadcast_ss(
-                                A_vec[3, 0:8],
-                                A[3 + 4 * io, 4 * ko + 3 : 1 + (4 * ko + 3)],
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 0, 0:8], A_vec[3, 0:8], B_vec[0, 0:8]
-                            )
-                            mm256_fmadd_ps(
-                                C_reg[3, 1, 0:8], A_vec[3, 0:8], B_vec[1, 0:8]
-                            )
-                            mm256_storeu_ps(
-                                C[0 + 4 * io, 16 * jo + 0 : 16 * jo + 8],
-                                C_reg[0, 0, 0:8],
-                            )
-                            mm256_storeu_ps(
-                                C[0 + 4 * io, 16 * jo + 8 : 16 * jo + 16],
-                                C_reg[0, 1, 0:8],
-                            )
-                            mm256_storeu_ps(
-                                C[1 + 4 * io, 16 * jo + 0 : 16 * jo + 8],
-                                C_reg[1, 0, 0:8],
-                            )
-                            mm256_storeu_ps(
-                                C[1 + 4 * io, 16 * jo + 8 : 16 * jo + 16],
-                                C_reg[1, 1, 0:8],
-                            )
-                            mm256_storeu_ps(
-                                C[2 + 4 * io, 16 * jo + 0 : 16 * jo + 8],
-                                C_reg[2, 0, 0:8],
-                            )
-                            mm256_storeu_ps(
-                                C[2 + 4 * io, 16 * jo + 8 : 16 * jo + 16],
-                                C_reg[2, 1, 0:8],
-                            )
-                            mm256_storeu_ps(
-                                C[3 + 4 * io, 16 * jo + 0 : 16 * jo + 8],
-                                C_reg[3, 0, 0:8],
-                            )
-                            mm256_storeu_ps(
-                                C[3 + 4 * io, 16 * jo + 8 : 16 * jo + 16],
-                                C_reg[3, 1, 0:8],
-                            )
-                # for i in seq(0, 128):
-                #    for j in seq(0, i % 16):
-                #        C[i, j + ((i / 16)*16)] += C_reg[i, j + ((i / 16)*16)]
+                C_reg: f32[32, 32] @ DRAM
+                for i in seq(0, 32):
+                    for j in seq(0, 32):
+                        C_reg[i, j] = 0.0
+                for i in seq(0, 32):
+                    for j in seq(0, 32):
+                        for k in seq(0, 32):
+                            C_reg[i, j] += A[i, k] * B[k, j]
+                for i in seq(0, 32):
+                    for j in seq(0, i % 16):
+                        C[i, j + ((i / 16) * 16)] += C_reg[i, j + ((i / 16) * 16)]
 
-            # unsafe_microkernel_scheduled = set_memory(unsafe_microkernel_scheduled, 'C_reg:_', AVX2)
+            gebp_unsafe = GEBP_kernel(
+                self.microkernel, self.M_blk, self.M_blk, self.precision
+            )
+            gebp_unsafe.scheduled_gebp = inline(
+                gebp_unsafe.scheduled_gebp,
+                f"avx2_microkernel_4x16_{self.microkernel.this_id}(_)",
+            )
 
-            # gebp_unsafe = GEBP_kernel(self.microkernel, self.M_blk, self.M_blk, self.precision)
-            # gebp_unsafe.scheduled_gebp = inline(gebp_unsafe.scheduled_gebp, f"avx2_microkernel_4x16_{self.microkernel.this_id}(_)")
+            print(gebp_unsafe.scheduled_gebp)
 
-            # print(gebp_unsafe.scheduled_gebp)
-
-            # unsafe_microkernel_scheduled = replace(unsafe_microkernel_scheduled, 'for i in _:_ #1', gebp_unsafe.base_gebp)
-            # unsafe_microkernel_scheduled = call_eqv(unsafe_microkernel_scheduled, f'gebp_base_{gebp_unsafe.this_id}(_)', gebp_unsafe.scheduled_gebp)
+            unsafe_microkernel_scheduled = replace(
+                unsafe_microkernel_scheduled, "for i in _:_ #1", gebp_unsafe.base_gebp
+            )
+            unsafe_microkernel_scheduled = call_eqv(
+                unsafe_microkernel_scheduled,
+                f"gebp_base_{gebp_unsafe.this_id}(_)",
+                gebp_unsafe.scheduled_gebp,
+            )
 
             # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j #0', self.machine.vec_width, ['jo', 'ji'], perfect=True)
 
