@@ -61,7 +61,7 @@ class GEMM:
 
         gemm_notranspose_noalpha = rename(
             gemm_notranspose_noalpha,
-            f"{self.prefix}{gemm_notranspose_noalpha.name()}_{N_blk}_{M_blk}_{K_blk}",
+            f"{self.prefix}{gemm_notranspose_noalpha.name()}_{N_blk*2}_{M_blk}_{K_blk}",
         )
         gemm_notranspose_noalpha = self.specialize_gemm(
             gemm_notranspose_noalpha, self.precision, ["A", "B", "C"]
@@ -620,14 +620,19 @@ class GEMM:
         gemm_scheduled = reorder_loops(gemm_scheduled, "i jo")
         gemm_scheduled = reorder_loops(gemm_scheduled, "ko jo")
         # print(gemm_scheduled)
-        # gemm_scheduled = stage_mem(gemm_scheduled, 'for i in _:_ #0', f'B[{self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko, 0:N]', 'B_packed')
-        if self.gepp.K_blk > 256:
-            gemm_scheduled = stage_mem(
-                gemm_scheduled,
-                "for i in _:_ #0",
-                f"A[0:M, {self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko]",
-                "A_packed",
-            )
+        gemm_scheduled = stage_mem(
+            gemm_scheduled,
+            "for i in _:_ #0",
+            f"B[{self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko, {self.gepp.N_blk}*jo:{self.gepp.N_blk}*jo+{self.gepp.N_blk}]",
+            "B_packed",
+        )
+        # if self.gepp.K_blk > 256:
+        # gemm_scheduled = stage_mem(
+        #    gemm_scheduled,
+        #    "for i in _:_ #0",
+        #    f"A[0:M, {self.gepp.K_blk} * ko:{self.gepp.K_blk} + {self.gepp.K_blk} * ko]",
+        #    "A_packed",
+        # )
         gemm_scheduled = replace(gemm_scheduled, "for i in _:_ #0", self.gepp.gepp_base)
         gemm_scheduled = call_eqv(
             gemm_scheduled,

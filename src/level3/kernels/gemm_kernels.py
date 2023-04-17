@@ -201,12 +201,13 @@ class Microkernel:
             "ji",
             unsafe_disable_checks=True,
         )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel, "A_vec", M_r, "i", unsafe_disable_checks=True
-        )
+        # scheduled_microkernel = expand_dim(
+        #    scheduled_microkernel, "A_vec", M_r, "i", unsafe_disable_checks=True
+        # )
         scheduled_microkernel = set_precision(
             scheduled_microkernel, "A_vec", self.precision
         )
+        print(scheduled_microkernel)
 
         # Setup B buffer in vector mem
         scheduled_microkernel = bind_expr(scheduled_microkernel, "B[_]", "B_vec")
@@ -221,44 +222,46 @@ class Microkernel:
             f"ji",
             unsafe_disable_checks=True,
         )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "B_vec",
-            (N_r // machine.vec_width),
-            f"jo",
-            unsafe_disable_checks=True,
-        )
+        # scheduled_microkernel = expand_dim(
+        #    scheduled_microkernel,
+        #    "B_vec",
+        #    (N_r // machine.vec_width),
+        #    f"jo",
+        #    unsafe_disable_checks=True,
+        # )
         scheduled_microkernel = set_precision(
             scheduled_microkernel, "B_vec", self.precision
         )
+        print(scheduled_microkernel)
 
         # Move A_vec and B_vec into proper sites
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=4)
+        scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=2)
         scheduled_microkernel = autofission(
             scheduled_microkernel,
             scheduled_microkernel.find("A_vec[_] = _").after(),
-            n_lifts=3,
+            n_lifts=2,
         )
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "B_vec", n_lifts=4)
+        print(scheduled_microkernel)
+        scheduled_microkernel = lift_alloc(scheduled_microkernel, "B_vec", n_lifts=1)
         scheduled_microkernel = autofission(
             scheduled_microkernel,
             scheduled_microkernel.find("B_vec[_] = _").after(),
-            n_lifts=3,
+            n_lifts=1,
         )
 
-        #Unroll loops
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C load
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C load
+        # Unroll loops
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0")  # C load
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0")  # C load
 
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i #0") #A load
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #B load
-        
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #computation 
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #computation
-        
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C store
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C store
-        
+        # scheduled_microkernel = unroll_loop(scheduled_microkernel, "i #1") #A load
+        # scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #1") #B load
+
+        # scheduled_microkernel = unroll_loop(scheduled_microkernel, "i #0") #computation
+        # scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo  #0") #computation
+
+        # scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C store
+        # scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C store
+
         # Replace
         if self.precision == "f32":
             scheduled_microkernel = replace_all(
@@ -289,30 +292,30 @@ class Microkernel:
             )
             scheduled_microkernel = simplify(scheduled_microkernel)
 
-        k_loop = scheduled_microkernel.find_loop('k')
-        scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True)
+        # k_loop = scheduled_microkernel.find_loop('k')
+        # scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True)
 
-        first = scheduled_microkernel.find_loop('ki').body()[0]
-        for i in range(len( scheduled_microkernel.find_loop('ki').body())):
-            while True:
-                try:
-                    scheduled_microkernel = reorder_stmts(scheduled_microkernel, scheduled_microkernel.forward(first).expand(0, 1))
-                except:
-                    break
-            first = scheduled_microkernel.find_loop('ki').body()[0]
+        # first = scheduled_microkernel.find_loop('ki').body()[0]
+        # for i in range(len( scheduled_microkernel.find_loop('ki').body())):
+        #    while True:
+        #        try:
+        #            scheduled_microkernel = reorder_stmts(scheduled_microkernel, scheduled_microkernel.forward(first).expand(0, 1))
+        #        except:
+        #            break
+        #    first = scheduled_microkernel.find_loop('ki').body()[0]
 
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
+        # scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
 
         # Unsafe assert
-        scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(A, 0) == {K_blk}")
-        scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(B, 0) == {N_r}")
-        scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(C, 0) == {N_r}")
-        microkernel = microkernel.add_assertion(f"stride(A, 0) == {K_blk}")
-        microkernel = microkernel.add_assertion(f"stride(B, 0) == {N_r}")
-        microkernel = microkernel.add_assertion(f"stride(C, 0) == {N_r}")
-        scheduled_microkernel.unsafe_assert_eq(microkernel)
+        # scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(A, 0) == {K_blk}")
+        # scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(B, 0) == {N_r}")
+        # scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(C, 0) == {N_r}")
+        # microkernel = microkernel.add_assertion(f"stride(A, 0) == {K_blk}")
+        # microkernel = microkernel.add_assertion(f"stride(B, 0) == {N_r}")
+        # microkernel = microkernel.add_assertion(f"stride(C, 0) == {N_r}")
+        # scheduled_microkernel.unsafe_assert_eq(microkernel)
         #
-        
+
         return scheduled_microkernel, microkernel
 
     def generate_microkernel_zpad(
@@ -573,30 +576,30 @@ class GEBP_kernel:
         )
 
         scheduled_gebp = reorder_loops(scheduled_gebp, "io jo")
-        #scheduled_gebp = stage_mem(
-        #    scheduled_gebp,
-        #    "for io in _:_ #0",
-        #    f"B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]",
-        #    "B_strip",
-        #)
+        scheduled_gebp = stage_mem(
+            scheduled_gebp,
+            "for io in _:_ #0",
+            f"B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]",
+            "B_strip",
+        )
         # print(scheduled_gebp)
 
         # Unsafe assert
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 0) == {self.microkernel.K_blk}")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(C, 0) == {self.N_blk}")
-        gebp = gebp.add_assertion(f"stride(A, 0) == {self.microkernel.K_blk}")
-        gebp = gebp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        gebp = gebp.add_assertion(f"stride(C, 0) == {self.N_blk}")
+        # scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 0) == {self.microkernel.K_blk}")
+        # scheduled_gebp = scheduled_gebp.add_assertion(f"stride(B, 0) == {self.N_blk}")
+        # scheduled_gebp = scheduled_gebp.add_assertion(f"stride(C, 0) == {self.N_blk}")
+        # gebp = gebp.add_assertion(f"stride(A, 0) == {self.microkernel.K_blk}")
+        # gebp = gebp.add_assertion(f"stride(B, 0) == {self.N_blk}")
+        # gebp = gebp.add_assertion(f"stride(C, 0) == {self.N_blk}")
         #
 
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 1) == 1")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(B, 1) == 1")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(C, 1) == 1")
-        gebp = gebp.add_assertion(f"stride(A, 1) == 1")
-        gebp = gebp.add_assertion(f"stride(B, 1) == 1")
-        gebp = gebp.add_assertion(f"stride(C, 1) == 1")
-        scheduled_gebp.unsafe_assert_eq(gebp)
+        # scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 1) == 1")
+        # scheduled_gebp = scheduled_gebp.add_assertion(f"stride(B, 1) == 1")
+        # scheduled_gebp = scheduled_gebp.add_assertion(f"stride(C, 1) == 1")
+        # gebp = gebp.add_assertion(f"stride(A, 1) == 1")
+        # gebp = gebp.add_assertion(f"stride(B, 1) == 1")
+        # gebp = gebp.add_assertion(f"stride(C, 1) == 1")
+        # scheduled_gebp.unsafe_assert_eq(gebp)
 
         return scheduled_gebp, gebp
 
@@ -663,12 +666,12 @@ class GEPP_kernel:
         scheduled_gepp = divide_loop(
             scheduled_gepp, "i", self.gebp.M_blk, ["io", "ii"], tail="cut_and_guard"
         )
-        #scheduled_gepp = stage_mem(
-        #    scheduled_gepp,
-        #    "for ii in _:_ #0",
-        #    f"A[{self.gebp.M_blk} * io + 0:{self.gebp.M_blk} * io + {self.gebp.M_blk}, 0:{self.K_blk}]",
-        #    "A_packed",
-        #)
+        scheduled_gepp = stage_mem(
+            scheduled_gepp,
+            "for ii in _:_ #0",
+            f"A[{self.gebp.M_blk} * io + 0:{self.gebp.M_blk} * io + {self.gebp.M_blk}, 0:{self.K_blk}]",
+            "A_packed",
+        )
         # print(scheduled_gepp)
         # scheduled_gepp = stage_mem(scheduled_gepp, 'for ii in _:_ #0', f'B[0:{self.K_blk}, 0:N]', 'B_packed')
 
@@ -682,21 +685,21 @@ class GEPP_kernel:
         )
 
         # Unsafe assert
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(A, 0) == {self.K_blk}")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(C, 0) == {self.N_blk}")
-        base_gepp = base_gepp.add_assertion(f"stride(A, 0) == {self.K_blk}")
-        base_gepp = base_gepp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        base_gepp = base_gepp.add_assertion(f"stride(C, 0) == {self.N_blk}")
-        # 
+        # scheduled_gepp = scheduled_gepp.add_assertion(f"stride(A, 0) == {self.K_blk}")
+        # scheduled_gepp = scheduled_gepp.add_assertion(f"stride(B, 0) == {self.N_blk}")
+        # scheduled_gepp = scheduled_gepp.add_assertion(f"stride(C, 0) == {self.N_blk}")
+        # base_gepp = base_gepp.add_assertion(f"stride(A, 0) == {self.K_blk}")
+        # base_gepp = base_gepp.add_assertion(f"stride(B, 0) == {self.N_blk}")
+        # base_gepp = base_gepp.add_assertion(f"stride(C, 0) == {self.N_blk}")
+        #
 
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(A, 1) == 1")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(B, 1) == 1")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(C, 1) == 1")
-        base_gepp = base_gepp.add_assertion(f"stride(A, 1) == 1")
-        base_gepp = base_gepp.add_assertion(f"stride(B, 1) == 1")
-        base_gepp = base_gepp.add_assertion(f"stride(C, 1) == 1")
-        scheduled_gepp.unsafe_assert_eq(base_gepp)
+        # scheduled_gepp = scheduled_gepp.add_assertion(f"stride(A, 1) == 1")
+        # scheduled_gepp = scheduled_gepp.add_assertion(f"stride(B, 1) == 1")
+        # scheduled_gepp = scheduled_gepp.add_assertion(f"stride(C, 1) == 1")
+        # base_gepp = base_gepp.add_assertion(f"stride(A, 1) == 1")
+        # base_gepp = base_gepp.add_assertion(f"stride(B, 1) == 1")
+        # base_gepp = base_gepp.add_assertion(f"stride(C, 1) == 1")
+        # scheduled_gepp.unsafe_assert_eq(base_gepp)
 
         return base_gepp, scheduled_gepp
 
