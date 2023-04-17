@@ -61,10 +61,11 @@ static void BM_SGEMM_EXO(benchmark::State &state) {
       benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK(BM_SGEMM_CBLAS)
-    ->ArgNames({"n"})
-    ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2)});
+// BENCHMARK(BM_SGEMM_CBLAS)
+//     ->ArgNames({"n"})
+//     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2)});
 
-BENCHMARK(BM_SGEMM_EXO)->ArgNames({"n"})
+BENCHMARK(BM_SGEMM_EXO)
     ->ArgNames({"n"})
-    ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2)});
+    ->ArgNames({"n"})
+    ->ArgsProduct({benchmark::CreateRange(8192, 8192, 2)});
