@@ -38,16 +38,30 @@ void exo_dtrmv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
         }
       }
     } else {
-      if (incX == 1) {
-        exo_dtrmv_row_major_Upper_Trans_stride_1(
-          nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
-          exo_win_2f64c{.data = A, .strides = {lda, 1}},
-          Diag == CBLAS_DIAG::CblasUnit);
+      if (Diag == CBLAS_DIAG::CblasUnit) {
+        if (incX == 1) {
+          exo_dtrmv_row_major_Upper_Trans_Unit_stride_1(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        } else {
+          exo_dtrmv_row_major_Upper_Trans_Unit_stride_any(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        }
       } else {
-        exo_dtrmv_row_major_Upper_Trans_stride_any(
-          nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
-          exo_win_2f64c{.data = A, .strides = {lda, 1}},
-          Diag == CBLAS_DIAG::CblasUnit);
+        if (incX == 1) {
+          exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_1(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        } else {
+          exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        }
       }
     }
   } else {
@@ -74,16 +88,30 @@ void exo_dtrmv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
         }
       }
     } else {
-      if (incX == 1) {
-        exo_dtrmv_row_major_Lower_Trans_stride_1(
-          nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
-          exo_win_2f64c{.data = A, .strides = {lda, 1}},
-          Diag == CBLAS_DIAG::CblasUnit);
+      if (Diag == CBLAS_DIAG::CblasUnit) {
+        if (incX == 1) {
+          exo_dtrmv_row_major_Lower_Trans_Unit_stride_1(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        } else {
+          exo_dtrmv_row_major_Lower_Trans_Unit_stride_any(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        }
       } else {
-        exo_dtrmv_row_major_Lower_Trans_stride_any(
-          nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
-          exo_win_2f64c{.data = A, .strides = {lda, 1}},
-          Diag == CBLAS_DIAG::CblasUnit);
+        if (incX == 1) {
+          exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_1(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        } else {
+          exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any(
+            nullptr, N, exo_win_1f64{.data = X, .strides = {incX}},
+            exo_win_2f64c{.data = A, .strides = {lda, 1}},
+            Diag == CBLAS_DIAG::CblasUnit);
+        }
       }
     }
   }

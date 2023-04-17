@@ -43,6 +43,42 @@ def neon_assoc_reduce_add_instr_2xf64_buffer(
         result[0] += x[i]
 
 
+@instr("{dst_data} = vld1q_f32(&{src_data});")
+def neon_vld_4xf32_backawrds(dst: [f32][4] @ Neon, src: [f32][4] @ DRAM):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 4):
+        dst[i] = src[3 - i]
+
+
+@instr("vst1q_f32(&{dst_data}, {src_data});")
+def neon_vst_4xf32_backawrds(dst: [f32][4] @ DRAM, src: [f32][4] @ Neon):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 4):
+        dst[3 - i] = src[i]
+
+
+@instr("{dst_data} = vld1q_f64(&{src_data});")
+def neon_vld_2xf64_backwards(dst: [f64][2] @ Neon, src: [f64][2] @ DRAM):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 2):
+        dst[i] = src[1 - i]
+
+
+@instr("vst1q_f64(&{dst_data}, {src_data});")
+def neon_vst_2xf64_backwards(dst: [f64][2] @ DRAM, src: [f64][2] @ Neon):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 2):
+        dst[1 - i] = src[i]
+
+
 Machine = MachineParameters(
     name="neon",
     mem_type=Neon,
@@ -53,7 +89,9 @@ Machine = MachineParameters(
     l2_cache=None,
     l3_cache=None,
     load_instr_f32=neon_vld_4xf32,
+    load_backwards_instr_f32=neon_vld_4xf32_backawrds,
     store_instr_f32=neon_vst_4xf32,
+    store_backwards_instr_f32=neon_vst_4xf32_backawrds,
     broadcast_instr_f32=neon_broadcast_4xf32,
     broadcast_scalar_instr_f32=neon_broadcast_4xf32_scalar,
     fmadd_instr_f32=neon_vfmadd_4xf32_4xf32,
@@ -67,7 +105,9 @@ Machine = MachineParameters(
     select_instr_f32=None,
     assoc_reduce_add_f32_buffer=neon_assoc_reduce_add_instr_4xf32_buffer,
     load_instr_f64=neon_vld_2xf64,
+    load_backwards_instr_f64=neon_vld_2xf64_backwards,
     store_instr_f64=neon_vst_2xf64,
+    store_backwards_instr_f64=neon_vst_2xf64_backwards,
     broadcast_instr_f64=neon_broadcast_2xf64,
     broadcast_scalar_instr_f64=neon_broadcast_2xf64_scalar,
     fmadd_instr_f64=neon_vfmadd_2xf64_2xf64,

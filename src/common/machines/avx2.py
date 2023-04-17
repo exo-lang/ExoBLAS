@@ -54,6 +54,42 @@ def avx2_assoc_reduce_add_pd_buffer(x: [f64][4] @ AVX2, result: [f64][1]):
         result[0] += x[i]
 
 
+@instr("{dst_data} = _mm256_loadu_ps(&{src_data});")
+def avx2_loadu_ps_backwards(dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 8):
+        dst[i] = src[7 - i]
+
+
+@instr("{dst_data} = _mm256_loadu_pd(&{src_data});")
+def avx2_loadu_pd_backwards(dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 4):
+        dst[i] = src[3 - i]
+
+
+@instr("_mm256_storeu_ps(&{dst_data}, {src_data});")
+def avx2_storeu_ps_backwards(dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 8):
+        dst[7 - i] = src[i]
+
+
+@instr("_mm256_storeu_pd(&{dst_data}, {src_data});")
+def avx2_storeu_pd_backwards(dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 4):
+        dst[3 - i] = src[i]
+
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -64,7 +100,9 @@ Machine = MachineParameters(
     l2_cache=None,
     l3_cache=None,
     load_instr_f32=mm256_loadu_ps,
+    load_backwards_instr_f32=avx2_loadu_ps_backwards,
     store_instr_f32=mm256_storeu_ps,
+    store_backwards_instr_f32=avx2_storeu_ps_backwards,
     broadcast_instr_f32=mm256_broadcast_ss,
     broadcast_scalar_instr_f32=mm256_broadcast_ss_scalar,
     fmadd_instr_f32=mm256_fmadd_ps,
@@ -78,7 +116,9 @@ Machine = MachineParameters(
     sign_instr_f32=avx2_sign_ps,
     select_instr_f32=avx2_select_ps,
     load_instr_f64=mm256_loadu_pd,
+    load_backwards_instr_f64=avx2_loadu_pd_backwards,
     store_instr_f64=mm256_storeu_pd,
+    store_backwards_instr_f64=avx2_storeu_pd_backwards,
     broadcast_instr_f64=mm256_broadcast_sd,
     broadcast_scalar_instr_f64=mm256_broadcast_sd_scalar,
     fmadd_instr_f64=mm256_fmadd_pd,

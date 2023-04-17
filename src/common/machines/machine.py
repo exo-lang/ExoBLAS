@@ -23,7 +23,9 @@ class MachineParameters:
     l3_cache: int
 
     load_instr_f32: Any
+    load_backwards_instr_f32: Any
     store_instr_f32: Any
+    store_backwards_instr_f32: Any
     broadcast_instr_f32: Any
     broadcast_scalar_instr_f32: Any
     fmadd_instr_f32: Any
@@ -38,7 +40,9 @@ class MachineParameters:
     assoc_reduce_add_f32_buffer: Any
 
     load_instr_f64: Any
+    load_backwards_instr_f64: Any
     store_instr_f64: Any
+    store_backwards_instr_f64: Any
     broadcast_instr_f64: Any
     broadcast_scalar_instr_f64: Any
     fmadd_instr_f64: Any
