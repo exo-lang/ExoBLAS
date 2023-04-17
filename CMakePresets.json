@@ -35,7 +35,7 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/avx2",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-march=haswell -O3 -ffast-math",
+        "CMAKE_C_FLAGS": "-march=haswell -O3 -ffast-math -std=c11",
         "CMAKE_CXX_FLAGS": "-march=haswell -O3 -ffast-math",
         "CMAKE_BUILD_TYPE": "Release"
       }

@@ -68,3 +68,4 @@ BENCHMARK(BM_SGEMM_CBLAS)
 BENCHMARK(BM_SGEMM_EXO)->ArgNames({"n"})
     ->ArgNames({"n"})
     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2)});
+

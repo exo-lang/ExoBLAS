@@ -37,7 +37,7 @@ class Microkernel:
             N: size,
             K: size,
             C: f32[M, N] @ DRAM,
-            A: f32[M, K] @ DRAM,
+            A: f32[K, M] @ DRAM,
             B: f32[K, N] @ DRAM,
         ):
             assert stride(C, 1) == 1
@@ -46,7 +46,7 @@ class Microkernel:
             for i in seq(0, M):
                 for j in seq(0, N):
                     for k in seq(0, K):
-                        C[i, j] += A[i, k] * B[k, j]
+                        C[i, j] += A[k, i] * B[k, j]
 
         @proc
         def SGEMM2(
@@ -221,7 +221,6 @@ class Microkernel:
             f"ji",
             unsafe_disable_checks=True,
         )
-        print(scheduled_microkernel)
         scheduled_microkernel = expand_dim(
             scheduled_microkernel,
             "B_vec",
@@ -232,7 +231,6 @@ class Microkernel:
         scheduled_microkernel = set_precision(
             scheduled_microkernel, "B_vec", self.precision
         )
-        print(scheduled_microkernel)
 
         # Move A_vec and B_vec into proper sites
         scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=4)
@@ -247,6 +245,7 @@ class Microkernel:
             scheduled_microkernel.find("B_vec[_] = _").after(),
             n_lifts=3,
         )
+
 
         #Unroll loops
         scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C load
@@ -292,7 +291,7 @@ class Microkernel:
             scheduled_microkernel = simplify(scheduled_microkernel)
 
         k_loop = scheduled_microkernel.find_loop('k')
-        scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 2, ["ko", "ki"], tail="cut", perfect=True)
+        scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True)
 
         first = scheduled_microkernel.find_loop('ki').body()[0]
         for i in range(len( scheduled_microkernel.find_loop('ki').body())):
@@ -303,6 +302,7 @@ class Microkernel:
                     break
             first = scheduled_microkernel.find_loop('ki').body()[0]
 
+        print(scheduled_microkernel)
         scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
 
         # Unsafe assert
@@ -568,23 +568,27 @@ class GEBP_kernel:
         scheduled_gebp = reorder_loops(scheduled_gebp, "io jo")
         #scheduled_gebp = divide_loop(scheduled_gebp, "io", 2, ["ioo", "ioi"], perfect=True)
 
+        #print(scheduled_gebp)
         scheduled_gebp = stage_mem(
             scheduled_gebp,
             "for io in _:_ #0",
-            f"B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]",
-            "B_strip",
+            f"B[0:{self.microkernel.K_blk}, jo*{self.microkernel.N_r}:jo*{self.microkernel.N_r} + {self.microkernel.N_r}]",
+            "B_reg_strip",
         )
         scheduled_gebp = simplify(scheduled_gebp)
+        #print(scheduled_gebp)
+        #scheduled_gebp = unroll_loop(scheduled_gebp, "i1")
 
-        print(scheduled_gebp)
         scheduled_gebp = stage_mem(
             scheduled_gebp,
-            "for ii in _:_ #0",
-            f"A[ii + 4 * io, 0:{self.microkernel.K_blk}]",
+            "for jo in _:_ #0",
+            f"A[0:{self.M_blk}, 0:{self.microkernel.K_blk}]",
             "A_strip",
         )
         scheduled_gebp = simplify(scheduled_gebp)
-        print(scheduled_gebp)
+        scheduled_gebp = divide_dim(scheduled_gebp, "A_strip:_", 0, 4)
+        scheduled_gebp = rearrange_dim(scheduled_gebp, "A_strip:_", [0, 2, 1])
+        scheduled_gebp = simplify(scheduled_gebp)
 
         scheduled_gebp = replace_all(scheduled_gebp, self.microkernel.base_microkernel)
         call_c = scheduled_gebp.find(f"microkernel_{self.microkernel.this_id}(_)")
@@ -597,11 +601,10 @@ class GEBP_kernel:
 
         scheduled_gebp = inline(scheduled_gebp, call_c)
         scheduled_gebp = inline_window(scheduled_gebp, "C = C[_]")
-        #scheduled_gebp = inline_window(scheduled_gebp, "A = A_strip[_]")
-        scheduled_gebp = inline_window(scheduled_gebp, "A = A[_]")
-        scheduled_gebp = inline_window(scheduled_gebp, "B = B_strip[_]")
+        scheduled_gebp = inline_window(scheduled_gebp, "A = A_strip[_]")
+        #scheduled_gebp = inline_window(scheduled_gebp, "A = A[_]")
+        scheduled_gebp = inline_window(scheduled_gebp, "B = B_reg_strip[_]")
         scheduled_gebp = simplify(scheduled_gebp)
-        print(scheduled_gebp)
 
         # Unsafe assert
 #        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 0) == {self.microkernel.K_blk}")
