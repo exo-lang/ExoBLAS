@@ -21,13 +21,17 @@ from composed_schedules import (
 def trmv_row_major_Upper_NonTrans_Unit_template(n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
+    xCopy: R[n]
+    
     for i in seq(0, n):
         dot: R
         dot = 0.0
-        for j in seq(0, n - i - 1):
-            dot += A[i, i + j + 1] * x[i + j + 1]
-        x[i] += dot
+        for j in seq(0, i):
+            dot += A[n - i - 1, n - j - 1] * x[n - j - 1]
+        xCopy[n - i - 1] = dot
 
+    for l in seq(0, n):
+        x[l] += xCopy[l]
 
 @proc
 def trmv_row_major_Upper_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n, n]):
@@ -46,8 +50,6 @@ def trmv_row_major_Lower_NonTrans_Unit_template(n: size, x: [R][n], A: [R][n, n]
     assert stride(A, 1) == 1
 
     xCopy: R[n]
-    for k in seq(0, n):
-        xCopy[k] = 0.0
 
     for i in seq(0, n):
         dot: R
@@ -147,6 +149,8 @@ def specialize_trmv(trmv, precision):
     args = ["x", "A"]
     if "NonTrans" in specialized.name():
         args.append("dot")
+        if "_Unit_" in specialized.name():
+            args.append("xCopy")
     else:
         args.append("xCopy")
 
@@ -182,30 +186,29 @@ def schedule_trmv_row_major_NonTrans_stride_1(
 
     return simplify(stride_1)
 
-def schedule_trmv_row_major_Lower_NonTrans_Unit_stride_1(
-    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
+def schedule_trmv_row_major_NonTrans_Unit_stride_1(
+    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, ROWS_INTERLEAVE_FACTOR, memory, instructions, precision
 ):
     stride_1 = specialize_trmv(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
-
-    if "row_major_Lower_NonTrans_Unit" not in stride_1.name():
-        return simplify(stride_1)
 
     stride_1 = parallelize_reduction(
         stride_1,
         stride_1.find_loop("j"),
         "dot",
         VEC_W,
-        1,
+        VECTORIZATION_INTERLEAVE_FACTOR,
         memory,
         precision,
     )
-    loop_cursor = stride_1.find_loop("jo").body()[0]
+    loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
     stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
+    loop_cursor = stride_1.find_loop("jm")
+    stride_1 = interleave_execution(stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR)
     stride_1 = simplify(stride_1)
     stride_1 = interleave_outer_loop_with_inner_loop(
-        stride_1, stride_1.find_loop("i"), stride_1.find_loop("jo"), VEC_W
+        stride_1, stride_1.find_loop("i"), stride_1.find_loop("jo"), ROWS_INTERLEAVE_FACTOR,
     )
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
     stride_1 = apply_to_block(stride_1, stride_1.find_loop("ii").body(), hoist_stmt)
@@ -338,15 +341,17 @@ f32_instructions = [
 ]
 
 exo_strmv_row_major_Upper_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_stride_1(
+    schedule_trmv_row_major_NonTrans_Unit_stride_1(
         trmv_row_major_Upper_NonTrans_Unit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
+        ROWS_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f32_instructions,
         "f32",
     )
 )
+print(exo_strmv_row_major_Upper_NonTrans_Unit_stride_1)
 exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
     schedule_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Upper_NonTrans_NonUnit_template,
@@ -358,10 +363,11 @@ exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
     )
 )
 exo_strmv_row_major_Lower_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_Lower_NonTrans_Unit_stride_1(
+    schedule_trmv_row_major_NonTrans_Unit_stride_1(
         trmv_row_major_Lower_NonTrans_Unit_template,
         C.Machine.vec_width,
         VECTORIZATION_INTERLEAVE_FACTOR,
+        ROWS_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f32_instructions,
         "f32",
@@ -495,10 +501,11 @@ f64_instructions = [
 ]
 
 exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_stride_1(
+    schedule_trmv_row_major_NonTrans_Unit_stride_1(
         trmv_row_major_Upper_NonTrans_Unit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
+        ROWS_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f64_instructions,
         "f64",
@@ -515,10 +522,11 @@ exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
     )
 )
 exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_stride_1(
+    schedule_trmv_row_major_NonTrans_Unit_stride_1(
         trmv_row_major_Lower_NonTrans_Unit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
+        ROWS_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f64_instructions,
         "f64",
