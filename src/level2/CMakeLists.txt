@@ -16,7 +16,8 @@ NAME exo_gbmv
 SOURCES gbmv.py
 PYTHONPATH
     "${PROJECT_BINARY_DIR}/src/common"
-    "${PROJECT_SOURCE_DIR}/src/common")
+    "${PROJECT_SOURCE_DIR}/src/common"
+    "${PROJECT_SOURCE_DIR}/src/level1")
 
 add_exo_library(
   NAME exo_ger

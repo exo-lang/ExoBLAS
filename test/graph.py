@@ -57,8 +57,14 @@ def mem_footprint(kernel_name, size, wordsize, **kwargs):
     elif kernel_name in ["gemv", "ger", "trmv", "tbmv", "gemm", "syrk"]:
         return size * size * wordsize
     elif kernel_name == "gbmv":
-        kl = int(kwargs.get('kl'))
-        return (size - kl/2) * (2 * kl + 1) * wordsize + size * 2
+        kl = int(kwargs.get("kl"))
+        if kl == 1:
+            kl = size / 2
+        elif kl == 2:
+            kl = size / 4
+        else:
+            raise
+        return (size - kl / 2) * (2 * kl + 1) * wordsize + size * 2
     else:
         raise NotImplementedError(f"Input size of {kernel_name} is not implemented")
 
@@ -82,7 +88,7 @@ def mem_ops(kernel_name, size, wordsize, **kwargs):
             "dsdot": 2,
         },
         2: {"gemv": 1, "ger": 1, "trmv": 0.5, "tbmv": 0.5},
-        3: {}
+        3: {},
     }
 
     if kernel_name in mem_ops[1].keys():
@@ -93,8 +99,14 @@ def mem_ops(kernel_name, size, wordsize, **kwargs):
     elif kernel_name in mem_ops[3].keys():
         return wordsize * size * size * mem_ops[3].get(kernel_name, 1)
     elif kernel_name == "gbmv":
-        kl = int(kwargs.get('kl'))
-        return (size - kl/2) * (2 * kl + 1) * wordsize + size * 2
+        kl = int(kwargs.get("kl"))
+        if kl == 1:
+            kl = size / 2
+        elif kl == 2:
+            kl = size / 4
+        else:
+            raise
+        return (size - kl / 2) * (2 * kl + 1) * wordsize + size * 2
     else:
         raise NotImplementedError(f"Memory usage of {kernel_name} is not implemented")
 
@@ -191,8 +203,8 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.clf()
     for name in names_to_points:
         points = names_to_points[name]
-        
-        args = {f : s for f, s in [ele.split(":") for ele in params]}
+
+        args = {f: s for f, s in [ele.split(":") for ele in params]}
         x = [log_2(mem_footprint(k_name, p[0], wordsize, **args)) for p in points]
         y = [scale(get_gbyte_sec(p[0], p[1], **args)) for p in points]
 

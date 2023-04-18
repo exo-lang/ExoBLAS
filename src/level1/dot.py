@@ -12,7 +12,7 @@ from composed_schedules import vectorize, interleave_execution, parallelize_redu
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def sdot_template(n: size, x: [R][n], y: [R][n], result: R):
+def dot_template(n: size, x: [R][n], y: [R][n], result: R):
     result = 0.0
     for i in seq(0, n):
         result += x[i] * y[i]
@@ -24,7 +24,7 @@ def sdot_template(n: size, x: [R][n], y: [R][n], result: R):
 ### EXO_LOC SCHEDULE START ###
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
-    specialized_copy = rename(sdot_template, "exo_" + prefix + "dot")
+    specialized_copy = rename(dot_template, "exo_" + prefix + "dot")
     for arg in ["x", "y", "result"]:
         specialized_copy = set_precision(specialized_copy, arg, precision)
     return specialized_copy
