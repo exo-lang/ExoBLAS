@@ -1103,12 +1103,14 @@ sgemm_large_kernels = [
 
 """
 
+"""
 square_blk_sizes = [2**i for i in range(5, 9)]
 sgemm_square_kernels = [
     GEMM(C.Machine, "f32", blk, blk, blk, m_reg, n_reg, True, False)
     for blk in square_blk_sizes
 ]
 
+"""
 
 # dgemm_backup_entry_points = []
 # for kernel in dgemm_backup_kernels:
@@ -1116,24 +1118,24 @@ sgemm_square_kernels = [
 #dgemm_entry_points = [
 #    p.name() for p in dgemm_main.entry_points
 #]  # + [p.name() for p in dgemm_backup_entry_points]
-exo_sgemm_notranspose_noalpha_nobeta_64_64_64 = sgemm_square_kernels[1].entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_32_32_32 = sgemm_square_kernels[0].entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_128_128_128 = sgemm_square_kernels[2].entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_256_256_256 = sgemm_square_kernels[3].entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_512_256_256 = GEMM(C.Machine, "f32", 256, 256, 512, m_reg, n_reg, True, False).entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_1024_256_512 = GEMM(C.Machine, "f32", 512, 256, 1024, m_reg, n_reg, True, False).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_48_48_48 = GEMM(C.Machine, "f32", 48, 48, 48, m_reg, n_reg, True, False).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_96_96_96 = GEMM(C.Machine, "f32", 96, 96, 96, m_reg, n_reg, True, False).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_192_192_192 = GEMM(C.Machine, "f32", 192, 192, 192, m_reg, n_reg, True, False).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_384_384_384 = GEMM(C.Machine, "f32", 384, 384, 384, m_reg, n_reg, True, False).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_768_384_768 = GEMM(C.Machine, "f32", 768, 384, 768, m_reg, n_reg, True, False).entry_points[0]
+#exo_sgemm_notranspose_noalpha_nobeta_1536_384_384 = GEMM(C.Machine, "f32", 384, 384, 1536, m_reg, n_reg, True, False).entry_points[0]
 #exo_sgemm_notranspose_noalpha_nobeta_1024_256_512 = GEMM(C.Machine, "f32", 512, 128, 1024, m_reg, n_reg, True, False).entry_points[0]
 #exo_sgemm_notranspose_noalpha_nobeta_1024_256_512 = GEMM(C.Machine, "f32", 512, 256, 1024, m_reg, n_reg, True, False).entry_points[0]
 #exo_sgemm_notranspose_noalpha_nobeta_1024_256_512 = GEMM(C.Machine, "f32", 512, 256, 1024, m_reg, n_reg, True, False).entry_points[0]
-#exo_sgemm_microkernel_main, _ = Microkernel(C.Machine, 4, 16, 512).generate_microkernel(C.Machine, 4, 16, 512)
+#exo_sgemm_microkernel_main, _ = Microkernel(C.Machine, 6, 16, 512).generate_microkernel(C.Machine, 6, 16, 512)
 #print(exo_sgemm_microkernel_main.name())
 
 #__all__ = ['exo_sgemm_microkernel_main']
 
-__all__ = ['exo_sgemm_notranspose_noalpha_nobeta_64_64_64', 'exo_sgemm_notranspose_noalpha_nobeta_32_32_32', 'exo_sgemm_notranspose_noalpha_nobeta_128_128_128', 'exo_sgemm_notranspose_noalpha_nobeta_256_256_256', 'exo_sgemm_notranspose_noalpha_nobeta_512_256_256', 'exo_sgemm_notranspose_noalpha_nobeta_1024_256_512']
+__all__ = ['exo_sgemm_notranspose_noalpha_nobeta_48_48_48', 'exo_sgemm_notranspose_noalpha_nobeta_96_96_96', 'exo_sgemm_notranspose_noalpha_nobeta_192_192_192', 'exo_sgemm_notranspose_noalpha_nobeta_384_384_384', 'exo_sgemm_notranspose_noalpha_nobeta_768_384_768']
 
 #exo_sgemm_notranspose_noalpha_nobeta_main = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg, False, True).entry_points[0]
-#__all__ = ['exo_sgemm_notranspose_noalpha_nobeta_main']
+#_all__ = ['exo_sgemm_notranspose_noalpha_nobeta_main']
 
 
 

@@ -1,0 +1,538 @@
+BLOCKS: M=192, K=384, N=768
+170: BM_SGEMM_EXO/n:48        78019 ns        78019 ns         8963 flops=2.83499G/s
+170: BM_SGEMM_EXO/n:96       721613 ns       721600 ns          972 flops=2.45215G/s
+170: BM_SGEMM_EXO/n:192     6518571 ns      6518540 ns          107 flops=2.17162G/s
+170: BM_SGEMM_EXO/n:384    57870580 ns     57870714 ns           12 flops=1.95688G/s
+170: BM_SGEMM_EXO/n:768     9333973 ns      9333911 ns           75 flops=97.0622G/s
+170: BM_SGEMM_EXO/n:1536   77927989 ns     77926902 ns            9 flops=93.0071G/s
+170: BM_SGEMM_EXO/n:3072  640081171 ns    640034297 ns            1 flops=90.5921G/s
+170: BM_SGEMM_EXO/n:6144 5214911200 ns   5214797104 ns            1 flops=88.9501G/s
+BLOCKS: M=192, K=384, N=1536
+170: BM_SGEMM_EXO/n:48        78069 ns        78069 ns         8837 flops=2.83317G/s
+170: BM_SGEMM_EXO/n:96       722206 ns       722218 ns          964 flops=2.45005G/s
+170: BM_SGEMM_EXO/n:192     6523423 ns      6523393 ns          107 flops=2.17G/s
+170: BM_SGEMM_EXO/n:384    58273737 ns     58273823 ns           12 flops=1.94335G/s
+170: BM_SGEMM_EXO/n:768   506929335 ns    506934128 ns            1 flops=1.78715G/s
+170: BM_SGEMM_EXO/n:1536   77460748 ns     77456971 ns            9 flops=93.5714G/s
+170: BM_SGEMM_EXO/n:3072  625224230 ns    625192192 ns            1 flops=92.7428G/s
+170: BM_SGEMM_EXO/n:6144 5087800604 ns   5087773594 ns            1 flops=91.1708G/s
+BLOCKS: M=192, K=384, N=3072
+170: BM_SGEMM_EXO/n:48        78035 ns        78035 ns         8901 flops=2.83442G/s
+170: BM_SGEMM_EXO/n:96       721977 ns       721928 ns          971 flops=2.45104G/s
+170: BM_SGEMM_EXO/n:192     6552079 ns      6552078 ns          107 flops=2.1605G/s
+170: BM_SGEMM_EXO/n:384    58412711 ns     58413013 ns           12 flops=1.93872G/s
+170: BM_SGEMM_EXO/n:768   554947148 ns    554891743 ns            1 flops=1.6327G/s
+170: BM_SGEMM_EXO/n:1536 5805778204 ns   5805604469 ns            1 flops=1.24841G/s
+170: BM_SGEMM_EXO/n:3072  633973689 ns    633941635 ns            1 flops=91.4628G/s
+170: BM_SGEMM_EXO/n:6144 5156000032 ns   5155701448 ns            1 flops=89.9696G/s
+BLOCKS: M=192, K=384, N=6144
+170: BM_SGEMM_EXO/n:48        78031 ns        78031 ns         8931 flops=2.83457G/s
+170: BM_SGEMM_EXO/n:96       721357 ns       721358 ns          966 flops=2.45297G/s
+170: BM_SGEMM_EXO/n:192     6520926 ns      6520919 ns          107 flops=2.17083G/s
+170: BM_SGEMM_EXO/n:384    57695202 ns     57695174 ns           12 flops=1.96284G/s
+170: BM_SGEMM_EXO/n:768   513645484 ns    513651392 ns            1 flops=1.76378G/s
+170: BM_SGEMM_EXO/n:1536 4593178621 ns   4593184329 ns            1 flops=1.57794G/s
+170: BM_SGEMM_EXO/n:3072 5.2059e+10 ns   5.2059e+10 ns            1 flops=1.11378G/s
+170: BM_SGEMM_EXO/n:6144 5132925911 ns   5132808549 ns            1 flops=90.3709G/s
+BLOCKS: M=384, K=384, N=768
+170: BM_SGEMM_EXO/n:48        78034 ns        78035 ns         8759 flops=2.83442G/s
+170: BM_SGEMM_EXO/n:96       722471 ns       722469 ns          965 flops=2.4492G/s
+170: BM_SGEMM_EXO/n:192     6526636 ns      6526681 ns          107 flops=2.16891G/s
+170: BM_SGEMM_EXO/n:384    58597766 ns     58597856 ns           12 flops=1.9326G/s
+170: BM_SGEMM_EXO/n:768     8977984 ns      8977951 ns           78 flops=100.911G/s
+170: BM_SGEMM_EXO/n:1536   75188247 ns     75187812 ns            9 flops=96.3954G/s
+170: BM_SGEMM_EXO/n:3072  620915628 ns    620895722 ns            1 flops=93.3845G/s
+170: BM_SGEMM_EXO/n:6144 5067775028 ns   5067767070 ns            1 flops=91.5307G/s
+BLOCKS: M=384, K=384, N=1536
+170: BM_SGEMM_EXO/n:48        77933 ns        77934 ns         8934 flops=2.83811G/s
+170: BM_SGEMM_EXO/n:96       720466 ns       720473 ns          971 flops=2.45599G/s
+170: BM_SGEMM_EXO/n:192     6500720 ns      6500768 ns          108 flops=2.17755G/s
+170: BM_SGEMM_EXO/n:384    58014368 ns     58014474 ns           12 flops=1.95203G/s
+170: BM_SGEMM_EXO/n:768   543317410 ns    543316263 ns            1 flops=1.66748G/s
+170: BM_SGEMM_EXO/n:1536   74895508 ns     74889175 ns            9 flops=96.7798G/s
+170: BM_SGEMM_EXO/n:3072  606002378 ns    605980035 ns            1 flops=95.6831G/s
+170: BM_SGEMM_EXO/n:6144 4938166134 ns   4938126698 ns            1 flops=93.9337G/s
+BLOCKS: M=384, K=384, N=3072
+170: BM_SGEMM_EXO/n:48        78038 ns        78039 ns         8918 flops=2.83428G/s
+170: BM_SGEMM_EXO/n:96       720373 ns       720378 ns          972 flops=2.45631G/s
+170: BM_SGEMM_EXO/n:192     6494956 ns      6495036 ns          108 flops=2.17948G/s
+170: BM_SGEMM_EXO/n:384    57609937 ns     57610368 ns           12 flops=1.96573G/s
+170: BM_SGEMM_EXO/n:768   519650850 ns    519651629 ns            1 flops=1.74342G/s
+170: BM_SGEMM_EXO/n:1536 5621079279 ns   5621088481 ns            1 flops=1.28939G/s
+170: BM_SGEMM_EXO/n:3072  597990479 ns    597944116 ns            1 flops=96.969G/s
+170: BM_SGEMM_EXO/n:6144 4859390047 ns   4859291513 ns            1 flops=95.4576G/s
+BLOCKS: M=384, K=384, N=6144
+170: BM_SGEMM_EXO/n:48        78047 ns        78048 ns         8802 flops=2.83395G/s
+170: BM_SGEMM_EXO/n:96       722381 ns       722383 ns          972 flops=2.44949G/s
+170: BM_SGEMM_EXO/n:192     6549642 ns      6549612 ns          107 flops=2.16132G/s
+170: BM_SGEMM_EXO/n:384    58962031 ns     58962160 ns           12 flops=1.92066G/s
+170: BM_SGEMM_EXO/n:768   555588902 ns    555588913 ns            1 flops=1.63065G/s
+170: BM_SGEMM_EXO/n:1536 4906094370 ns   4906111616 ns            1 flops=1.47729G/s
+170: BM_SGEMM_EXO/n:6144 4900539858 ns   4900492500 ns            1 flops=94.6551G/s
+BLOCKS: M=768, K=384, N=768
+170: BM_SGEMM_EXO/n:48        84929 ns        84930 ns         8230 flops=2.60432G/s
+170: BM_SGEMM_EXO/n:96       713750 ns       713756 ns          981 flops=2.4791G/s
+170: BM_SGEMM_EXO/n:192     6807601 ns      6807679 ns          103 flops=2.07938G/s
+170: BM_SGEMM_EXO/n:384    57079211 ns     57079395 ns           12 flops=1.98401G/s
+170: BM_SGEMM_EXO/n:768     8486868 ns      8486833 ns           82 flops=106.75G/s
+170: BM_SGEMM_EXO/n:1536   72067257 ns     72066897 ns           10 flops=100.57G/s
+170: BM_SGEMM_EXO/n:3072  598226293 ns    598222783 ns            1 flops=96.9239G/s
+170: BM_SGEMM_EXO/n:6144 4913693158 ns   4913649401 ns            1 flops=94.4016G/s
+BLOCKS: M=768, K=384, N=1536
+170: BM_SGEMM_EXO/n:48        86908 ns        86909 ns         8039 flops=2.54501G/s
+170: BM_SGEMM_EXO/n:96       722473 ns       722470 ns          966 flops=2.4492G/s
+170: BM_SGEMM_EXO/n:192     6591579 ns      6591558 ns          106 flops=2.14756G/s
+170: BM_SGEMM_EXO/n:384    57360960 ns     57360695 ns           12 flops=1.97428G/s
+170: BM_SGEMM_EXO/n:768   521125008 ns    521121560 ns            1 flops=1.7385G/s
+170: BM_SGEMM_EXO/n:1536   71973578 ns     71973310 ns           10 flops=100.701G/s
+170: BM_SGEMM_EXO/n:3072  587463083 ns    587458413 ns            1 flops=98.6999G/s
+170: BM_SGEMM_EXO/n:6144 4838192414 ns   4838096251 ns            1 flops=95.8758G/s
+BLOCKS: M=768, K=384, N=3072
+170: BM_SGEMM_EXO/n:48        87111 ns        87105 ns         8038 flops=2.53929G/s
+170: BM_SGEMM_EXO/n:96       725007 ns       725016 ns          966 flops=2.4406G/s
+170: BM_SGEMM_EXO/n:192     6498339 ns      6498371 ns          107 flops=2.17836G/s
+170: BM_SGEMM_EXO/n:384    58784664 ns     58779135 ns           12 flops=1.92664G/s
+170: BM_SGEMM_EXO/n:768   547047867 ns    547049846 ns            1 flops=1.6561G/s
+170: BM_SGEMM_EXO/n:1536 5803602043 ns   5803484738 ns            1 flops=1.24886G/s
+170: BM_SGEMM_EXO/n:3072  587034127 ns    587007412 ns            1 flops=98.7757G/s
+170: BM_SGEMM_EXO/n:6144 4817688591 ns   4817482188 ns            1 flops=96.2861G/s
+BLOCKS: M=768, K=384, N=6144
+170: BM_SGEMM_EXO/n:48        89693 ns        89692 ns         7779 flops=2.46604G/s
+170: BM_SGEMM_EXO/n:96       723942 ns       723943 ns          970 flops=2.44422G/s
+170: BM_SGEMM_EXO/n:192     6491105 ns      6491130 ns          108 flops=2.18079G/s
+170: BM_SGEMM_EXO/n:384    57247620 ns     57247556 ns           12 flops=1.97818G/s
+170: BM_SGEMM_EXO/n:768   505924701 ns    505919764 ns            1 flops=1.79074G/s
+170: BM_SGEMM_EXO/n:1536 4587498305 ns   4587489617 ns            1 flops=1.5799G/s
+170: BM_SGEMM_EXO/n:3072 5.2011e+10 ns   5.2011e+10 ns            1 flops=1.1148G/s
+170: BM_SGEMM_EXO/n:6144 4816024132 ns   4815838629 ns            1 flops=96.3189G/s
+BLOCKS: M=1536, K=384, N=768
+170: BM_SGEMM_EXO/n:48        78122 ns        78123 ns         8923 flops=2.83123G/s
+170: BM_SGEMM_EXO/n:96       715220 ns       715225 ns          983 flops=2.47401G/s
+170: BM_SGEMM_EXO/n:192     6561604 ns      6561609 ns          106 flops=2.15736G/s
+170: BM_SGEMM_EXO/n:384    57963905 ns     57964315 ns           12 flops=1.95372G/s
+170: BM_SGEMM_EXO/n:768   517577229 ns    517578716 ns            1 flops=1.7504G/s
+170: BM_SGEMM_EXO/n:1536   74037210 ns     74033861 ns            9 flops=97.8979G/s
+170: BM_SGEMM_EXO/n:3072  624055188 ns    624049423 ns            1 flops=92.9126G/s
+170: BM_SGEMM_EXO/n:6144 5167837957 ns   5167835713 ns            1 flops=89.7584G/s
+BLOCKS: M=1536, K=384, N=1536
+170: BM_SGEMM_EXO/n:48        85811 ns        85809 ns         8139 flops=2.57764G/s
+170: BM_SGEMM_EXO/n:96       730782 ns       730743 ns          961 flops=2.42147G/s
+170: BM_SGEMM_EXO/n:192     6510020 ns      6510050 ns          107 flops=2.17445G/s
+170: BM_SGEMM_EXO/n:384    58767476 ns     58767316 ns           12 flops=1.92703G/s
+170: BM_SGEMM_EXO/n:768   545046672 ns    545004919 ns            1 flops=1.66231G/s
+170: BM_SGEMM_EXO/n:1536   73693992 ns     73693785 ns            9 flops=98.3496G/s
+170: BM_SGEMM_EXO/n:3072  612390925 ns    612315001 ns            1 flops=94.6932G/s
+170: BM_SGEMM_EXO/n:6144 5101347154 ns   5101105104 ns            1 flops=90.9325G/s
+BLOCKS: M=1536, K=384, N=3072
+170: BM_SGEMM_EXO/n:48        78208 ns        78209 ns         8926 flops=2.82812G/s
+170: BM_SGEMM_EXO/n:96       722316 ns       722323 ns          974 flops=2.4497G/s
+170: BM_SGEMM_EXO/n:192     6516665 ns      6516695 ns          107 flops=2.17223G/s
+170: BM_SGEMM_EXO/n:384    57720193 ns     57720431 ns           12 flops=1.96198G/s
+170: BM_SGEMM_EXO/n:768   547949682 ns    547955036 ns            1 flops=1.65336G/s
+170: BM_SGEMM_EXO/n:1536 5796000760 ns   5796019133 ns            1 flops=1.25047G/s
+170: BM_SGEMM_EXO/n:3072  610506382 ns    610477665 ns            1 flops=94.9782G/s
+170: BM_SGEMM_EXO/n:6144 5075733386 ns   5075673955 ns            1 flops=91.3882G/s
+BLOCKS: M=1536, K=384, N=6144
+170: BM_SGEMM_EXO/n:48        78072 ns        78073 ns         8853 flops=2.83305G/s
+170: BM_SGEMM_EXO/n:96       720338 ns       720252 ns          972 flops=2.45674G/s
+170: BM_SGEMM_EXO/n:192     6520433 ns      6520439 ns          107 flops=2.17099G/s
+170: BM_SGEMM_EXO/n:384    58136324 ns     58133222 ns           12 flops=1.94805G/s
+170: BM_SGEMM_EXO/n:768   549253546 ns    549251035 ns            1 flops=1.64946G/s
+170: BM_SGEMM_EXO/n:1536 4910743367 ns   4910647644 ns            1 flops=1.47593G/s
+170: BM_SGEMM_EXO/n:6144 5066735099 ns   5066500725 ns            1 flops=91.5536G/s
+BLOCKS: M=192, K=768, N=768
+170: BM_SGEMM_EXO/n:48        78003 ns        78003 ns         8954 flops=2.83557G/s
+170: BM_SGEMM_EXO/n:96       707118 ns       707115 ns          987 flops=2.50238G/s
+170: BM_SGEMM_EXO/n:192     6463745 ns      6463742 ns          108 flops=2.19003G/s
+170: BM_SGEMM_EXO/n:384    56432563 ns     56432070 ns           13 flops=2.00677G/s
+170: BM_SGEMM_EXO/n:768     9325995 ns      9326046 ns           74 flops=97.144G/s
+170: BM_SGEMM_EXO/n:1536   76669016 ns     76668384 ns            9 flops=94.5338G/s
+170: BM_SGEMM_EXO/n:3072  615448302 ns    615453018 ns            1 flops=94.2104G/s
+170: BM_SGEMM_EXO/n:6144 4949288519 ns   4949260553 ns            1 flops=93.7224G/s
+BLOCKS: M=192, K=768, N=1536
+170: BM_SGEMM_EXO/n:48        78085 ns        78085 ns         8953 flops=2.83259G/s
+170: BM_SGEMM_EXO/n:96       707670 ns       707676 ns          985 flops=2.5004G/s
+170: BM_SGEMM_EXO/n:192     6481474 ns      6481438 ns          107 flops=2.18405G/s
+170: BM_SGEMM_EXO/n:384    56264749 ns     56264900 ns           12 flops=2.01273G/s
+170: BM_SGEMM_EXO/n:768   606170428 ns    606173784 ns            1 flops=1.49457G/s
+170: BM_SGEMM_EXO/n:1536   76941844 ns     76941630 ns            9 flops=94.1981G/s
+170: BM_SGEMM_EXO/n:3072  617773678 ns    617778113 ns            1 flops=93.8558G/s
+170: BM_SGEMM_EXO/n:6144 4969285483 ns   4969234764 ns            1 flops=93.3457G/s
+BLOCKS: M=192, K=768, N=3072
+170: BM_SGEMM_EXO/n:48        78086 ns        78086 ns         8912 flops=2.83256G/s
+170: BM_SGEMM_EXO/n:96       706907 ns       706908 ns          993 flops=2.50312G/s
+170: BM_SGEMM_EXO/n:192     6474721 ns      6474759 ns          108 flops=2.1863G/s
+170: BM_SGEMM_EXO/n:384    56469121 ns     56469340 ns           12 flops=2.00545G/s
+170: BM_SGEMM_EXO/n:768   605659134 ns    605657407 ns            1 flops=1.49585G/s
+170: BM_SGEMM_EXO/n:1536 4827750893 ns   4827763520 ns            1 flops=1.50127G/s
+170: BM_SGEMM_EXO/n:3072  633623319 ns    633575969 ns            1 flops=91.5156G/s
+170: BM_SGEMM_EXO/n:6144 5070331365 ns   5070205282 ns            1 flops=91.4867G/s
+BLOCKS: M=192, K=768, N=6144
+170: BM_SGEMM_EXO/n:48        78063 ns        78062 ns         8923 flops=2.83343G/s
+170: BM_SGEMM_EXO/n:96       708723 ns       708721 ns          986 flops=2.49671G/s
+170: BM_SGEMM_EXO/n:192     6470990 ns      6471026 ns          108 flops=2.18756G/s
+170: BM_SGEMM_EXO/n:384    56441281 ns     56440641 ns           12 flops=2.00647G/s
+170: BM_SGEMM_EXO/n:768   582044451 ns    582041090 ns            1 flops=1.55654G/s
+170: BM_SGEMM_EXO/n:1536 4716815485 ns   4716782074 ns            1 flops=1.53659G/s
+170: BM_SGEMM_EXO/n:6144 5102453595 ns   5102287189 ns            1 flops=90.9115G/s
+BLOCKS: M=384, K=768, N=768
+170: BM_SGEMM_EXO/n:48        78116 ns        78116 ns         8927 flops=2.83149G/s
+170: BM_SGEMM_EXO/n:96       718801 ns       718799 ns          975 flops=2.46171G/s
+170: BM_SGEMM_EXO/n:192     6500271 ns      6500258 ns          108 flops=2.17773G/s
+170: BM_SGEMM_EXO/n:384    56543164 ns     56542985 ns           12 flops=2.00283G/s
+170: BM_SGEMM_EXO/n:768     8761334 ns      8761099 ns           79 flops=103.408G/s
+170: BM_SGEMM_EXO/n:1536   71951914 ns     71948700 ns           10 flops=100.735G/s
+170: BM_SGEMM_EXO/n:3072  579925461 ns    579909737 ns            1 flops=99.9846G/s
+170: BM_SGEMM_EXO/n:6144 4661680428 ns   4661545966 ns            1 flops=99.507G/s
+BLOCKS: M=384, K=768, N=1536
+170: BM_SGEMM_EXO/n:48        77949 ns        77950 ns         8899 flops=2.8375G/s
+170: BM_SGEMM_EXO/n:96       711059 ns       711054 ns          987 flops=2.48852G/s
+170: BM_SGEMM_EXO/n:192     6485100 ns      6485116 ns          108 flops=2.18281G/s
+170: BM_SGEMM_EXO/n:384    56300618 ns     56300590 ns           12 flops=2.01146G/s
+170: BM_SGEMM_EXO/n:768   603309884 ns    603314802 ns            1 flops=1.50165G/s
+170: BM_SGEMM_EXO/n:1536   72155331 ns     72150009 ns           10 flops=100.454G/s
+170: BM_SGEMM_EXO/n:3072  578927999 ns    578910654 ns            1 flops=100.157G/s
+170: BM_SGEMM_EXO/n:6144 4664392853 ns   4664340558 ns            1 flops=99.4474G/s
+BLOCKS: M=384, K=768, N=3072
+170: BM_SGEMM_EXO/n:48        78074 ns        78074 ns         8955 flops=2.83299G/s
+170: BM_SGEMM_EXO/n:96       711253 ns       711265 ns          984 flops=2.48778G/s
+170: BM_SGEMM_EXO/n:192     6497899 ns      6497969 ns          108 flops=2.17849G/s
+170: BM_SGEMM_EXO/n:384    56214525 ns     56214789 ns           12 flops=2.01453G/s
+170: BM_SGEMM_EXO/n:768   585938500 ns    585942155 ns            1 flops=1.54618G/s
+170: BM_SGEMM_EXO/n:1536 4670444215 ns   4670451479 ns            1 flops=1.55183G/s
+170: BM_SGEMM_EXO/n:3072  585092766 ns    585085174 ns            1 flops=99.1002G/s
+170: BM_SGEMM_EXO/n:6144 4689898787 ns   4689844669 ns            1 flops=98.9066G/s
+BLOCKS: M=384, K=768, N=6144
+170: BM_SGEMM_EXO/n:48        78051 ns        78051 ns         8914 flops=2.83383G/s
+170: BM_SGEMM_EXO/n:96       710971 ns       710972 ns          987 flops=2.48881G/s
+170: BM_SGEMM_EXO/n:192     6482226 ns      6482229 ns          108 flops=2.18378G/s
+170: BM_SGEMM_EXO/n:384    56282032 ns     56282074 ns           12 flops=2.01212G/s
+170: BM_SGEMM_EXO/n:768   582434476 ns    582437094 ns            1 flops=1.55548G/s
+170: BM_SGEMM_EXO/n:1536 4711951852 ns   4711944472 ns            1 flops=1.53817G/s
+170: BM_SGEMM_EXO/n:6144 4767528211 ns   4767437959 ns            1 flops=97.2968G/s
+BLOCKS: M=768, K=768, N=768
+170: BM_SGEMM_EXO/n:48        85834 ns        85834 ns         8051 flops=2.57687G/s
+170: BM_SGEMM_EXO/n:96       728963 ns       728971 ns          967 flops=2.42735G/s
+170: BM_SGEMM_EXO/n:192     6509500 ns      6509480 ns          108 flops=2.17464G/s
+170: BM_SGEMM_EXO/n:384    56993353 ns     56993770 ns           12 flops=1.98699G/s
+170: BM_SGEMM_EXO/n:768    10252580 ns     10252061 ns           68 flops=88.3695G/s
+170: BM_SGEMM_EXO/n:1536   71606957 ns     71605973 ns            9 flops=101.217G/s
+170: BM_SGEMM_EXO/n:3072  581410327 ns    581419546 ns            1 flops=99.725G/s
+170: BM_SGEMM_EXO/n:6144 4734576606 ns   4734563551 ns            1 flops=97.9724G/s
+BLOCKS: M=768, K=768, N=1536
+170: BM_SGEMM_EXO/n:48        77959 ns        77960 ns         8993 flops=2.83716G/s
+170: BM_SGEMM_EXO/n:96       720245 ns       720250 ns          974 flops=2.45675G/s
+170: BM_SGEMM_EXO/n:192     6499558 ns      6499635 ns          107 flops=2.17793G/s
+170: BM_SGEMM_EXO/n:384    56637747 ns     56637822 ns           12 flops=1.99948G/s
+170: BM_SGEMM_EXO/n:768   602519473 ns    602522326 ns            1 flops=1.50363G/s
+170: BM_SGEMM_EXO/n:1536   71083064 ns     71081139 ns           10 flops=101.965G/s
+170: BM_SGEMM_EXO/n:3072  569013370 ns    569008705 ns            1 flops=101.9G/s
+170: BM_SGEMM_EXO/n:6144 4659308191 ns   4659167015 ns            1 flops=99.5578G/s
+BLOCKS: M=768, K=768, N=3072
+170: BM_SGEMM_EXO/n:48        78133 ns        78129 ns         8938 flops=2.83101G/s
+170: BM_SGEMM_EXO/n:96       719338 ns       719344 ns          974 flops=2.45984G/s
+170: BM_SGEMM_EXO/n:192     6502603 ns      6502663 ns          107 flops=2.17692G/s
+170: BM_SGEMM_EXO/n:384    56789286 ns     56784015 ns           12 flops=1.99433G/s
+170: BM_SGEMM_EXO/n:768   660527647 ns    660529398 ns            1 flops=1.37158G/s
+170: BM_SGEMM_EXO/n:1536 5032827164 ns   5032697824 ns            1 flops=1.44013G/s
+170: BM_SGEMM_EXO/n:3072  582023904 ns    582011055 ns            1 flops=99.6236G/s
+170: BM_SGEMM_EXO/n:6144 4719627483 ns   4719389632 ns            1 flops=98.2874G/s
+BLOCKS: M=768, K=768, N=6144
+170: BM_SGEMM_EXO/n:48        78124 ns        78124 ns         8536 flops=2.8312G/s
+170: BM_SGEMM_EXO/n:96       721167 ns       721166 ns          968 flops=2.45363G/s
+170: BM_SGEMM_EXO/n:192     6547708 ns      6547698 ns          107 flops=2.16195G/s
+170: BM_SGEMM_EXO/n:384    56597056 ns     56597035 ns           12 flops=2.00092G/s
+170: BM_SGEMM_EXO/n:768   582464627 ns    582465457 ns            1 flops=1.5554G/s
+170: BM_SGEMM_EXO/n:1536 4685240975 ns   4685198882 ns            1 flops=1.54695G/s
+170: BM_SGEMM_EXO/n:6144 4737604565 ns   4737483513 ns            1 flops=97.912G/s
+BLOCKS: M=1536, K=768, N=768
+170: BM_SGEMM_EXO/n:48        78199 ns        78199 ns         8143 flops=2.82847G/s
+170: BM_SGEMM_EXO/n:96       707156 ns       707162 ns          982 flops=2.50222G/s
+170: BM_SGEMM_EXO/n:192     6475259 ns      6475316 ns          108 flops=2.18611G/s
+170: BM_SGEMM_EXO/n:384    56717095 ns     56717286 ns           12 flops=1.99668G/s
+170: BM_SGEMM_EXO/n:768   635525906 ns    635531248 ns            1 flops=1.42553G/s
+170: BM_SGEMM_EXO/n:1536   76815125 ns     76813407 ns            9 flops=94.3554G/s
+170: BM_SGEMM_EXO/n:3072  618632668 ns    618635543 ns            1 flops=93.7257G/s
+170: BM_SGEMM_EXO/n:6144 4927293399 ns   4927282147 ns            1 flops=94.1404G/s
+BLOCKS: M=1536, K=768, N=1536
+170: BM_SGEMM_EXO/n:48        94521 ns        94522 ns         7367 flops=2.34001G/s
+170: BM_SGEMM_EXO/n:96       733355 ns       733360 ns          953 flops=2.41283G/s
+170: BM_SGEMM_EXO/n:192     6544777 ns      6544789 ns          108 flops=2.16291G/s
+170: BM_SGEMM_EXO/n:384    56712061 ns     56712446 ns           12 flops=1.99685G/s
+170: BM_SGEMM_EXO/n:768   588215000 ns    588213737 ns            1 flops=1.5402G/s
+170: BM_SGEMM_EXO/n:1536   75430859 ns     75430574 ns            9 flops=96.0851G/s
+170: BM_SGEMM_EXO/n:3072  605576716 ns    605548165 ns            1 flops=95.7514G/s
+170: BM_SGEMM_EXO/n:6144 4804069214 ns   4804046945 ns            1 flops=96.5554G/s
+BLOCKS: M=1536, K=768, N=3072
+170: BM_SGEMM_EXO/n:48        87085 ns        87086 ns         7338 flops=2.53984G/s
+170: BM_SGEMM_EXO/n:96       722865 ns       722863 ns          963 flops=2.44787G/s
+170: BM_SGEMM_EXO/n:192     6499332 ns      6499344 ns          107 flops=2.17803G/s
+170: BM_SGEMM_EXO/n:384    56737149 ns     56737084 ns           12 flops=1.99598G/s
+170: BM_SGEMM_EXO/n:768   581951707 ns    581942507 ns            1 flops=1.5568G/s
+170: BM_SGEMM_EXO/n:1536 4683678047 ns   4683661383 ns            1 flops=1.54746G/s
+170: BM_SGEMM_EXO/n:3072  607203070 ns    607185448 ns            1 flops=95.4932G/s
+170: BM_SGEMM_EXO/n:6144 4795908295 ns   4795730347 ns            1 flops=96.7228G/s
+BLOCKS: M=1536, K=768, N=6144
+170: BM_SGEMM_EXO/n:48        87148 ns        87148 ns         8035 flops=2.53802G/s
+170: BM_SGEMM_EXO/n:96       723264 ns       723260 ns          966 flops=2.44652G/s
+170: BM_SGEMM_EXO/n:192     6561144 ns      6561178 ns          106 flops=2.15751G/s
+170: BM_SGEMM_EXO/n:384    56436505 ns     56436479 ns           12 flops=2.00661G/s
+170: BM_SGEMM_EXO/n:768   653561402 ns    653561446 ns            1 flops=1.3862G/s
+170: BM_SGEMM_EXO/n:1536 5019038040 ns   5019074037 ns            1 flops=1.44404G/s
+170: BM_SGEMM_EXO/n:6144 4813836614 ns   4813788847 ns            1 flops=96.36G/s
+BLOCKS: M=192, K=1536, N=768
+170: BM_SGEMM_EXO/n:48        78142 ns        78142 ns         8885 flops=2.83055G/s
+170: BM_SGEMM_EXO/n:96       707566 ns       707571 ns          990 flops=2.50077G/s
+170: BM_SGEMM_EXO/n:192     6470095 ns      6470166 ns          109 flops=2.18785G/s
+170: BM_SGEMM_EXO/n:384    56295062 ns     56294864 ns           12 flops=2.01166G/s
+170: BM_SGEMM_EXO/n:768   581647105 ns    581642582 ns            1 flops=1.55761G/s
+170: BM_SGEMM_EXO/n:1536   78833295 ns     78827777 ns            9 flops=91.9442G/s
+170: BM_SGEMM_EXO/n:3072  630488596 ns    630471262 ns            1 flops=91.9662G/s
+170: BM_SGEMM_EXO/n:6144 5049213298 ns   5049082054 ns            1 flops=91.8695G/s
+BLOCKS: M=192, K=1536, N=1536
+170: BM_SGEMM_EXO/n:48        78224 ns        78225 ns         8892 flops=2.82754G/s
+170: BM_SGEMM_EXO/n:96       709433 ns       709439 ns          990 flops=2.49418G/s
+170: BM_SGEMM_EXO/n:192     6460207 ns      6460192 ns          108 flops=2.19123G/s
+170: BM_SGEMM_EXO/n:384    56438781 ns     56439372 ns           12 flops=2.00651G/s
+170: BM_SGEMM_EXO/n:768   600209527 ns    600212366 ns            1 flops=1.50942G/s
+170: BM_SGEMM_EXO/n:1536   86396230 ns     86386828 ns            8 flops=83.8989G/s
+170: BM_SGEMM_EXO/n:3072  693486567 ns    693464515 ns            1 flops=83.6121G/s
+170: BM_SGEMM_EXO/n:6144 5506787137 ns   5506752806 ns            1 flops=84.2341G/s
+BLOCKS: M=192, K=1536, N=3072
+170: BM_SGEMM_EXO/n:48        78066 ns        78061 ns         8885 flops=2.83349G/s
+170: BM_SGEMM_EXO/n:96       707458 ns       707462 ns          980 flops=2.50115G/s
+170: BM_SGEMM_EXO/n:192     6465804 ns      6465828 ns          108 flops=2.18932G/s
+170: BM_SGEMM_EXO/n:384    55885635 ns     55881442 ns           13 flops=2.02654G/s
+170: BM_SGEMM_EXO/n:768   636460969 ns    636459851 ns            1 flops=1.42345G/s
+170: BM_SGEMM_EXO/n:3072  727927904 ns    727911944 ns            1 flops=79.6553G/s
+170: BM_SGEMM_EXO/n:6144 5801276485 ns   5800952996 ns            1 flops=79.9621G/s
+BLOCKS: M=192, K=1536, N=6144
+170: BM_SGEMM_EXO/n:48        83259 ns        83258 ns         8392 flops=2.65659G/s
+170: BM_SGEMM_EXO/n:96       713251 ns       713259 ns          982 flops=2.48083G/s
+170: BM_SGEMM_EXO/n:192     6474412 ns      6474422 ns          108 flops=2.18642G/s
+170: BM_SGEMM_EXO/n:384    56509074 ns     56509394 ns           12 flops=2.00402G/s
+170: BM_SGEMM_EXO/n:768   633705914 ns    633709368 ns            1 flops=1.42963G/s
+170: BM_SGEMM_EXO/n:6144 6398236777 ns   6398140961 ns            1 flops=72.4986G/s
+BLOCKS: M=384, K=1536, N=768
+170: BM_SGEMM_EXO/n:48        78370 ns        78370 ns         8931 flops=2.8223G/s
+170: BM_SGEMM_EXO/n:96       719918 ns       719915 ns          975 flops=2.45789G/s
+170: BM_SGEMM_EXO/n:192     6536939 ns      6536957 ns          107 flops=2.1655G/s
+170: BM_SGEMM_EXO/n:384    56915129 ns     56914899 ns           12 flops=1.98975G/s
+170: BM_SGEMM_EXO/n:768   636624856 ns    636628623 ns            1 flops=1.42307G/s
+170: BM_SGEMM_EXO/n:1536   77529725 ns     77526860 ns            9 flops=93.487G/s
+170: BM_SGEMM_EXO/n:3072  619457627 ns    619467377 ns            1 flops=93.5999G/s
+170: BM_SGEMM_EXO/n:6144 4979817492 ns   4979786884 ns            1 flops=93.1479G/s
+BLOCKS: M=384, K=1536, N=1536
+170: BM_SGEMM_EXO/n:48        78165 ns        78166 ns         8874 flops=2.82967G/s
+170: BM_SGEMM_EXO/n:96       712731 ns       712669 ns          986 flops=2.48288G/s
+170: BM_SGEMM_EXO/n:192     6486052 ns      6485937 ns          108 flops=2.18253G/s
+170: BM_SGEMM_EXO/n:384    56677422 ns     56672876 ns           12 flops=1.99824G/s
+170: BM_SGEMM_EXO/n:768   641000853 ns    641003954 ns            1 flops=1.41336G/s
+170: BM_SGEMM_EXO/n:1536   78447780 ns     78442731 ns            9 flops=92.3955G/s
+170: BM_SGEMM_EXO/n:3072  626776215 ns    626699222 ns            1 flops=92.5198G/s
+170: BM_SGEMM_EXO/n:6144 5006672858 ns   5006422671 ns            1 flops=92.6523G/s
+BLOCKS: M=384, K=1536, N=3072
+170: BM_SGEMM_EXO/n:48        78105 ns        78105 ns         8900 flops=2.83187G/s
+170: BM_SGEMM_EXO/n:96       710258 ns       710260 ns          985 flops=2.4913G/s
+170: BM_SGEMM_EXO/n:192     6480046 ns      6480121 ns          108 flops=2.18449G/s
+170: BM_SGEMM_EXO/n:384    56865708 ns     56865608 ns           12 flops=1.99147G/s
+170: BM_SGEMM_EXO/n:768   577887555 ns    577890155 ns            1 flops=1.56772G/s
+170: BM_SGEMM_EXO/n:3072  650776702 ns    650740559 ns            1 flops=89.1017G/s
+170: BM_SGEMM_EXO/n:6144 5193549302 ns   5193476149 ns            1 flops=89.3152G/s
+BLOCKS: M=384, K=1536, N=6144
+170: BM_SGEMM_EXO/n:48        83412 ns        83412 ns         8347 flops=2.6517G/s
+170: BM_SGEMM_EXO/n:96       719325 ns       719332 ns          971 flops=2.45988G/s
+170: BM_SGEMM_EXO/n:192     6500399 ns      6500406 ns          108 flops=2.17768G/s
+170: BM_SGEMM_EXO/n:384    56507940 ns     56508641 ns           12 flops=2.00405G/s
+170: BM_SGEMM_EXO/n:768   600149259 ns    600153220 ns            1 flops=1.50956G/s
+170: BM_SGEMM_EXO/n:6144 5367233433 ns   5367200818 ns            1 flops=86.4243G/s
+BLOCKS: M=768, K=1536, N=768
+170: BM_SGEMM_EXO/n:48        85695 ns        85695 ns         8124 flops=2.58105G/s
+170: BM_SGEMM_EXO/n:96       715247 ns       715256 ns          980 flops=2.4739G/s
+170: BM_SGEMM_EXO/n:192     6471704 ns      6471727 ns          108 flops=2.18733G/s
+170: BM_SGEMM_EXO/n:384    56474284 ns     56471102 ns           12 flops=2.00538G/s
+170: BM_SGEMM_EXO/n:768   635384399 ns    635387433 ns            1 flops=1.42585G/s
+170: BM_SGEMM_EXO/n:1536   81527168 ns     81522191 ns            8 flops=88.9053G/s
+170: BM_SGEMM_EXO/n:3072  665161246 ns    665058578 ns            1 flops=87.1834G/s
+170: BM_SGEMM_EXO/n:6144 5326931604 ns   5326632275 ns            1 flops=87.0825G/s
+BLOCKS: M=768, K=1536, N=1536
+170: BM_SGEMM_EXO/n:48        87184 ns        87185 ns         8053 flops=2.53696G/s
+170: BM_SGEMM_EXO/n:96       722853 ns       722853 ns          962 flops=2.4479G/s
+170: BM_SGEMM_EXO/n:192     6821343 ns      6821415 ns          102 flops=2.0752G/s
+170: BM_SGEMM_EXO/n:384    56755900 ns     56755947 ns           12 flops=1.99532G/s
+170: BM_SGEMM_EXO/n:768   595768927 ns    595773200 ns            1 flops=1.52066G/s
+170: BM_SGEMM_EXO/n:1536   77523167 ns     77518287 ns            9 flops=93.4974G/s
+170: BM_SGEMM_EXO/n:3072  629105497 ns    629085322 ns            1 flops=92.1688G/s
+170: BM_SGEMM_EXO/n:6144 5013598102 ns   5013415001 ns            1 flops=92.5231G/s
+BLOCKS: M=768, K=1536, N=3072
+170: BM_SGEMM_EXO/n:48        87146 ns        87147 ns         7972 flops=2.53805G/s
+170: BM_SGEMM_EXO/n:96       723387 ns       723392 ns          968 flops=2.44608G/s
+170: BM_SGEMM_EXO/n:192     6497378 ns      6497408 ns          108 flops=2.17868G/s
+170: BM_SGEMM_EXO/n:384    57151795 ns     57151994 ns           12 flops=1.98149G/s
+170: BM_SGEMM_EXO/n:768   631953716 ns    631959292 ns            1 flops=1.43359G/s
+170: BM_SGEMM_EXO/n:3072  631698983 ns    631700290 ns            1 flops=91.7873G/s
+170: BM_SGEMM_EXO/n:6144 5029531222 ns   5029464014 ns            1 flops=92.2278G/s
+BLOCKS: M=768, K=1536, N=6144
+170: BM_SGEMM_EXO/n:48        92212 ns        92213 ns         7591 flops=2.39862G/s
+170: BM_SGEMM_EXO/n:96       728920 ns       728926 ns          956 flops=2.4275G/s
+170: BM_SGEMM_EXO/n:192     6509198 ns      6509240 ns          108 flops=2.17472G/s
+170: BM_SGEMM_EXO/n:384    57010894 ns     57011138 ns           12 flops=1.98639G/s
+170: BM_SGEMM_EXO/n:768   634078401 ns    634088499 ns            1 flops=1.42877G/s
+170: BM_SGEMM_EXO/n:6144 5102407912 ns   5102359778 ns            1 flops=90.9102G/s
+BLOCKS: M=1536, K=1536, N=768
+170: BM_SGEMM_EXO/n:48        78066 ns        78067 ns         8927 flops=2.83326G/s
+170: BM_SGEMM_EXO/n:96       715712 ns       715718 ns          980 flops=2.4723G/s
+170: BM_SGEMM_EXO/n:192     6508363 ns      6508382 ns          108 flops=2.17501G/s
+170: BM_SGEMM_EXO/n:384    56320356 ns     56320681 ns           12 flops=2.01074G/s
+170: BM_SGEMM_EXO/n:768   600544326 ns    600547219 ns            1 flops=1.50857G/s
+170: BM_SGEMM_EXO/n:1536   87164567 ns     87162588 ns            8 flops=83.1522G/s
+170: BM_SGEMM_EXO/n:3072  699965043 ns    699970340 ns            1 flops=82.835G/s
+170: BM_SGEMM_EXO/n:6144 5535331304 ns   5535221868 ns            1 flops=83.8009G/s
+BLOCKS: M=1536, K=1536, N=1536
+170: BM_SGEMM_EXO/n:48        85855 ns        85855 ns         8128 flops=2.57625G/s
+170: BM_SGEMM_EXO/n:96       729867 ns       729879 ns          958 flops=2.42434G/s
+170: BM_SGEMM_EXO/n:192     6542441 ns      6542451 ns          107 flops=2.16368G/s
+170: BM_SGEMM_EXO/n:384    56512837 ns     56513159 ns           12 flops=2.00389G/s
+170: BM_SGEMM_EXO/n:768   582125707 ns    582127728 ns            1 flops=1.55631G/s
+170: BM_SGEMM_EXO/n:1536   92583431 ns     92578519 ns            8 flops=78.2877G/s
+170: BM_SGEMM_EXO/n:3072  696082397 ns    696086953 ns            1 flops=83.2971G/s
+170: BM_SGEMM_EXO/n:6144 5531328589 ns   5531260273 ns            1 flops=83.8609G/s
+BLOCKS: M=1536, K=1536, N=3072
+170: BM_SGEMM_EXO/n:48        78166 ns        78167 ns         8930 flops=2.82964G/s
+170: BM_SGEMM_EXO/n:96       720103 ns       720107 ns          973 flops=2.45724G/s
+170: BM_SGEMM_EXO/n:192     6520575 ns      6520656 ns          107 flops=2.17091G/s
+170: BM_SGEMM_EXO/n:384    57133263 ns     57133772 ns           12 flops=1.98212G/s
+170: BM_SGEMM_EXO/n:768   599158057 ns    599159193 ns            1 flops=1.51207G/s
+170: BM_SGEMM_EXO/n:3072  676945556 ns    676928869 ns            1 flops=85.6546G/s
+170: BM_SGEMM_EXO/n:6144 5376670713 ns   5376481070 ns            1 flops=86.2751G/s
+BLOCKS: M=1536, K=1536, N=6144
+170: BM_SGEMM_EXO/n:48        83099 ns        83099 ns         8371 flops=2.66171G/s
+170: BM_SGEMM_EXO/n:96       725956 ns       725942 ns          964 flops=2.43748G/s
+170: BM_SGEMM_EXO/n:192     6537166 ns      6537149 ns          107 flops=2.16544G/s
+170: BM_SGEMM_EXO/n:384    56328091 ns     56327069 ns           12 flops=2.01051G/s
+170: BM_SGEMM_EXO/n:768   579515971 ns    579511530 ns            1 flops=1.56333G/s
+170: BM_SGEMM_EXO/n:6144 5412006623 ns   5411658730 ns            1 flops=85.7143G/s
+BLOCKS: M=192, K=3072, N=768
+170: BM_SGEMM_EXO/n:48        78264 ns        78265 ns         8875 flops=2.8261G/s
+170: BM_SGEMM_EXO/n:96       709535 ns       709534 ns          990 flops=2.49385G/s
+170: BM_SGEMM_EXO/n:192     6500448 ns      6500461 ns          108 flops=2.17766G/s
+170: BM_SGEMM_EXO/n:384    56283877 ns     56283985 ns           12 flops=2.01205G/s
+170: BM_SGEMM_EXO/n:768   600684466 ns    600687561 ns            1 flops=1.50822G/s
+170: BM_SGEMM_EXO/n:3072  747364631 ns    747346740 ns            1 flops=77.5839G/s
+170: BM_SGEMM_EXO/n:6144 5951778100 ns   5951728433 ns            1 flops=77.9364G/s
+BLOCKS: M=192, K=3072, N=1536
+170: BM_SGEMM_EXO/n:48        78395 ns        78396 ns         8890 flops=2.82138G/s
+170: BM_SGEMM_EXO/n:96       706915 ns       706851 ns          993 flops=2.50332G/s
+170: BM_SGEMM_EXO/n:192     6458955 ns      6458936 ns          108 flops=2.19166G/s
+170: BM_SGEMM_EXO/n:384    56750174 ns     56750374 ns           12 flops=1.99551G/s
+170: BM_SGEMM_EXO/n:768   639900892 ns    639829004 ns            1 flops=1.41596G/s
+170: BM_SGEMM_EXO/n:3072  819229138 ns    819192822 ns            1 flops=70.7795G/s
+170: BM_SGEMM_EXO/n:6144 6513312808 ns   6512891128 ns            1 flops=71.2213G/s
+BLOCKS: M=192, K=3072, N=3072
+170: BM_SGEMM_EXO/n:48        83411 ns        83411 ns         8357 flops=2.65174G/s
+170: BM_SGEMM_EXO/n:96       714787 ns       714791 ns          975 flops=2.47551G/s
+170: BM_SGEMM_EXO/n:192     6498453 ns      6498448 ns          108 flops=2.17833G/s
+170: BM_SGEMM_EXO/n:384    56581983 ns     56582472 ns           12 flops=2.00144G/s
+170: BM_SGEMM_EXO/n:768   634685664 ns    634690517 ns            1 flops=1.42742G/s
+170: BM_SGEMM_EXO/n:3072  908137600 ns    908132635 ns            1 flops=63.8476G/s
+170: BM_SGEMM_EXO/n:6144 6926519211 ns   6926409158 ns            1 flops=66.9693G/s
+BLOCKS: M=192, K=3072, N=6144
+170: BM_SGEMM_EXO/n:48        83581 ns        83580 ns         8337 flops=2.64637G/s
+170: BM_SGEMM_EXO/n:96       714992 ns       714984 ns          981 flops=2.47484G/s
+170: BM_SGEMM_EXO/n:192     6488366 ns      6488405 ns          107 flops=2.1817G/s
+170: BM_SGEMM_EXO/n:384    56073356 ns     56073074 ns           13 flops=2.01962G/s
+170: BM_SGEMM_EXO/n:768   598371567 ns    598371510 ns            1 flops=1.51406G/s
+170: BM_SGEMM_EXO/n:6144 6909465310 ns   6909405458 ns            1 flops=67.1341G/s
+BLOCKS: M=384, K=3072, N=768
+170: BM_SGEMM_EXO/n:48        78247 ns        78247 ns         8884 flops=2.82674G/s
+170: BM_SGEMM_EXO/n:96       719091 ns       719098 ns          976 flops=2.46068G/s
+170: BM_SGEMM_EXO/n:192     6525606 ns      6525595 ns          106 flops=2.16927G/s
+170: BM_SGEMM_EXO/n:384    56434909 ns     56434993 ns           12 flops=2.00667G/s
+170: BM_SGEMM_EXO/n:768   582202421 ns    582206417 ns            1 flops=1.5561G/s
+170: BM_SGEMM_EXO/n:3072  713401284 ns    713397253 ns            1 flops=81.276G/s
+170: BM_SGEMM_EXO/n:6144 5658562408 ns   5658452608 ns            1 flops=81.9759G/s
+BLOCKS: M=384, K=3072, N=1536
+170: BM_SGEMM_EXO/n:48        78168 ns        78167 ns         8406 flops=2.82963G/s
+170: BM_SGEMM_EXO/n:96       714206 ns       714204 ns          978 flops=2.47755G/s
+170: BM_SGEMM_EXO/n:192     6488540 ns      6488588 ns          108 flops=2.18164G/s
+170: BM_SGEMM_EXO/n:384    55701728 ns     55702098 ns           13 flops=2.03307G/s
+170: BM_SGEMM_EXO/n:768   583345987 ns    583346492 ns            1 flops=1.55306G/s
+170: BM_SGEMM_EXO/n:3072  719649680 ns    719603414 ns            1 flops=80.575G/s
+170: BM_SGEMM_EXO/n:6144 5725989020 ns   5725710599 ns            1 flops=81.0129G/s
+BLOCKS: M=384, K=3072, N=3072
+170: BM_SGEMM_EXO/n:48        83458 ns        83456 ns         8319 flops=2.65031G/s
+170: BM_SGEMM_EXO/n:96       719997 ns       719992 ns          975 flops=2.45763G/s
+170: BM_SGEMM_EXO/n:192     6504335 ns      6504338 ns          108 flops=2.17636G/s
+170: BM_SGEMM_EXO/n:384    56356398 ns     56356610 ns           12 flops=2.00946G/s
+170: BM_SGEMM_EXO/n:768   582254445 ns    582248113 ns            1 flops=1.55599G/s
+170: BM_SGEMM_EXO/n:3072  733198904 ns    733197305 ns            1 flops=79.0811G/s
+170: BM_SGEMM_EXO/n:6144 5705282105 ns   5701560054 ns            1 flops=81.3561G/s
+BLOCKS: M=384, K=3072, N=6144
+170: BM_SGEMM_EXO/n:48        83664 ns        83665 ns         8288 flops=2.64369G/s
+170: BM_SGEMM_EXO/n:96       718581 ns       718590 ns          974 flops=2.46242G/s
+170: BM_SGEMM_EXO/n:192     6500365 ns      6500448 ns          108 flops=2.17766G/s
+170: BM_SGEMM_EXO/n:384    56254381 ns     56254661 ns           13 flops=2.0131G/s
+170: BM_SGEMM_EXO/n:768   579056133 ns    579060337 ns            1 flops=1.56455G/s
+170: BM_SGEMM_EXO/n:6144 5742053532 ns   5741990213 ns            1 flops=80.7832G/s
+BLOCKS: M=768, K=3072, N=768
+170: BM_SGEMM_EXO/n:48        85971 ns        85969 ns         8116 flops=2.57283G/s
+170: BM_SGEMM_EXO/n:96       715465 ns       715453 ns          977 flops=2.47322G/s
+170: BM_SGEMM_EXO/n:192     6564336 ns      6564245 ns          105 flops=2.1565G/s
+170: BM_SGEMM_EXO/n:384    56390634 ns     56390918 ns           12 flops=2.00823G/s
+170: BM_SGEMM_EXO/n:768   577183648 ns    577158661 ns            1 flops=1.56971G/s
+170: BM_SGEMM_EXO/n:3072  737480438 ns    737448815 ns            1 flops=78.6252G/s
+170: BM_SGEMM_EXO/n:6144 5816328933 ns   5816083184 ns            1 flops=79.7541G/s
+BLOCKS: M=768, K=3072, N=1536
+170: BM_SGEMM_EXO/n:48        87382 ns        87382 ns         7841 flops=2.53122G/s
+170: BM_SGEMM_EXO/n:96       723654 ns       723663 ns          962 flops=2.44516G/s
+170: BM_SGEMM_EXO/n:192     6533951 ns      6533958 ns          108 flops=2.16649G/s
+170: BM_SGEMM_EXO/n:384    56962388 ns     56962415 ns           12 flops=1.98809G/s
+170: BM_SGEMM_EXO/n:768   601363098 ns    601369621 ns            1 flops=1.50651G/s
+170: BM_SGEMM_EXO/n:3072  743778129 ns    743719807 ns            1 flops=77.9622G/s
+170: BM_SGEMM_EXO/n:6144 5907289094 ns   5907198672 ns            1 flops=78.5239G/s
+BLOCKS: M=768, K=3072, N=3072
+170: BM_SGEMM_EXO/n:48        92623 ns        92623 ns         7564 flops=2.388G/s
+170: BM_SGEMM_EXO/n:96       730974 ns       730972 ns          963 flops=2.42071G/s
+170: BM_SGEMM_EXO/n:192     6532119 ns      6532121 ns          107 flops=2.1671G/s
+170: BM_SGEMM_EXO/n:384    56700755 ns     56701324 ns           12 flops=1.99724G/s
+170: BM_SGEMM_EXO/n:768   580462846 ns    580452918 ns            1 flops=1.5608G/s
+170: BM_SGEMM_EXO/n:3072  744766359 ns    744717413 ns            1 flops=77.8578G/s
+170: BM_SGEMM_EXO/n:6144 5772979236 ns   5772745725 ns            1 flops=80.3528G/s
+BLOCKS: M=768, K=3072, N=6144
+170: BM_SGEMM_EXO/n:48        94922 ns        94913 ns         7330 flops=2.33038G/s
+170: BM_SGEMM_EXO/n:96       732135 ns       732138 ns          954 flops=2.41686G/s
+170: BM_SGEMM_EXO/n:192     6577190 ns      6577271 ns          106 flops=2.15223G/s
+170: BM_SGEMM_EXO/n:384    57245522 ns     57240776 ns           12 flops=1.97842G/s
+170: BM_SGEMM_EXO/n:768   636305534 ns    636297009 ns            1 flops=1.42382G/s
+170: BM_SGEMM_EXO/n:6144 6056755600 ns   6056364188 ns            1 flops=76.5899G/s
+BLOCKS: M=1536, K=3072, N=768
+170: BM_SGEMM_EXO/n:48        78211 ns        78212 ns         8916 flops=2.82802G/s
+170: BM_SGEMM_EXO/n:96       706159 ns       706157 ns          987 flops=2.50578G/s
+170: BM_SGEMM_EXO/n:192     6469476 ns      6469545 ns          108 flops=2.18806G/s
+170: BM_SGEMM_EXO/n:384    55848127 ns     55848403 ns           13 flops=2.02774G/s
+170: BM_SGEMM_EXO/n:768   581438873 ns    581437900 ns            1 flops=1.55815G/s
+170: BM_SGEMM_EXO/n:3072  755799950 ns    755803303 ns            1 flops=76.7158G/s
+170: BM_SGEMM_EXO/n:6144 5994429064 ns   5994340325 ns            1 flops=77.3824G/s
+BLOCKS: M=1536, K=3072, N=1536
+170: BM_SGEMM_EXO/n:48        94951 ns        94952 ns         7355 flops=2.32943G/s
+170: BM_SGEMM_EXO/n:96       731370 ns       731376 ns          959 flops=2.41937G/s
+170: BM_SGEMM_EXO/n:192     6536756 ns      6536785 ns          107 flops=2.16556G/s
+170: BM_SGEMM_EXO/n:384    57237291 ns     57237144 ns           12 flops=1.97854G/s
+170: BM_SGEMM_EXO/n:768   636873262 ns    636873560 ns            1 flops=1.42253G/s
+170: BM_SGEMM_EXO/n:3072  782807069 ns    782800380 ns            1 flops=74.07G/s
+170: BM_SGEMM_EXO/n:6144 6230581301 ns   6230543398 ns            1 flops=74.4488G/s
+BLOCKS: M=1536, K=3072, N=3072
+170: BM_SGEMM_EXO/n:48        92540 ns        92541 ns         7543 flops=2.39012G/s
+170: BM_SGEMM_EXO/n:96       729711 ns       729720 ns          959 flops=2.42486G/s
+170: BM_SGEMM_EXO/n:192     6496170 ns      6496213 ns          108 flops=2.17908G/s
+170: BM_SGEMM_EXO/n:384    56924054 ns     56924357 ns           12 flops=1.98942G/s
+170: BM_SGEMM_EXO/n:768   630925595 ns    630930800 ns            1 flops=1.43593G/s
+170: BM_SGEMM_EXO/n:3072  790083475 ns    790079362 ns            1 flops=73.3876G/s
+170: BM_SGEMM_EXO/n:6144 6161818193 ns   6161732903 ns            1 flops=75.2802G/s
+BLOCKS: M=1536, K=3072, N=6144
+170: BM_SGEMM_EXO/n:48        92906 ns        92897 ns         7528 flops=2.38095G/s
+170: BM_SGEMM_EXO/n:96       729562 ns       729565 ns          960 flops=2.42538G/s
+170: BM_SGEMM_EXO/n:192     6520431 ns      6520446 ns          108 flops=2.17098G/s
+170: BM_SGEMM_EXO/n:384    56790254 ns     56784952 ns           12 flops=1.9943G/s
+170: BM_SGEMM_EXO/n:768   637511434 ns    637511322 ns            1 flops=1.4211G/s
+170: BM_SGEMM_EXO/n:6144 6135400433 ns   6135087762 ns            1 flops=75.6071G/s

@@ -63,9 +63,12 @@ static void BM_SGEMM_EXO(benchmark::State &state) {
 
 BENCHMARK(BM_SGEMM_CBLAS)
     ->ArgNames({"n"})
-    ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2)});
+    ->Arg(48)->Arg(48*2)->Arg(48*4)->Arg(48*8)->Arg(48*16)->Arg(48*32)->Arg(48*64)->Arg(48*128);
+//    ->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
 
 BENCHMARK(BM_SGEMM_EXO)->ArgNames({"n"})
     ->ArgNames({"n"})
-    ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2)});
+    ->Arg(48)->Arg(48*2)->Arg(48*4)->Arg(48*8)->Arg(48*16)->Arg(48*32)->Arg(48*64)->Arg(48*128);
+    //->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
+
 
