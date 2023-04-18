@@ -43,24 +43,20 @@ def gbmv_row_major_NonTrans(
                 result = 0.0
                 for j in seq(0, kl + ku + 1):
                     result += a[i, j] * x[i + (j - kl)]
-                # exo_sdot_stride_1(kl+ku+1, a[i, 0:kl+ku+1], x[i-kl:i+ku+1], result)
             else:
                 if kl + n - i > 0:
                     result = 0.0
                     for j in seq(0, kl + n - i):
                         result += a[i, j] * x[i + (j - kl)]
-                    # exo_sdot_stride_1(kl+n-i, a[i, 0:kl+n-i], x[i-kl:n], result)
         else:
             if i + ku < n:
                 result = 0.0
                 for j in seq(0, i + ku + 1):
                     result += a[i, kl - i + j] * x[j]
-                # exo_sdot_stride_1(i+ku+1, a[i, kl-i:ku+kl+1], x[0:i+ku+1], result)
             else:
                 result = 0.0
                 for j in seq(0, n):
                     result += a[i, kl - i + j] * x[j]
-                # exo_sdot_stride_1(n, a[i, kl-i:kl-i+n], x[0:n], result)
 
         y[i] = beta * y[i] + alpha * result
 
