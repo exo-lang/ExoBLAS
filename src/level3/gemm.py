@@ -167,9 +167,11 @@ sgemm_square_kernels = [
     for blk in square_blk_sizes
 ]
 
-n_blk = 1024
-m_blk = 256
-k_blk = 512
+# n_blk = 1024
+# m_blk = 256
+# k_blk = 512
+# n_reg = 8
+# m_reg = 8
 sgemm_main = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg, False, True)
 
 sgemm_entry_points = [p.name() for p in sgemm_main.entry_points]

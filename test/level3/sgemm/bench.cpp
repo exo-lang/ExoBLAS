@@ -68,4 +68,4 @@ static void BM_SGEMM_EXO(benchmark::State &state) {
 BENCHMARK(BM_SGEMM_EXO)
     ->ArgNames({"n"})
     ->ArgNames({"n"})
-    ->ArgsProduct({benchmark::CreateRange(8192, 8192, 2)});
+    ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2)});
