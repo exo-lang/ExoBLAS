@@ -161,11 +161,11 @@ n_reg = C.gemm.n_reg
 # sgemm_main = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg)
 
 
-square_blk_sizes = [2**i for i in range(5, 9)]
-sgemm_square_kernels = [
-    GEMM(C.Machine, "f32", blk, blk, blk, m_reg, n_reg, True, False)
-    for blk in square_blk_sizes
-]
+# square_blk_sizes = [2**i for i in range(5, 9)]
+# sgemm_square_kernels = [
+#    GEMM(C.Machine, "f32", blk, blk, blk, m_reg, n_reg, True, False)
+#    for blk in square_blk_sizes
+# ]
 
 # n_blk = 1024
 # m_blk = 256
