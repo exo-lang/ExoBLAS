@@ -234,13 +234,13 @@ class Microkernel:
         )
 
         # Move A_vec and B_vec into proper sites
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=3)
+        scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=4)
         scheduled_microkernel = autofission(
             scheduled_microkernel,
             scheduled_microkernel.find("A_vec[_] = _").after(),
             n_lifts=3,
         )
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "B_vec", n_lifts=3)
+        scheduled_microkernel = lift_alloc(scheduled_microkernel, "B_vec", n_lifts=4)
         scheduled_microkernel = autofission(
             scheduled_microkernel,
             scheduled_microkernel.find("B_vec[_] = _").after(),
@@ -292,22 +292,22 @@ class Microkernel:
             scheduled_microkernel = simplify(scheduled_microkernel)
 
 
-#        scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True)
-#        first = scheduled_microkernel.find_loop('ki').body()[0]
-#        for i in range(len( scheduled_microkernel.find_loop('ki').body())):
-#            while True:
-#                try:
-#                    scheduled_microkernel = reorder_stmts(scheduled_microkernel, scheduled_microkernel.forward(first).expand(0, 1))
-#                except:
-#                    break
-#            first = scheduled_microkernel.find_loop('ki').body()[0]
-#
-#        scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
         k_loop = scheduled_microkernel.find_loop('k')
-        print(scheduled_microkernel)
-        scheduled_microkernel = interleave_execution(scheduled_microkernel, k_loop, 4)
-        scheduled_microkernel = simplify(scheduled_microkernel)
-        print(scheduled_microkernel)
+        scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True)
+        first = scheduled_microkernel.find_loop('ki').body()[0]
+        for i in range(len( scheduled_microkernel.find_loop('ki').body())):
+            while True:
+                try:
+                    scheduled_microkernel = reorder_stmts(scheduled_microkernel, scheduled_microkernel.forward(first).expand(0, 1))
+                except:
+                    break
+            first = scheduled_microkernel.find_loop('ki').body()[0]
+#
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
+#        print(scheduled_microkernel)
+#        scheduled_microkernel = interleave_execution(scheduled_microkernel, k_loop, 4)
+#        scheduled_microkernel = simplify(scheduled_microkernel)
+#        print(scheduled_microkernel)
 
         # Unsafe assert
 #        scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(A, 0) == {K_blk}")
