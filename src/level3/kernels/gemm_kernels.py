@@ -582,6 +582,7 @@ class GEBP_kernel:
             f"B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]",
             "B_strip",
         )
+
         # print(scheduled_gebp)
 
         # Unsafe assert

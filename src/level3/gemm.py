@@ -167,7 +167,7 @@ sgemm_square_kernels = [
     for blk in square_blk_sizes
 ]
 
-n_blk = 8192
+n_blk = 1024
 m_blk = 256
 k_blk = 512
 sgemm_main = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg, False, True)
