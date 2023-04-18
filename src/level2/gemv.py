@@ -28,7 +28,7 @@ from composed_schedules import (
 def gemv_row_major_NonTrans(
     m: size, n: size, alpha: R, beta: R, A: [R][m, n], x: [R][n], y: [R][m]
 ):
-    assert stride(A, 1) == 0
+    assert stride(A, 1) == 1
 
     for i in seq(0, m):
         result: R
