@@ -38,7 +38,7 @@ class Microkernel:
             N: size,
             K: size,
             C: f32[M, N] @ DRAM,
-            A: f32[K, M] @ DRAM,
+            A: f32[M, K] @ DRAM,
             B: f32[K, N] @ DRAM,
         ):
             assert stride(C, 1) == 1
@@ -47,7 +47,7 @@ class Microkernel:
             for i in seq(0, M):
                 for j in seq(0, N):
                     for k in seq(0, K):
-                        C[i, j] += A[k, i] * B[k, j]
+                        C[i, j] += A[i, k] * B[k, j]
 
         @proc
         def SGEMM2(
@@ -583,16 +583,16 @@ class GEBP_kernel:
         #print(scheduled_gebp)
         #scheduled_gebp = unroll_loop(scheduled_gebp, "i1")
 
-        scheduled_gebp = stage_mem(
-            scheduled_gebp,
-            "for jo in _:_ #0",
-            f"A[0:{self.M_blk}, 0:{self.microkernel.K_blk}]",
-            "A_strip",
-        )
-        scheduled_gebp = simplify(scheduled_gebp)
-        scheduled_gebp = divide_dim(scheduled_gebp, "A_strip:_", 0, self.microkernel.M_r)
-        scheduled_gebp = rearrange_dim(scheduled_gebp, "A_strip:_", [0, 2, 1])
-        scheduled_gebp = simplify(scheduled_gebp)
+#        scheduled_gebp = stage_mem(
+#            scheduled_gebp,
+#            "for jo in _:_ #0",
+#            f"A[0:{self.M_blk}, 0:{self.microkernel.K_blk}]",
+#            "A_strip",
+#        )
+#        scheduled_gebp = simplify(scheduled_gebp)
+#        scheduled_gebp = divide_dim(scheduled_gebp, "A_strip:_", 0, self.microkernel.M_r)
+#        scheduled_gebp = rearrange_dim(scheduled_gebp, "A_strip:_", [0, 2, 1])
+#        scheduled_gebp = simplify(scheduled_gebp)
 
         scheduled_gebp = replace(scheduled_gebp, "for ii in _:_", self.microkernel.base_microkernel)
         call_c = scheduled_gebp.find(f"microkernel_{self.microkernel.this_id}(_)")
@@ -605,8 +605,8 @@ class GEBP_kernel:
 
         scheduled_gebp = inline(scheduled_gebp, call_c)
         scheduled_gebp = inline_window(scheduled_gebp, "C = C[_]")
-        scheduled_gebp = inline_window(scheduled_gebp, "A = A_strip[_]")
-        #scheduled_gebp = inline_window(scheduled_gebp, "A = A[_]")
+#        scheduled_gebp = inline_window(scheduled_gebp, "A = A_strip[_]")
+        scheduled_gebp = inline_window(scheduled_gebp, "A = A[_]")
         scheduled_gebp = inline_window(scheduled_gebp, "B = B_reg_strip[_]")
         scheduled_gebp = simplify(scheduled_gebp)
 

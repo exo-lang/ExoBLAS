@@ -662,7 +662,7 @@ class GEMM:
                 break
         gemm_scheduled = set_memory(gemm_scheduled, "B_strip:_", DRAM_STATIC)
         gemm_scheduled = set_memory(gemm_scheduled, "B_reg_strip:_", DRAM_STATIC)
-        gemm_scheduled = set_memory(gemm_scheduled, "A_strip:_", DRAM_STATIC)
+#        gemm_scheduled = set_memory(gemm_scheduled, "A_strip:_", DRAM_STATIC)
 
         return gemm_scheduled
 
