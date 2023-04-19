@@ -804,6 +804,7 @@ n_reg = C.gemm.n_reg
 # Generate f32 kernels
 #################################################
 
+"""
 # sgemm_main = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg)
 
 square_blk_sizes = [2**i for i in range(5, 9)]
@@ -1018,7 +1019,6 @@ sgemm_entry_points = [p.name() for p in sgemm_square_entry_points] + [
 C.Machine.vec_width //= 2
 
 dgemm_main = GEMM(C.Machine, "f64", k_blk, m_blk, n_blk, m_reg, n_reg // 2)
-"""
 dgemm_backup_kernels = [GEMM(C.Machine, 'f64', blk, blk, blk, m_reg, n_reg//2, True, False) for blk in blk_sizes] # Use these if problem size is too small for the main block size
 
 exo_dgemm_notranspose_noalpha_nobeta_32_32 = dgemm_backup_kernels[0].entry_points[0]
@@ -1084,7 +1084,6 @@ exo_dgemm_transa_transb_noalpha_nobeta_256_256_256 = dgemm_backup_kernels[3].ent
 ]
 exo_dgemm_transa_transb_alpha_nobeta_256_256_256 = dgemm_backup_kernels[3].entry_points[12]
 exo_dgemm_transa_transb_alpha_beta_256_256_256 = dgemm_backup_kernels[3].entry_points[13]
-"""
 exo_dgemm_notranspose_noalpha_nobeta_main = dgemm_main.entry_points[0]
 exo_dgemm_alphazero_nobeta_main = dgemm_main.entry_points[1]
 exo_dgemm_alphazero_beta_main = dgemm_main.entry_points[2]
@@ -1107,6 +1106,7 @@ exo_dgemm_transa_transb_alpha_beta_main = dgemm_main.entry_points[13]
 dgemm_entry_points = [
     p.name() for p in dgemm_main.entry_points
 ]  # + [p.name() for p in dgemm_backup_entry_points]
+"""
 
 exo_sgemm_notranspose_noalpha_nobeta_48_48_48 = GEMM(C.Machine, "f32", 48, 48, 48, m_reg, n_reg, True, False).entry_points[0]
 exo_sgemm_notranspose_noalpha_nobeta_96_96_96 = GEMM(C.Machine, "f32", 96, 96, 96, m_reg, n_reg, True, False).entry_points[0]
@@ -1118,5 +1118,6 @@ exo_sgemm_notranspose_noalpha_nobeta_2112_240_528 = GEMM(C.Machine, "f32", 528, 
 
 benchmark_points = ['exo_sgemm_notranspose_noalpha_nobeta_48_48_48', 'exo_sgemm_notranspose_noalpha_nobeta_96_96_96', 'exo_sgemm_notranspose_noalpha_nobeta_192_192_192', 'exo_sgemm_notranspose_noalpha_nobeta_384_384_384', 'exo_sgemm_notranspose_noalpha_nobeta_528_240_528', 'exo_sgemm_notranspose_noalpha_nobeta_1056_240_528', 'exo_sgemm_notranspose_noalpha_nobeta_2112_240_528']
 
-__all__ = sgemm_entry_points + dgemm_entry_points + benchmark_points
+#__all__ = sgemm_entry_points + dgemm_entry_points + benchmark_points
+__all__ = benchmark_points
 

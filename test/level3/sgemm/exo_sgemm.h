@@ -30,7 +30,7 @@ void exo_sgemm_notranspose(const int m, const int n, const int k,
       exo_sgemm_notranspose_noalpha_nobeta_1056_240_528(nullptr, m, n, k, alpha,
                                                         beta, A, B, C);
     }
-  } else if (*alpha == 0.0 && *beta == 1.0) {
+  } /*else if (*alpha == 0.0 && *beta == 1.0) {
     return;
   } else if (*alpha == 0.0 && *beta != 1.0) {
     if (n <= 32) {
@@ -118,11 +118,13 @@ void exo_sgemm_notranspose(const int m, const int n, const int k,
                                                     beta, A, B, C);
     }
   }
+*/
 }
 
 void exo_sgemm_transa(const int m, const int n, const int k, const float *alpha,
                       const float *beta, const float *A, const float *B,
                       float *C) {
+  /*
   if (*alpha == 1.0 && *beta == 1.0) {
     if (n <= 32) {
       exo_sgemm_transa_noalpha_nobeta_32_32_32(nullptr, m, n, k, alpha, beta, A,
@@ -240,11 +242,13 @@ void exo_sgemm_transa(const int m, const int n, const int k, const float *alpha,
                                                B, C);
     }
   }
+*/
 }
 
 void exo_sgemm_transb(const int m, const int n, const int k, const float *alpha,
                       const float *beta, const float *A, const float *B,
                       float *C) {
+  /*
   if (*alpha == 1.0 && *beta == 1.0) {
     if (n <= 32) {
       exo_sgemm_transb_noalpha_nobeta_32_32_32(nullptr, m, n, k, alpha, beta, A,
@@ -362,11 +366,13 @@ void exo_sgemm_transb(const int m, const int n, const int k, const float *alpha,
                                                B, C);
     }
   }
+*/
 }
 
 void exo_sgemm_transa_transb(const int m, const int n, const int k,
                              const float *alpha, const float *beta,
                              const float *A, const float *B, float *C) {
+  /*
   if (*alpha == 1.0 && *beta == 1.0) {
     if (n <= 32) {
       exo_sgemm_transa_transb_noalpha_nobeta_32_32_32(nullptr, m, n, k, alpha,
@@ -484,6 +490,7 @@ void exo_sgemm_transa_transb(const int m, const int n, const int k,
                                                       beta, A, B, C);
     }
   }
+*/
 }
 
 void exo_sgemm(const enum CBLAS_ORDER order, const enum CBLAS_TRANSPOSE transa,
