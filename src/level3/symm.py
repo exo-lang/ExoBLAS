@@ -28,6 +28,7 @@ class SYMM:
         N_blk: int,
         M_r: int,
         N_r: int,
+        do_rename=False,
         main=True,
     ):
 
@@ -64,6 +65,13 @@ class SYMM:
         )
 
         self.entry_points = [scheduled_symm]
+
+        if do_rename:
+            for i in range(len(self.entry_points)):
+                self.entry_points[i] = rename(
+                    self.entry_points[i],
+                    f"{self.entry_points[i].name()}_{N_blk}_{M_blk}_{K_blk}",
+                )
 
     def schedule_symm_lower_noalpha(self, symm):
 
@@ -132,15 +140,27 @@ class SYMM:
         return specialized
 
 
-k_blk = 480
-m_blk = 240
-n_blk = 480
+k_blk = [48, 48 * 2, 48 * 4, 48 * 8, 480, 480]
+m_blk = [48, 48 * 2, 48 * 4, 48 * 8, 240, 240]
+n_blk = [48, 48 * 2, 48 * 4, 48 * 8, 480, 960]
 m_reg = 6
 n_reg = 16
 
 
-ssymm = SYMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg)
+ssymm_kernels = [
+    SYMM(C.Machine, "f32", k, m, n, m_reg, n_reg, True, False)
+    for (k, m, n) in zip(k_blk, m_blk, n_blk)
+]
 
-exo_ssymm_lower_left_noalpha_nobeta_main = ssymm.entry_points[0]
+exo_ssymm_lower_left_noalpha_nobeta_48_48_48 = ssymm_kernels[0].entry_points[0]
+exo_ssymm_lower_left_noalpha_nobeta_96_96_96 = ssymm_kernels[1].entry_points[0]
+exo_ssymm_lower_left_noalpha_nobeta_192_192_192 = ssymm_kernels[2].entry_points[0]
+exo_ssymm_lower_left_noalpha_nobeta_384_384_384 = ssymm_kernels[3].entry_points[0]
+exo_ssymm_lower_left_noalpha_nobeta_480_240_480 = ssymm_kernels[4].entry_points[0]
+exo_ssymm_lower_left_noalpha_nobeta_960_240_480 = ssymm_kernels[5].entry_points[0]
 
-__all__ = [p.name() for p in ssymm.entry_points]
+ssymm_kernel_names = []
+for s in ssymm_kernels:
+    ssymm_kernel_names.extend(s.entry_points)
+
+__all__ = [p.name() for p in ssymm_kernel_names]
