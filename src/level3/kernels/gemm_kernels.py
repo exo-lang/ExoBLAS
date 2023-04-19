@@ -8,6 +8,7 @@ from exo import *
 from exo.syntax import *
 
 from exo.stdlib.scheduling import *
+from composed_schedules import interleave_execution
 
 
 class Microkernel:
@@ -246,6 +247,7 @@ class Microkernel:
             n_lifts=3,
         )
 
+
         #Unroll loops
         scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C load
         scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C load
@@ -289,9 +291,9 @@ class Microkernel:
             )
             scheduled_microkernel = simplify(scheduled_microkernel)
 
+
         k_loop = scheduled_microkernel.find_loop('k')
         scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True)
-
         first = scheduled_microkernel.find_loop('ki').body()[0]
         for i in range(len( scheduled_microkernel.find_loop('ki').body())):
             while True:
@@ -300,18 +302,8 @@ class Microkernel:
                 except:
                     break
             first = scheduled_microkernel.find_loop('ki').body()[0]
-
+#
         scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
-
-        # Unsafe assert
-        scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(A, 0) == {K_blk}")
-        scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(B, 0) == {N_r}")
-        scheduled_microkernel = scheduled_microkernel.add_assertion(f"stride(C, 0) == {N_r}")
-        microkernel = microkernel.add_assertion(f"stride(A, 0) == {K_blk}")
-        microkernel = microkernel.add_assertion(f"stride(B, 0) == {N_r}")
-        microkernel = microkernel.add_assertion(f"stride(C, 0) == {N_r}")
-        scheduled_microkernel.unsafe_assert_eq(microkernel)
-        #
         
         return scheduled_microkernel, microkernel
 
@@ -560,35 +552,33 @@ class GEBP_kernel:
                 scheduled_gebp, "j", self.microkernel.N_r, ["jo", "ji"], perfect=True
             )
         )
-        # print(scheduled_gebp)
 
         # scheduled_gebp = autofission(scheduled_gebp, scheduled_gebp.find('for jo in _: _').after(), n_lifts=2)
         scheduled_gebp = reorder_loops(scheduled_gebp, "ii jo")
+        scheduled_gebp = reorder_loops(scheduled_gebp, "io jo")
 
-        scheduled_gebp = replace_all(scheduled_gebp, self.microkernel.base_microkernel)
+        scheduled_gebp = stage_mem(
+            scheduled_gebp,
+            "for io in _:_ #0",
+            f"B[0:{self.microkernel.K_blk}, jo*{self.microkernel.N_r}:jo*{self.microkernel.N_r} + {self.microkernel.N_r}]",
+            "B_reg_strip",
+        )
+        scheduled_gebp = simplify(scheduled_gebp)
+
+        scheduled_gebp = replace(scheduled_gebp, "for ii in _:_", self.microkernel.base_microkernel)
+        call_c = scheduled_gebp.find(f"microkernel_{self.microkernel.this_id}(_)")
         scheduled_gebp = call_eqv(
             scheduled_gebp,
-            f"microkernel_{self.microkernel.this_id}(_)",
+            call_c,
             self.microkernel.scheduled_microkernel,
         )
 
-        scheduled_gebp = reorder_loops(scheduled_gebp, "io jo")
-        #scheduled_gebp = stage_mem(
-        #    scheduled_gebp,
-        #    "for io in _:_ #0",
-        #    f"B[0:{self.microkernel.K_blk}, {self.microkernel.N_r}*jo:{self.microkernel.N_r}*jo+{self.microkernel.N_r}]",
-        #    "B_strip",
-        #)
-        # print(scheduled_gebp)
 
-        # Unsafe assert
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 0) == {self.microkernel.K_blk}")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(C, 0) == {self.N_blk}")
-        gebp = gebp.add_assertion(f"stride(A, 0) == {self.microkernel.K_blk}")
-        gebp = gebp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        gebp = gebp.add_assertion(f"stride(C, 0) == {self.N_blk}")
-        #
+        scheduled_gebp = inline(scheduled_gebp, call_c)
+        scheduled_gebp = inline_window(scheduled_gebp, "C = C[_]")
+        scheduled_gebp = inline_window(scheduled_gebp, "A = A[_]")
+        scheduled_gebp = inline_window(scheduled_gebp, "B = B_reg_strip[_]")
+        scheduled_gebp = simplify(scheduled_gebp)
 
         scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 1) == 1")
         scheduled_gebp = scheduled_gebp.add_assertion(f"stride(B, 1) == 1")
@@ -663,32 +653,21 @@ class GEPP_kernel:
         scheduled_gepp = divide_loop(
             scheduled_gepp, "i", self.gebp.M_blk, ["io", "ii"], tail="cut_and_guard"
         )
-        #scheduled_gepp = stage_mem(
-        #    scheduled_gepp,
-        #    "for ii in _:_ #0",
-        #    f"A[{self.gebp.M_blk} * io + 0:{self.gebp.M_blk} * io + {self.gebp.M_blk}, 0:{self.K_blk}]",
-        #    "A_packed",
-        #)
-        # print(scheduled_gepp)
         # scheduled_gepp = stage_mem(scheduled_gepp, 'for ii in _:_ #0', f'B[0:{self.K_blk}, 0:N]', 'B_packed')
 
         scheduled_gepp = replace(
             scheduled_gepp, "for ii in _:_ #0", self.gebp.base_gebp
         )
+        call_c = scheduled_gepp.find(f"gebp_base_{self.gebp.this_id}(_)")
         scheduled_gepp = call_eqv(
             scheduled_gepp,
-            f"gebp_base_{self.gebp.this_id}(_)",
+            call_c,
             self.gebp.scheduled_gebp,
         )
-
-        # Unsafe assert
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(A, 0) == {self.K_blk}")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(C, 0) == {self.N_blk}")
-        base_gepp = base_gepp.add_assertion(f"stride(A, 0) == {self.K_blk}")
-        base_gepp = base_gepp.add_assertion(f"stride(B, 0) == {self.N_blk}")
-        base_gepp = base_gepp.add_assertion(f"stride(C, 0) == {self.N_blk}")
-        # 
+        scheduled_gepp = inline(scheduled_gepp, call_c)
+        scheduled_gepp = inline_window(scheduled_gepp, "C = C[_]")
+        scheduled_gepp = inline_window(scheduled_gepp, "A = A[_]")
+        scheduled_gepp = inline_window(scheduled_gepp, "B = B[_]")
 
         scheduled_gepp = scheduled_gepp.add_assertion(f"stride(A, 1) == 1")
         scheduled_gepp = scheduled_gepp.add_assertion(f"stride(B, 1) == 1")
@@ -708,4 +687,3 @@ class GEPP_kernel:
 
 
 # test_gebp = GEBP_kernel(test_microkernel, 64, 256)
-# print("TEST PASSED: GEBP kernel successfully generated!")
