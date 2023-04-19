@@ -40,7 +40,7 @@ void test_sgemm(const enum CBLAS_TRANSPOSE transa,
 }
 
 int main() {
-  std::vector<int> dims{32, 64, 256, 257};
+  std::vector<int> dims{32, 48, 64, 256, 257, 2000};
   std::vector<CBLAS_TRANSPOSE> transas{CblasTrans, CblasNoTrans};
   std::vector<CBLAS_TRANSPOSE> transbs{CblasTrans, CblasNoTrans};
   std::vector<float> alphas{0.0, 1.0, 2.0};
