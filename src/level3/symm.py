@@ -8,6 +8,7 @@ from exo.platforms.x86 import *
 from exo.platforms.neon import *
 from exo import *
 from exo.syntax import *
+from exo.libs.memories import DRAM_STATIC
 
 from exo.stdlib.scheduling import *
 
@@ -78,10 +79,42 @@ class SYMM:
         symm = reorder_loops(symm, "i jo")
         symm = reorder_loops(symm, "ko jo")
 
+        symm = stage_mem(
+            symm,
+            "for i in _:_ #0",
+            f"B[{self.microkernel.K_blk}*ko:{self.microkernel.K_blk}*ko+{self.microkernel.K_blk}, {self.gebp.N_blk}*jo:{self.gebp.N_blk}*jo+{self.gebp.N_blk}]",
+            "B_strip",
+        )
+
         symm = replace_all(symm, self.gepp.gepp_base)
+        call_c = symm.find(f"gepp_base_{self.gepp.this_id}(_)")
         symm = call_eqv(
             symm, f"gepp_base_{self.gepp.this_id}(_)", self.gepp.gepp_scheduled
         )
+
+        symm = call_eqv(
+            symm,
+            call_c,
+            self.gepp.gepp_scheduled,
+        )
+        symm = inline(symm, call_c)
+        symm = inline_window(symm, "C = C[_]")
+        symm = inline_window(symm, f"A = A[_]")
+        symm = inline_window(symm, "B = B_strip[_]")
+        symm = simplify(symm)
+
+        while True:
+            try:
+                symm = lift_alloc(symm, "B_reg_strip:_")
+            except:
+                break
+        while True:
+            try:
+                symm = lift_alloc(symm, "B_strip:_")
+            except:
+                break
+        symm = set_memory(symm, "B_strip:_", DRAM_STATIC)
+        symm = set_memory(symm, "B_reg_strip:_", DRAM_STATIC)
 
         return simplify(symm)
 
@@ -99,11 +132,11 @@ class SYMM:
         return specialized
 
 
-k_blk = C.symm.k_blk
-m_blk = C.symm.m_blk
-n_blk = C.symm.n_blk
-m_reg = C.symm.m_reg
-n_reg = C.symm.n_reg
+k_blk = 480
+m_blk = 240
+n_blk = 480
+m_reg = 6
+n_reg = 16
 
 
 ssymm = SYMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg)

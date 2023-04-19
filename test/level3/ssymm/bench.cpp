@@ -13,7 +13,6 @@
 #include "exo_ssymm.h"
 #include "generate_buffer.h"
 
-
 static void print_matrix(std::vector<float> M, int n, int k) {
   for (int i = 0; i < k; i++) {
     for (int j = 0; j < n; j++) {
@@ -62,5 +61,12 @@ static void BM_SSYMM_EXO(benchmark::State &state) {
       benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK(BM_SSYMM_CBLAS)->ArgNames({"n"})->RangeMultiplier(2)->Range(16, 8192);
-BENCHMARK(BM_SSYMM_EXO)->ArgNames({"n"})->RangeMultiplier(2)->Range(16, 8192);
+BENCHMARK(BM_SSYMM_CBLAS)
+    ->ArgNames({"n", "m", "k"})
+    ->ArgNames({"n", "m", "k"})
+    ->Args({480, 480, 480})
+    ->Args({4800, 4800, 4800});
+BENCHMARK(BM_SSYMM_EXO)
+    ->ArgNames({"n", "m", "k"})
+    ->Args({480, 480, 480})
+    ->Args({4800, 4800, 4800});
