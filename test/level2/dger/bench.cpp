@@ -51,14 +51,14 @@ BENCHMARK(BM_cblas_dger)
     ->ArgNames({"n", "alpha", "incX", "incY", "alignmentX", "alignmentY",
                 "alignmentA"})
     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2),
-                   {0, 1, 3},
+                   {1, 3},
                    {1},
                    {1},
                    {64},
                    {64},
                    {64}})
     ->ArgsProduct({benchmark::CreateRange(7, (1 << 13) - 1, 7),
-                   {0, 1, 3},
+                   {1, 3},
                    {1},
                    {1},
                    {64},
@@ -68,14 +68,14 @@ BENCHMARK(BM_exo_dger)
     ->ArgNames({"n", "alpha", "incX", "incY", "alignmentX", "alignmentY",
                 "alignmentA"})
     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2),
-                   {0, 1, 3},
+                   {1, 3},
                    {1},
                    {1},
                    {64},
                    {64},
                    {64}})
     ->ArgsProduct({benchmark::CreateRange(7, (1 << 13) - 1, 7),
-                   {0, 1, 3},
+                   {1, 3},
                    {1},
                    {1},
                    {64},

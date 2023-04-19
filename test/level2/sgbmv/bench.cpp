@@ -51,13 +51,13 @@ static void BM_exo_sgbmv(benchmark::State &state) {
 // CBLAS SGBMV segfaults on M=N=(1 << 19) and KL=KU=1...
 // Is it possible they just resort to GEMV's routine?
 BENCHMARK(BM_cblas_sgbmv)
-    ->ArgNames({"m", "kl", "alpha", "beta"})
+    ->ArgNames({"m", "kl_setting", "alpha", "beta"})
     ->ArgsProduct({benchmark::CreateRange(8, (1 << 13), 2), {1, 2}, {3}, {3}})
     ->ArgsProduct(
         {benchmark::CreateRange(7, (1 << 13) - 1, 7), {1, 2}, {3}, {3}});
 
 BENCHMARK(BM_exo_sgbmv)
-    ->ArgNames({"m", "kl", "alpha", "beta"})
+    ->ArgNames({"m", "kl_setting", "alpha", "beta"})
     ->ArgsProduct({benchmark::CreateRange(8, (1 << 13), 2), {1, 2}, {3}, {3}})
     ->ArgsProduct(
         {benchmark::CreateRange(7, (1 << 13) - 1, 7), {1, 2}, {3}, {3}});
