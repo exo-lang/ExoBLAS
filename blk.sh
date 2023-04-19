@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-file="sgemm_params6"
+file="sgemm_params7"
 touch $file.out
 : > $file.out
 
-n_blk=(768 1536 3072 6144)
-m_blk=(192 384 768 1536)
-k_blk=(384 768 1536 3072)
+n_blk=(768 1024 1536 3072)
+m_blk=(192 256 384 512 768)
+k_blk=(256 384 512 768 1024 1536)
 
 for k in "${k_blk[@]}"
 do

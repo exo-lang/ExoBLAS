@@ -159,15 +159,18 @@ for benchmark_name in jsons_dict:
         if "Fixture" in lis[0]:
             lis = lis[1:]
         name = benchmark_name
-        size = int(lis[1].split(":")[1])  # Words
-        params = tuple(lis[2:])
+        sizes = []
+        for li in lis[1:]:
+            n = int(li.split(":")[1])
+            sizes.append(n)
+        params = ()
         time = d["cpu_time"]  # ns
         # size : word already
         # time is nanoseconds
 
         params_dict = perf_res.setdefault(params, {})
         points = params_dict.setdefault(name, [])
-        points.append((size, time))
+        points.append((sizes, time))
 
 # Sort Raw Data
 for params in perf_res:
@@ -259,11 +262,11 @@ def peak_compute_plot(params, names_to_points):
 
     for name in names_to_points:
         points = names_to_points[name]
-        x = [log_2(p[0] ** 3 * wordsize) for p in points]
+        x = [log_2(p[0][0] * p[0][1] * p[0][2] * wordsize) for p in points]
         if kernel_name[1:] == "gemm":
-            y = [(2 * p[0] ** 3 / p[1]) for p in points]
+            y = [(2 * p[0][0] * p[0][1] * p[0][2] / p[1]) for p in points]
         elif kernel_name[1:] == "syrk":
-            y = [(p[0] ** 3 / p[1]) for p in points]
+            y = [(p[0][0] * p[0][1] * p[0][2] / p[1]) for p in points]
         plt.plot(x, y, label=name)
 
     peak_x = [x[0], x[-1]]
@@ -353,4 +356,4 @@ for params in perf_res:
         peak_bandwidth_plot(params, perf_res[params])
 
     # raw_runtime_plot(params, perf_res[params])
-    ratio_and_gm_plot(params, perf_res[params])
+    #ratio_and_gm_plot(params, perf_res[params])

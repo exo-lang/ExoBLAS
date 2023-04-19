@@ -1,0 +1,38 @@
+Preset CMake variables:
+
+  CMAKE_BUILD_TYPE="Release"
+  CMAKE_CXX_FLAGS="-march=haswell -O3 -ffast-math"
+  CMAKE_C_FLAGS="-march=haswell -O3 -ffast-math -std=c11"
+
+-- Found Python: /usr/local/bin/python3.10 (found suitable version "3.10.2", minimum required is "3.9") found components: Interpreter 
+-- Found Python: /usr/local/bin/python3.10 (found suitable version "3.10.2", minimum required is "3") found components: Interpreter 
+-- Configuring done (0.1s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/yuka/BLAS/build/avx2
+[1/5] Generating exo_gemm.exo/exo_gemm.c, exo_gemm.exo/exo_gemm.h
+FAILED: src/level3/exo_gemm.exo/exo_gemm.c src/level3/exo_gemm.exo/exo_gemm.h /home/yuka/BLAS/build/avx2/src/level3/exo_gemm.exo/exo_gemm.c /home/yuka/BLAS/build/avx2/src/level3/exo_gemm.exo/exo_gemm.h 
+cd /home/yuka/BLAS/build/avx2/src/level3 && /usr/local/bin/cmake -E env --modify PYTHONPATH=path_list_append:/home/yuka/BLAS/src/level3 --modify PYTHONPATH=path_list_append:/home/yuka/BLAS/src/common --modify PYTHONPATH=path_list_append:/home/yuka/BLAS/build/avx2/src/common -- /home/yuka/.local/bin/exocc -o exo_gemm.exo --stem exo_gemm /home/yuka/BLAS/src/level3/gemm.py && /usr/local/bin/cmake -E cmake_transform_depfile Ninja gccdepfile /home/yuka/BLAS /home/yuka/BLAS/src/level3 /home/yuka/BLAS/build/avx2 /home/yuka/BLAS/build/avx2/src/level3 /home/yuka/BLAS/build/avx2/src/level3/exo_gemm.exo/exo_gemm.d /home/yuka/BLAS/build/avx2/CMakeFiles/d/e318db327e2225e2de95201d70b586e1cf593ce702572fddd53c5b740af2e693.d
+Traceback (most recent call last):
+  File "/home/yuka/.local/bin/exocc", line 5, in <module>
+    from exo.main import main
+ModuleNotFoundError: No module named 'exo'
+ninja: build stopped: subcommand failed.
+Preset CMake variables:
+
+  CMAKE_BUILD_TYPE="Release"
+  CMAKE_CXX_FLAGS="-march=haswell -O3 -ffast-math"
+  CMAKE_C_FLAGS="-march=haswell -O3 -ffast-math -std=c11"
+
+-- Found Python: /usr/local/bin/python3.10 (found suitable version "3.10.2", minimum required is "3.9") found components: Interpreter 
+-- Found Python: /usr/local/bin/python3.10 (found suitable version "3.10.2", minimum required is "3") found components: Interpreter 
+-- Configuring done (0.1s)
+-- Generating done (0.2s)
+-- Build files have been written to: /home/yuka/BLAS/build/avx2
+[1/5] Generating exo_gemm.exo/exo_gemm.c, exo_gemm.exo/exo_gemm.h
+FAILED: src/level3/exo_gemm.exo/exo_gemm.c src/level3/exo_gemm.exo/exo_gemm.h /home/yuka/BLAS/build/avx2/src/level3/exo_gemm.exo/exo_gemm.c /home/yuka/BLAS/build/avx2/src/level3/exo_gemm.exo/exo_gemm.h 
+cd /home/yuka/BLAS/build/avx2/src/level3 && /usr/local/bin/cmake -E env --modify PYTHONPATH=path_list_append:/home/yuka/BLAS/src/level3 --modify PYTHONPATH=path_list_append:/home/yuka/BLAS/src/common --modify PYTHONPATH=path_list_append:/home/yuka/BLAS/build/avx2/src/common -- /home/yuka/.local/bin/exocc -o exo_gemm.exo --stem exo_gemm /home/yuka/BLAS/src/level3/gemm.py && /usr/local/bin/cmake -E cmake_transform_depfile Ninja gccdepfile /home/yuka/BLAS /home/yuka/BLAS/src/level3 /home/yuka/BLAS/build/avx2 /home/yuka/BLAS/build/avx2/src/level3 /home/yuka/BLAS/build/avx2/src/level3/exo_gemm.exo/exo_gemm.d /home/yuka/BLAS/build/avx2/CMakeFiles/d/e318db327e2225e2de95201d70b586e1cf593ce702572fddd53c5b740af2e693.d
+Traceback (most recent call last):
+  File "/home/yuka/.local/bin/exocc", line 5, in <module>
+    from exo.main import main
+ModuleNotFoundError: No module named 'exo'
+ninja: build stopped: subcommand failed.

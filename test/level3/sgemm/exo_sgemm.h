@@ -23,11 +23,11 @@ void exo_sgemm_notranspose(const int m, const int n, const int k,
     } else if (n <= 384) {
       exo_sgemm_notranspose_noalpha_nobeta_384_384_384(nullptr, m, n, k, alpha,
                                                        beta, A, B, C);
-   // } else if (n <= 768) {
-     // exo_sgemm_notranspose_noalpha_nobeta_768_384_384(nullptr, m, n, k, alpha,
-      //                                                 beta, A, B, C);
+    } else if (n <= 528) {
+      exo_sgemm_notranspose_noalpha_nobeta_528_240_528(nullptr, m, n, k, alpha,
+                                                       beta, A, B, C);
     } else {
-      exo_sgemm_notranspose_noalpha_nobeta_768_384_768(nullptr, m, n, k, alpha,
+      exo_sgemm_notranspose_noalpha_nobeta_1056_240_528(nullptr, m, n, k, alpha,
                                                         beta, A, B, C);
     }
   } else if (*alpha == 0.0 && *beta == 1.0) {
