@@ -115,8 +115,6 @@ def schedule_stride_1(precision):
         stride_1 = replace(stride_1, stride_1.find_loop("j").expand(1, 0), dot_template)
         stride_1 = call_eqv(stride_1, "dot_template", scheduled_sdot)
 
-    print("End:\n", stride_1)
-
     return simplify(stride_1)
 
 

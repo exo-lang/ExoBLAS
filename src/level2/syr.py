@@ -62,7 +62,6 @@ def schedule_interleave_syr_row_major_stride_1(
     stride_1 = vectorize(stride_1, j_loop, VEC_W, memory, precision)
     stride_1 = apply_to_block(stride_1, stride_1.forward(j_loop).body(), hoist_stmt)
     stride_1 = replace_all(stride_1, instructions)
-    print(stride_1)
 
     return stride_1
 
