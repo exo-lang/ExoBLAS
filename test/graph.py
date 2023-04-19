@@ -59,7 +59,7 @@ def mem_footprint(kernel_name, size, wordsize, **kwargs):
     elif kernel_name in ["gemv", "ger", "syr", "syr2", "trmv", "tbmv", "gemm", "syrk"]:
         return size * size * wordsize
     elif kernel_name == "gbmv":
-        kl = int(kwargs.get("kl"))
+        kl = int(kwargs.get("kl_setting"))
         if kl == 1:
             kl = size / 2
         elif kl == 2:
@@ -101,7 +101,7 @@ def mem_ops(kernel_name, size, wordsize, **kwargs):
     elif kernel_name in mem_ops[3].keys():
         return wordsize * size * size * mem_ops[3].get(kernel_name, 1)
     elif kernel_name == "gbmv":
-        kl = int(kwargs.get("kl"))
+        kl = int(kwargs.get("kl_setting"))
         if kl == 1:
             kl = size / 2
         elif kl == 2:
