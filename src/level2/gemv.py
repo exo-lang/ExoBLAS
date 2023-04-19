@@ -42,6 +42,8 @@ def gemv_row_major_NonTrans(
 def gemv_row_major_Trans(
     m: size, n: size, alpha: R, beta: R, A: [R][m, n], x: [R][m], y: [R][n]
 ):
+    assert stride(A, 1) == 1
+
     for i in seq(0, n):
         y[i] = beta * y[i]
     for i in seq(0, m):
