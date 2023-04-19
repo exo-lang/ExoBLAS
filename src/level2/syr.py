@@ -8,6 +8,16 @@ from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
 
+from composed_schedules import (
+    vectorize,
+    interleave_execution,
+    parallelize_reduction,
+    interleave_outer_loop_with_inner_loop,
+    apply_to_block,
+    hoist_stmt,
+    stage_expr,
+)
+
 
 @proc
 def syr_row_major_Upper_template(n: size, alpha: R, x: [R][n], A: [R][n, n]):
@@ -47,6 +57,12 @@ def schedule_interleave_syr_row_major_stride_1(
     stride_1 = specialize_syr(syr, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
+
+    j_loop = stride_1.find_loop("j")
+    stride_1 = vectorize(stride_1, j_loop, VEC_W, memory, precision)
+    stride_1 = apply_to_block(stride_1, stride_1.forward(j_loop).body(), hoist_stmt)
+    stride_1 = replace_all(stride_1, instructions)
+    print(stride_1)
 
     return stride_1
 

@@ -10,6 +10,7 @@ arith_intensity = {
     "dot": 1,
     "asum": 1.25,
     "ger": 3,
+    "syr": 3,
     "trmv": 2,
     "gemv": 2,
     "gbmv": 2,
@@ -35,7 +36,7 @@ read_bound_kernels = {
     "sdsdot",
     "dsdot",
 }
-write_bound_kernels = {"copy", "swap", "scal", "rot", "rotm", "ger"}
+write_bound_kernels = {"copy", "swap", "scal", "rot", "rotm", "ger", "syr"}
 level3_kernels = {"gemm", "symm", "syrk", "syr2k", "trmm", "trsm"}
 
 
@@ -54,7 +55,7 @@ def mem_footprint(kernel_name, size, wordsize, **kwargs):
         "rotm",
     ]:
         return size * wordsize
-    elif kernel_name in ["gemv", "ger", "trmv", "tbmv", "gemm", "syrk"]:
+    elif kernel_name in ["gemv", "ger", "syr", "trmv", "tbmv", "gemm", "syrk"]:
         return size * size * wordsize
     elif kernel_name == "gbmv":
         kl = int(kwargs.get("kl"))
@@ -87,7 +88,7 @@ def mem_ops(kernel_name, size, wordsize, **kwargs):
             "sdsdot": 2,
             "dsdot": 2,
         },
-        2: {"gemv": 1, "ger": 1, "trmv": 0.5, "tbmv": 0.5},
+        2: {"gemv": 1, "ger": 1, "syr": 1, "trmv": 0.5, "tbmv": 0.5},
         3: {},
     }
 
