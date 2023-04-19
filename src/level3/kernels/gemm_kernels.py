@@ -247,20 +247,23 @@ class Microkernel:
             n_lifts=3,
         )
 
+        # Unroll loops
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0")  # C load
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0")  # C load
 
-        #Unroll loops
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C load
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C load
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i #0")  # A load
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0")  # B load
 
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i #0") #A load
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #B load
-        
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #computation 
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #computation
-        
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0") #C store
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0") #C store
-        
+        scheduled_microkernel = unroll_loop(
+            scheduled_microkernel, "jo #0"
+        )  # computation
+        scheduled_microkernel = unroll_loop(
+            scheduled_microkernel, "i  #0"
+        )  # computation
+
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0")  # C store
+        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0")  # C store
+
         # Replace
         if self.precision == "f32":
             scheduled_microkernel = replace_all(
@@ -291,20 +294,24 @@ class Microkernel:
             )
             scheduled_microkernel = simplify(scheduled_microkernel)
 
-
-        k_loop = scheduled_microkernel.find_loop('k')
-        scheduled_microkernel = divide_loop(scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True)
-        first = scheduled_microkernel.find_loop('ki').body()[0]
-        for i in range(len( scheduled_microkernel.find_loop('ki').body())):
+        k_loop = scheduled_microkernel.find_loop("k")
+        scheduled_microkernel = divide_loop(
+            scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True
+        )
+        first = scheduled_microkernel.find_loop("ki").body()[0]
+        for i in range(len(scheduled_microkernel.find_loop("ki").body())):
             while True:
                 try:
-                    scheduled_microkernel = reorder_stmts(scheduled_microkernel, scheduled_microkernel.forward(first).expand(0, 1))
+                    scheduled_microkernel = reorder_stmts(
+                        scheduled_microkernel,
+                        scheduled_microkernel.forward(first).expand(0, 1),
+                    )
                 except:
                     break
-            first = scheduled_microkernel.find_loop('ki').body()[0]
-#
+            first = scheduled_microkernel.find_loop("ki").body()[0]
+        #
         scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
-        
+
         return scheduled_microkernel, microkernel
 
     def generate_microkernel_zpad(
@@ -565,14 +572,15 @@ class GEBP_kernel:
         )
         scheduled_gebp = simplify(scheduled_gebp)
 
-        scheduled_gebp = replace(scheduled_gebp, "for ii in _:_", self.microkernel.base_microkernel)
+        scheduled_gebp = replace(
+            scheduled_gebp, "for ii in _:_", self.microkernel.base_microkernel
+        )
         call_c = scheduled_gebp.find(f"microkernel_{self.microkernel.this_id}(_)")
         scheduled_gebp = call_eqv(
             scheduled_gebp,
             call_c,
             self.microkernel.scheduled_microkernel,
         )
-
 
         scheduled_gebp = inline(scheduled_gebp, call_c)
         scheduled_gebp = inline_window(scheduled_gebp, "C = C[_]")

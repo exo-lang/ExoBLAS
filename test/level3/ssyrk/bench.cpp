@@ -73,5 +73,13 @@ static void BM_SSYRK_EXO(benchmark::State &state) {
       benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK(BM_SSYRK_CBLAS)->ArgNames({"n"})->RangeMultiplier(2)->Range(16, 8192);
-BENCHMARK(BM_SSYRK_EXO)->ArgNames({"n"})->RangeMultiplier(2)->Range(16, 8192);
+// BENCHMARK(BM_SSYRK_CBLAS)
+//     ->ArgNames({"n", "m", "k"})
+//     ->Args({8192, 8192, 8192})
+//     ->Args({512, 512, 512});
+//     ->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
+
+BENCHMARK(BM_SSYRK_EXO)
+    ->ArgNames({"n", "m", "k"})
+    ->Args({8192, 8192, 8192})
+    ->Args({512, 512, 512});

@@ -13,6 +13,15 @@ from exo.stdlib.scheduling import *
 
 from kernels.gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
+from composed_schedules import (
+    vectorize,
+    interleave_execution,
+    parallelize_reduction,
+    interleave_outer_loop_with_inner_loop,
+    apply_to_block,
+    hoist_stmt,
+    stage_expr,
+)
 
 import exo_blas_config as C
 
@@ -28,14 +37,16 @@ class SYRK:
         precision: str,
         K_blk: int,
         M_blk: int,
+        M_blk_small: int,
         M_r: int,
         N_r: int,
+        e_reg: int,
     ):
 
         # Precision
         self.precision = precision
         self.prefix = "s" if precision == "f32" else "d"
-        print(M_r, N_r)
+        # print(M_r, N_r)
 
         # Generate kernels
         self.microkernel = Microkernel(machine, M_r, N_r, K_blk, self.precision)
@@ -44,6 +55,8 @@ class SYRK:
         # Blocking dimensions
         self.K_blk = K_blk
         self.M_blk = M_blk
+        self.M_blk_small = M_blk_small
+        self.e_reg = e_reg
 
         # Machine
         self.machine = machine
@@ -706,14 +719,14 @@ class SYRK:
             n_lifts=1,
         )
 
-        diag_syrk_base = rename(diag_handler, "diag_handler")
+        diag_syrk_base = rename(diag_handler, f"diag_handler")
         diag_syrk_base = diag_syrk_base.partial_eval(K=self.K_blk, N=self.M_blk)
         gepp_syrk_scheduled = replace(
             gepp_syrk_scheduled, "for ii in _:_ #1", diag_syrk_base
         )
 
         gebp_diag_handler = GEBP_kernel(
-            self.microkernel, self.M_blk // 4, self.M_blk // 4, self.precision
+            self.microkernel, self.M_blk_small, self.M_blk_small, self.precision
         )
         diag_syrk_scheduled = rename(
             diag_syrk_base, f"{self.prefix}_diag_handler_scheduled"
@@ -767,18 +780,20 @@ class SYRK:
             n_lifts=1,
         )
         diag_syrk_scheduled = simplify(diag_syrk_scheduled)
+        print(diag_syrk_scheduled)
         diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, "iii jio")
         diag_syrk_scheduled = replace(
             diag_syrk_scheduled,
             "for iii in _:_ #0",
             microkernel_diag_handler.base_microkernel,
         )
+
         diag_syrk_scheduled = call_eqv(
             diag_syrk_scheduled,
             f"microkernel_{microkernel_diag_handler.this_id}(_)",
             microkernel_diag_handler.scheduled_microkernel,
         )
-        print(simplify(diag_syrk_scheduled))
+        # print(simplify(diag_syrk_scheduled))
 
         # Unsafe microkernel
         """
@@ -790,35 +805,91 @@ class SYRK:
                                     k] * A2[k, jii + iio / 2 * 8 + 64 * io]
         """
 
-        if self.precision == "f32" and False:  ##UNDER CONSTRUCTION
+        if self.precision == "f32":  ##UNDER CONSTRUCTION
             diag_syrk_scheduled = autofission(
                 diag_syrk_scheduled,
                 diag_syrk_scheduled.find("for iii in _:_").before(),
-                n_lifts=1,
+                n_lifts=2,
             )
             # diag_syrk_scheduled = divide_loop(diag_syrk_scheduled, 'for jii in _:_', microkernel_diag_handler.N_r, ['jiio', 'jiii'], tail='cut')
             # diag_syrk_scheduled = autofission(diag_syrk_scheduled, diag_syrk_scheduled.find('for jiio in _:_').after(), n_lifts=2)
             diag_syrk_scheduled = simplify(diag_syrk_scheduled)
-            print(diag_syrk_scheduled)
+            # print(diag_syrk_scheduled)
 
             diag_syrk_scheduled, unsafe_microkernel_base = extract_subproc(
                 diag_syrk_scheduled,
                 "unsafe_microkernel_base",
-                diag_syrk_scheduled.find("for iii in _:_"),
-                order={"iio": 0, "io": 1, "A1": 2, "A2": 3, "C": 4},
+                diag_syrk_scheduled.find("for io in _:_ #1"),
+                order={"A1": 0, "A2": 1, "C": 2},
             )
             microkernel_diag_base = microkernel_diag_handler.base_microkernel
             microkernel_diag_scheduled = microkernel_diag_handler.scheduled_microkernel
             print(diag_syrk_scheduled)
             print(unsafe_microkernel_base)
+            # print(microkernel_diag_scheduled)
 
             @proc
             def unsafe_microkernel_scheduled(
-                M: size, N: size, A: [f32][4, 256], B: [f32][256, 16], C: [f32][4, 16]
+                A: [f32][128, 256],
+                B: [f32][256, 128],
+                C: [f32][128, 128],
             ):
-                C_intermediate: f32[4, 16] @ DRAM
-                microkernel_diag_scheduled(C_intermediate, A, B)
-                C[0, 0] = C_intermediate[0, 0]
+                assert stride(C, 1) == 1
+                assert stride(B, 1) == 1
+                assert stride(A, 1) == 1
+                # assert stride(C, 0) == 32
+                # assert stride(B, 0) == 32
+                # assert stride(A, 0) == 32
+                # C[0, 0] = 0.0
+                # A_vec: f32[4, 8] @ AVX2
+                # B_vec: f32[2, 8] @ AVX2
+                C_reg: f32[128, 128] @ DRAM
+                for i in seq(0, 128):
+                    for j in seq(0, 128):
+                        C_reg[i, j] = 0.0
+                for i in seq(0, 128):
+                    for j in seq(0, 128):
+                        for k in seq(0, 256):
+                            C_reg[i, j] += A[i, k] * B[k, j]
+                for i in seq(0, 128):
+                    for j in seq(0, i % 16):
+                        C[i, j + ((i / 16) * 16)] += C_reg[i, j + ((i / 16) * 16)]
+
+            gebp_unsafe = GEBP_kernel(
+                self.microkernel, self.M_blk, self.M_blk, self.precision
+            )
+            # gebp_unsafe.scheduled_gebp = inline(
+            #    gebp_unsafe.scheduled_gebp,
+            #    f"avx2_microkernel_4x16_{self.microkernel.this_id}(_)",
+            # )
+
+            # print(gebp_unsafe.scheduled_gebp)
+
+            unsafe_microkernel_scheduled = replace(
+                unsafe_microkernel_scheduled, "for i in _:_ #1", gebp_unsafe.base_gebp
+            )
+            unsafe_microkernel_scheduled = call_eqv(
+                unsafe_microkernel_scheduled,
+                f"gebp_base_{gebp_unsafe.this_id}(_)",
+                gebp_unsafe.scheduled_gebp,
+            )
+
+            # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j #0', self.machine.vec_width, ['jo', 'ji'], perfect=True)
+
+            # unsafe_microkernel_scheduled = replace(
+            #    unsafe_microkernel_scheduled,
+            #    "for ji in _:_ #0",
+            #    self.machine.set_zero_instr_f32,
+            # )
+
+            # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j #0', self.machine.vec_width, ['jo', 'ji'], tail='cut')
+            # unsafe_microkernel_scheduled = replace(
+            #    unsafe_microkernel_scheduled,
+            #    "for k in _:_ #1",
+            #    avx2_mask_storeu_ps,
+            # )
+            # unsafe_microkernel_scheduled = reorder_loops(unsafe_microkernel_scheduled, "io iio")
+            print(unsafe_microkernel_scheduled)
 
             # unsafe_microkernel_scheduled = unsafe_microkernel_scheduled.partial_eval(M=microkernel_diag_handler.M_r, N=)
 
@@ -843,28 +914,191 @@ class SYRK:
                 "unsafe_microkernel_base",
                 unsafe_microkernel_scheduled,
             )
+            # diag_syrk_scheduled = inline(diag_syrk_scheduled, "s_unsafe_microkernel_scheduled(_)")
 
-            print(diag_syrk_scheduled)
-
-            gepp_syrk_scheduled, dummy = extract_subproc(
-                gepp_syrk_scheduled,
-                "dummy",
-                gepp_syrk_scheduled.find("for ii in _:_ #0"),
-                order={"io": 0, "A1": 1, "A2": 2, "C": 3},
-            )
-
-            @proc
-            def dummy2(M: size, A: [f32][4, 256], B: [f32][256, 16], C: [f32][4, 16]):
-                C[0, 0] = 1.0
-
-            dummy.unsafe_assert_eq(dummy2)
-            gepp_syrk_scheduled = call_eqv(gepp_syrk_scheduled, "dummy", dummy2)
+        # diag_syrk_scheduled = diag_syrk_scheduled.add_assertion("stride(A1, 0)==32")
+        # diag_syrk_scheduled = diag_syrk_scheduled.add_assertion("stride(A2, 0)==32")
+        # diag_syrk_scheduled = diag_syrk_scheduled.add_assertion("stride(C, 0)==32")
+        # diag_syrk_scheduled.unsafe_assert_eq(diag_syrk_base)
 
         gepp_syrk_scheduled = call_eqv(
             gepp_syrk_scheduled, "diag_handler(_)", diag_syrk_scheduled
         )
 
-        print(gepp_syrk_scheduled)
+        # gepp_syrk_scheduled = gepp_syrk_scheduled.add_assertion(
+        #    f"stride(A1, 0) == {self.M_blk}"
+        # )
+        # gepp_syrk_scheduled = gepp_syrk_scheduled.add_assertion(f"stride(A2, 0) == N")
+        # gepp_syrk_scheduled = gepp_syrk_scheduled.add_assertion(f"stride(C, 0) == N")
+        # gepp_syrk_base.unsafe_assert_eq(gepp_syrk_scheduled)
+
+        # print(gepp_syrk_scheduled)
+
+        ### Vectorize K loop
+        if self.precision == "f32" and False:
+            # k_gebp = rename(self.microkernel.sgemm_window, "gebp_k_dim")
+            # k_gebp = k_gebp.partial_eval(M=self.M_blk, N=1, K=self.K_blk)
+            # k_gebp = reorder_loops(k_gebp, 'i j')
+            k_microkernel_dim = self.e_reg
+
+            gepp_syrk_scheduled = autofission(
+                gepp_syrk_scheduled,
+                gepp_syrk_scheduled.find("for ii in _:_ #0").after(),
+                n_lifts=1,
+            )
+            gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, "ii j")
+            gepp_syrk_scheduled = divide_loop(
+                gepp_syrk_scheduled,
+                "ii",
+                k_microkernel_dim,
+                ["iio", "iii"],
+                perfect=True,
+            )
+            gepp_syrk_scheduled = reorder_loops(gepp_syrk_scheduled, "j iio")
+            # print(gepp_syrk_scheduled)
+
+            k_microkernel = rename(self.microkernel.sgemm_window, "k_microkernel")
+            k_microkernel = k_microkernel.partial_eval(
+                M=k_microkernel_dim, N=1, K=self.K_blk
+            )
+            k_microkernel = reorder_loops(k_microkernel, "i j")
+            gepp_syrk_scheduled = replace(
+                gepp_syrk_scheduled, "for j in _:_ #0", k_microkernel
+            )
+
+            k_microkernel_scheduled = rename(k_microkernel, "k_microkernel_scheduled")
+            k_microkernel_scheduled = divide_loop(
+                k_microkernel_scheduled,
+                "i",
+                self.machine.vec_width,
+                ["io", "ii"],
+                perfect=True,
+            )
+            # print(k_microkernel_scheduled)
+
+            c_reg_str = f"C[{self.machine.vec_width}*io+ii, j]"
+            k_microkernel_scheduled = stage_mem(
+                k_microkernel_scheduled, "C[_] += _", c_reg_str, "C_reg"
+            )
+            k_microkernel_scheduled = set_memory(
+                k_microkernel_scheduled, "C_reg", self.machine.mem_type
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "C_reg",
+                self.machine.vec_width,
+                "ii",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = lift_alloc(
+                k_microkernel_scheduled, "C_reg", n_lifts=4
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("C_reg[_] = _").after(),
+                n_lifts=4,
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("C[_] = _").before(),
+                n_lifts=4,
+            )
+
+            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "ii k")
+            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "io k")
+            k_microkernel_scheduled = reorder_loops(k_microkernel_scheduled, "j k")
+            # print(k_microkernel_scheduled)
+
+            # Setup A buffer in vector mem
+            k_microkernel_scheduled = bind_expr(
+                k_microkernel_scheduled, "A[_]", "A_vec"
+            )
+            k_microkernel_scheduled = set_memory(
+                k_microkernel_scheduled, "A_vec", self.machine.mem_type
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "A_vec",
+                self.machine.vec_width,
+                "ii",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "A_vec",
+                self.K_blk,
+                "k",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = set_precision(
+                k_microkernel_scheduled, "A_vec", self.precision
+            )
+            # print(k_microkernel_scheduled)
+
+            # Setup B buffer in vector mem
+            k_microkernel_scheduled = bind_expr(
+                k_microkernel_scheduled, "B[_]", "B_vec"
+            )
+
+            k_microkernel_scheduled = set_memory(
+                k_microkernel_scheduled, "B_vec", self.machine.mem_type
+            )
+
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "B_vec",
+                self.machine.vec_width,
+                f"ii",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = expand_dim(
+                k_microkernel_scheduled,
+                "B_vec",
+                1,
+                f"j",
+                unsafe_disable_checks=True,
+            )
+            k_microkernel_scheduled = set_precision(
+                k_microkernel_scheduled, "B_vec", self.precision
+            )
+            # print(k_microkernel_scheduled)
+
+            # Move A_vec and B_vec into proper sites
+            k_microkernel_scheduled = lift_alloc(
+                k_microkernel_scheduled, "A_vec", n_lifts=4
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("A_vec[_] = _").after(),
+                n_lifts=4,
+            )
+            k_microkernel_scheduled = lift_alloc(
+                k_microkernel_scheduled, "B_vec", n_lifts=4
+            )
+            k_microkernel_scheduled = autofission(
+                k_microkernel_scheduled,
+                k_microkernel_scheduled.find("B_vec[_] = _").after(),
+                n_lifts=4,
+            )
+            # print(k_microkernel_scheduled)
+
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.load_instr_f32
+            )
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.broadcast_instr_f32
+            )
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.store_instr_f32
+            )
+            k_microkernel_scheduled = replace_all(
+                k_microkernel_scheduled, self.machine.fmadd_instr_f32
+            )
+            k_microkernel_scheduled = simplify(k_microkernel_scheduled)
+
+            gepp_syrk_scheduled = call_eqv(
+                gepp_syrk_scheduled, "k_microkernel(_)", k_microkernel_scheduled
+            )
 
         return gepp_syrk_scheduled, gepp_syrk_base
 
@@ -879,6 +1113,7 @@ class SYRK:
         syrk = call_eqv(
             syrk, "gepp_syrk_base(_)", self.gepp_syrk_scheduled_lower_notranspose
         )
+        #        print(syrk)
         return syrk
 
     def bind(self, proc, buffer, reg, machine):
@@ -968,13 +1203,15 @@ class SYRK:
         return syrk
 
 
-k_blk = C.syrk.k_blk
-m_blk = C.syrk.m_blk
-m_reg = C.syrk.m_reg
-n_reg = C.syrk.n_reg
+k_blk = 256
+m_blk = 128
+m_blk_small = 32
+m_reg = 4
+n_reg = 16
+e_reg = 16
 
 
-ssyrk = SYRK(C.Machine, "f32", k_blk, m_blk, m_reg, n_reg)
+ssyrk = SYRK(C.Machine, "f32", k_blk, m_blk, m_blk_small, m_reg, n_reg, e_reg)
 
 exo_ssyrk_lower_notranspose_noalpha_nobeta = ssyrk.entry_points[0]
 exo_ssyrk_lower_notranspose_alpha_nobeta = ssyrk.entry_points[1]
@@ -992,7 +1229,7 @@ exo_ssyrk_lower_alphazero_beta = ssyrk.entry_points[12]
 exo_ssyrk_upper_alphazero_beta = ssyrk.entry_points[13]
 
 C.Machine.vec_width //= 2
-dsyrk = SYRK(C.Machine, "f64", k_blk, m_blk, m_reg, n_reg // 2)
+dsyrk = SYRK(C.Machine, "f64", k_blk, m_blk, m_blk_small, m_reg, n_reg // 2, e_reg)
 C.Machine.vec_width *= 2
 
 exo_dsyrk_lower_notranspose_noalpha_nobeta = dsyrk.entry_points[0]

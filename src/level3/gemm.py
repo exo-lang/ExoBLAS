@@ -62,7 +62,7 @@ class GEMM:
 
         gemm_notranspose_noalpha = rename(
             gemm_notranspose_noalpha,
-            f"{self.prefix}{gemm_notranspose_noalpha.name()}_{N_blk}_{M_blk}_{K_blk}",
+            f"{self.prefix}{gemm_notranspose_noalpha.name()}_{N_blk*2}_{M_blk}_{K_blk}",
         )
         gemm_notranspose_noalpha = self.specialize_gemm(
             gemm_notranspose_noalpha, self.precision, ["A", "B", "C"]
@@ -1108,16 +1108,37 @@ dgemm_entry_points = [
 ]  # + [p.name() for p in dgemm_backup_entry_points]
 """
 
-exo_sgemm_notranspose_noalpha_nobeta_48_48_48 = GEMM(C.Machine, "f32", 48, 48, 48, m_reg, n_reg, True, False).entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_96_96_96 = GEMM(C.Machine, "f32", 96, 96, 96, m_reg, n_reg, True, False).entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_192_192_192 = GEMM(C.Machine, "f32", 192, 192, 192, m_reg, n_reg, True, False).entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_384_384_384 = GEMM(C.Machine, "f32", 384, 384, 384, m_reg, n_reg, True, False).entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_528_240_528 = GEMM(C.Machine, "f32", 528, 240, 528, m_reg, n_reg, True, False).entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_1056_240_528 = GEMM(C.Machine, "f32", 528, 240, 1056, m_reg, n_reg, True, False).entry_points[0]
-exo_sgemm_notranspose_noalpha_nobeta_2112_240_528 = GEMM(C.Machine, "f32", 528, 240, 2112, m_reg, n_reg, True, False).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_48_48_48 = GEMM(
+    C.Machine, "f32", 48, 48, 48, m_reg, n_reg, True, False
+).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_96_96_96 = GEMM(
+    C.Machine, "f32", 96, 96, 96, m_reg, n_reg, True, False
+).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_192_192_192 = GEMM(
+    C.Machine, "f32", 192, 192, 192, m_reg, n_reg, True, False
+).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_384_384_384 = GEMM(
+    C.Machine, "f32", 384, 384, 384, m_reg, n_reg, True, False
+).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_528_240_528 = GEMM(
+    C.Machine, "f32", 528, 240, 528, m_reg, n_reg, True, False
+).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_1056_240_528 = GEMM(
+    C.Machine, "f32", 528, 240, 1056, m_reg, n_reg, True, False
+).entry_points[0]
+exo_sgemm_notranspose_noalpha_nobeta_2112_240_528 = GEMM(
+    C.Machine, "f32", 528, 240, 2112, m_reg, n_reg, True, False
+).entry_points[0]
 
-benchmark_points = ['exo_sgemm_notranspose_noalpha_nobeta_48_48_48', 'exo_sgemm_notranspose_noalpha_nobeta_96_96_96', 'exo_sgemm_notranspose_noalpha_nobeta_192_192_192', 'exo_sgemm_notranspose_noalpha_nobeta_384_384_384', 'exo_sgemm_notranspose_noalpha_nobeta_528_240_528', 'exo_sgemm_notranspose_noalpha_nobeta_1056_240_528', 'exo_sgemm_notranspose_noalpha_nobeta_2112_240_528']
+benchmark_points = [
+    "exo_sgemm_notranspose_noalpha_nobeta_48_48_48",
+    "exo_sgemm_notranspose_noalpha_nobeta_96_96_96",
+    "exo_sgemm_notranspose_noalpha_nobeta_192_192_192",
+    "exo_sgemm_notranspose_noalpha_nobeta_384_384_384",
+    "exo_sgemm_notranspose_noalpha_nobeta_528_240_528",
+    "exo_sgemm_notranspose_noalpha_nobeta_1056_240_528",
+    "exo_sgemm_notranspose_noalpha_nobeta_2112_240_528",
+]
 
-#__all__ = sgemm_entry_points + dgemm_entry_points + benchmark_points
+# __all__ = sgemm_entry_points + dgemm_entry_points + benchmark_points
 __all__ = benchmark_points
-
