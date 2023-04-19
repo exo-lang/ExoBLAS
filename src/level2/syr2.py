@@ -9,6 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def syr2_row_major_Upper_template(
     n: size, alpha: R, x: [R][n], y: [R][n], A: [R][n, n]
@@ -31,6 +32,10 @@ def syr2_row_major_Lower_template(
             A[i, j] += alpha * x[i] * y[j] + alpha * y[i] * x[j]
 
 
+### EXO_LOC ALGORITHM END ###
+
+
+### EXO_LOC SCHEDULE START ###
 def specialize_syr2(syr2, precision):
     prefix = "s" if precision == "f32" else "d"
     name = syr2.name()
@@ -148,6 +153,7 @@ exo_dsyr2_row_major_Lower_stride_1 = schedule_interleave_syr2_row_major_stride_1
     f64_instructions,
     "f64",
 )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_ssyr2_row_major_Upper_stride_any,

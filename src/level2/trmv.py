@@ -17,12 +17,13 @@ from composed_schedules import (
 )
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def trmv_row_major_Upper_NonTrans_Unit_template(n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
-    
+
     for i in seq(0, n):
         dot: R
         dot = 0.0
@@ -32,6 +33,7 @@ def trmv_row_major_Upper_NonTrans_Unit_template(n: size, x: [R][n], A: [R][n, n]
 
     for l in seq(0, n):
         x[l] += xCopy[l]
+
 
 @proc
 def trmv_row_major_Upper_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n, n]):
@@ -75,9 +77,11 @@ def trmv_row_major_Lower_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n,
 
 
 @proc
-def trmv_row_major_Upper_Trans_Unit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+def trmv_row_major_Upper_Trans_Unit_template(
+    n: size, x: [R][n], A: [R][n, n], Diag: size
+):
     assert stride(A, 1) == 1
-    
+
     xCopy: R[n]
     for i in seq(0, n):
         xCopy[i] = 0.0
@@ -85,15 +89,17 @@ def trmv_row_major_Upper_Trans_Unit_template(n: size, x: [R][n], A: [R][n, n], D
     for i in seq(0, n):
         for j in seq(0, i):
             xCopy[n - j - 1] += A[n - i - 1, n - j - 1] * x[n - i - 1]
-            
+
     for i in seq(0, n):
         x[i] += xCopy[i]
 
 
 @proc
-def trmv_row_major_Upper_Trans_NonUnit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+def trmv_row_major_Upper_Trans_NonUnit_template(
+    n: size, x: [R][n], A: [R][n, n], Diag: size
+):
     assert stride(A, 1) == 1
-    
+
     xCopy: R[n]
     for i in seq(0, n):
         xCopy[i] = 0.0
@@ -102,13 +108,15 @@ def trmv_row_major_Upper_Trans_NonUnit_template(n: size, x: [R][n], A: [R][n, n]
         xCopy[i] += A[i, i] * x[i]
         for j in seq(0, n - i - 1):
             xCopy[i + j + 1] += A[i, i + j + 1] * x[i]
-            
+
     for i in seq(0, n):
         x[i] = xCopy[i]
 
 
 @proc
-def trmv_row_major_Lower_Trans_Unit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+def trmv_row_major_Lower_Trans_Unit_template(
+    n: size, x: [R][n], A: [R][n, n], Diag: size
+):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -124,7 +132,9 @@ def trmv_row_major_Lower_Trans_Unit_template(n: size, x: [R][n], A: [R][n, n], D
 
 
 @proc
-def trmv_row_major_Lower_Trans_NonUnit_template(n: size, x: [R][n], A: [R][n, n], Diag: size):
+def trmv_row_major_Lower_Trans_NonUnit_template(
+    n: size, x: [R][n], A: [R][n, n], Diag: size
+):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -140,6 +150,10 @@ def trmv_row_major_Lower_Trans_NonUnit_template(n: size, x: [R][n], A: [R][n, n]
         x[i] = xCopy[i]
 
 
+### EXO_LOC ALGORITHM END ###
+
+
+### EXO_LOC SCHEDULE START ###
 def specialize_trmv(trmv, precision):
     prefix = "s" if precision == "f32" else "d"
     name = trmv.name()
@@ -186,8 +200,15 @@ def schedule_trmv_row_major_NonTrans_stride_1(
 
     return simplify(stride_1)
 
+
 def schedule_trmv_row_major_NonTrans_Unit_stride_1(
-    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, ROWS_INTERLEAVE_FACTOR, memory, instructions, precision
+    trmv,
+    VEC_W,
+    VECTORIZATION_INTERLEAVE_FACTOR,
+    ROWS_INTERLEAVE_FACTOR,
+    memory,
+    instructions,
+    precision,
 ):
     stride_1 = specialize_trmv(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
@@ -205,10 +226,15 @@ def schedule_trmv_row_major_NonTrans_Unit_stride_1(
     loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
     stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
     loop_cursor = stride_1.find_loop("jm")
-    stride_1 = interleave_execution(stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR)
+    stride_1 = interleave_execution(
+        stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR
+    )
     stride_1 = simplify(stride_1)
     stride_1 = interleave_outer_loop_with_inner_loop(
-        stride_1, stride_1.find_loop("i"), stride_1.find_loop("jo"), ROWS_INTERLEAVE_FACTOR,
+        stride_1,
+        stride_1.find_loop("i"),
+        stride_1.find_loop("jo"),
+        ROWS_INTERLEAVE_FACTOR,
     )
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
     stride_1 = apply_to_block(stride_1, stride_1.find_loop("ii").body(), hoist_stmt)
@@ -223,7 +249,13 @@ def schedule_trmv_row_major_NonTrans_Unit_stride_1(
 
 
 def schedule_trmv_row_major_Trans_Unit_stride_1(
-    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, ROWS_INTERLEAVE_FACTOR, memory, instructions, precision
+    trmv,
+    VEC_W,
+    VECTORIZATION_INTERLEAVE_FACTOR,
+    ROWS_INTERLEAVE_FACTOR,
+    memory,
+    instructions,
+    precision,
 ):
     stride_1 = specialize_trmv(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
@@ -231,10 +263,15 @@ def schedule_trmv_row_major_Trans_Unit_stride_1(
 
     loop_cursor = stride_1.find_loop("j")
     stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
-    stride_1 = interleave_execution(stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR)
+    stride_1 = interleave_execution(
+        stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR
+    )
     stride_1 = simplify(stride_1)
     stride_1 = interleave_outer_loop_with_inner_loop(
-        stride_1, stride_1.find_loop("i #1"), stride_1.find_loop("joo"), ROWS_INTERLEAVE_FACTOR
+        stride_1,
+        stride_1.find_loop("i #1"),
+        stride_1.find_loop("joo"),
+        ROWS_INTERLEAVE_FACTOR,
     )
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
     stride_1 = apply_to_block(stride_1, stride_1.find_loop("ii").body(), hoist_stmt)
@@ -242,6 +279,7 @@ def schedule_trmv_row_major_Trans_Unit_stride_1(
     stride_1 = simplify(stride_1)
     stride_1 = replace_all(stride_1, instructions)
     return simplify(stride_1)
+
 
 def schedule_trmv_row_major_Trans_stride_1(
     trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
@@ -258,6 +296,7 @@ def schedule_trmv_row_major_Trans_stride_1(
     stride_1 = simplify(stride_1)
     stride_1 = replace_all(stride_1, instructions)
     return simplify(stride_1)
+
 
 #################################################
 # Kernel Parameters
@@ -497,7 +536,7 @@ f64_instructions = [
     C.Machine.set_zero_instr_f64,
     C.Machine.broadcast_instr_f64,
     C.Machine.assoc_reduce_add_instr_f64,
-    C.Machine.assoc_reduce_add_f64_buffer
+    C.Machine.assoc_reduce_add_f64_buffer,
 ]
 
 exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_1 = (
@@ -584,6 +623,8 @@ exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_1 = (
         "f64",
     )
 )
+### EXO_LOC SCHEDULE END ###
+
 
 entry_points = [
     exo_strmv_row_major_Upper_NonTrans_Unit_stride_any,

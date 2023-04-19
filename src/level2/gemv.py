@@ -24,6 +24,7 @@ from composed_schedules import (
 )
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def gemv_row_major_NonTrans(
     m: size, n: size, alpha: R, beta: R, A: [R][m, n], x: [R][n], y: [R][m]
@@ -53,6 +54,10 @@ def gemv_row_major_Trans(
             y[j] += alphaXi * A[i, j]
 
 
+### EXO_LOC ALGORITHM END ###
+
+
+### EXO_LOC SCHEDULE START ###
 def specialize_gemv(gemv, precision):
     prefix = "s" if precision == "f32" else "d"
     name = gemv.name()
@@ -275,6 +280,7 @@ exo_dgemv_row_major_Trans_stride_1 = schedule_Trans(
     f64_instructions,
     "f64",
 )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_sgemv_row_major_NonTrans_stride_any,

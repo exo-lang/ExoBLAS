@@ -19,6 +19,7 @@ from composed_schedules import (
 )
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def gbmv_row_major_NonTrans(
     m: size,
@@ -81,6 +82,10 @@ def gbmv_trans(
                     y[i] += alpha * a[j + kl - i, i] * x[j]
 
 
+### EXO_LOC ALGORITHM END ###
+
+
+### EXO_LOC SCHEDULE START ###
 def specialize_sdot(precision):
     specialized = sdot_template
 
@@ -154,6 +159,8 @@ entry_points = [
     exo_dgbmv_row_major_NonTrans_stride_any,
     exo_dgbmv_row_major_NonTrans_stride_1,
 ]
+### EXO_LOC SCHEDULE END ###
+
 
 if __name__ == "__main__":
     for p in entry_points:

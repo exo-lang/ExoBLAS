@@ -19,6 +19,7 @@ from composed_schedules import (
 )
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def syr_row_major_Upper_template(n: size, alpha: R, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
@@ -37,6 +38,10 @@ def syr_row_major_Lower_template(n: size, alpha: R, x: [R][n], A: [R][n, n]):
             A[i, j] += alpha * x[i] * x[j]
 
 
+### EXO_LOC ALGORITHM END ###
+
+
+### EXO_LOC SCHEDULE START ###
 def specialize_syr(syr, precision):
     prefix = "s" if precision == "f32" else "d"
     name = syr.name()
@@ -158,6 +163,7 @@ exo_dsyr_row_major_Lower_stride_1 = schedule_interleave_syr_row_major_stride_1(
     f64_instructions,
     "f64",
 )
+### EXO_LOC SCHEDULE END ###
 
 entry_points = [
     exo_ssyr_row_major_Upper_stride_any,

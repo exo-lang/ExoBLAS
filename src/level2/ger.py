@@ -9,6 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 
+### EXO_LOC ALGORITHM START ###
 @proc
 def ger_row_major_template(
     m: size, n: size, alpha: R, x: [R][m], y: [R][n], A: [R][m, n]
@@ -18,6 +19,7 @@ def ger_row_major_template(
     for i in seq(0, m):
         for j in seq(0, n):
             A[i, j] += alpha * x[i] * y[j]
+
 
 @proc
 def ger_row_major_template_alpha_1(
@@ -30,9 +32,15 @@ def ger_row_major_template_alpha_1(
             A[i, j] += x[i] * y[j]
 
 
+### EXO_LOC ALGORITHM END ###
+
+
+### EXO_LOC SCHEDULE START ###
 def specialize_ger(precision, alpha):
     prefix = "s" if precision == "f32" else "d"
-    specialized = ger_row_major_template if alpha != 1 else ger_row_major_template_alpha_1
+    specialized = (
+        ger_row_major_template if alpha != 1 else ger_row_major_template_alpha_1
+    )
     name = specialized.name().replace("_template", "")
     specialized = rename(specialized, "exo_" + prefix + name)
 
@@ -146,7 +154,7 @@ exo_sger_row_major_stride_1 = schedule_ger_row_major_stride_1(
     C.Machine.mem_type,
     f32_instructions,
     "f32",
-    None
+    None,
 )
 exo_sger_row_major_alpha_1_stride_1 = schedule_ger_row_major_stride_1(
     C.Machine.vec_width,
@@ -154,7 +162,7 @@ exo_sger_row_major_alpha_1_stride_1 = schedule_ger_row_major_stride_1(
     C.Machine.mem_type,
     f32_instructions,
     "f32",
-    1
+    1,
 )
 
 #################################################
@@ -181,8 +189,10 @@ exo_dger_row_major_stride_1 = schedule_ger_row_major_stride_1(
     C.Machine.mem_type,
     f64_instructions,
     "f64",
-    None
+    None,
 )
+### EXO_LOC SCHEDULE END ###
+
 
 entry_points = [
     exo_sger_row_major_stride_any,
