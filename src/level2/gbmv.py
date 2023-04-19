@@ -62,26 +62,6 @@ def gbmv_row_major_NonTrans(
         y[i] = beta * y[i] + alpha * result
 
 
-@proc
-def gbmv_trans(
-    alpha: f32,
-    beta: f32,
-    n: size,
-    m: size,
-    a: f32[n, m],
-    x: f32[n],
-    y: f32[m],
-    kl: size,
-    ku: size,
-):
-    for i in seq(0, m):
-        y[i] = beta * y[i]
-        for j in seq(0, n):
-            if i - ku <= j and j <= i + kl:
-                if 0 <= j + kl - i and j + kl - i < n:
-                    y[i] += alpha * a[j + kl - i, i] * x[j]
-
-
 ### EXO_LOC ALGORITHM END ###
 
 

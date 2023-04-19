@@ -64,65 +64,6 @@ def schedule_ger_row_major_stride_1(
 
     return stride_1
 
-    stride_1 = divide_loop(
-        stride_1, stride_1.find_loop("j"), VEC_W, ("jo", "ji"), tail="cut"
-    )
-
-    def stage_expr(proc, expr, buffer):
-        proc = bind_expr(proc, expr, buffer)
-        proc = expand_dim(proc, buffer, VEC_W, "ji")
-        proc = lift_alloc(proc, f"{buffer}:_", n_lifts=1)
-        proc = fission(proc, proc.find(f"{buffer}[_] = _").after())
-        return proc
-
-    stride_1 = stage_expr(stride_1, [stride_1.find("alpha_ #0")], "alphaReg")
-    stride_1 = stage_expr(stride_1, [stride_1.find("x[_]")], "xReg")
-    stride_1 = stage_expr(
-        stride_1, [stride_1.find("alphaReg[_] * xReg[_]")], "xMulAlphaReg"
-    )
-    stride_1 = stage_expr(stride_1, [stride_1.find("y[_]")], "yReg")
-    lower_bound = f"{VEC_W} * jo"
-    stride_1 = stage_mem(
-        stride_1,
-        stride_1.find_loop("ji #4"),
-        f"A[i, {lower_bound}:{lower_bound} + {VEC_W}]",
-        "AReg",
-    )
-
-    registers = ["alphaReg", "xReg", "xMulAlphaReg", "yReg", "AReg"]
-
-    for reg in registers:
-        stride_1 = set_memory(stride_1, reg, memory)
-        stride_1 = set_precision(stride_1, reg, precision)
-
-    stride_1 = replace_all(stride_1, instructions)
-
-    stride_1 = divide_loop(
-        stride_1,
-        stride_1.find_loop("i"),
-        ROW_INTERLEAVE_FACTOR,
-        ("io", "ii"),
-        tail="cut",
-    )
-    stride_1 = fission(stride_1, stride_1.find_loop("jo").after())
-    stride_1 = reorder_loops(stride_1, "ii jo")
-    stride_1 = unroll_loop(stride_1, "ii")
-
-    stride_1 = stage_mem(
-        stride_1,
-        stride_1.find_loop("ji"),
-        f"x[ii + {ROW_INTERLEAVE_FACTOR} * io]",
-        "xVal",
-    )
-    stride_1 = stage_mem(
-        stride_1,
-        stride_1.find_loop("ji #1"),
-        f"x[ii + m / {ROW_INTERLEAVE_FACTOR} * {ROW_INTERLEAVE_FACTOR}]",
-        "xVal",
-    )
-
-    return simplify(stride_1)
-
 
 #################################################
 # Kernel Parameters
