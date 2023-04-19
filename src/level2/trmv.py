@@ -243,8 +243,6 @@ def schedule_trmv_row_major_NonTrans_Unit_stride_1(
     stride_1 = replace_all(stride_1, instructions)
     stride_1 = set_memory(stride_1, "dot", DRAM_STATIC)
 
-    stride_1 = replace_all(stride_1, instructions)
-
     return simplify(stride_1)
 
 
@@ -390,7 +388,6 @@ exo_strmv_row_major_Upper_NonTrans_Unit_stride_1 = (
         "f32",
     )
 )
-print(exo_strmv_row_major_Upper_NonTrans_Unit_stride_1)
 exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
     schedule_trmv_row_major_NonTrans_stride_1(
         trmv_row_major_Upper_NonTrans_NonUnit_template,
@@ -586,7 +583,7 @@ exo_dtrmv_row_major_Upper_Trans_Unit_stride_1 = (
         trmv_row_major_Upper_Trans_Unit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
+        min(ROWS_INTERLEAVE_FACTOR, C.Machine.vec_width // 2),
         C.Machine.mem_type,
         f64_instructions,
         "f64",
@@ -597,7 +594,7 @@ exo_dtrmv_row_major_Lower_Trans_Unit_stride_1 = (
         trmv_row_major_Lower_Trans_Unit_template,
         C.Machine.vec_width // 2,
         VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
+        min(ROWS_INTERLEAVE_FACTOR, C.Machine.vec_width // 2),
         C.Machine.mem_type,
         f64_instructions,
         "f64",
