@@ -15,6 +15,10 @@ from composed_schedules import (
     apply_to_block,
     hoist_stmt,
 )
+from codegen_helpers import (
+    generate_stride_any_proc,
+    export_exo_proc,
+)
 
 
 ### EXO_LOC ALGORITHM START ###
@@ -304,362 +308,100 @@ ROWS_INTERLEAVE_FACTOR = 4
 VECTORIZATION_INTERLEAVE_FACTOR = 2
 
 #################################################
-# Generate specialized kernels for f32 precision
+# Generate Entry Points
 #################################################
 
-exo_strmv_row_major_Upper_NonTrans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_NonTrans_Unit_template, "f32"
-)
-exo_strmv_row_major_Upper_NonTrans_Unit_stride_any = rename(
-    exo_strmv_row_major_Upper_NonTrans_Unit_stride_any,
-    exo_strmv_row_major_Upper_NonTrans_Unit_stride_any.name() + "_stride_any",
-)
-exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_NonTrans_NonUnit_template, "f32"
-)
-exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_any = rename(
-    exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_any,
-    exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_any.name() + "_stride_any",
-)
-exo_strmv_row_major_Lower_NonTrans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_NonTrans_Unit_template, "f32"
-)
-exo_strmv_row_major_Lower_NonTrans_Unit_stride_any = rename(
-    exo_strmv_row_major_Lower_NonTrans_Unit_stride_any,
-    exo_strmv_row_major_Lower_NonTrans_Unit_stride_any.name() + "_stride_any",
-)
-exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_NonTrans_NonUnit_template, "f32"
-)
-exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any = rename(
-    exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any,
-    exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any.name() + "_stride_any",
-)
-exo_strmv_row_major_Upper_Trans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_Trans_Unit_template, "f32"
-)
-exo_strmv_row_major_Upper_Trans_Unit_stride_any = rename(
-    exo_strmv_row_major_Upper_Trans_Unit_stride_any,
-    exo_strmv_row_major_Upper_Trans_Unit_stride_any.name() + "_stride_any",
-)
-exo_strmv_row_major_Upper_Trans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_Trans_NonUnit_template, "f32"
-)
-exo_strmv_row_major_Upper_Trans_NonUnit_stride_any = rename(
-    exo_strmv_row_major_Upper_Trans_NonUnit_stride_any,
-    exo_strmv_row_major_Upper_Trans_NonUnit_stride_any.name() + "_stride_any",
-)
-exo_strmv_row_major_Lower_Trans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_Trans_Unit_template, "f32"
-)
-exo_strmv_row_major_Lower_Trans_Unit_stride_any = rename(
-    exo_strmv_row_major_Lower_Trans_Unit_stride_any,
-    exo_strmv_row_major_Lower_Trans_Unit_stride_any.name() + "_stride_any",
-)
-exo_strmv_row_major_Lower_Trans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_Trans_NonUnit_template, "f32"
-)
-exo_strmv_row_major_Lower_Trans_NonUnit_stride_any = rename(
-    exo_strmv_row_major_Lower_Trans_NonUnit_stride_any,
-    exo_strmv_row_major_Lower_Trans_NonUnit_stride_any.name() + "_stride_any",
-)
-
-f32_instructions = [
-    C.Machine.load_instr_f32,
-    C.Machine.load_backwards_instr_f32,
-    C.Machine.store_instr_f32,
-    C.Machine.store_backwards_instr_f32,
-    C.Machine.fmadd_instr_f32,
-    C.Machine.reg_copy_instr_f32,
-    C.Machine.set_zero_instr_f32,
-    C.Machine.broadcast_instr_f32,
-    C.Machine.assoc_reduce_add_instr_f32,
-    C.Machine.assoc_reduce_add_f32_buffer,
+NonTrans_NonUnit_templates = [
+    trmv_row_major_Lower_NonTrans_NonUnit_template,
+    trmv_row_major_Upper_NonTrans_NonUnit_template,
 ]
-
-exo_strmv_row_major_Upper_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_Unit_stride_1(
-        trmv_row_major_Upper_NonTrans_Unit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_stride_1(
-        trmv_row_major_Upper_NonTrans_NonUnit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-exo_strmv_row_major_Lower_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_Unit_stride_1(
-        trmv_row_major_Lower_NonTrans_Unit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_stride_1(
-        trmv_row_major_Lower_NonTrans_NonUnit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-exo_strmv_row_major_Upper_Trans_Unit_stride_1 = (
-    schedule_trmv_row_major_Trans_Unit_stride_1(
-        trmv_row_major_Upper_Trans_Unit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-exo_strmv_row_major_Lower_Trans_Unit_stride_1 = (
-    schedule_trmv_row_major_Trans_Unit_stride_1(
-        trmv_row_major_Lower_Trans_Unit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-exo_strmv_row_major_Upper_Trans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Upper_Trans_NonUnit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-exo_strmv_row_major_Lower_Trans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Lower_Trans_NonUnit_template,
-        C.Machine.vec_width,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-    )
-)
-
-#################################################
-# Generate specialized kernels for f64 precision
-#################################################
-
-exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_NonTrans_Unit_template, "f64"
-)
-exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_any = rename(
-    exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_any,
-    exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_any.name() + "_stride_any",
-)
-exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_NonTrans_NonUnit_template, "f64"
-)
-exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_any = rename(
-    exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_any.name() + "_stride_any",
-)
-exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_NonTrans_Unit_template, "f64"
-)
-exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_any = rename(
-    exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_any,
-    exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_any.name() + "_stride_any",
-)
-exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_NonTrans_NonUnit_template, "f64"
-)
-exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any = rename(
-    exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any.name() + "_stride_any",
-)
-exo_dtrmv_row_major_Upper_Trans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_Trans_Unit_template, "f64"
-)
-exo_dtrmv_row_major_Upper_Trans_Unit_stride_any = rename(
-    exo_dtrmv_row_major_Upper_Trans_Unit_stride_any,
-    exo_dtrmv_row_major_Upper_Trans_Unit_stride_any.name() + "_stride_any",
-)
-exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Upper_Trans_NonUnit_template, "f64"
-)
-exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any = rename(
-    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any.name() + "_stride_any",
-)
-exo_dtrmv_row_major_Lower_Trans_Unit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_Trans_Unit_template, "f64"
-)
-exo_dtrmv_row_major_Lower_Trans_Unit_stride_any = rename(
-    exo_dtrmv_row_major_Lower_Trans_Unit_stride_any,
-    exo_dtrmv_row_major_Lower_Trans_Unit_stride_any.name() + "_stride_any",
-)
-exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any = specialize_trmv(
-    trmv_row_major_Lower_Trans_NonUnit_template, "f64"
-)
-exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any = rename(
-    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any.name() + "_stride_any",
-)
-
-f64_instructions = [
-    C.Machine.load_instr_f64,
-    C.Machine.load_backwards_instr_f64,
-    C.Machine.store_instr_f64,
-    C.Machine.store_backwards_instr_f64,
-    C.Machine.fmadd_instr_f64,
-    C.Machine.reg_copy_instr_f64,
-    C.Machine.set_zero_instr_f64,
-    C.Machine.broadcast_instr_f64,
-    C.Machine.assoc_reduce_add_instr_f64,
-    C.Machine.assoc_reduce_add_f64_buffer,
+NonTrans_Unit_templates = [
+    trmv_row_major_Lower_NonTrans_Unit_template,
+    trmv_row_major_Upper_NonTrans_Unit_template,
 ]
+Trans_NonUnit_templates = [
+    trmv_row_major_Lower_Trans_NonUnit_template,
+    trmv_row_major_Upper_Trans_NonUnit_template,
+]
+Trans_Unit_templates = [
+    trmv_row_major_Lower_Trans_Unit_template,
+    trmv_row_major_Upper_Trans_Unit_template,
+]
+all_templates = (
+    NonTrans_NonUnit_templates
+    + NonTrans_Unit_templates
+    + Trans_NonUnit_templates
+    + Trans_Unit_templates
+)
 
-exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_Unit_stride_1(
-        trmv_row_major_Upper_NonTrans_Unit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
-exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_stride_1(
-        trmv_row_major_Upper_NonTrans_NonUnit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
-exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_Unit_stride_1(
-        trmv_row_major_Lower_NonTrans_Unit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        ROWS_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
-exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_NonTrans_stride_1(
-        trmv_row_major_Lower_NonTrans_NonUnit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
-exo_dtrmv_row_major_Upper_Trans_Unit_stride_1 = (
-    schedule_trmv_row_major_Trans_Unit_stride_1(
-        trmv_row_major_Upper_Trans_Unit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        min(ROWS_INTERLEAVE_FACTOR, C.Machine.vec_width // 2),
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
-exo_dtrmv_row_major_Lower_Trans_Unit_stride_1 = (
-    schedule_trmv_row_major_Trans_Unit_stride_1(
-        trmv_row_major_Lower_Trans_Unit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        min(ROWS_INTERLEAVE_FACTOR, C.Machine.vec_width // 2),
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
-exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Upper_Trans_NonUnit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
-exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_1 = (
-    schedule_trmv_row_major_Trans_stride_1(
-        trmv_row_major_Lower_Trans_NonUnit_template,
-        C.Machine.vec_width // 2,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-    )
-)
+for vec_width, precision in (
+    (C.Machine.vec_width, "f32"),
+    (C.Machine.vec_width // 2, "f64"),
+):
+    for template in all_templates:
+        proc_stride_any = generate_stride_any_proc(template, specialize_trmv, precision)
+        export_exo_proc(globals(), proc_stride_any)
+
+    instructions = [
+        C.Machine[f"load_instr_{precision}"],
+        C.Machine[f"load_backwards_instr_{precision}"],
+        C.Machine[f"store_instr_{precision}"],
+        C.Machine[f"store_backwards_instr_{precision}"],
+        C.Machine[f"fmadd_instr_{precision}"],
+        C.Machine[f"reg_copy_instr_{precision}"],
+        C.Machine[f"set_zero_instr_{precision}"],
+        C.Machine[f"broadcast_instr_{precision}"],
+        C.Machine[f"assoc_reduce_add_instr_{precision}"],
+        C.Machine[f"assoc_reduce_add_{precision}_buffer"],
+    ]
+
+    for template in NonTrans_NonUnit_templates:
+        proc_stride_1 = schedule_trmv_row_major_NonTrans_stride_1(
+            template,
+            vec_width,
+            VECTORIZATION_INTERLEAVE_FACTOR,
+            C.Machine.mem_type,
+            instructions,
+            precision,
+        )
+        export_exo_proc(globals(), proc_stride_1)
+
+    for template in NonTrans_Unit_templates:
+        proc_stride_1 = schedule_trmv_row_major_NonTrans_Unit_stride_1(
+            template,
+            vec_width,
+            VECTORIZATION_INTERLEAVE_FACTOR,
+            min(ROWS_INTERLEAVE_FACTOR, vec_width),
+            C.Machine.mem_type,
+            instructions,
+            precision,
+        )
+        export_exo_proc(globals(), proc_stride_1)
+
+    for template in Trans_NonUnit_templates:
+        proc_stride_1 = schedule_trmv_row_major_Trans_stride_1(
+            template,
+            vec_width,
+            VECTORIZATION_INTERLEAVE_FACTOR,
+            C.Machine.mem_type,
+            instructions,
+            precision,
+        )
+        export_exo_proc(globals(), proc_stride_1)
+
+    for template in Trans_Unit_templates:
+        proc_stride_1 = schedule_trmv_row_major_Trans_Unit_stride_1(
+            template,
+            vec_width,
+            VECTORIZATION_INTERLEAVE_FACTOR,
+            min(ROWS_INTERLEAVE_FACTOR, vec_width),
+            C.Machine.mem_type,
+            instructions,
+            precision,
+        )
+        export_exo_proc(globals(), proc_stride_1)
+
 ### EXO_LOC SCHEDULE END ###
 
-
-entry_points = [
-    exo_strmv_row_major_Upper_NonTrans_Unit_stride_any,
-    exo_strmv_row_major_Upper_NonTrans_Unit_stride_1,
-    exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_any,
-    exo_strmv_row_major_Upper_NonTrans_NonUnit_stride_1,
-    exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_any,
-    exo_dtrmv_row_major_Upper_NonTrans_Unit_stride_1,
-    exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Upper_NonTrans_NonUnit_stride_1,
-    exo_strmv_row_major_Lower_NonTrans_Unit_stride_any,
-    exo_strmv_row_major_Lower_NonTrans_Unit_stride_1,
-    exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_any,
-    exo_strmv_row_major_Lower_NonTrans_NonUnit_stride_1,
-    exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_any,
-    exo_dtrmv_row_major_Lower_NonTrans_Unit_stride_1,
-    exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Lower_NonTrans_NonUnit_stride_1,
-    exo_strmv_row_major_Upper_Trans_Unit_stride_any,
-    exo_strmv_row_major_Upper_Trans_Unit_stride_1,
-    exo_strmv_row_major_Upper_Trans_NonUnit_stride_any,
-    exo_strmv_row_major_Upper_Trans_NonUnit_stride_1,
-    exo_dtrmv_row_major_Upper_Trans_Unit_stride_any,
-    exo_dtrmv_row_major_Upper_Trans_Unit_stride_1,
-    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Upper_Trans_NonUnit_stride_1,
-    exo_strmv_row_major_Lower_Trans_Unit_stride_any,
-    exo_strmv_row_major_Lower_Trans_Unit_stride_1,
-    exo_strmv_row_major_Lower_Trans_NonUnit_stride_any,
-    exo_strmv_row_major_Lower_Trans_NonUnit_stride_1,
-    exo_dtrmv_row_major_Lower_Trans_Unit_stride_any,
-    exo_dtrmv_row_major_Lower_Trans_Unit_stride_1,
-    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_any,
-    exo_dtrmv_row_major_Lower_Trans_NonUnit_stride_1,
-]
-
 if __name__ == "__main__":
-    for p in entry_points:
-        print(p)
-
-__all__ = [p.name() for p in entry_points]
+    pass
