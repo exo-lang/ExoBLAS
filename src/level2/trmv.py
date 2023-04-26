@@ -179,7 +179,13 @@ def specialize_trmv(trmv, precision):
 
 
 def schedule_trmv_row_major_NonTrans_stride_1(
-    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
+    trmv,
+    VEC_W,
+    VECTORIZATION_INTERLEAVE_FACTOR,
+    ROWS_INTERLEAVE_FACTOR,
+    memory,
+    instructions,
+    precision,
 ):
     stride_1 = specialize_trmv(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
@@ -284,7 +290,13 @@ def schedule_trmv_row_major_Trans_Unit_stride_1(
 
 
 def schedule_trmv_row_major_Trans_stride_1(
-    trmv, VEC_W, VECTORIZATION_INTERLEAVE_FACTOR, memory, instructions, precision
+    trmv,
+    VEC_W,
+    VECTORIZATION_INTERLEAVE_FACTOR,
+    ROWS_INTERLEAVE_FACTOR,
+    memory,
+    instructions,
+    precision,
 ):
     stride_1 = specialize_trmv(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
@@ -311,37 +323,45 @@ VECTORIZATION_INTERLEAVE_FACTOR = 2
 # Generate Entry Points
 #################################################
 
-NonTrans_NonUnit_templates = [
-    trmv_row_major_Lower_NonTrans_NonUnit_template,
-    trmv_row_major_Upper_NonTrans_NonUnit_template,
+template_sched_list = [
+    (
+        trmv_row_major_Lower_NonTrans_NonUnit_template,
+        schedule_trmv_row_major_NonTrans_stride_1,
+    ),
+    (
+        trmv_row_major_Upper_NonTrans_NonUnit_template,
+        schedule_trmv_row_major_NonTrans_stride_1,
+    ),
+    (
+        trmv_row_major_Lower_NonTrans_Unit_template,
+        schedule_trmv_row_major_NonTrans_Unit_stride_1,
+    ),
+    (
+        trmv_row_major_Upper_NonTrans_Unit_template,
+        schedule_trmv_row_major_NonTrans_Unit_stride_1,
+    ),
+    (
+        trmv_row_major_Lower_Trans_NonUnit_template,
+        schedule_trmv_row_major_Trans_stride_1,
+    ),
+    (
+        trmv_row_major_Upper_Trans_NonUnit_template,
+        schedule_trmv_row_major_Trans_stride_1,
+    ),
+    (
+        trmv_row_major_Lower_Trans_Unit_template,
+        schedule_trmv_row_major_Trans_Unit_stride_1,
+    ),
+    (
+        trmv_row_major_Upper_Trans_Unit_template,
+        schedule_trmv_row_major_Trans_Unit_stride_1,
+    ),
 ]
-NonTrans_Unit_templates = [
-    trmv_row_major_Lower_NonTrans_Unit_template,
-    trmv_row_major_Upper_NonTrans_Unit_template,
-]
-Trans_NonUnit_templates = [
-    trmv_row_major_Lower_Trans_NonUnit_template,
-    trmv_row_major_Upper_Trans_NonUnit_template,
-]
-Trans_Unit_templates = [
-    trmv_row_major_Lower_Trans_Unit_template,
-    trmv_row_major_Upper_Trans_Unit_template,
-]
-all_templates = (
-    NonTrans_NonUnit_templates
-    + NonTrans_Unit_templates
-    + Trans_NonUnit_templates
-    + Trans_Unit_templates
-)
 
 for vec_width, precision in (
     (C.Machine.vec_width, "f32"),
     (C.Machine.vec_width // 2, "f64"),
 ):
-    for template in all_templates:
-        proc_stride_any = generate_stride_any_proc(template, specialize_trmv, precision)
-        export_exo_proc(globals(), proc_stride_any)
-
     instructions = [
         C.Machine[f"load_instr_{precision}"],
         C.Machine[f"load_backwards_instr_{precision}"],
@@ -355,42 +375,10 @@ for vec_width, precision in (
         C.Machine[f"assoc_reduce_add_{precision}_buffer"],
     ]
 
-    for template in NonTrans_NonUnit_templates:
-        proc_stride_1 = schedule_trmv_row_major_NonTrans_stride_1(
-            template,
-            vec_width,
-            VECTORIZATION_INTERLEAVE_FACTOR,
-            C.Machine.mem_type,
-            instructions,
-            precision,
-        )
-        export_exo_proc(globals(), proc_stride_1)
-
-    for template in NonTrans_Unit_templates:
-        proc_stride_1 = schedule_trmv_row_major_NonTrans_Unit_stride_1(
-            template,
-            vec_width,
-            VECTORIZATION_INTERLEAVE_FACTOR,
-            min(ROWS_INTERLEAVE_FACTOR, vec_width),
-            C.Machine.mem_type,
-            instructions,
-            precision,
-        )
-        export_exo_proc(globals(), proc_stride_1)
-
-    for template in Trans_NonUnit_templates:
-        proc_stride_1 = schedule_trmv_row_major_Trans_stride_1(
-            template,
-            vec_width,
-            VECTORIZATION_INTERLEAVE_FACTOR,
-            C.Machine.mem_type,
-            instructions,
-            precision,
-        )
-        export_exo_proc(globals(), proc_stride_1)
-
-    for template in Trans_Unit_templates:
-        proc_stride_1 = schedule_trmv_row_major_Trans_Unit_stride_1(
+    for template, sched in template_sched_list:
+        proc_stride_any = generate_stride_any_proc(template, specialize_trmv, precision)
+        export_exo_proc(globals(), proc_stride_any)
+        proc_stride_1 = sched(
             template,
             vec_width,
             VECTORIZATION_INTERLEAVE_FACTOR,
