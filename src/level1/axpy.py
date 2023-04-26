@@ -37,16 +37,10 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 
 
 ### EXO_LOC SCHEDULE START ###
-def specialize_axpy(precision, alpha):
-    axpy = axpy_template if alpha != 1 else axpy_template_alpha_1
-    specialized_axpy = specialize_precision(axpy, precision)
-    return specialized_axpy
-
-
-def schedule_interleave_axpy_stride_1(
-    VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision, alpha
+def schedule_axpy_stride_1(
+    axpy, VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision
 ):
-    simple_stride_1 = specialize_axpy(precision, alpha)
+    simple_stride_1 = specialize_precision(axpy, precision)
     simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
@@ -64,106 +58,41 @@ def schedule_interleave_axpy_stride_1(
 
 
 #################################################
-# Generate specialized kernels for f32 precision
+# Generate Entry Points
 #################################################
 
-INTERLEAVE_FACTOR = C.Machine.vec_units * 2
-
-exo_saxpy_stride_any = specialize_axpy("f32", None)
-exo_saxpy_stride_any = rename(
-    exo_saxpy_stride_any, exo_saxpy_stride_any.name() + "_stride_any"
-)
-
-f32_instructions = [
-    C.Machine.load_instr_f32,
-    C.Machine.store_instr_f32,
-    C.Machine.broadcast_scalar_instr_f32,
-    C.Machine.fmadd_instr_f32,
-    C.Machine.reduce_add_wide_instr_f32,
-]
-if None not in f32_instructions:
-    exo_saxpy_stride_1 = schedule_interleave_axpy_stride_1(
-        C.Machine.vec_width,
-        INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-        None,
-    )
-    exo_saxpy_alpha_1_stride_1 = schedule_interleave_axpy_stride_1(
-        C.Machine.vec_width,
-        INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f32_instructions,
-        "f32",
-        1,
-    )
-else:
-    exo_saxpy_stride_1 = specialize_axpy("f32", None)
-    exo_saxpy_stride_1 = rename(
-        exo_saxpy_stride_1, exo_saxpy_stride_1.name() + "_stride_1"
-    )
-    exo_saxpy_alpha_1_stride_1 = specialize_axpy("f32", 1)
-    exo_saxpy_alpha_1_stride_1 = rename(
-        exo_saxpy_alpha_1_stride_1, exo_saxpy_alpha_1_stride_1.name() + "_stride_1"
-    )
-
-#################################################
-# Generate specialized kernels for f64 precision
-#################################################
-
-exo_daxpy_stride_any = specialize_axpy("f64", None)
-exo_daxpy_stride_any = rename(
-    exo_daxpy_stride_any, exo_daxpy_stride_any.name() + "_stride_any"
-)
-
-f64_instructions = [
-    C.Machine.load_instr_f64,
-    C.Machine.store_instr_f64,
-    C.Machine.broadcast_scalar_instr_f64,
-    C.Machine.fmadd_instr_f64,
-    C.Machine.reduce_add_wide_instr_f64,
+template_sched_list = [
+    (axpy_template, schedule_axpy_stride_1),
+    (axpy_template_alpha_1, schedule_axpy_stride_1),
 ]
 
-if None not in f64_instructions:
-    exo_daxpy_stride_1 = schedule_interleave_axpy_stride_1(
-        C.Machine.vec_width // 2,
-        INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-        None,
-    )
-    exo_daxpy_alpha_1_stride_1 = schedule_interleave_axpy_stride_1(
-        C.Machine.vec_width // 2,
-        INTERLEAVE_FACTOR,
-        C.Machine.mem_type,
-        f64_instructions,
-        "f64",
-        1,
-    )
-else:
-    exo_daxpy_stride_1 = specialize_axpy("f64", None)
-    exo_daxpy_stride_1 = rename(
-        exo_daxpy_stride_1, exo_daxpy_stride_1.name() + "_stride_1"
-    )
-    exo_daxpy_alpha_1_stride_1 = specialize_axpy("f64", 1)
-    exo_daxpy_alpha_1_stride_1 = rename(
-        exo_daxpy_alpha_1_stride_1, exo_daxpy_alpha_1_stride_1.name() + "_stride_1"
-    )
+VECTORIZATION_INTERLEAVE_FACTOR = C.Machine.vec_units * 2
+
+for vec_width, precision in (
+    (C.Machine.vec_width, "f32"),
+    (C.Machine.vec_width // 2, "f64"),
+):
+    instructions = [
+        C.Machine[f"load_instr_{precision}"],
+        C.Machine[f"store_instr_{precision}"],
+        C.Machine[f"fmadd_instr_{precision}"],
+        C.Machine[f"reg_copy_instr_{precision}"],
+        C.Machine[f"set_zero_instr_{precision}"],
+        C.Machine[f"reduce_add_wide_instr_{precision}"],
+        C.Machine[f"broadcast_scalar_instr_{precision}"],
+        C.Machine[f"assoc_reduce_add_instr_{precision}"],
+    ]
+
+    for template, sched in template_sched_list:
+        proc_stride_any = generate_stride_any_proc(template, precision)
+        export_exo_proc(globals(), proc_stride_any)
+        proc_stride_1 = sched(
+            template,
+            vec_width,
+            VECTORIZATION_INTERLEAVE_FACTOR,
+            C.Machine.mem_type,
+            instructions,
+            precision,
+        )
+        export_exo_proc(globals(), proc_stride_1)
 ### EXO_LOC SCHEDULE END ###
-
-entry_points = [
-    exo_saxpy_stride_any,
-    exo_saxpy_stride_1,
-    exo_saxpy_alpha_1_stride_1,
-    exo_daxpy_stride_any,
-    exo_daxpy_stride_1,
-    exo_daxpy_alpha_1_stride_1,
-]
-
-if __name__ == "__main__":
-    for p in entry_points:
-        print(p)
-
-__all__ = [p.name() for p in entry_points]
