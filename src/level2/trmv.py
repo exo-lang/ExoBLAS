@@ -18,6 +18,7 @@ from composed_schedules import (
 from codegen_helpers import (
     generate_stride_any_proc,
     export_exo_proc,
+    specialize_precision,
 )
 
 
@@ -158,24 +159,6 @@ def trmv_row_major_Lower_Trans_NonUnit_template(
 
 
 ### EXO_LOC SCHEDULE START ###
-def specialize_trmv(trmv, precision):
-    prefix = "s" if precision == "f32" else "d"
-    name = trmv.name()
-    name = name.replace("_template", "")
-    specialized = rename(trmv, "exo_" + prefix + name)
-
-    args = ["x", "A"]
-    if "NonTrans" in specialized.name():
-        args.append("dot")
-        if "_Unit_" in specialized.name():
-            args.append("xCopy")
-    else:
-        args.append("xCopy")
-
-    for arg in args:
-        specialized = set_precision(specialized, arg, precision)
-
-    return specialized
 
 
 def schedule_trmv_row_major_NonTrans_stride_1(
@@ -187,7 +170,7 @@ def schedule_trmv_row_major_NonTrans_stride_1(
     instructions,
     precision,
 ):
-    stride_1 = specialize_trmv(trmv, precision)
+    stride_1 = specialize_precision(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
 
@@ -220,7 +203,7 @@ def schedule_trmv_row_major_NonTrans_Unit_stride_1(
     instructions,
     precision,
 ):
-    stride_1 = specialize_trmv(trmv, precision)
+    stride_1 = specialize_precision(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
 
@@ -265,7 +248,7 @@ def schedule_trmv_row_major_Trans_Unit_stride_1(
     instructions,
     precision,
 ):
-    stride_1 = specialize_trmv(trmv, precision)
+    stride_1 = specialize_precision(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
 
@@ -298,7 +281,7 @@ def schedule_trmv_row_major_Trans_stride_1(
     instructions,
     precision,
 ):
-    stride_1 = specialize_trmv(trmv, precision)
+    stride_1 = specialize_precision(trmv, precision)
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
 
@@ -376,7 +359,7 @@ for vec_width, precision in (
     ]
 
     for template, sched in template_sched_list:
-        proc_stride_any = generate_stride_any_proc(template, specialize_trmv, precision)
+        proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)
         proc_stride_1 = sched(
             template,

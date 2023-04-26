@@ -14,7 +14,11 @@ from composed_schedules import (
     apply_to_block,
     hoist_stmt,
 )
-
+from codegen_helpers import (
+    specialize_precision,
+    generate_stride_any_proc,
+    export_exo_proc,
+)
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -34,18 +38,8 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 
 ### EXO_LOC SCHEDULE START ###
 def specialize_axpy(precision, alpha):
-    prefix = "s" if precision == "f32" else "d"
-    specialized_axpy = axpy_template if alpha != 1 else axpy_template_alpha_1
-    axpy_template_name = specialized_axpy.name()
-    axpy_template_name = axpy_template_name.replace("_template", "")
-    specialized_axpy = rename(specialized_axpy, "exo_" + prefix + axpy_template_name)
-
-    args = ["x", "y"]
-    if alpha != 1:
-        args.append("alpha")
-
-    for arg in args:
-        specialized_axpy = set_precision(specialized_axpy, arg, precision)
+    axpy = axpy_template if alpha != 1 else axpy_template_alpha_1
+    specialized_axpy = specialize_precision(axpy, precision)
     return specialized_axpy
 
 

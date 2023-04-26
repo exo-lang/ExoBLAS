@@ -6,11 +6,30 @@ from exo.platforms.x86 import *
 from exo.platforms.neon import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
-import exo.API_cursors as pc
+from exo.API_cursors import *
+
+from introspection import get_statemnts
 
 
-def generate_stride_any_proc(template_proc, specialize_func, precision):
-    proc = specialize_func(template_proc, precision)
+def specialize_precision(template_proc, precision):
+    prefix = "s" if precision == "f32" else "d"
+    template_name = template_proc.name()
+    template_name = template_name.replace("_template", "")
+    specialized_proc = rename(template_proc, "exo_" + prefix + template_name)
+
+    for arg in template_proc.args():
+        if arg.type().is_numeric():
+            specialized_proc = set_precision(specialized_proc, arg, precision)
+
+    for stmt in get_statemnts(template_proc):
+        if isinstance(stmt, AllocCursor):
+            specialized_proc = set_precision(specialized_proc, stmt, precision)
+    print(specialized_proc)
+    return specialized_proc
+
+
+def generate_stride_any_proc(template_proc, precision):
+    proc = specialize_precision(template_proc, precision)
     proc = rename(proc, proc.name() + "_stride_any")
     return proc
 
