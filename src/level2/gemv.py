@@ -193,17 +193,7 @@ ROWS_INTERLEAVE_FACTOR = 4
 # Generate specialized kernels for f32 precision
 #################################################
 
-f32_instructions = [
-    C.Machine.load_instr_f32,
-    C.Machine.store_instr_f32,
-    C.Machine.set_zero_instr_f32,
-    C.Machine.fmadd_instr_f32,
-    C.Machine.assoc_reduce_add_instr_f32,
-    C.Machine.assoc_reduce_add_f32_buffer,
-    C.Machine.reg_copy_instr_f32,
-    C.Machine.broadcast_instr_f32,
-    C.Machine.broadcast_scalar_instr_f32,
-]
+f32_instructions = C.Machine.get_instructions("f32")
 
 exo_sgemv_row_major_NonTrans_stride_any = specialize_gemv(
     gemv_row_major_NonTrans, "f32"
@@ -239,17 +229,7 @@ exo_sgemv_row_major_Trans_stride_1 = schedule_Trans(
 # Generate specialized kernels for f64 precision
 #################################################
 
-f64_instructions = [
-    C.Machine.load_instr_f64,
-    C.Machine.store_instr_f64,
-    C.Machine.set_zero_instr_f64,
-    C.Machine.fmadd_instr_f64,
-    C.Machine.assoc_reduce_add_instr_f64,
-    C.Machine.assoc_reduce_add_f64_buffer,
-    C.Machine.reg_copy_instr_f64,
-    C.Machine.broadcast_instr_f64,
-    C.Machine.broadcast_scalar_instr_f64,
-]
+f64_instructions = C.Machine.get_instructions("f64")
 
 exo_dgemv_row_major_NonTrans_stride_any = specialize_gemv(
     gemv_row_major_NonTrans, "f64"

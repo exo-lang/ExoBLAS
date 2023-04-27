@@ -70,16 +70,7 @@ for vec_width, precision in (
     (C.Machine.vec_width, "f32"),
     (C.Machine.vec_width // 2, "f64"),
 ):
-    instructions = [
-        C.Machine[f"load_instr_{precision}"],
-        C.Machine[f"store_instr_{precision}"],
-        C.Machine[f"fmadd_instr_{precision}"],
-        C.Machine[f"reg_copy_instr_{precision}"],
-        C.Machine[f"set_zero_instr_{precision}"],
-        C.Machine[f"reduce_add_wide_instr_{precision}"],
-        C.Machine[f"broadcast_scalar_instr_{precision}"],
-        C.Machine[f"assoc_reduce_add_instr_{precision}"],
-    ]
+    instructions = C.Machine.get_instructions(precision)
 
     for template, sched in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)

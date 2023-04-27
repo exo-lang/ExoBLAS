@@ -88,15 +88,7 @@ exo_srot_stride_any = rename(
     exo_srot_stride_any, exo_srot_stride_any.name() + "_stride_any"
 )
 
-f32_instructions = [
-    C.Machine.load_instr_f32,
-    C.Machine.store_instr_f32,
-    C.Machine.mul_instr_f32,
-    C.Machine.add_instr_f32,
-    C.Machine.reg_copy_instr_f32,
-    C.Machine.broadcast_scalar_instr_f32,
-    C.Machine.sign_instr_f32,
-]
+f32_instructions = C.Machine.get_instructions("f32")
 
 if None not in f32_instructions:
     exo_srot_stride_1 = schedule_rot_stride_1(
@@ -121,15 +113,7 @@ exo_drot_stride_any = rename(
     exo_drot_stride_any, exo_drot_stride_any.name() + "_stride_any"
 )
 
-f64_instructions = [
-    C.Machine.load_instr_f64,
-    C.Machine.store_instr_f64,
-    C.Machine.mul_instr_f64,
-    C.Machine.add_instr_f64,
-    C.Machine.reg_copy_instr_f64,
-    C.Machine.broadcast_scalar_instr_f64,
-    C.Machine.sign_instr_f64,
-]
+f64_instructions = C.Machine.get_instructions("f64")
 
 if None not in f64_instructions:
     exo_drot_stride_1 = schedule_rot_stride_1(

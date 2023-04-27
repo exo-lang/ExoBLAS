@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from exo import *
+
 
 @dataclass
 class MachineParameters:
@@ -61,3 +63,10 @@ class MachineParameters:
 
     def __getitem__(self, item):
         return getattr(self, item)
+
+    def get_instructions(self, precision):
+        return [
+            i[1]
+            for i in self.__dict__.items()
+            if precision in i[0] and isinstance(i[1], Procedure)
+        ]
