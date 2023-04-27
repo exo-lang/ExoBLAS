@@ -14,7 +14,7 @@ from exo.stdlib.scheduling import *
 from kernels.gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
 from composed_schedules import (
-    vectorize,
+    vectorize_to_loops,
     interleave_execution,
     parallelize_reduction,
     interleave_outer_loop_with_inner_loop,

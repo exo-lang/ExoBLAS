@@ -7,7 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-from composed_schedules import vectorize, interleave_execution, parallelize_reduction
+from composed_schedules import vectorize
 
 
 ### EXO_LOC ALGORITHM START ###
@@ -38,21 +38,17 @@ def schedule_dot_stride_1_interleaved(
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
 
-    simple_stride_1 = parallelize_reduction(
+    loop_cursor = simple_stride_1.find_loop("i")
+    simple_stride_1 = vectorize(
         simple_stride_1,
-        simple_stride_1.find_loop("i"),
-        "result",
+        loop_cursor,
         VEC_W,
+        INTERLEAVE_FACTOR,
         INTERLEAVE_FACTOR,
         memory,
         precision,
+        instructions,
     )
-    loop_cursor = simple_stride_1.find_loop("io").body()[0].body()[0]
-    simple_stride_1 = vectorize(simple_stride_1, loop_cursor, VEC_W, memory, precision)
-    simple_stride_1 = interleave_execution(
-        simple_stride_1, simple_stride_1.find_loop("im"), INTERLEAVE_FACTOR
-    )
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
     return simplify(simple_stride_1)
 
 

@@ -9,11 +9,10 @@ import exo.API_cursors as pc
 
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize,
-    interleave_execution,
     apply_to_block,
     hoist_stmt,
 )
+from blas_composed_schedules import blas_vectorize
 from codegen_helpers import (
     specialize_precision,
     generate_stride_any_proc,
@@ -42,16 +41,10 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 def schedule_axpy_stride_1(axpy, params):
     simple_stride_1 = generate_stride_1_proc(axpy, precision)
     main_loop = simple_stride_1.find_loop("i")
-    simple_stride_1 = vectorize(
-        simple_stride_1, main_loop, params.vec_width, params.mem_type, params.precision
-    )
-    simple_stride_1 = interleave_execution(
-        simple_stride_1, simple_stride_1.find_loop("io"), params.interleave_factor
-    )
+    simple_stride_1 = blas_vectorize(simple_stride_1, main_loop, params)
     simple_stride_1 = apply_to_block(
-        simple_stride_1, simple_stride_1.find_loop("ioo").body(), hoist_stmt
+        simple_stride_1, simple_stride_1.forward(main_loop).body(), hoist_stmt
     )
-    simple_stride_1 = replace_all(simple_stride_1, params.instructions)
     return simplify(simple_stride_1)
 
 
@@ -61,8 +54,6 @@ template_sched_list = [
 ]
 
 for precision in ("f32", "f64"):
-    instructions = C.Machine.get_instructions(precision)
-
     for template, sched in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)

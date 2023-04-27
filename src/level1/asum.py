@@ -8,7 +8,7 @@ from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize,
+    vectorize_to_loops,
     interleave_execution,
     parallelize_reduction,
     stage_expr,

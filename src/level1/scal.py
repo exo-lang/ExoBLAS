@@ -9,7 +9,7 @@ import exo.API_cursors as pc
 
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize,
+    vectorize_to_loops,
     interleave_execution,
     hoist_stmt,
     apply_to_block,
@@ -57,7 +57,9 @@ def schedule_scal_stride_1(
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
 
     main_loop = simple_stride_1.find_loop("i")
-    simple_stride_1 = vectorize(simple_stride_1, main_loop, VEC_W, memory, precision)
+    simple_stride_1 = vectorize_to_loops(
+        simple_stride_1, main_loop, VEC_W, memory, precision
+    )
     simple_stride_1 = interleave_execution(
         simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR
     )

@@ -9,7 +9,7 @@ import exo.API_cursors as pc
 
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize,
+    vectorize_to_loops,
     interleave_execution,
     apply_to_block,
     hoist_stmt,
@@ -54,7 +54,9 @@ def schedule_rot_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, precis
     simple_stride_1 = bind_expr(
         simple_stride_1, simple_stride_1.find("c", many=True), "cReg", cse=True
     )
-    simple_stride_1 = vectorize(simple_stride_1, loop_cursor, VEC_W, memory, precision)
+    simple_stride_1 = vectorize_to_loops(
+        simple_stride_1, loop_cursor, VEC_W, memory, precision
+    )
     simple_stride_1 = interleave_execution(
         simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR
     )

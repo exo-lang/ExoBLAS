@@ -14,7 +14,7 @@ from exo.API import compile_procs
 from blas_common_schedules import *
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize,
+    vectorize_to_loops,
     interleave_execution,
     parallelize_reduction,
     interleave_outer_loop_with_inner_loop,
@@ -99,7 +99,7 @@ def schedule_NonTrans(
         precision,
     )
     loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
-    stride_1 = vectorize(stride_1, loop_cursor, VEC_W, memory, precision)
+    stride_1 = vectorize_to_loops(stride_1, loop_cursor, VEC_W, memory, precision)
     stride_1 = interleave_execution(
         stride_1, stride_1.find_loop("jm"), VECTORIZATION_INTERLEAVE_FACTOR
     )
@@ -138,7 +138,9 @@ def schedule_Trans(
 
     stride_1 = stage_mem(stride_1, stride_1.body(), "alpha", "alpha_")
     stride_1 = stage_mem(stride_1, stride_1.body(), "beta", "beta_")
-    stride_1 = vectorize(stride_1, stride_1.find_loop("j"), VEC_W, memory, precision)
+    stride_1 = vectorize_to_loops(
+        stride_1, stride_1.find_loop("j"), VEC_W, memory, precision
+    )
     stride_1 = interleave_execution(
         stride_1, stride_1.find_loop("jo"), VECTORIZATION_INTERLEAVE_FACTOR
     )
