@@ -24,13 +24,23 @@ def specialize_precision(template_proc, precision):
     for stmt in get_statemnts(template_proc):
         if isinstance(stmt, AllocCursor):
             specialized_proc = set_precision(specialized_proc, stmt, precision)
-    print(specialized_proc)
     return specialized_proc
 
 
 def generate_stride_any_proc(template_proc, precision):
     proc = specialize_precision(template_proc, precision)
     proc = rename(proc, proc.name() + "_stride_any")
+    return proc
+
+
+def generate_stride_1_proc(template_proc, precision):
+    proc = specialize_precision(template_proc, precision)
+    proc = rename(proc, proc.name() + "_stride_1")
+    for arg in proc.args():
+        if arg.is_tensor():
+            proc = proc.add_assertion(
+                f"stride({arg.name()}, {len(arg.shape()) - 1}) == 1"
+            )
     return proc
 
 

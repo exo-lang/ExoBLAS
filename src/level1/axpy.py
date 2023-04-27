@@ -18,6 +18,7 @@ from codegen_helpers import (
     specialize_precision,
     generate_stride_any_proc,
     export_exo_proc,
+    generate_stride_1_proc,
 )
 
 ### EXO_LOC ALGORITHM START ###
@@ -40,10 +41,7 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 def schedule_axpy_stride_1(
     axpy, VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision
 ):
-    simple_stride_1 = specialize_precision(axpy, precision)
-    simple_stride_1 = rename(simple_stride_1, simple_stride_1.name() + "_stride_1")
-    simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
-    simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
+    simple_stride_1 = generate_stride_1_proc(axpy, precision)
 
     main_loop = simple_stride_1.find_loop("i")
     simple_stride_1 = vectorize(simple_stride_1, main_loop, VEC_W, memory, precision)
