@@ -39,7 +39,7 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 
 ### EXO_LOC SCHEDULE START ###
 def schedule_axpy_stride_1(axpy, params):
-    simple_stride_1 = generate_stride_1_proc(axpy, precision)
+    simple_stride_1 = generate_stride_1_proc(axpy, params.precision)
     main_loop = simple_stride_1.find_loop("i")
     simple_stride_1 = blas_vectorize(simple_stride_1, main_loop, params)
     simple_stride_1 = apply_to_block(

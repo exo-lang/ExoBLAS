@@ -8,18 +8,18 @@ from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize_to_loops,
-    interleave_execution,
-    parallelize_reduction,
     interleave_outer_loop_with_inner_loop,
     apply_to_block,
     hoist_stmt,
 )
+from blas_composed_schedules import blas_vectorize
 from codegen_helpers import (
+    specialize_precision,
     generate_stride_any_proc,
     export_exo_proc,
-    specialize_precision,
+    generate_stride_1_proc,
 )
+from parameters import Level_1_Params, Level_2_Params
 
 
 ### EXO_LOC ALGORITHM START ###
@@ -161,138 +161,35 @@ def trmv_row_major_Lower_Trans_NonUnit_template(
 ### EXO_LOC SCHEDULE START ###
 
 
-def schedule_trmv_row_major_NonTrans_stride_1(
-    trmv,
-    VEC_W,
-    VECTORIZATION_INTERLEAVE_FACTOR,
-    ROWS_INTERLEAVE_FACTOR,
-    memory,
-    instructions,
-    precision,
+def schedule_trmv_row_major_just_vectorize(trmv, level_2_params, level_1_params):
+    trmv = generate_stride_1_proc(trmv, level_1_params.precision)
+    trmv = blas_vectorize(trmv, trmv.find_loop("j"), level_1_params)
+    return simplify(trmv)
+
+
+def schedule_trmv_row_major_vectorize_reuse_over_rows(
+    trmv, level_2_params, level_1_params
 ):
-    stride_1 = specialize_precision(trmv, precision)
-    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
-    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
-
-    stride_1 = parallelize_reduction(
-        stride_1,
-        stride_1.find_loop("j"),
-        "dot",
-        VEC_W,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        memory,
-        precision,
-    )
-    loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
-    stride_1 = vectorize_to_loops(stride_1, loop_cursor, VEC_W, memory, precision)
-    stride_1 = interleave_execution(
-        stride_1, stride_1.find_loop("jm"), VECTORIZATION_INTERLEAVE_FACTOR
-    )
-    stride_1 = simplify(stride_1)
-    stride_1 = replace_all(stride_1, instructions)
-
-    return simplify(stride_1)
-
-
-def schedule_trmv_row_major_NonTrans_Unit_stride_1(
-    trmv,
-    VEC_W,
-    VECTORIZATION_INTERLEAVE_FACTOR,
-    ROWS_INTERLEAVE_FACTOR,
-    memory,
-    instructions,
-    precision,
-):
-    stride_1 = specialize_precision(trmv, precision)
-    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
-    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
-
-    stride_1 = parallelize_reduction(
-        stride_1,
-        stride_1.find_loop("j"),
-        "dot",
-        VEC_W,
-        VECTORIZATION_INTERLEAVE_FACTOR,
-        memory,
-        precision,
-    )
-    loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
-    stride_1 = vectorize_to_loops(stride_1, loop_cursor, VEC_W, memory, precision)
-    loop_cursor = stride_1.find_loop("jm")
-    stride_1 = interleave_execution(
-        stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR
-    )
-    stride_1 = simplify(stride_1)
-    stride_1 = interleave_outer_loop_with_inner_loop(
-        stride_1,
-        stride_1.find_loop("i"),
-        stride_1.find_loop("jo"),
+    trmv = generate_stride_1_proc(trmv, level_1_params.precision)
+    level_2_params.instructions = None
+    inner_loop = trmv.find_loop("j")
+    outer_loop = inner_loop.parent()
+    trmv = blas_vectorize(trmv, inner_loop, level_2_params)
+    trmv = simplify(trmv)
+    trmv = interleave_outer_loop_with_inner_loop(
+        trmv,
+        outer_loop,
+        inner_loop,
         ROWS_INTERLEAVE_FACTOR,
     )
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = apply_to_block(stride_1, stride_1.find_loop("ii").body(), hoist_stmt)
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = replace_all(stride_1, instructions)
-    stride_1 = set_memory(stride_1, "dot", DRAM_STATIC)
-
-    return simplify(stride_1)
-
-
-def schedule_trmv_row_major_Trans_Unit_stride_1(
-    trmv,
-    VEC_W,
-    VECTORIZATION_INTERLEAVE_FACTOR,
-    ROWS_INTERLEAVE_FACTOR,
-    memory,
-    instructions,
-    precision,
-):
-    stride_1 = specialize_precision(trmv, precision)
-    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
-    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
-
-    loop_cursor = stride_1.find_loop("j")
-    stride_1 = vectorize_to_loops(stride_1, loop_cursor, VEC_W, memory, precision)
-    stride_1 = interleave_execution(
-        stride_1, loop_cursor, VECTORIZATION_INTERLEAVE_FACTOR
-    )
-    stride_1 = simplify(stride_1)
-    stride_1 = interleave_outer_loop_with_inner_loop(
-        stride_1,
-        stride_1.find_loop("i #1"),
-        stride_1.find_loop("joo"),
-        ROWS_INTERLEAVE_FACTOR,
-    )
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = apply_to_block(stride_1, stride_1.find_loop("ii").body(), hoist_stmt)
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = simplify(stride_1)
-    stride_1 = replace_all(stride_1, instructions)
-    return simplify(stride_1)
-
-
-def schedule_trmv_row_major_Trans_stride_1(
-    trmv,
-    VEC_W,
-    VECTORIZATION_INTERLEAVE_FACTOR,
-    ROWS_INTERLEAVE_FACTOR,
-    memory,
-    instructions,
-    precision,
-):
-    stride_1 = specialize_precision(trmv, precision)
-    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
-    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
-
-    loop_cursor = stride_1.find_loop("j")
-    stride_1 = vectorize_to_loops(stride_1, loop_cursor, VEC_W, memory, precision)
-    stride_1 = interleave_execution(
-        stride_1, stride_1.find_loop("jo"), VECTORIZATION_INTERLEAVE_FACTOR
-    )
-    stride_1 = simplify(stride_1)
-    stride_1 = replace_all(stride_1, instructions)
-    return simplify(stride_1)
+    trmv = unroll_loop(trmv, trmv.find_loop("ii"))
+    trmv = apply_to_block(trmv, trmv.find_loop("ii").body(), hoist_stmt)
+    trmv = unroll_loop(trmv, trmv.find_loop("ii"))
+    if "NonTrans" in trmv.name():
+        dot_alloc = trmv.find("dot : _")
+        trmv = set_memory(trmv, "dot", DRAM_STATIC)
+    trmv = replace_all(trmv, C.Machine.get_instructions(level_2_params.precision))
+    return simplify(trmv)
 
 
 #################################################
@@ -309,35 +206,35 @@ VECTORIZATION_INTERLEAVE_FACTOR = 2
 template_sched_list = [
     (
         trmv_row_major_Lower_NonTrans_NonUnit_template,
-        schedule_trmv_row_major_NonTrans_stride_1,
+        schedule_trmv_row_major_just_vectorize,
     ),
     (
         trmv_row_major_Upper_NonTrans_NonUnit_template,
-        schedule_trmv_row_major_NonTrans_stride_1,
+        schedule_trmv_row_major_just_vectorize,
     ),
     (
         trmv_row_major_Lower_NonTrans_Unit_template,
-        schedule_trmv_row_major_NonTrans_Unit_stride_1,
+        schedule_trmv_row_major_vectorize_reuse_over_rows,
     ),
     (
         trmv_row_major_Upper_NonTrans_Unit_template,
-        schedule_trmv_row_major_NonTrans_Unit_stride_1,
+        schedule_trmv_row_major_vectorize_reuse_over_rows,
     ),
     (
         trmv_row_major_Lower_Trans_NonUnit_template,
-        schedule_trmv_row_major_Trans_stride_1,
+        schedule_trmv_row_major_just_vectorize,
     ),
     (
         trmv_row_major_Upper_Trans_NonUnit_template,
-        schedule_trmv_row_major_Trans_stride_1,
+        schedule_trmv_row_major_just_vectorize,
     ),
     (
         trmv_row_major_Lower_Trans_Unit_template,
-        schedule_trmv_row_major_Trans_Unit_stride_1,
+        schedule_trmv_row_major_vectorize_reuse_over_rows,
     ),
     (
         trmv_row_major_Upper_Trans_Unit_template,
-        schedule_trmv_row_major_Trans_Unit_stride_1,
+        schedule_trmv_row_major_vectorize_reuse_over_rows,
     ),
 ]
 
@@ -352,16 +249,9 @@ for vec_width, precision in (
         export_exo_proc(globals(), proc_stride_any)
         proc_stride_1 = sched(
             template,
-            vec_width,
-            VECTORIZATION_INTERLEAVE_FACTOR,
-            min(ROWS_INTERLEAVE_FACTOR, vec_width),
-            C.Machine.mem_type,
-            instructions,
-            precision,
+            Level_2_Params(precision=precision),
+            Level_1_Params(precision=precision),
         )
         export_exo_proc(globals(), proc_stride_1)
 
 ### EXO_LOC SCHEDULE END ###
-
-if __name__ == "__main__":
-    pass

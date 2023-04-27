@@ -35,7 +35,7 @@ def dot_template(n: size, x: [R][n], y: [R][n], result: R):
 
 ### EXO_LOC SCHEDULE START ###
 def schedule_dot_stride_1(dot, params):
-    dot = generate_stride_1_proc(dot, precision)
+    dot = generate_stride_1_proc(dot, params.precision)
     main_loop = dot.find_loop("i")
     dot = blas_vectorize(dot, main_loop, params)
     return simplify(dot)
