@@ -180,7 +180,7 @@ def schedule_trmv_row_major_vectorize_reuse_over_rows(
         trmv,
         outer_loop,
         inner_loop,
-        ROWS_INTERLEAVE_FACTOR,
+        min(level_2_params.rows_interleave_factor, level_2_params.vec_width),
     )
     trmv = unroll_loop(trmv, trmv.find_loop("ii"))
     trmv = apply_to_block(trmv, trmv.find_loop("ii").body(), hoist_stmt)
@@ -191,17 +191,6 @@ def schedule_trmv_row_major_vectorize_reuse_over_rows(
     trmv = replace_all(trmv, C.Machine.get_instructions(level_2_params.precision))
     return simplify(trmv)
 
-
-#################################################
-# Kernel Parameters
-#################################################
-
-ROWS_INTERLEAVE_FACTOR = 4
-VECTORIZATION_INTERLEAVE_FACTOR = 2
-
-#################################################
-# Generate Entry Points
-#################################################
 
 template_sched_list = [
     (
