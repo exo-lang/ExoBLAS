@@ -23,7 +23,7 @@ def get_statemnts(proc):
 
 
 def get_expr_dependencies(expr):
-    if isinstance(expr, ExprListCursor):
+    if isinstance(expr, (ExprListCursor, tuple, list)):
         for e in expr:
             yield from get_expr_dependencies(e)
     elif isinstance(expr, ReadCursor):
@@ -33,8 +33,10 @@ def get_expr_dependencies(expr):
     elif isinstance(expr, BuiltInFunctionCursor):
         yield from get_expr_dependencies(expr.args())
     elif isinstance(expr, BinaryOpCursor):
-        yield from get_expr_dependencies(expr.lhs(), expr.rhs())
+        yield from get_expr_dependencies(expr.lhs())
+        yield from get_expr_dependencies(expr.rhs())
     elif isinstance(expr, WindowExprCursor):
+        yield expr.name()
         yield from get_expr_dependencies(expr.idx())
 
 

@@ -332,7 +332,7 @@ def hoist_stmt(proc, stmt_cursor):
         return lift_alloc(proc, stmt_cursor)
 
     enclosing_loop = get_enclosing_loop(stmt_cursor)
-    if enclosing_loop.iter() in get_stmt_dependencies(stmt_cursor):
+    if enclosing_loop.name() in get_stmt_dependencies(stmt_cursor):
         raise BLAS_SchedulingError(
             "Cannot hoist cursor to a statement that depends on enclosing loop"
         )
