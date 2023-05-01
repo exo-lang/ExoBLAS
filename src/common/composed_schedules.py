@@ -8,6 +8,8 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
+from introspection import get_stmt_dependencies
+
 
 class BLAS_SchedulingError(Exception):
     pass
@@ -328,6 +330,12 @@ def hoist_stmt(proc, stmt_cursor):
 
     if isinstance(stmt_cursor, AllocCursor):
         return lift_alloc(proc, stmt_cursor)
+
+    enclosing_loop = get_enclosing_loop(stmt_cursor)
+    if enclosing_loop.name() in get_stmt_dependencies(stmt_cursor):
+        raise BLAS_SchedulingError(
+            "Cannot hoist cursor to a statement that depends on enclosing loop"
+        )
 
     stmt_cursor = proc.forward(stmt_cursor)
     while not isinstance(stmt_cursor.prev(), InvalidCursor):
