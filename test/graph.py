@@ -175,12 +175,21 @@ for benchmark_name in jsons_dict:
         name = benchmark_name
         size = int(lis[1].split(":")[1])  # Words
         params = tuple(lis[2:])
+
+        if kernel_name[1:] in level3_kernels:
+            size = []
+            for li in lis[1:]:
+                n = int(li.split(":")[1])
+                size.append(n)
+            params = ()
+
         time = d["cpu_time"]  # ns
         # size : word already
         # time is nanoseconds
 
         params_dict = perf_res.setdefault(params, {})
         points = params_dict.setdefault(name, [])
+
         points.append((size, time))
 
 # Sort Raw Data
@@ -205,8 +214,8 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.clf()
     for name in names_to_points:
         points = names_to_points[name]
-
-        args = {f: s for f, s in [ele.split(":") for ele in params]}
+        
+        args = {f : s for f, s in [ele.split(":") for ele in params]}
         x = [log_2(mem_footprint(k_name, p[0], wordsize, **args)) for p in points]
         y = [scale(get_gbyte_sec(p[0], p[1], **args)) for p in points]
 
@@ -273,11 +282,11 @@ def peak_compute_plot(params, names_to_points):
 
     for name in names_to_points:
         points = names_to_points[name]
-        x = [log_2(p[0] ** 3 * wordsize) for p in points]
+        x = [log_2(p[0][0] * p[0][1] * p[0][2] * wordsize) for p in points]
         if kernel_name[1:] == "gemm":
-            y = [(2 * p[0] ** 3 / p[1]) for p in points]
+            y = [(2 * p[0][0] * p[0][1] * p[0][2] / p[1]) for p in points]
         elif kernel_name[1:] == "syrk":
-            y = [(p[0] ** 3 / p[1]) for p in points]
+            y = [(p[0][0] * p[0][1] * p[0][2] / p[1]) for p in points]
         plt.plot(x, y, label=name)
 
     peak_x = [x[0], x[-1]]
@@ -364,7 +373,7 @@ for params in perf_res:
     if kernel_name[1:] in level3_kernels:
         peak_compute_plot(params, perf_res[params])
     else:
+        ratio_and_gm_plot(params, perf_res[params])
         peak_bandwidth_plot(params, perf_res[params])
 
     # raw_runtime_plot(params, perf_res[params])
-    ratio_and_gm_plot(params, perf_res[params])
