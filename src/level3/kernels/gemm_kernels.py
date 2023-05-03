@@ -148,33 +148,29 @@ class Microkernel:
         microkernel = self.specialize_microkernel(microkernel, self.precision)
 
         # Reorder and divide loops
-        scheduled_microkernel = rename(
+        sched_mk = rename(
             microkernel, f"{machine.name}_microkernel_{M_r}x{N_r}_{self.microkernel_id}"
         )
-        scheduled_microkernel = reorder_loops(scheduled_microkernel, "j k")
-        scheduled_microkernel = reorder_loops(scheduled_microkernel, "i k")
 
-        scheduled_microkernel = stage_mem(
-            scheduled_microkernel,
-            scheduled_microkernel.find_loop("k"),
-            f"C[0:{M_r}, 0:{N_r}]",
-            "C_reg",
+        sched_mk = reorder_loops(sched_mk, "j k")
+        sched_mk = reorder_loops(sched_mk, "i k")
+
+        sched_mk = stage_mem(
+            sched_mk, sched_mk.find_loop("k"), f"C[0:{M_r}, 0:{N_r}]", "C_reg"
         )
-        scheduled_microkernel = simplify(scheduled_microkernel)
-        scheduled_microkernel = divide_dim(
-            scheduled_microkernel,
-            scheduled_microkernel.find("C_reg : _"),
+        sched_mk = simplify(sched_mk)
+        sched_mk = divide_dim(
+            sched_mk,
+            sched_mk.find("C_reg : _"),
             1,
             machine.vec_width,
         )
-        scheduled_microkernel = set_memory(
-            scheduled_microkernel, "C_reg", machine.mem_type
-        )
+        sched_mk = set_memory(sched_mk, "C_reg", machine.mem_type)
 
         for loop_iter in ("i1", "j", "i1"):
-            scheduled_microkernel = vectorize(
-                scheduled_microkernel,
-                scheduled_microkernel.find_loop(loop_iter),
+            sched_mk = vectorize(
+                sched_mk,
+                sched_mk.find_loop(loop_iter),
                 machine.vec_width,
                 min(N_r // machine.vec_width, 2),
                 None,
@@ -182,21 +178,19 @@ class Microkernel:
                 self.precision,
                 None,
             )
-        scheduled_microkernel = replace_all(
-            simplify(scheduled_microkernel), machine.get_instructions(self.precision)
+        sched_mk = replace_all(
+            simplify(sched_mk), machine.get_instructions(self.precision)
         )
         for loop_iter in ("i1oo", "i0", "joo", "i1oo", "i0"):
-            scheduled_microkernel = unroll_loop(
-                scheduled_microkernel, scheduled_microkernel.find_loop(loop_iter)
-            )
-        scheduled_microkernel = apply_to_block(
-            scheduled_microkernel,
-            scheduled_microkernel.find_loop("i").body(),
-            hoist_stmt,
+            sched_mk = unroll_loop(sched_mk, sched_mk.find_loop(loop_iter))
+        sched_mk = apply_to_block(sched_mk, sched_mk.find_loop("i").body(), hoist_stmt)
+        sched_mk = unroll_loop(sched_mk, sched_mk.find_loop("i"))
+
+        k_loop = sched_mk.find_loop("k")
+        sched_mk = divide_loop(
+            sched_mk, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True
         )
-        scheduled_microkernel = unroll_loop(
-            scheduled_microkernel, scheduled_microkernel.find_loop("i")
-        )
+        sched_mk = unroll_loop(sched_mk, "ki")
 
         # scheduled_microkernel = divide_loop(
         #     scheduled_microkernel, "j", machine.vec_width, ["jo", "ji"], perfect=True
@@ -369,6 +363,8 @@ class Microkernel:
         #     first = scheduled_microkernel.find_loop("ki").body()[0]
         # #
         # scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
+
+        scheduled_microkernel = sched_mk
 
         return scheduled_microkernel, microkernel
 
