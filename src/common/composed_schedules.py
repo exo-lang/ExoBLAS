@@ -8,7 +8,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
-from introspection import get_stmt_dependencies
+from introspection import get_stmt_dependencies, get_declaration
 
 
 class BLAS_SchedulingError(Exception):
@@ -237,21 +237,23 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             reg_name_counter += 1
 
         if isinstance(stmt, ReduceCursor):
-            lhs_reg = f"reg{reg_name_counter}"
-            reg_name_counter += 1
+            alloc_stmt = get_declaration(stmt, stmt.name())
+            if alloc_stmt.mem() != memory_type:
+                lhs_reg = f"reg{reg_name_counter}"
+                reg_name_counter += 1
 
-            proc = stage_mem(
-                proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}]", lhs_reg
-            )
-            forwarded_stmt = proc.forward(stmt)
+                proc = stage_mem(
+                    proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}]", lhs_reg
+                )
+                forwarded_stmt = proc.forward(stmt)
 
-            alloc_cursor = forwarded_stmt.prev().prev()
-            proc = stage_alloc(proc, alloc_cursor)
+                alloc_cursor = forwarded_stmt.prev().prev()
+                proc = stage_alloc(proc, alloc_cursor)
 
-            forwarded_stmt = proc.forward(stmt)
-            proc = fission(proc, forwarded_stmt.after())
-            forwarded_stmt = proc.forward(forwarded_stmt)
-            proc = fission(proc, forwarded_stmt.before())
+                forwarded_stmt = proc.forward(stmt)
+                proc = fission(proc, forwarded_stmt.after())
+                forwarded_stmt = proc.forward(forwarded_stmt)
+                proc = fission(proc, forwarded_stmt.before())
 
     for alloc in staged_allocs:
         proc = set_memory(proc, alloc, memory_type)

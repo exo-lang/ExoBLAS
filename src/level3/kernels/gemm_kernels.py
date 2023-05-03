@@ -154,19 +154,27 @@ class Microkernel:
         scheduled_microkernel = reorder_loops(scheduled_microkernel, "j k")
         scheduled_microkernel = reorder_loops(scheduled_microkernel, "i k")
 
-        diverge = scheduled_microkernel
-
-        diverge = stage_mem(
-            diverge, diverge.find_loop("k"), f"C[0:{M_r}, 0:{N_r}]", "C_reg"
+        scheduled_microkernel = stage_mem(
+            scheduled_microkernel,
+            scheduled_microkernel.find_loop("k"),
+            f"C[0:{M_r}, 0:{N_r}]",
+            "C_reg",
         )
-        diverge = simplify(diverge)
-        diverge = divide_dim(diverge, diverge.find("C_reg : _"), 1, machine.vec_width)
-        diverge = set_memory(diverge, "C_reg", machine.mem_type)
+        scheduled_microkernel = simplify(scheduled_microkernel)
+        scheduled_microkernel = divide_dim(
+            scheduled_microkernel,
+            scheduled_microkernel.find("C_reg : _"),
+            1,
+            machine.vec_width,
+        )
+        scheduled_microkernel = set_memory(
+            scheduled_microkernel, "C_reg", machine.mem_type
+        )
 
         for loop_iter in ("i1", "j", "i1"):
-            diverge = vectorize(
-                diverge,
-                diverge.find_loop(loop_iter),
+            scheduled_microkernel = vectorize(
+                scheduled_microkernel,
+                scheduled_microkernel.find_loop(loop_iter),
                 machine.vec_width,
                 min(N_r // machine.vec_width, 2),
                 None,
@@ -174,15 +182,22 @@ class Microkernel:
                 self.precision,
                 None,
             )
-        diverge = replace_all(
-            simplify(diverge), machine.get_instructions(self.precision)
+        scheduled_microkernel = replace_all(
+            simplify(scheduled_microkernel), machine.get_instructions(self.precision)
+        )
+        for loop_iter in ("i1oo", "i0", "joo", "i1oo", "i0"):
+            scheduled_microkernel = unroll_loop(
+                scheduled_microkernel, scheduled_microkernel.find_loop(loop_iter)
+            )
+        scheduled_microkernel = apply_to_block(
+            scheduled_microkernel,
+            scheduled_microkernel.find_loop("i").body(),
+            hoist_stmt,
+        )
+        scheduled_microkernel = unroll_loop(
+            scheduled_microkernel, scheduled_microkernel.find_loop("i")
         )
 
-        for loop_iter in ("i1oo", "i0", "joo", "i1oo", "i0"):
-            diverge = unroll_loop(diverge, diverge.find_loop(loop_iter))
-        diverge = apply_to_block(diverge, diverge.find_loop("i").body(), hoist_stmt)
-        diverge = unroll_loop(diverge, diverge.find_loop("i"))
-        scheduled_microkernel = diverge
         # scheduled_microkernel = divide_loop(
         #     scheduled_microkernel, "j", machine.vec_width, ["jo", "ji"], perfect=True
         # )
