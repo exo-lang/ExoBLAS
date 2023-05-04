@@ -7,6 +7,7 @@ from exo.platforms.neon import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
+from exo.stdlib.analysis import *
 
 
 def get_statemnts(proc):
@@ -60,3 +61,13 @@ def get_stmt_dependencies(stmt):
         yield from get_expr_dependencies(stmt.shape())
     elif isinstance(stmt, WindowStmtCursor):
         yield from get_expr_dependencies(stmt.winexpr())
+
+
+def get_declaration(proc, stmt_context, name):
+    for stmt in get_observed_stmts(stmt_context):
+        if isinstance(stmt, AllocCursor) and stmt.name() == name:
+            return stmt
+    for arg in proc.args():
+        if arg.name() == name:
+            return arg
+    return None

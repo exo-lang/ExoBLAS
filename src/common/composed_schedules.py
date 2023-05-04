@@ -8,7 +8,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
-from introspection import get_stmt_dependencies
+from introspection import get_stmt_dependencies, get_declaration
 
 
 class BLAS_SchedulingError(Exception):
@@ -75,7 +75,15 @@ def get_enclosing_if(cursor):
     return get_enclosing_scope(cursor, IfCursor)
 
 
-def stage_expr(proc, expr_cursor, new_name, cse=False):
+def get_statement(cursor):
+
+    while not isinstance(cursor, StmtCursor):
+        cursor = cursor.parent()
+
+    return cursor
+
+
+def stage_expr(proc, expr_cursor, new_name, precision="R", memory=DRAM):
     """
     for i in seq(0, hi):
         s (e(i));
@@ -91,12 +99,18 @@ def stage_expr(proc, expr_cursor, new_name, cse=False):
 
     expr_cursor = proc.forward(expr_cursor)
     enclosing_loop = get_enclosing_loop(expr_cursor)
-    proc = bind_expr(proc, [expr_cursor], new_name, cse=cse)
+    stmt = get_statement(expr_cursor)
+    proc = bind_expr(proc, [expr_cursor], new_name)
+    stmt = proc.forward(stmt)
+    bind_stmt = stmt.prev()
+    alloc_stmt = bind_stmt.prev()
+    proc = set_precision(proc, alloc_stmt, precision)
+    proc = set_memory(proc, alloc_stmt, memory)
     proc = expand_dim(
-        proc, new_name, expr_to_string(enclosing_loop.hi()), enclosing_loop.name()
+        proc, alloc_stmt, expr_to_string(enclosing_loop.hi()), enclosing_loop.name()
     )
-    proc = lift_alloc(proc, new_name, n_lifts=1)
-    proc = fission(proc, proc.find(f"{new_name}[_] = _").after())
+    proc = lift_alloc(proc, alloc_stmt, n_lifts=1)
+    proc = fission(proc, bind_stmt.after())
     return proc
 
 
@@ -183,7 +197,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
     for stmt in inner_loop_stmts:
         if isinstance(stmt, AllocCursor):
             proc = stage_alloc(proc, stmt)
-            staged_allocs.append(stmt.name())
+            staged_allocs.append(stmt)
 
     inner_loop_cursor = proc.forward(inner_loop_cursor)
     inner_loop_stmts = list(inner_loop_cursor.body())
@@ -199,46 +213,81 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             and isinstance(expr.parent(), ReduceCursor)
         )
 
-    def get_expr_subtree_cursors(expr):
-        if not isinstance(expr, BinaryOpCursor):
-            return [expr]
+    def get_expr_subtree_cursors(expr, stmt, alias):
+        stmt_lhs_in_mem = False
+        if isinstance(expr.parent(), StmtCursor):
+            stmt_lhs_in_mem = (
+                get_declaration(proc, stmt, stmt.name()).mem() == memory_type
+            )
 
-        lhs_cursors = get_expr_subtree_cursors(expr.lhs())
-        rhs_cursors = get_expr_subtree_cursors(expr.rhs())
+        if isinstance(expr, ReadCursor):
+            expr_in_mem = get_declaration(proc, stmt, expr.name()).mem() == memory_type
+            if alias or not (stmt_lhs_in_mem or expr_in_mem):
+                return [expr]
+            else:
+                return []
+        elif isinstance(expr, BinaryOpCursor):
+            lhs = expr.lhs()
+            rhs = expr.rhs()
+            children_alias = (
+                isinstance(lhs, ReadCursor)
+                and isinstance(rhs, ReadCursor)
+                and lhs.name() == rhs.name()
+            )
+            lhs_alias_with_stmt_lhs = False
+            rhs_alias_with_stmt_lhs = False
+            if isinstance(expr.parent(), StmtCursor):
+                lhs_alias_with_stmt_lhs = (
+                    isinstance(lhs, ReadCursor) and lhs.name() == expr.parent().name()
+                )
+                rhs_alias_with_stmt_lhs = (
+                    isinstance(rhs, ReadCursor) and rhs.name() == expr.parent().name()
+                )
 
-        if not detect_madd(expr):
-            return lhs_cursors + rhs_cursors + [expr]
+            lhs_cursors = get_expr_subtree_cursors(
+                lhs, stmt, lhs_alias_with_stmt_lhs or children_alias
+            )
+            rhs_cursors = get_expr_subtree_cursors(rhs, stmt, rhs_alias_with_stmt_lhs)
+
+            if not detect_madd(expr) and not stmt_lhs_in_mem:
+                return lhs_cursors + rhs_cursors + [expr]
+            else:
+                return lhs_cursors + rhs_cursors
         else:
-            return lhs_cursors + rhs_cursors
+            return [expr]
 
     reg_name_counter = 0
 
     for stmt in inner_loop_stmts:
-        flat_rhs = get_expr_subtree_cursors(stmt.rhs())
+        flat_rhs = get_expr_subtree_cursors(stmt.rhs(), stmt, False)
 
         for expr in flat_rhs:
-            proc = stage_expr(proc, expr, f"reg{reg_name_counter}")
+            proc = stage_expr(
+                proc, expr, f"reg{reg_name_counter}", precision, memory_type
+            )
             reg_name_counter += 1
 
         if isinstance(stmt, ReduceCursor):
-            lhs_reg = f"reg{reg_name_counter}"
-            reg_name_counter += 1
+            alloc_stmt = get_declaration(proc, stmt, stmt.name())
+            if alloc_stmt.mem() != memory_type:
+                lhs_reg = f"reg{reg_name_counter}"
+                reg_name_counter += 1
 
-            proc = stage_mem(
-                proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}]", lhs_reg
-            )
+                proc = stage_mem(
+                    proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}]", lhs_reg
+                )
+                forwarded_stmt = proc.forward(stmt)
 
-            alloc_cursor = proc.find(f"{lhs_reg} : _")
-            proc = stage_alloc(proc, alloc_cursor)
+                alloc_cursor = forwarded_stmt.prev().prev()
+                proc = stage_alloc(proc, alloc_cursor)
 
-            forwarded_stmt = proc.forward(stmt)
-            proc = fission(proc, forwarded_stmt.after())
-            forwarded_stmt = proc.forward(forwarded_stmt)
-            proc = fission(proc, forwarded_stmt.before())
+                forwarded_stmt = proc.forward(stmt)
+                proc = fission(proc, forwarded_stmt.after())
+                forwarded_stmt = proc.forward(forwarded_stmt)
+                proc = fission(proc, forwarded_stmt.before())
 
-    for i in range(reg_name_counter):
-        proc = set_memory(proc, f"reg{i}", memory_type)
-        proc = set_precision(proc, f"reg{i}", precision)
+                proc = set_memory(proc, alloc_cursor, memory_type)
+                proc = set_precision(proc, alloc_cursor, precision)
 
     for alloc in staged_allocs:
         proc = set_memory(proc, alloc, memory_type)
