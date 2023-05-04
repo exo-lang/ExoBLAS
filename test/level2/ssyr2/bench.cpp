@@ -80,10 +80,10 @@ static void CustomArgumentsPacked(benchmark::internal::Benchmark *b) {
 }
 
 BENCHMARK(BM_cblas_ssyr2)
-    ->ArgNames({"N", "order", "Uplo", "alpha", "incX", "incY", "lda_diff",
+    ->ArgNames({"n", "order", "Uplo", "alpha", "incX", "incY", "lda_diff",
                 "alignmentX", "alignmentY", "alignmentA"})
     ->Apply(CustomArgumentsPacked);
 BENCHMARK(BM_exo_ssyr2)
-    ->ArgNames({"N", "order", "Uplo", "alpha", "incX", "incY", "lda_diff",
+    ->ArgNames({"n", "order", "Uplo", "alpha", "incX", "incY", "lda_diff",
                 "alignmentX", "alignmentY", "alignmentA"})
     ->Apply(CustomArgumentsPacked);

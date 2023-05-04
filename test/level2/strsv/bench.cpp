@@ -55,7 +55,7 @@ static void BM_exo_strsv(benchmark::State &state) {
 }
 
 BENCHMARK(BM_cblas_strsv)
-    ->ArgNames({"N", "order", "Uplo", "TransA", "Diag", "lda_diff", "incX",
+    ->ArgNames({"n", "order", "Uplo", "TransA", "Diag", "lda_diff", "incX",
                 "alignmentX", "alignmentA"})
     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2),
                    {0},
@@ -76,7 +76,7 @@ BENCHMARK(BM_cblas_strsv)
                    {64},
                    {64}});
 BENCHMARK(BM_exo_strsv)
-    ->ArgNames({"N", "order", "Uplo", "TransA", "Diag", "lda_diff", "incX",
+    ->ArgNames({"n", "order", "Uplo", "TransA", "Diag", "lda_diff", "incX",
                 "alignmentX", "alignmentA"})
     ->ArgsProduct({benchmark::CreateRange(1, (1 << 13), 2),
                    {0},
