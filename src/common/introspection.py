@@ -63,8 +63,11 @@ def get_stmt_dependencies(stmt):
         yield from get_expr_dependencies(stmt.winexpr())
 
 
-def get_declaration(stmt_context, name):
+def get_declaration(proc, stmt_context, name):
     for stmt in get_observed_stmts(stmt_context):
         if isinstance(stmt, AllocCursor) and stmt.name() == name:
             return stmt
+    for arg in proc.args():
+        if arg.name() == name:
+            return arg
     return None

@@ -213,14 +213,44 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             and isinstance(expr.parent(), ReduceCursor)
         )
 
-    def get_expr_subtree_cursors(expr):
-        if not isinstance(expr, BinaryOpCursor):
-            return [expr]
+    def get_expr_subtree_cursors(expr, stmt, alias):
+        if not isinstance(expr, (BinaryOpCursor, ReadCursor)):
+            raise NotImplementedError(
+                "vectorizer is limited to BinOps and Read Expressions"
+            )
 
-        lhs_cursors = get_expr_subtree_cursors(expr.lhs())
-        rhs_cursors = get_expr_subtree_cursors(expr.rhs())
+        stmt_lhs_in_mem = False
+        if isinstance(expr.parent(), StmtCursor):
+            stmt_lhs_in_mem = (
+                get_declaration(proc, stmt, stmt.name()).mem() == memory_type
+            )
 
-        if not detect_madd(expr):
+        if isinstance(expr, ReadCursor):
+            expr_in_mem = get_declaration(proc, stmt, expr.name()).mem() == memory_type
+            if alias or not (stmt_lhs_in_mem or expr_in_mem):
+                return [expr]
+            else:
+                return []
+
+        lhs = expr.lhs()
+        rhs = expr.rhs()
+        children_alias = (
+            isinstance(lhs, ReadCursor)
+            and isinstance(rhs, ReadCursor)
+            and lhs.name() == rhs.name()
+        )
+        lhs_alias_with_stmt_lhs = False
+        rhs_alias_with_stmt_lhs = False
+        if isinstance(expr.parent(), StmtCursor):
+            lhs_alias_with_stmt_lhs = lhs.name() == expr.parent().name()
+            rhs_alias_with_stmt_lhs = rhs.name() == expr.parent().name()
+
+        lhs_cursors = get_expr_subtree_cursors(
+            lhs, stmt, lhs_alias_with_stmt_lhs or children_alias
+        )
+        rhs_cursors = get_expr_subtree_cursors(rhs, stmt, rhs_alias_with_stmt_lhs)
+
+        if not detect_madd(expr) and not stmt_lhs_in_mem:
             return lhs_cursors + rhs_cursors + [expr]
         else:
             return lhs_cursors + rhs_cursors
@@ -228,7 +258,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
     reg_name_counter = 0
 
     for stmt in inner_loop_stmts:
-        flat_rhs = get_expr_subtree_cursors(stmt.rhs())
+        flat_rhs = get_expr_subtree_cursors(stmt.rhs(), stmt, False)
 
         for expr in flat_rhs:
             proc = stage_expr(
@@ -237,7 +267,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             reg_name_counter += 1
 
         if isinstance(stmt, ReduceCursor):
-            alloc_stmt = get_declaration(stmt, stmt.name())
+            alloc_stmt = get_declaration(proc, stmt, stmt.name())
             if alloc_stmt.mem() != memory_type:
                 lhs_reg = f"reg{reg_name_counter}"
                 reg_name_counter += 1
@@ -254,6 +284,9 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
                 proc = fission(proc, forwarded_stmt.after())
                 forwarded_stmt = proc.forward(forwarded_stmt)
                 proc = fission(proc, forwarded_stmt.before())
+
+                proc = set_memory(proc, alloc_cursor, memory_type)
+                proc = set_precision(proc, alloc_cursor, precision)
 
     for alloc in staged_allocs:
         proc = set_memory(proc, alloc, memory_type)
