@@ -214,11 +214,6 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         )
 
     def get_expr_subtree_cursors(expr, stmt, alias):
-        if not isinstance(expr, (BinaryOpCursor, ReadCursor)):
-            raise NotImplementedError(
-                "vectorizer is limited to BinOps and Read Expressions"
-            )
-
         stmt_lhs_in_mem = False
         if isinstance(expr.parent(), StmtCursor):
             stmt_lhs_in_mem = (
@@ -231,29 +226,35 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
                 return [expr]
             else:
                 return []
+        elif isinstance(expr, BinaryOpCursor):
+            lhs = expr.lhs()
+            rhs = expr.rhs()
+            children_alias = (
+                isinstance(lhs, ReadCursor)
+                and isinstance(rhs, ReadCursor)
+                and lhs.name() == rhs.name()
+            )
+            lhs_alias_with_stmt_lhs = False
+            rhs_alias_with_stmt_lhs = False
+            if isinstance(expr.parent(), StmtCursor):
+                lhs_alias_with_stmt_lhs = (
+                    isinstance(lhs, ReadCursor) and lhs.name() == expr.parent().name()
+                )
+                rhs_alias_with_stmt_lhs = (
+                    isinstance(rhs, ReadCursor) and rhs.name() == expr.parent().name()
+                )
 
-        lhs = expr.lhs()
-        rhs = expr.rhs()
-        children_alias = (
-            isinstance(lhs, ReadCursor)
-            and isinstance(rhs, ReadCursor)
-            and lhs.name() == rhs.name()
-        )
-        lhs_alias_with_stmt_lhs = False
-        rhs_alias_with_stmt_lhs = False
-        if isinstance(expr.parent(), StmtCursor):
-            lhs_alias_with_stmt_lhs = lhs.name() == expr.parent().name()
-            rhs_alias_with_stmt_lhs = rhs.name() == expr.parent().name()
+            lhs_cursors = get_expr_subtree_cursors(
+                lhs, stmt, lhs_alias_with_stmt_lhs or children_alias
+            )
+            rhs_cursors = get_expr_subtree_cursors(rhs, stmt, rhs_alias_with_stmt_lhs)
 
-        lhs_cursors = get_expr_subtree_cursors(
-            lhs, stmt, lhs_alias_with_stmt_lhs or children_alias
-        )
-        rhs_cursors = get_expr_subtree_cursors(rhs, stmt, rhs_alias_with_stmt_lhs)
-
-        if not detect_madd(expr) and not stmt_lhs_in_mem:
-            return lhs_cursors + rhs_cursors + [expr]
+            if not detect_madd(expr) and not stmt_lhs_in_mem:
+                return lhs_cursors + rhs_cursors + [expr]
+            else:
+                return lhs_cursors + rhs_cursors
         else:
-            return lhs_cursors + rhs_cursors
+            return [expr]
 
     reg_name_counter = 0
 
