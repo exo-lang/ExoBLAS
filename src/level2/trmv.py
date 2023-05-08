@@ -170,6 +170,14 @@ def schedule_trmv_row_major_just_vectorize(trmv, level_2_params, level_1_params)
 def schedule_trmv_row_major_vectorize_reuse_over_rows(
     trmv, level_2_params, level_1_params
 ):
+    if "NonTrans" in trmv.name():
+        level_2_params.rows_interleave_factor = 8
+        level_2_params.interleave_factor = 2
+        level_2_params.accumulators_count = 1
+    else:
+        level_2_params.rows_interleave_factor = 4
+        level_2_params.interleave_factor = 4
+        level_2_params.accumulators_count = 1
     trmv = generate_stride_1_proc(trmv, level_1_params.precision)
     level_2_params.instructions = None
     inner_loop = trmv.find_loop("j")
@@ -182,13 +190,17 @@ def schedule_trmv_row_major_vectorize_reuse_over_rows(
         inner_loop,
         min(level_2_params.rows_interleave_factor, level_2_params.vec_width),
     )
+    trmv = replace_all(trmv, C.Machine.get_instructions(level_2_params.precision))
     trmv = unroll_loop(trmv, trmv.find_loop("ii"))
     trmv = apply_to_block(trmv, trmv.find_loop("ii").body(), hoist_stmt)
     trmv = unroll_loop(trmv, trmv.find_loop("ii"))
     if "NonTrans" in trmv.name():
         dot_alloc = trmv.find("dot : _")
         trmv = set_memory(trmv, "dot", DRAM_STATIC)
-    trmv = replace_all(trmv, C.Machine.get_instructions(level_2_params.precision))
+    try:
+        trmv = unroll_loop(trmv, trmv.find_loop("ii"))
+    except:
+        pass
     return simplify(trmv)
 
 
@@ -227,12 +239,7 @@ template_sched_list = [
     ),
 ]
 
-for vec_width, precision in (
-    (C.Machine.vec_width, "f32"),
-    (C.Machine.vec_width // 2, "f64"),
-):
-    instructions = C.Machine.get_instructions(precision)
-
+for precision in ("f32", "f64"):
     for template, sched in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)
