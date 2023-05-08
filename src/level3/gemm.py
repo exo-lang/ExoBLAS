@@ -599,6 +599,7 @@ class GEMM:
                 )
 
     def schedule_gemm_notranspose_noalpha_compact(self, gemm_procedure: Procedure):
+        gemm_scheduled = gemm_procedure
         i_loop = gemm_scheduled.find_loop("i")
         j_loop = gemm_scheduled.find_loop("j")
         k_loop = gemm_scheduled.find_loop("k")
