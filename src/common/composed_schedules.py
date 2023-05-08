@@ -15,21 +15,23 @@ class BLAS_SchedulingError(Exception):
     pass
 
 
-def expr_to_string(expr_cursor):
-    def expr_list_to_string(expr_list):
-        expr_str_list = [expr_to_string(i) for i in expr_list]
+def expr_to_string(expr_cursor, subst={}):
+    def expr_list_to_string(expr_list, subst):
+        expr_str_list = [expr_to_string(i, subst) for i in expr_list]
         if not expr_str_list:
             return ""
         return "[" + ", ".join(expr_str_list) + "]"
 
     if isinstance(expr_cursor, ExprListCursor):
-        return expr_list_to_string(expr_cursor)
+        return expr_list_to_string(expr_cursor, subst)
 
     if not isinstance(expr_cursor, ExprCursor):
         raise BLAS_SchedulingError("Cursor must be an ExprCursor")
     if isinstance(expr_cursor, ReadCursor):
         name = str(expr_cursor.name())
-        idx_str = expr_list_to_string(expr_cursor.idx())
+        if name in subst:
+            return f"({subst[name]})"
+        idx_str = expr_list_to_string(expr_cursor.idx(), subst)
         return f"({name}{idx_str})"
     elif isinstance(expr_cursor, ReadConfigCursor):
         raise BLAS_SchedulingError("ReadConfigCursor is not supported")
@@ -37,16 +39,16 @@ def expr_to_string(expr_cursor):
         val_str = str(expr_cursor.value())
         return f"({val_str})"
     elif isinstance(expr_cursor, UnaryMinusCursor):
-        arg_str = expr_to_string(expr_cursor.arg)
+        arg_str = expr_to_string(expr_cursor.arg, subst)
         return f"(-{arg_str})"
     elif isinstance(expr_cursor, BinaryOpCursor):
         binop_str = expr_cursor.op()
-        lhs_str = expr_to_string(expr_cursor.lhs())
-        rhs_str = expr_to_string(expr_cursor.rhs())
+        lhs_str = expr_to_string(expr_cursor.lhs(), subst)
+        rhs_str = expr_to_string(expr_cursor.rhs(), subst)
         return f"({lhs_str}{binop_str}{rhs_str})"
     elif isinstance(expr_cursor, BuiltInCursor):
         name = expr_cursor.name()
-        args_str = expr_list_to_string(expr_cursor.args())
+        args_str = expr_list_to_string(expr_cursor.args(), subst)
         return f"({name}({args_str[1:-1]}))"
     elif isinstance(expr_cursor, WindowExprCursor):
         raise BLAS_SchedulingError("WindowExprCursor is not supported")
@@ -58,6 +60,7 @@ def get_enclosing_scope(cursor, scope_type):
     if not scope_type in (ForSeqCursor, IfCursor):
         raise BLAS_SchedulingError("scope type must be ForSeqCursor or IfCursor")
 
+    cursor = cursor.parent()
     while not isinstance(cursor, (scope_type, InvalidCursor)):
         cursor = cursor.parent()
 
@@ -653,3 +656,68 @@ def vectorize(
             proc = replace_all(proc, instructions)
         proc = interleave_execution(proc, loop_cursor, interleave_factor)
     return proc
+
+
+def tile_loops(proc, loop_tile_pairs):
+
+    loop_tile_pairs = [(proc.forward(i[0]), i[1]) for i in loop_tile_pairs]
+
+    inner_loops = []
+    for i in range(len(loop_tile_pairs)):
+        outer_loop = loop_tile_pairs[i][0]
+        tile_size = loop_tile_pairs[i][1]
+        proc = divide_loop(
+            proc,
+            outer_loop,
+            tile_size,
+            (outer_loop.name() + "o", outer_loop.name() + "i"),
+            tail="cut",
+        )
+        inner_loop = proc.forward(outer_loop).body()[0]
+        inner_loops.append(inner_loop)
+    for i in range(len(loop_tile_pairs) - 2, -1, -1):
+        inner_loop = inner_loops[i]
+        tile_size = loop_tile_pairs[i][1]
+        for j in range(i + 1, len(loop_tile_pairs)):
+            loop = loop_tile_pairs[j][0]
+            proc = interleave_outer_loop_with_inner_loop(
+                proc, inner_loop, loop, tile_size
+            )
+    return proc
+
+
+def auto_stage_mem(proc, read_cursor, new_buff_name, n_lifts=1):
+    if not isinstance(read_cursor, ReadCursor):
+        raise BLAS_SchedulingError("auto_stage_mem expects a read a cursor")
+
+    lo = []
+    hi = []
+    loop = get_enclosing_loop(read_cursor)
+    loops = [loop]
+    for _ in range(n_lifts - 1):
+        loop = get_enclosing_loop(loop)
+        loops.append(loop)
+
+    subst = {}
+    for i in range(len(loops) - 1, -1, -1):
+        loop = loops[i]
+        subst[loop.name()] = f"(({expr_to_string(loop.hi(), subst)})-1)"
+
+    for idx in read_cursor.idx():
+        hi.append(expr_to_string(idx, subst))
+
+    for key in subst:
+        subst[key] = 0
+
+    for idx in read_cursor.idx():
+        lo.append(expr_to_string(idx, subst))
+
+    def ith_idx(i):
+        if lo[i] == hi[i]:
+            return lo[i]
+        else:
+            return f"{lo[i]}:(({hi[i]})+1)"
+
+    window = ",".join([ith_idx(i) for i in range(len(read_cursor.idx()))])
+    window = f"{read_cursor.name()}[{window}]"
+    return stage_mem(proc, loops[-1], window, new_buff_name)
