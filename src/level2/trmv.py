@@ -44,12 +44,17 @@ def trmv_row_major_Upper_NonTrans_Unit_template(n: size, x: [R][n], A: [R][n, n]
 def trmv_row_major_Upper_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
+    xCopy: R[n]
+
     for i in seq(0, n):
         dot: R
         dot = 0.0
-        for j in seq(0, n - i):
-            dot += A[i, i + j] * x[i + j]
-        x[i] = dot
+        for j in seq(0, i):
+            dot += A[n - i - 1, n - j - 1] * x[n - j - 1]
+        xCopy[n - i - 1] = dot + A[n - i - 1, n - i - 1] * x[n - i - 1]
+
+    for l in seq(0, n):
+        x[l] = xCopy[l]
 
 
 @proc
@@ -73,12 +78,17 @@ def trmv_row_major_Lower_NonTrans_Unit_template(n: size, x: [R][n], A: [R][n, n]
 def trmv_row_major_Lower_NonTrans_NonUnit_template(n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
+    xCopy: R[n]
+
     for i in seq(0, n):
         dot: R
         dot = 0.0
-        for j in seq(0, n - i):
-            dot += A[n - i - 1, j] * x[j]
-        x[n - i - 1] = dot
+        for j in seq(0, i):
+            dot += A[i, j] * x[j]
+        xCopy[i] = dot + A[i, i] * x[i]
+
+    for l in seq(0, n):
+        x[l] = xCopy[l]
 
 
 @proc
@@ -110,9 +120,9 @@ def trmv_row_major_Upper_Trans_NonUnit_template(
         xCopy[i] = 0.0
 
     for i in seq(0, n):
-        xCopy[i] += A[i, i] * x[i]
-        for j in seq(0, n - i - 1):
-            xCopy[i + j + 1] += A[i, i + j + 1] * x[i]
+        for j in seq(0, i):
+            xCopy[n - j - 1] += A[n - i - 1, n - j - 1] * x[n - i - 1]
+        xCopy[n - i - 1] += A[n - i - 1, n - i - 1] * x[n - i - 1]
 
     for i in seq(0, n):
         x[i] = xCopy[i]
@@ -205,45 +215,21 @@ def schedule_trmv_row_major_vectorize_reuse_over_rows(
 
 
 template_sched_list = [
-    (
-        trmv_row_major_Lower_NonTrans_NonUnit_template,
-        schedule_trmv_row_major_just_vectorize,
-    ),
-    (
-        trmv_row_major_Upper_NonTrans_NonUnit_template,
-        schedule_trmv_row_major_just_vectorize,
-    ),
-    (
-        trmv_row_major_Lower_NonTrans_Unit_template,
-        schedule_trmv_row_major_vectorize_reuse_over_rows,
-    ),
-    (
-        trmv_row_major_Upper_NonTrans_Unit_template,
-        schedule_trmv_row_major_vectorize_reuse_over_rows,
-    ),
-    (
-        trmv_row_major_Lower_Trans_NonUnit_template,
-        schedule_trmv_row_major_just_vectorize,
-    ),
-    (
-        trmv_row_major_Upper_Trans_NonUnit_template,
-        schedule_trmv_row_major_just_vectorize,
-    ),
-    (
-        trmv_row_major_Lower_Trans_Unit_template,
-        schedule_trmv_row_major_vectorize_reuse_over_rows,
-    ),
-    (
-        trmv_row_major_Upper_Trans_Unit_template,
-        schedule_trmv_row_major_vectorize_reuse_over_rows,
-    ),
+    trmv_row_major_Lower_NonTrans_NonUnit_template,
+    trmv_row_major_Upper_NonTrans_NonUnit_template,
+    trmv_row_major_Lower_NonTrans_Unit_template,
+    trmv_row_major_Upper_NonTrans_Unit_template,
+    trmv_row_major_Lower_Trans_NonUnit_template,
+    trmv_row_major_Upper_Trans_NonUnit_template,
+    trmv_row_major_Lower_Trans_Unit_template,
+    trmv_row_major_Upper_Trans_Unit_template,
 ]
 
 for precision in ("f32", "f64"):
-    for template, sched in template_sched_list:
+    for template in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)
-        proc_stride_1 = sched(
+        proc_stride_1 = schedule_trmv_row_major_vectorize_reuse_over_rows(
             template,
             Level_2_Params(precision=precision),
             Level_1_Params(precision=precision),
