@@ -16,6 +16,8 @@ from exo.stdlib.scheduling import *
 from kernels.gemm_kernels import GEPP_kernel, GEBP_kernel, Microkernel
 from format_options import *
 
+from composed_schedules import tile_loops, auto_stage_mem
+
 import exo_blas_config as C
 
 """
@@ -39,6 +41,11 @@ class GEMM:
         do_rename: bool = False,
         main: bool = True,
     ):
+        self.K_blk = K_blk
+        self.M_blk = M_blk
+        self.N_blk = N_blk
+        self.M_reg = M_reg
+        self.N_reg = N_reg
 
         ### Specialize for different precisions
         self.precision = precision
@@ -590,6 +597,58 @@ class GEMM:
                     self.entry_points[i],
                     f"{self.entry_points[i].name()}_{N_blk}_{M_blk}_{K_blk}",
                 )
+
+    def schedule_gemm_notranspose_noalpha_compact(self, gemm_procedure: Procedure):
+        i_loop = gemm_scheduled.find_loop("i")
+        j_loop = gemm_scheduled.find_loop("j")
+        k_loop = gemm_scheduled.find_loop("k")
+        gemm_scheduled = reorder_loops(gemm_scheduled, i_loop)
+        gemm_scheduled = reorder_loops(gemm_scheduled, i_loop)
+        gemm_scheduled = tile_loops(
+            gemm_scheduled,
+            [(j_loop, self.N_blk), (k_loop, self.K_blk), (i_loop, self.M_blk)],
+        )
+        ii_loop = gemm_scheduled.find_loop("ii")
+        ji_loop = gemm_scheduled.find_loop("ji")
+        ki_loop = gemm_scheduled.find_loop("ki")
+        gemm_scheduled = reorder_loops(gemm_scheduled, ki_loop)
+        gemm_scheduled = tile_loops(
+            gemm_scheduled, [(ji_loop, self.N_reg), (ii_loop, self.M_reg)]
+        )
+        gemm_scheduled = simplify(gemm_scheduled)
+        gemm_scheduled = reorder_loops(gemm_scheduled, gemm_scheduled.find_loop("jii"))
+        gemm_scheduled = simplify(
+            auto_stage_mem(
+                gemm_scheduled, gemm_scheduled.find("B[_]"), "B_reg_strip", n_lifts=4
+            )
+        )
+        gemm_scheduled = lift_alloc(gemm_scheduled, "B_reg_strip", n_lifts=4)
+        gemm_scheduled = set_memory(gemm_scheduled, "B_reg_strip: _", DRAM_STATIC)
+        gemm_scheduled = simplify(
+            auto_stage_mem(
+                gemm_scheduled, gemm_scheduled.find("B[_]"), "B_strip", n_lifts=4
+            )
+        )
+        gemm_scheduled = lift_alloc(gemm_scheduled, "B_strip", n_lifts=2)
+        gemm_scheduled = set_memory(gemm_scheduled, "B_strip: _", DRAM_STATIC)
+        gemm_scheduled = replace(
+            gemm_scheduled,
+            gemm_scheduled.find_loop("iii"),
+            self.microkernel.base_microkernel,
+        )
+        call_c = gemm_scheduled.find(f"microkernel_{self.microkernel.this_id}(_)")
+        gemm_scheduled = call_eqv(
+            gemm_scheduled,
+            call_c,
+            self.microkernel.scheduled_microkernel,
+        )
+        gemm_scheduled = inline(gemm_scheduled, call_c)
+        gemm_scheduled = inline_window(gemm_scheduled, "C = C[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, "A = A[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, "B = B_reg_strip[_]")
+        gemm_scheduled = simplify(gemm_scheduled)
+
+        return gemm_scheduled
 
     def schedule_gemm_notranspose_noalpha(self, gemm_procedure: Procedure):
         gemm_scheduled = divide_loop(
