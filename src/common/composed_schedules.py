@@ -641,15 +641,26 @@ def vectorize(
             precision,
         )
         loop_cursor = proc.forward(loop_cursor)
-        middle_loop = loop_cursor.body()[0]
-        inner_loop = middle_loop.body()[0]
-        proc = vectorize_to_loops(proc, inner_loop, vec_width, memory_type, precision)
-        if instructions != None:
-            proc = replace_all(proc, instructions)
-        proc = interleave_execution(proc, middle_loop, accumulators_count)
-        proc = interleave_execution(
-            proc, loop_cursor, interleave_factor // accumulators_count
-        )
+        if accumulators_count > 1:
+            middle_loop = loop_cursor.body()[0]
+            inner_loop = middle_loop.body()[0]
+            proc = vectorize_to_loops(
+                proc, inner_loop, vec_width, memory_type, precision
+            )
+            if instructions != None:
+                proc = replace_all(proc, instructions)
+            proc = interleave_execution(proc, middle_loop, accumulators_count)
+            proc = interleave_execution(
+                proc, loop_cursor, interleave_factor // accumulators_count
+            )
+        else:
+            inner_loop = loop_cursor.body()[0]
+            proc = vectorize_to_loops(
+                proc, inner_loop, vec_width, memory_type, precision
+            )
+            if instructions != None:
+                proc = replace_all(proc, instructions)
+            proc = interleave_execution(proc, loop_cursor, interleave_factor)
     else:
         proc = vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision)
         if instructions != None:
