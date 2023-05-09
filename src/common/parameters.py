@@ -48,8 +48,6 @@ class Level_2_Params(Level_1_Params):
 
     def __post_init__(self):
         super().__post_init__()
-        self.interleave_factor = 2
-        self.accumulators_count = 2
 
 
 @dataclass
