@@ -21,7 +21,7 @@ from codegen_helpers import (
 )
 from parameters import Level_1_Params, Level_2_Params
 
-class PACKED_1D(DRAM):
+class LOWER_PACKED_1D(DRAM):
     @classmethod
     def custom_read(cls, baseptr, indices, srcinfo):
         assert len(indices) == 2
@@ -34,7 +34,7 @@ class PACKED_1D(DRAM):
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def tpmv_row_major_Upper_NonTrans_Unit_template(n: size, x: [R][n], A: R[n, n] @ PACKED_1D):
+def tpmv_row_major_Upper_NonTrans_Unit_template(n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -51,7 +51,7 @@ def tpmv_row_major_Upper_NonTrans_Unit_template(n: size, x: [R][n], A: R[n, n] @
 
 
 @proc
-def tpmv_row_major_Upper_NonTrans_NonUnit_template(n: size, x: [R][n], A: R[n, n] @ PACKED_1D):
+def tpmv_row_major_Upper_NonTrans_NonUnit_template(n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -68,7 +68,7 @@ def tpmv_row_major_Upper_NonTrans_NonUnit_template(n: size, x: [R][n], A: R[n, n
 
 
 @proc
-def tpmv_row_major_Lower_NonTrans_Unit_template(n: size, x: [R][n], A: R[n, n] @ PACKED_1D):
+def tpmv_row_major_Lower_NonTrans_Unit_template(n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -85,7 +85,7 @@ def tpmv_row_major_Lower_NonTrans_Unit_template(n: size, x: [R][n], A: R[n, n] @
 
 
 @proc
-def tpmv_row_major_Lower_NonTrans_NonUnit_template(n: size, x: [R][n], A: R[n, n] @ PACKED_1D):
+def tpmv_row_major_Lower_NonTrans_NonUnit_template(n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -103,7 +103,7 @@ def tpmv_row_major_Lower_NonTrans_NonUnit_template(n: size, x: [R][n], A: R[n, n
 
 @proc
 def tpmv_row_major_Upper_Trans_Unit_template(
-    n: size, x: [R][n], A: R[n, n] @ PACKED_1D, Diag: size
+    n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D, Diag: size
 ):
     assert stride(A, 1) == 1
 
@@ -121,7 +121,7 @@ def tpmv_row_major_Upper_Trans_Unit_template(
 
 @proc
 def tpmv_row_major_Upper_Trans_NonUnit_template(
-    n: size, x: [R][n], A: R[n, n] @ PACKED_1D, Diag: size
+    n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D, Diag: size
 ):
     assert stride(A, 1) == 1
 
@@ -140,7 +140,7 @@ def tpmv_row_major_Upper_Trans_NonUnit_template(
 
 @proc
 def tpmv_row_major_Lower_Trans_Unit_template(
-    n: size, x: [R][n], A: R[n, n] @ PACKED_1D, Diag: size
+    n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D, Diag: size
 ):
     assert stride(A, 1) == 1
 
@@ -158,7 +158,7 @@ def tpmv_row_major_Lower_Trans_Unit_template(
 
 @proc
 def tpmv_row_major_Lower_Trans_NonUnit_template(
-    n: size, x: [R][n], A: R[n, n] @ PACKED_1D, Diag: size
+    n: size, x: [R][n], A: R[n, n] @ LOWER_PACKED_1D, Diag: size
 ):
     assert stride(A, 1) == 1
 
