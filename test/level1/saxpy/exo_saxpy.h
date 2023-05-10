@@ -13,7 +13,7 @@ void exo_saxpy(const int N, const float alpha, const float *X, const int incX,
                                  exo_win_1f32c{.data = X, .strides = {incX}},
                                  exo_win_1f32{.data = Y, .strides = {incY}});
     } else {
-      exo_saxpy_stride_1(nullptr, N, &alpha,
+      exo_saxpy_stride_1(nullptr, N, alpha,
                          exo_win_1f32c{.data = X, .strides = {incX}},
                          exo_win_1f32{.data = Y, .strides = {incY}});
     }
@@ -24,7 +24,7 @@ void exo_saxpy(const int N, const float alpha, const float *X, const int incX,
     if (incY < 0) {
       Y = Y + (1 - N) * incY;
     }
-    exo_saxpy_stride_any(nullptr, N, &alpha,
+    exo_saxpy_stride_any(nullptr, N, alpha,
                          exo_win_1f32c{.data = X, .strides = {incX}},
                          exo_win_1f32{.data = Y, .strides = {incY}});
   }
