@@ -96,6 +96,7 @@ class Microkernel:
         self.scheduled_microkernel, self.base_microkernel = self.generate_microkernel(
             machine, M_r, N_r, K_blk
         )
+        print(self.scheduled_microkernel.c_code_str())
         (
             self.scheduled_zpad_microkernel,
             self.base_zpad_microkernel,
@@ -479,15 +480,6 @@ class Microkernel:
         return microkernel
 
 
-# test_microkernel = Microkernel(NeonMachine, 4, 16, 32)
-# print("TEST PASSED: Microkernel successfully generated!")
-
-
-"""
-TODO: Generate transpose version of all of these
-"""
-
-
 class GEBP_kernel:
 
     gebp_id = 0
@@ -525,21 +517,15 @@ class GEBP_kernel:
 
         self.sgemm_base = SGEMM
 
+        GEBP_kernel.gebp_id += 1
+
         self.scheduled_gebp, self.base_gebp = self.generate_gebp()
 
     def generate_base_gebp(self, M_blk: int, K_blk: int, N_blk: int):
-        base_microkernel = rename(self.sgemm_window, f"gebp_base_{self.this_id}")
-        return simplify(base_microkernel.partial_eval(M=M_blk, K=K_blk, N=N_blk))
+        base_gebp = rename(self.sgemm_window, f"gebp_base_{self.this_id}")
+        return simplify(base_gebp.partial_eval(M=M_blk, K=K_blk, N=N_blk))
 
     def generate_gebp(self):
-
-        scheduled_gebp, gebp = self.do_generate_gebp()
-
-        GEBP_kernel.gebp_id += 1
-
-        return scheduled_gebp, gebp
-
-    def do_generate_gebp(self):
 
         gebp = self.generate_base_gebp(self.M_blk, self.microkernel.K_blk, self.N_blk)
         gebp = self.specialize_gebp(gebp, self.precision)
@@ -547,6 +533,8 @@ class GEBP_kernel:
         scheduled_gebp = rename(
             gebp, f"gebp_{self.M_blk}x{self.microkernel.K_blk}_{self.gebp_id}"
         )
+
+        # Split loops according to microkernel dimensions
         scheduled_gebp = divide_loop(
             scheduled_gebp,
             "i",
@@ -560,10 +548,10 @@ class GEBP_kernel:
             )
         )
 
-        # scheduled_gebp = autofission(scheduled_gebp, scheduled_gebp.find('for jo in _: _').after(), n_lifts=2)
         scheduled_gebp = reorder_loops(scheduled_gebp, "ii jo")
         scheduled_gebp = reorder_loops(scheduled_gebp, "io jo")
 
+        # Pack each microtile of B for usage in the microkernel
         scheduled_gebp = stage_mem(
             scheduled_gebp,
             "for io in _:_ #0",
@@ -572,6 +560,7 @@ class GEBP_kernel:
         )
         scheduled_gebp = simplify(scheduled_gebp)
 
+        # Substitute the microkernel into the procedure
         scheduled_gebp = replace(
             scheduled_gebp, "for ii in _:_", self.microkernel.base_microkernel
         )
@@ -582,19 +571,7 @@ class GEBP_kernel:
             self.microkernel.scheduled_microkernel,
         )
 
-        scheduled_gebp = inline(scheduled_gebp, call_c)
-        scheduled_gebp = inline_window(scheduled_gebp, "C = C[_]")
-        scheduled_gebp = inline_window(scheduled_gebp, "A = A[_]")
-        scheduled_gebp = inline_window(scheduled_gebp, "B = B_reg_strip[_]")
         scheduled_gebp = simplify(scheduled_gebp)
-
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(A, 1) == 1")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(B, 1) == 1")
-        scheduled_gebp = scheduled_gebp.add_assertion(f"stride(C, 1) == 1")
-        gebp = gebp.add_assertion(f"stride(A, 1) == 1")
-        gebp = gebp.add_assertion(f"stride(B, 1) == 1")
-        gebp = gebp.add_assertion(f"stride(C, 1) == 1")
-        scheduled_gebp.unsafe_assert_eq(gebp)
 
         return scheduled_gebp, gebp
 
@@ -639,6 +616,7 @@ class GEPP_kernel:
 
         self.sgemm_base = SGEMM
 
+        GEPP_kernel.gepp_id += 1
         self.gepp_base, self.gepp_scheduled = self.generate_gepp()
 
     def generate_base_gepp(self):
@@ -646,23 +624,17 @@ class GEPP_kernel:
         return base_gepp.partial_eval(K=self.K_blk, N=self.N_blk)
 
     def generate_gepp(self):
-        base_gepp, scheduled_gepp = self.do_generate_gepp()
-
-        GEPP_kernel.gepp_id += 1
-
-        return base_gepp, scheduled_gepp
-
-    def do_generate_gepp(self):
 
         base_gepp = self.generate_base_gepp()
         base_gepp = self.specialize_gepp(base_gepp, self.precision)
-
         scheduled_gepp = rename(base_gepp, f"scheduled_gepp_{self.this_id}")
+
+        # Divide i loop
         scheduled_gepp = divide_loop(
             scheduled_gepp, "i", self.gebp.M_blk, ["io", "ii"], tail="cut_and_guard"
         )
-        # scheduled_gepp = stage_mem(scheduled_gepp, 'for ii in _:_ #0', f'B[0:{self.K_blk}, 0:N]', 'B_packed')
 
+        # Substitute GEBP
         scheduled_gepp = replace(
             scheduled_gepp, "for ii in _:_ #0", self.gebp.base_gebp
         )
@@ -672,18 +644,6 @@ class GEPP_kernel:
             call_c,
             self.gebp.scheduled_gebp,
         )
-        scheduled_gepp = inline(scheduled_gepp, call_c)
-        scheduled_gepp = inline_window(scheduled_gepp, "C = C[_]")
-        scheduled_gepp = inline_window(scheduled_gepp, "A = A[_]")
-        scheduled_gepp = inline_window(scheduled_gepp, "B = B[_]")
-
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(A, 1) == 1")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(B, 1) == 1")
-        scheduled_gepp = scheduled_gepp.add_assertion(f"stride(C, 1) == 1")
-        base_gepp = base_gepp.add_assertion(f"stride(A, 1) == 1")
-        base_gepp = base_gepp.add_assertion(f"stride(B, 1) == 1")
-        base_gepp = base_gepp.add_assertion(f"stride(C, 1) == 1")
-        scheduled_gepp.unsafe_assert_eq(base_gepp)
 
         return base_gepp, scheduled_gepp
 
