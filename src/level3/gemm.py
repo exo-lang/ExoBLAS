@@ -251,19 +251,7 @@ class GEMM:
         ]
 
     def schedule_gemm_alpha1_beta1(self, gemm: Procedure):
-        """
-        notranspose_loop = gemm.find("for i in _:_ #0")
-        notransa_transb_loop = gemm.find("for i in _:_ #1")
-        transa_notransb_loop = gemm.find("for i in _:_ #2")
-        transa_transb_loop = gemm.find("for i in _:_ #3")
 
-        loops = [
-            notranspose_loop,
-            notransa_transb_loop,
-            transa_notransb_loop,
-            transa_transb_loop,
-        ]
-        """
         names = [
             "gemm_alpha1_beta1_notranspose",
             "gemm_alpha1_beta1_notransa_transb",
@@ -325,6 +313,8 @@ class GEMM:
             call_c,
             self.gepp.gepp_scheduled,
         )
+
+        # TODO: Encapsulate into procedure
         gemm_scheduled = inline(gemm_scheduled, call_c)
         gemm_scheduled = inline_window(gemm_scheduled, "C = C[_]")
         gemm_scheduled = inline_window(gemm_scheduled, f"A = A[_]")
@@ -357,9 +347,10 @@ class GEMM:
                 gemm_scheduled = lift_alloc(gemm_scheduled, "B_strip:_")
             except:
                 break
-        print(gemm_scheduled)
         gemm_scheduled = set_memory(gemm_scheduled, "B_strip:_", DRAM_STATIC)
         gemm_scheduled = set_memory(gemm_scheduled, "B_reg_strip:_", DRAM_STATIC)
+
+        # Edge case handling
 
         return gemm_scheduled
         # TODO: Schedule each of the tranpose variants
