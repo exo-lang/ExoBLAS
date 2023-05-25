@@ -108,10 +108,10 @@ static void CustomArgumentsPacked(benchmark::internal::Benchmark *b) {
 }
 
 BENCHMARK(BM_cblas_sgemv)
-    ->ArgNames({"N", "order", "TransA", "alpha", "lda_diff", "incX", "beta",
+    ->ArgNames({"n", "order", "TransA", "alpha", "lda_diff", "incX", "beta",
                 "incY", "alignmentA", "alignmentX", "alignmentY"})
     ->Apply(CustomArgumentsPacked);
 BENCHMARK(BM_exo_sgemv)
-    ->ArgNames({"N", "order", "TransA", "alpha", "lda_diff", "incX", "beta",
+    ->ArgNames({"n", "order", "TransA", "alpha", "lda_diff", "incX", "beta",
                 "incY", "alignmentA", "alignmentX", "alignmentY"})
     ->Apply(CustomArgumentsPacked);

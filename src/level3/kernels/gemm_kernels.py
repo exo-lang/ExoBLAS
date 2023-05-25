@@ -8,7 +8,12 @@ from exo import *
 from exo.syntax import *
 
 from exo.stdlib.scheduling import *
-from composed_schedules import interleave_execution
+from composed_schedules import (
+    vectorize,
+    apply_to_block,
+    hoist_stmt,
+    interleave_execution,
+)
 
 
 class Microkernel:
@@ -144,176 +149,51 @@ class Microkernel:
         microkernel = self.specialize_microkernel(microkernel, self.precision)
 
         # Reorder and divide loops
-        scheduled_microkernel = rename(
+        sched_mk = rename(
             microkernel, f"{machine.name}_microkernel_{M_r}x{N_r}_{self.microkernel_id}"
         )
-        scheduled_microkernel = reorder_loops(scheduled_microkernel, "j k")
-        scheduled_microkernel = reorder_loops(scheduled_microkernel, "i k")
-        scheduled_microkernel = divide_loop(
-            scheduled_microkernel, "j", machine.vec_width, ["jo", "ji"], perfect=True
-        )
 
-        # Create C buffer in vector mem
-        c_reg_str = f"C[i, {machine.vec_width} * jo + ji]"
-        scheduled_microkernel = stage_mem(
-            scheduled_microkernel, "C[_] += _", c_reg_str, "C_reg"
+        sched_mk = reorder_loops(sched_mk, "j k")
+        sched_mk = reorder_loops(sched_mk, "i k")
+
+        sched_mk = stage_mem(
+            sched_mk, sched_mk.find_loop("k"), f"C[0:{M_r}, 0:{N_r}]", "C_reg"
         )
-        scheduled_microkernel = set_memory(
-            scheduled_microkernel, "C_reg", machine.mem_type
-        )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "C_reg",
+        sched_mk = simplify(sched_mk)
+        sched_mk = divide_dim(
+            sched_mk,
+            sched_mk.find("C_reg : _"),
+            1,
             machine.vec_width,
-            "ji",
-            unsafe_disable_checks=True,
         )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "C_reg",
-            N_r // machine.vec_width,
-            f"jo",
-            unsafe_disable_checks=True,
-        )
+        sched_mk = set_memory(sched_mk, "C_reg", machine.mem_type)
 
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel, "C_reg", M_r, "i", unsafe_disable_checks=True
-        )
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "C_reg", n_lifts=4)
-        scheduled_microkernel = autofission(
-            scheduled_microkernel,
-            scheduled_microkernel.find("C_reg[_] = _").after(),
-            n_lifts=4,
-        )
-        scheduled_microkernel = autofission(
-            scheduled_microkernel,
-            scheduled_microkernel.find("C[_] = _").before(),
-            n_lifts=4,
-        )
-
-        # Setup A buffer in vector mem
-        scheduled_microkernel = bind_expr(scheduled_microkernel, "A[_]", "A_vec")
-        scheduled_microkernel = set_memory(
-            scheduled_microkernel, "A_vec", machine.mem_type
-        )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "A_vec",
-            machine.vec_width,
-            "ji",
-            unsafe_disable_checks=True,
-        )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel, "A_vec", M_r, "i", unsafe_disable_checks=True
-        )
-        scheduled_microkernel = set_precision(
-            scheduled_microkernel, "A_vec", self.precision
-        )
-
-        # Setup B buffer in vector mem
-        scheduled_microkernel = bind_expr(scheduled_microkernel, "B[_]", "B_vec")
-
-        scheduled_microkernel = set_memory(
-            scheduled_microkernel, "B_vec", machine.mem_type
-        )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "B_vec",
-            machine.vec_width,
-            f"ji",
-            unsafe_disable_checks=True,
-        )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "B_vec",
-            (N_r // machine.vec_width),
-            f"jo",
-            unsafe_disable_checks=True,
-        )
-        scheduled_microkernel = set_precision(
-            scheduled_microkernel, "B_vec", self.precision
-        )
-
-        # Move A_vec and B_vec into proper sites
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "A_vec", n_lifts=4)
-        scheduled_microkernel = autofission(
-            scheduled_microkernel,
-            scheduled_microkernel.find("A_vec[_] = _").after(),
-            n_lifts=3,
-        )
-        scheduled_microkernel = lift_alloc(scheduled_microkernel, "B_vec", n_lifts=4)
-        scheduled_microkernel = autofission(
-            scheduled_microkernel,
-            scheduled_microkernel.find("B_vec[_] = _").after(),
-            n_lifts=3,
-        )
-
-        # Unroll loops
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0")  # C load
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0")  # C load
-
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i #0")  # A load
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0")  # B load
-
-        scheduled_microkernel = unroll_loop(
-            scheduled_microkernel, "jo #0"
-        )  # computation
-        scheduled_microkernel = unroll_loop(
-            scheduled_microkernel, "i  #0"
-        )  # computation
-
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "jo #0")  # C store
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "i  #0")  # C store
-
-        # Replace
-        if self.precision == "f32":
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.load_instr_f32
+        for loop_iter in ("i1", "j", "i1"):
+            sched_mk = vectorize(
+                sched_mk,
+                sched_mk.find_loop(loop_iter),
+                machine.vec_width,
+                min(N_r // machine.vec_width, 2),
+                None,
+                machine.mem_type,
+                self.precision,
+                None,
             )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.broadcast_instr_f32
-            )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.store_instr_f32
-            )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.fmadd_instr_f32
-            )
-            scheduled_microkernel = simplify(scheduled_microkernel)
-        else:
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.load_instr_f64
-            )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.broadcast_instr_f64
-            )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.store_instr_f64
-            )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.fmadd_instr_f64
-            )
-            scheduled_microkernel = simplify(scheduled_microkernel)
-
-        k_loop = scheduled_microkernel.find_loop("k")
-        scheduled_microkernel = divide_loop(
-            scheduled_microkernel, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True
+        sched_mk = replace_all(
+            simplify(sched_mk), machine.get_instructions(self.precision)
         )
-        first = scheduled_microkernel.find_loop("ki").body()[0]
-        for i in range(len(scheduled_microkernel.find_loop("ki").body())):
-            while True:
-                try:
-                    scheduled_microkernel = reorder_stmts(
-                        scheduled_microkernel,
-                        scheduled_microkernel.forward(first).expand(0, 1),
-                    )
-                except:
-                    break
-            first = scheduled_microkernel.find_loop("ki").body()[0]
-        #
-        scheduled_microkernel = unroll_loop(scheduled_microkernel, "ki")
+        for loop_iter in ("i1oo", "i0", "joo", "i1oo", "i0"):
+            sched_mk = unroll_loop(sched_mk, sched_mk.find_loop(loop_iter))
+        sched_mk = apply_to_block(sched_mk, sched_mk.find_loop("i").body(), hoist_stmt)
+        sched_mk = unroll_loop(sched_mk, sched_mk.find_loop("i"))
 
-        return scheduled_microkernel, microkernel
+        k_loop = sched_mk.find_loop("k")
+        sched_mk = divide_loop(
+            sched_mk, k_loop, 4, ["ko", "ki"], tail="cut", perfect=True
+        )
+        sched_mk = unroll_loop(sched_mk, "ki")
+
+        return sched_mk, microkernel
 
     def generate_microkernel_zpad(
         self,

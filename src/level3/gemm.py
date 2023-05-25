@@ -11,6 +11,8 @@ from exo.stdlib.scheduling import *
 from kernels.gemm_kernels import GEPP_kernel, GEBP_kernel, Microkernel
 from format_options import *
 
+from composed_schedules import tile_loops, auto_stage_mem
+
 import exo_blas_config as C
 
 
@@ -25,6 +27,11 @@ class GEMM:
         M_reg: int,
         N_reg: int,
     ):
+        self.K_blk = K_blk
+        self.M_blk = M_blk
+        self.N_blk = N_blk
+        self.M_reg = M_reg
+        self.N_reg = N_reg
 
         self.precision = precision
         self.prefix = "s" if self.precision == "f32" else "d"
