@@ -455,6 +455,10 @@ class GEBP_kernel:
 
         return scheduled_gebp, gebp
 
+    def inline_microkernel(self, gebp: Procedure):
+        call_c = gebp.find(f"{self.microkernel.scheduled_microkernel.name()}(_)")
+        return inline(gebp, call_c)
+
     def specialize_gebp(self, gebp: Procedure, precision: str):
         args = ["A", "B", "C"]
         for arg in args:

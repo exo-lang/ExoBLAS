@@ -36,6 +36,11 @@ class GEMM:
         self.precision = precision
         self.prefix = "s" if self.precision == "f32" else "d"
 
+        ### GEMM Kernels
+        self.microkernel = Microkernel(machine, M_reg, N_reg, K_blk, precision)
+        self.gebp = GEBP_kernel(self.microkernel, M_blk, N_blk, precision)
+        self.gepp = GEPP_kernel(self.gebp, precision)
+
         ### Base GEMM procedures
 
         @proc
@@ -246,7 +251,7 @@ class GEMM:
         ]
 
     def schedule_gemm_alpha1_beta1(self, gemm: Procedure):
-
+        """
         notranspose_loop = gemm.find("for i in _:_ #0")
         notransa_transb_loop = gemm.find("for i in _:_ #1")
         transa_notransb_loop = gemm.find("for i in _:_ #2")
@@ -258,6 +263,7 @@ class GEMM:
             transa_notransb_loop,
             transa_transb_loop,
         ]
+        """
         names = [
             "gemm_alpha1_beta1_notranspose",
             "gemm_alpha1_beta1_notransa_transb",
@@ -265,14 +271,18 @@ class GEMM:
             "gemm_alpha1_beta1_transa_transb",
         ]
         scheduling_method_dict = {
-            "gemm_alpha1_beta1_notranspose": self.schedule_gemm_alpha1_beta1_notranspose
-            # TODO: Add other scheduling methods
+            "gemm_alpha1_beta1_notranspose": self.schedule_gemm_alpha1_beta1_notranspose,
+            "gemm_alpha1_beta1_notransa_transb": self.schedule_gemm_alpha1_beta1_notransa_transb,
+            "gemm_alpha1_beta1_transa_notransb": self.schedule_gemm_alpha1_beta1_transa_notransb,
+            "gemm_alpha1_beta1_transa_transb": self.schedule_gemm_alpha1_beta1_transa_transb,
         }
 
-        for loop, name in zip(loops, names):
+        for name in names:
+            loop = gemm.find("for i in _:_ #0")
             gemm, variant_base = extract_subproc(gemm, name, loop)
             scheduled_variant = scheduling_method_dict[name](variant_base)
             gemm = call_eqv(gemm, f"{name}(_)", scheduled_variant)
+            print(gemm)
 
         return gemm
 
@@ -321,6 +331,22 @@ class GEMM:
         gemm_scheduled = inline_window(gemm_scheduled, "B = B_strip[_]")
         gemm_scheduled = simplify(gemm_scheduled)
 
+        call_c = gemm_scheduled.find(f"{self.gebp.scheduled_gebp.name()}(_)")
+        gemm_scheduled = inline(gemm_scheduled, call_c)
+        gemm_scheduled = inline_window(gemm_scheduled, "C = C[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, f"A = A[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, "B = B_strip[_]")
+        gemm_scheduled = simplify(gemm_scheduled)
+
+        call_c = gemm_scheduled.find(
+            f"{self.microkernel.scheduled_microkernel.name()}(_)"
+        )
+        gemm_scheduled = inline(gemm_scheduled, call_c)
+        gemm_scheduled = inline_window(gemm_scheduled, "C = C[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, f"A = A[_]")
+        gemm_scheduled = inline_window(gemm_scheduled, "B = B_reg_strip[_]")
+        gemm_scheduled = simplify(gemm_scheduled)
+
         while True:
             try:
                 gemm_scheduled = lift_alloc(gemm_scheduled, "B_reg_strip:_")
@@ -331,11 +357,24 @@ class GEMM:
                 gemm_scheduled = lift_alloc(gemm_scheduled, "B_strip:_")
             except:
                 break
+        print(gemm_scheduled)
         gemm_scheduled = set_memory(gemm_scheduled, "B_strip:_", DRAM_STATIC)
         gemm_scheduled = set_memory(gemm_scheduled, "B_reg_strip:_", DRAM_STATIC)
 
         return gemm_scheduled
         # TODO: Schedule each of the tranpose variants
+
+    def schedule_gemm_alpha1_beta1_notransa_transb(self, gemm_procedure: Procedure):
+        # TODO
+        return gemm_procedure
+
+    def schedule_gemm_alpha1_beta1_transa_notransb(self, gemm_procedure: Procedure):
+        # TODO
+        return gemm_procedure
+
+    def schedule_gemm_alpha1_beta1_transa_transb(self, gemm_procedure: Procedure):
+        # TODO
+        return gemm_procedure
 
     def schedule_gemm_alphaneg1_beta1(self, gemm: Procedure):
 
@@ -353,7 +392,7 @@ class GEMM:
         return gemm
 
     def specialize_gemm(self, gemm: Procedure, args: list[str]):
-        name = gemm.name().replace("_base_", "")
+        name = gemm.name().replace("_base_", "_")
         spec = rename(gemm, "exo_" + self.prefix + name)
 
         for arg in args:
@@ -368,11 +407,11 @@ n_blk = C.gemm.n_blk
 m_reg = C.gemm.m_reg
 n_reg = C.gemm.n_reg
 
-gemm = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg)
+sgemm = GEMM(C.Machine, "f32", k_blk, m_blk, n_blk, m_reg, n_reg)
 
-exo_gemm_alpha1_beta1 = gemm.entry_points[0]
-exo_gemm_alphaneg1_beta1 = gemm.entry_points[1]
-exo_gemm_alpha1_betaneg1 = gemm.entry_points[2]
-exo_gemm_alphaneg1_betaneg1 = gemm.entry_points[3]
+exo_sgemm_alpha1_beta1 = sgemm.entry_points[0]
+exo_sgemm_alphaneg1_beta1 = sgemm.entry_points[1]
+exo_sgemm_alpha1_betaneg1 = sgemm.entry_points[2]
+exo_sgemm_alphaneg1_betaneg1 = sgemm.entry_points[3]
 
-__all__ = [p.name() for p in gemm.entry_points]
+__all__ = [p.name() for p in sgemm.entry_points]
