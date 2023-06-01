@@ -389,7 +389,13 @@ class SYRK:
             beta: f32[1] @ DRAM,
             C: f32[N, N] @ DRAM,
         ):
-            syrk_scheduled_lower_notranspose_noalpha(N, K, A1, A2, C)
+            syrk_lower_notranspose_noalpha(N, K, A1, A2, C)
+
+        exo_syrk_lower_notranspose_noalpha_nobeta = call_eqv(
+            exo_syrk_lower_notranspose_noalpha_nobeta,
+            f"{syrk_lower_notranspose_noalpha.name()}",
+            syrk_scheduled_lower_notranspose_noalpha,
+        )
 
         exo_syrk_lower_notranspose_noalpha_nobeta = self.specialize_syrk(
             exo_syrk_lower_notranspose_noalpha_nobeta,
