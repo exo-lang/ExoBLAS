@@ -24,6 +24,8 @@ jobs:
     - name: Install Exo
       run: |
         git clone https://github.com/exo-lang/exo.git
+        cd exo
+        git checkout const-float-compile
 
     - name: Install Python venv
       run: |

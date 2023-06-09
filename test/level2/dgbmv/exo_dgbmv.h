@@ -8,13 +8,13 @@ void exo_dgbmv(const int M, const int N, const int KL, const int KU,
                const int incY) {
   if (incX == 1 && incY == 1) {
     exo_dgbmv_row_major_NonTrans_stride_1(
-        nullptr, M, N, KL, KU, &alpha, &beta,
+        nullptr, M, N, KL, KU, alpha, beta,
         exo_win_2f64c{.data = A, .strides = {lda, 1}},
         exo_win_1f64c{.data = X, .strides = {incX}},
         exo_win_1f64{.data = Y, .strides = {incY}});
   } else {
     exo_dgbmv_row_major_NonTrans_stride_any(
-        nullptr, M, N, KL, KU, &alpha, &beta,
+        nullptr, M, N, KL, KU, alpha, beta,
         exo_win_2f64c{.data = A, .strides = {lda, 1}},
         exo_win_1f64c{.data = X, .strides = {incX}},
         exo_win_1f64{.data = Y, .strides = {incY}});
