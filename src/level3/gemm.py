@@ -35,6 +35,7 @@ class GEMM:
 
         self.precision = precision
         self.prefix = "s" if self.precision == "f32" else "d"
+        self.machine = machine
 
         ### GEMM Kernels
         self.microkernel = Microkernel(machine, M_reg, N_reg, K_blk, precision)
@@ -351,6 +352,55 @@ class GEMM:
         gemm_scheduled = set_memory(gemm_scheduled, "B_reg_strip:_", DRAM_STATIC)
 
         # Edge case handling
+        # Handle as much as possible with normal microkernel
+        gemm_scheduled = divide_loop(
+            gemm_scheduled, "ii", self.microkernel.M_r, ["iio", "iii"], tail="cut"
+        )
+        gemm_scheduled = divide_loop(
+            gemm_scheduled, "j", self.microkernel.N_r, ["jo", "ji"], tail="cut"
+        )
+        gemm_scheduled = simplify(gemm_scheduled)
+        gemm_scheduled = reorder_loops(gemm_scheduled, "iii jo")
+        gemm_scheduled = replace(
+            gemm_scheduled, "for iii in _:_ #0", self.microkernel.base_microkernel
+        )
+        call_c = gemm_scheduled.find(f"microkernel_{self.microkernel.this_id}(_)")
+        gemm_scheduled = call_eqv(
+            gemm_scheduled, call_c, self.microkernel.scheduled_microkernel
+        )
+
+        # Now, handle the remaining portions
+        gemm_scheduled = divide_loop(
+            gemm_scheduled, "j", self.microkernel.N_r, ["jo", "ji"], tail="cut"
+        )
+        gemm_scheduled = simplify(gemm_scheduled)
+        gemm_scheduled = reorder_loops(gemm_scheduled, "iii jo")
+        edge_microkernels = {}
+        for i in range(1, self.microkernel.M_r):
+            edge_microkernels[i] = Microkernel(
+                self.machine,
+                i,
+                self.microkernel.N_r,
+                self.microkernel.K_blk,
+                self.precision,
+            )
+        gemm_scheduled = specialize(
+            gemm_scheduled,
+            "for iii in _:_",
+            [f"M % 192 % 6 == {i}" for i in range(1, self.microkernel.M_r)],
+        )
+        gemm_scheduled = simplify(gemm_scheduled)
+        for i in range(1, self.microkernel.M_r):
+            loop_c = gemm_scheduled.find(f"for iii in _:_")
+            gemm_scheduled = replace(
+                gemm_scheduled, loop_c, edge_microkernels[i].base_microkernel
+            )
+            call_c = gemm_scheduled.find(
+                f"microkernel_{edge_microkernels[i].this_id}(_)"
+            )
+            gemm_scheduled = call_eqv(
+                gemm_scheduled, call_c, edge_microkernels[i].scheduled_microkernel
+            )
 
         return gemm_scheduled
         # TODO: Schedule each of the tranpose variants
