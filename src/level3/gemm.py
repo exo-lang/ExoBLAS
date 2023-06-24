@@ -271,7 +271,6 @@ class GEMM:
             gemm, variant_base = extract_subproc(gemm, name, loop)
             scheduled_variant = scheduling_method_dict[name](variant_base)
             gemm = call_eqv(gemm, f"{name}(_)", scheduled_variant)
-            print(gemm)
 
         return gemm
 
@@ -387,7 +386,10 @@ class GEMM:
         gemm_scheduled = specialize(
             gemm_scheduled,
             "for iii in _:_",
-            [f"M % 192 % 6 == {i}" for i in range(1, self.microkernel.M_r)],
+            [
+                f"M % {self.gebp.M_blk} % {self.microkernel.M_r} == {i}"
+                for i in range(1, self.microkernel.M_r)
+            ],
         )
         gemm_scheduled = simplify(gemm_scheduled)
         for i in range(1, self.microkernel.M_r):
