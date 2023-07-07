@@ -101,13 +101,13 @@ class Microkernel:
         self.scheduled_microkernel, self.base_microkernel = self.generate_microkernel(
             machine, M_r, N_r, K_blk
         )
-        print(self.scheduled_microkernel.c_code_str())
-        (
-            self.scheduled_zpad_microkernel,
-            self.base_zpad_microkernel,
-        ) = self.generate_microkernel_zpad(
-            machine, 8 if precision == "f32" else 16, N_r, K_blk
-        )
+
+        # (
+        #    self.scheduled_zpad_microkernel,
+        #    self.base_zpad_microkernel,
+        # ) = self.generate_microkernel_zpad(
+        #    machine, 8 if precision == "f32" else 16, N_r, K_blk
+        # )
 
     def generate_sgemm_window(self, proc, name):
         proc = rename(proc, name)
@@ -196,12 +196,7 @@ class Microkernel:
         return sched_mk, microkernel
 
     def generate_microkernel_zpad(
-        self,
-        machine: MachineParameters,
-        M_r: int,
-        N_r: int,
-        K_blk: int,
-        M_blk: int = 32,
+        self, machine: MachineParameters, M_r: int, N_r: int, K_blk: int, M_blk: int
     ):
         base_microkernel = rename(
             self.sgemm_window2, f"microkernelzpad_{self.microkernel_id}"

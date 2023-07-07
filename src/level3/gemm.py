@@ -281,7 +281,7 @@ class GEMM:
             "k",
             self.microkernel.K_blk,
             ["ko", "ki"],
-            tail="cut_and_guard",
+            tail="cut",
         )
         gemm_scheduled = autofission(
             gemm_scheduled, gemm_scheduled.find("for ko in _:_ #0").after(), n_lifts=2
@@ -403,6 +403,40 @@ class GEMM:
             gemm_scheduled = call_eqv(
                 gemm_scheduled, call_c, edge_microkernels[i].scheduled_microkernel
             )
+
+        # Do zero padding to handle other edge case
+        # Handle as much as possible with microkernel
+        # TODO: This is very redundant w/ other code blocks above. Should make this a composed schedule
+        gemm_scheduled = divide_loop(
+            gemm_scheduled, "i #0", self.microkernel.M_r, ["io", "ii"], tail="cut"
+        )
+        gemm_scheduled = divide_loop(
+            gemm_scheduled, "ji #1", self.microkernel.N_r, ["jio", "jii"], tail="cut"
+        )
+        loop_c = gemm_scheduled.find("for jii in _:_ #1")
+        gemm_scheduled = autofission(gemm_scheduled, loop_c.before(), n_lifts=2)
+        gemm_scheduled = reorder_loops(gemm_scheduled, "ii jio")
+        gemm_scheduled = replace(
+            gemm_scheduled, "for ii in _:_ #0", self.microkernel.base_microkernel
+        )
+        call_c = gemm_scheduled.find(f"microkernel_{self.microkernel.this_id}(_)")
+        gemm_scheduled = call_eqv(
+            gemm_scheduled, call_c, self.microkernel.scheduled_microkernel
+        )
+
+        sched_zpad, base_zpad = self.microkernel.generate_microkernel_zpad(
+            self.machine,
+            self.microkernel.M_r,
+            self.microkernel.N_r,
+            self.microkernel.K_blk,
+            self.gebp.M_blk,
+        )
+        loop_c = gemm_scheduled.find("for ii in _:_ #0")
+        gemm_scheduled = replace(gemm_scheduled, loop_c, base_zpad)
+        call_c = gemm_scheduled.find(
+            f"microkernelzpad_{self.microkernel.microkernel_id}(_)"
+        )
+        gemm_scheduled = call_eqv(gemm_scheduled, call_c, sched_zpad)
 
         return gemm_scheduled
         # TODO: Schedule each of the tranpose variants
