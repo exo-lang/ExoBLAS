@@ -61,13 +61,9 @@ def schedule_rot_stride_1(VEC_W, INTERLEAVE_FACTOR, memory, instructions, precis
         simple_stride_1, simple_stride_1.find_loop("io"), INTERLEAVE_FACTOR
     )
 
-    regs_to_hoist = ["reg3", "reg2", "sReg", "reg11", "cReg", "reg4"]
-    stmts_to_hoist = ["c", "s", "reg2[_]", "-sReg[_]", "reg3[_]", "cReg[_]"]
-    for reg in regs_to_hoist:
-        simple_stride_1 = lift_alloc(simple_stride_1, reg)
-    for stmt in stmts_to_hoist:
-        loop = simple_stride_1.find(stmt).parent().parent()
-        simple_stride_1 = hoist_stmt(simple_stride_1, loop)
+    simple_stride_1 = apply_to_block(
+        simple_stride_1, simple_stride_1.forward(loop_cursor).body(), hoist_stmt
+    )
 
     simple_stride_1 = replace_all(simple_stride_1, instructions)
 

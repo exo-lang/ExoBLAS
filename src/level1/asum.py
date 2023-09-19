@@ -38,24 +38,26 @@ def schedule_asum_stride_1_interleaved(
     simple_stride_1 = rename(asum, asum.name() + "_stride_1")
     simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
 
-    simple_stride_1 = parallelize_reduction(
+    simple_stride_1 = stage_mem(
+        simple_stride_1,
+        simple_stride_1.find_loop("i").body(),
+        f"x[i]",
+        "xReg",
+    )
+
+    simple_stride_1, _ = parallelize_reduction(
         simple_stride_1,
         simple_stride_1.find_loop("i"),
         "result",
         VEC_W,
-        INTERLEAVE_FACTOR // 2,
         memory,
         precision,
     )
 
-    lower_bound = f"{VEC_W} * im + {VEC_W * INTERLEAVE_FACTOR // 2} * io"
-    simple_stride_1 = simplify(
-        stage_mem(
-            simple_stride_1,
-            simple_stride_1.find_loop("im").body()[0],
-            f"x[{lower_bound}: {lower_bound} + {VEC_W}]",
-            "xReg",
-        )
+    simple_stride_1 = expand_dim(simple_stride_1, "xReg", VEC_W, "ii")
+    simple_stride_1 = lift_alloc(simple_stride_1, "xReg")
+    simple_stride_1 = fission(
+        simple_stride_1, simple_stride_1.find("xReg[_] = _").after()
     )
 
     simple_stride_1 = stage_expr(
@@ -66,20 +68,31 @@ def schedule_asum_stride_1_interleaved(
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
         simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
 
+    simple_stride_1, _ = parallelize_reduction(
+        simple_stride_1,
+        simple_stride_1.find_loop("io"),
+        f"reg[0:{VEC_W}]",
+        INTERLEAVE_FACTOR // 2,
+        memory,
+        precision,
+    )
+
     simple_stride_1 = replace_all(simple_stride_1, instructions)
+    simple_stride_1 = unroll_loop(simple_stride_1, simple_stride_1.find_loop("ioi"))
+    simple_stride_1 = interleave_execution(
+        simple_stride_1, simple_stride_1.find_loop("ioi"), INTERLEAVE_FACTOR // 2
+    )
+    simple_stride_1 = interleave_execution(
+        simple_stride_1, simple_stride_1.find_loop("ioo"), 2
+    )
+    simple_stride_1 = unroll_loop(simple_stride_1, simple_stride_1.find_loop("ioi"))
+
+    simple_stride_1 = simplify(simple_stride_1)
 
     for i in range(4):
         select_cursor = simple_stride_1.find("select(_, _, _, _)")
         arg_cursor = select_cursor.args()[i]
         simple_stride_1 = bind_expr(simple_stride_1, [arg_cursor], f"tmp_{i}")
-
-    simple_stride_1 = interleave_execution(
-        simple_stride_1, simple_stride_1.find_loop("im"), INTERLEAVE_FACTOR // 2
-    )
-    simple_stride_1 = interleave_execution(
-        simple_stride_1, simple_stride_1.find_loop("io"), 2
-    )
-    simple_stride_1 = simplify(simple_stride_1)
 
     return simple_stride_1
 
@@ -108,7 +121,7 @@ def avx2_abs_pd(dst: [f64][8] @ AVX2, src: [f64][8] @ AVX2):
         dst[i] = select(0.0, src[i], src[i], -src[i])
 
 
-INTERLEAVE_FACTOR = C.Machine.vec_units * 2 * 2
+INTERLEAVE_FACTOR = 8
 
 #################################################
 # Generate specialized kernels for f32 precision

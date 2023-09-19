@@ -194,7 +194,9 @@ def schedule_trmv_row_major_vectorize_reuse_over_rows(
         dot_alloc = trmv.find("dot : _")
         trmv = set_memory(trmv, "dot", DRAM_STATIC)
         trmv = unroll_loop(trmv, trmv.find_loop("ii"))
-    return simplify(trmv)
+    trmv = simplify(trmv)
+
+    return trmv
 
 
 template_sched_list = [
