@@ -86,7 +86,7 @@ def get_statement(cursor):
     return cursor
 
 
-def stage_expr(proc, expr_cursor, new_name, precision="R", memory=DRAM):
+def stage_expr(proc, expr_cursor, new_name, precision="R", memory=DRAM, n_lifts=1):
     """
     for i in seq(0, hi):
         s (e(i));
@@ -112,8 +112,8 @@ def stage_expr(proc, expr_cursor, new_name, precision="R", memory=DRAM):
     proc = expand_dim(
         proc, alloc_stmt, expr_to_string(enclosing_loop.hi()), enclosing_loop.name()
     )
-    proc = lift_alloc(proc, alloc_stmt, n_lifts=1)
-    proc = fission(proc, bind_stmt.after())
+    proc = lift_alloc(proc, alloc_stmt, n_lifts=n_lifts)
+    proc = fission(proc, bind_stmt.after(), n_lifts=n_lifts)
     return proc
 
 
@@ -203,11 +203,18 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             staged_allocs.append(stmt)
 
     inner_loop_cursor = proc.forward(inner_loop_cursor)
-    inner_loop_stmts = list(inner_loop_cursor.body())
 
-    for stmt in inner_loop_stmts[:-1]:
-        forwarded_stmt = proc.forward(stmt)
-        proc = fission(proc, forwarded_stmt.after())
+    def fission_stmts(body, depth=1):
+        for stmt in list(body)[:-1]:
+            forwarded_stmt = proc.forward(stmt)
+            proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
+            forwarded_stmt = proc.forward(stmt)
+            if isinstance(stmt, IfCursor):
+                fission_stmts(stmt.body(), depth + 1)
+            elif isinstance(stmt, ForSeqCursor):
+                raise BLAS_SchedulingError("This is an inner loop vectorizer")
+
+    fission_stmts(inner_loop_cursor.body())
 
     def detect_madd(expr):
         return (
@@ -259,12 +266,22 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         else:
             return [expr]
 
-    for stmt in inner_loop_stmts:
+    is_assign_or_reduce = lambda stmt: isinstance(stmt, (AssignCursor, ReduceCursor))
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
+
+    def vectorize_rhs(proc, stmt, depth=1):
+        if not is_assign_or_reduce(stmt):
+            return proc
+
         flat_rhs = get_expr_subtree_cursors(stmt.rhs(), stmt, False)
 
         for expr in flat_rhs:
-            proc = stage_expr(proc, expr, f"reg", precision, memory_type)
+            proc = stage_expr(proc, expr, f"reg", precision, memory_type, depth)
 
+        return proc
+
+    def vectorize_stmt(proc, stmt, depth=1):
+        proc = vectorize_rhs(proc, stmt, depth)
         if isinstance(stmt, ReduceCursor):
             alloc_stmt = get_declaration(proc, stmt, stmt.name())
             if alloc_stmt.mem() != memory_type:
@@ -279,12 +296,23 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
                 proc = stage_alloc(proc, alloc_cursor)
 
                 forwarded_stmt = proc.forward(stmt)
-                proc = fission(proc, forwarded_stmt.after())
+                proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
                 forwarded_stmt = proc.forward(forwarded_stmt)
-                proc = fission(proc, forwarded_stmt.before())
+                proc = fission(proc, forwarded_stmt.before(), n_lifts=depth)
 
                 proc = set_memory(proc, alloc_cursor, memory_type)
                 proc = set_precision(proc, alloc_cursor, precision)
+        elif isinstance(stmt, IfCursor):
+            assert len(stmt.body()) == 1
+            if not isinstance(stmt.orelse(), InvalidCursor):
+                raise BLAS_SchedulingError("Not implemented yet")
+            proc = vectorize_stmt(proc, stmt.body()[0], depth + 1)
+        else:
+            raise BLAS_SchedulingError("Not implemented yet")
+        return proc
+
+    for stmt in inner_loop_cursor.body():
+        proc = vectorize_stmt(proc, stmt)
 
     for alloc in staged_allocs:
         proc = set_memory(proc, alloc, memory_type)
@@ -414,6 +442,7 @@ def parallelize_reduction(
     parllel_factor,
     memory_type,
     precision,
+    tail="cut",
 ):
     """
     for i in seq(0, n):
@@ -452,7 +481,7 @@ def parallelize_reduction(
             loop_cursor,
             parllel_factor,
             (loop_cursor.name() + "o", loop_cursor.name() + "i"),
-            tail="cut",
+            tail=tail,
         )
         outer_loop_cursor = proc.forward(loop_cursor)
     else:
@@ -577,9 +606,13 @@ def vectorize(
             vec_width,
             memory_type,
             precision,
+            tail="guard",
         )
         loop_cursor = proc.forward(loop_cursor)
         inner_loop = loop_cursor.body()[0]
+        proc = cut_loop(proc, loop_cursor, FormattedExprStr("_ - 1", loop_cursor.hi()))
+        inner_loop = proc.forward(inner_loop)
+        proc = remove_if(proc, inner_loop.body()[0])
     else:
         inner_loop = loop_cursor
     proc = vectorize_to_loops(proc, inner_loop, vec_width, memory_type, precision)
