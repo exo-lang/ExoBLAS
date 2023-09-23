@@ -689,6 +689,7 @@ class SYRK:
             gepp_syrk_scheduled, "i", self.M_blk, ["io", "ii"], tail="cut"
         )
         gepp_syrk_scheduled = cut_loop(gepp_syrk_scheduled, "for j in _:_", 1)
+        gepp_syrk_scheduled = shift_loop(gepp_syrk_scheduled, "for j in _:_ #1", 0)
         gepp_syrk_scheduled = divide_loop(
             gepp_syrk_scheduled, "j #1", self.M_blk, ["jo", "ji"], tail="cut"
         )
