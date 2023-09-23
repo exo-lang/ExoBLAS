@@ -787,7 +787,6 @@ class SYRK:
             n_lifts=1,
         )
         diag_syrk_scheduled = simplify(diag_syrk_scheduled)
-        print(diag_syrk_scheduled)
         diag_syrk_scheduled = reorder_loops(diag_syrk_scheduled, "iii jio")
         diag_syrk_scheduled = replace(
             diag_syrk_scheduled,
@@ -831,8 +830,6 @@ class SYRK:
             )
             microkernel_diag_base = microkernel_diag_handler.base_microkernel
             microkernel_diag_scheduled = microkernel_diag_handler.scheduled_microkernel
-            print(diag_syrk_scheduled)
-            print(unsafe_microkernel_base)
             # print(microkernel_diag_scheduled)
 
             @proc
@@ -896,7 +893,6 @@ class SYRK:
             #    avx2_mask_storeu_ps,
             # )
             # unsafe_microkernel_scheduled = reorder_loops(unsafe_microkernel_scheduled, "io iio")
-            print(unsafe_microkernel_scheduled)
 
             # unsafe_microkernel_scheduled = unsafe_microkernel_scheduled.partial_eval(M=microkernel_diag_handler.M_r, N=)
 
