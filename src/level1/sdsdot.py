@@ -75,21 +75,19 @@ def schedule_sdsdot_stride_1(VEC_W, memory, instructions):
         simple_stride_1, simple_stride_1.find("d_y[_] = _").before()
     )
 
-    simple_stride_1 = cut_loop(
-        simple_stride_1, simple_stride_1.find("resultReg[_] = _").parent(), VEC_W // 2
-    )
-    simple_stride_1 = cut_loop(
-        simple_stride_1, simple_stride_1.find("d_x[_] = _").parent(), VEC_W // 2
-    )
-    simple_stride_1 = cut_loop(
-        simple_stride_1, simple_stride_1.find("d_y[_] = _").parent(), VEC_W // 2
-    )
-    simple_stride_1 = cut_loop(
-        simple_stride_1, simple_stride_1.find("resultReg += _").parent(), VEC_W // 2
-    )
-    simple_stride_1 = cut_loop(
-        simple_stride_1, simple_stride_1.find("d_result += _").parent(), VEC_W // 2
-    )
+    loops_to_cuts = [
+        simple_stride_1.find("resultReg[_] = _").parent(),
+        simple_stride_1.find("d_x[_] = _").parent(),
+        simple_stride_1.find("d_y[_] = _").parent(),
+        simple_stride_1.find("resultReg += _").parent(),
+        simple_stride_1.find("d_result += _").parent(),
+    ]
+
+    for loop in loops_to_cuts:
+        simple_stride_1 = cut_loop(simple_stride_1, loop, VEC_W // 2)
+        simple_stride_1 = shift_loop(
+            simple_stride_1, simple_stride_1.forward(loop).next(), 0
+        )
 
     simple_stride_1 = divide_dim(simple_stride_1, "d_x", 0, VEC_W // 2)
     simple_stride_1 = divide_dim(simple_stride_1, "d_y", 0, VEC_W // 2)

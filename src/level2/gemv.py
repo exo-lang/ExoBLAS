@@ -168,10 +168,12 @@ def schedule_Trans(
     stride_1 = set_memory(stride_1, "yReg", memory)
     for i in range(VECTORIZATION_INTERLEAVE_FACTOR - 1):
         stride_1 = cut_loop(stride_1, f"for i0 in _:_ #{i}", VEC_W)
+        stride_1 = shift_loop(stride_1, f"for i0 in _:_ #{i + 1}", 0)
     for i in range(
         VECTORIZATION_INTERLEAVE_FACTOR, 2 * VECTORIZATION_INTERLEAVE_FACTOR - 1
     ):
         stride_1 = cut_loop(stride_1, f"for i0 in _:_ #{i}", VEC_W)
+        stride_1 = shift_loop(stride_1, f"for i0 in _:_ #{i + 1}", 0)
     stride_1 = simplify(stride_1)
     stride_1 = replace_all(stride_1, instructions)
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
