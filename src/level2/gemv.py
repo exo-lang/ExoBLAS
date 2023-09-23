@@ -21,6 +21,7 @@ from composed_schedules import (
     apply_to_block,
     hoist_stmt,
     stage_expr,
+    vectorize,
 )
 
 
@@ -89,38 +90,37 @@ def schedule_NonTrans(
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
 
-    stride_1 = parallelize_reduction(
+    stride_1 = vectorize(
         stride_1,
         stride_1.find_loop("j"),
-        "result",
         VEC_W,
+        VECTORIZATION_INTERLEAVE_FACTOR,
         VECTORIZATION_INTERLEAVE_FACTOR,
         memory,
         precision,
-    )
-    loop_cursor = stride_1.find_loop("jo").body()[0].body()[0]
-    stride_1 = vectorize_to_loops(stride_1, loop_cursor, VEC_W, memory, precision)
-    stride_1 = interleave_execution(
-        stride_1, stride_1.find_loop("jm"), VECTORIZATION_INTERLEAVE_FACTOR
+        None,
     )
 
     stride_1 = interleave_outer_loop_with_inner_loop(
         stride_1,
         stride_1.find_loop("i"),
-        stride_1.find_loop("jo"),
+        stride_1.find_loop("joo"),
         ROWS_INTERLEAVE_FACTOR,
     )
     stride_1 = apply_to_block(
-        stride_1, stride_1.find_loop("jo").body()[0].body(), hoist_stmt
+        stride_1, stride_1.find_loop("joo").body()[0].body(), hoist_stmt
     )
     stride_1 = set_memory(stride_1, "result", DRAM_STATIC)
     stride_1 = replace_all(stride_1, instructions)
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("joi"))
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
     stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
-    stride_1 = unroll_loop(stride_1, stride_1.find_loop("ii"))
+    stride_1 = unroll_loop(stride_1, stride_1.find_loop("joi"))
     stride_1 = stage_mem(stride_1, stride_1.body(), "alpha", "alpha_")
     stride_1 = stage_mem(stride_1, stride_1.body(), "beta", "beta_")
-    return simplify(stride_1)
+    stride_1 = simplify(stride_1)
+
+    return stride_1
 
 
 def schedule_Trans(

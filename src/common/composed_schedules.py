@@ -259,25 +259,19 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         else:
             return [expr]
 
-    reg_name_counter = 0
-
     for stmt in inner_loop_stmts:
         flat_rhs = get_expr_subtree_cursors(stmt.rhs(), stmt, False)
 
         for expr in flat_rhs:
-            proc = stage_expr(
-                proc, expr, f"reg{reg_name_counter}", precision, memory_type
-            )
-            reg_name_counter += 1
+            proc = stage_expr(proc, expr, f"reg", precision, memory_type)
 
         if isinstance(stmt, ReduceCursor):
             alloc_stmt = get_declaration(proc, stmt, stmt.name())
             if alloc_stmt.mem() != memory_type:
-                lhs_reg = f"reg{reg_name_counter}"
-                reg_name_counter += 1
 
+                lhs_reg = "reg"
                 proc = stage_mem(
-                    proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}]", lhs_reg
+                    proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}", lhs_reg
                 )
                 forwarded_stmt = proc.forward(stmt)
 
@@ -417,28 +411,26 @@ def parallelize_reduction(
     proc,
     loop_cursor,
     reduction_buffers,
-    vec_width,
-    accumulators_count,
+    parllel_factor,
     memory_type,
     precision,
 ):
     """
     for i in seq(0, n):
-        x += y[i]
+        x[...] += y[i]
 
     ----->
 
-    xReg: f32[accumulators_count][vec_width]
-    for im in seq(0, accumulators_count):
+    xReg: f32[parllel_factor]
+    for ii in seq(0, parllel_factor):
+        xReg[ii][...] = 0.0
+    for io in seq(0, n / parllel_factor):
         for ii in seq(0, vec_width):
-            xReg[im][ii] = 0.0
-    for io in seq(0, n / vec_width):
-        for im in seq(0, accumulators_count):
-            for ii in seq(0, vec_width):
-                xReg[im][ii] += y[i]
-    for im in seq(0, accumulators_count):
-        for ii in seq(0, vec_width):
-            x += xReg[im][ii]
+            xReg[ii][..] += y[io * parllel_factor + ii]
+    for ii in seq(0, parllel_factor):
+        x[...] += xReg[ii]
+
+    Returns: (proc, allocation cursors)
     """
     if not isinstance(loop_cursor, ForSeqCursor):
         raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
@@ -446,34 +438,39 @@ def parallelize_reduction(
     if not isinstance(reduction_buffers, list):
         reduction_buffers = [reduction_buffers]
 
+    if parllel_factor is None or parllel_factor == 1:
+        return proc, []
+
     loop_cursor = proc.forward(loop_cursor)
-    reg_name = lambda name: f"{name}_parallel_reduction_reg"
 
-    if accumulators_count == 1:
-        if not (
-            isinstance(loop_cursor.hi(), LiteralCursor)
-            and loop_cursor.hi().value() > vec_width
-        ):
-            proc = divide_loop(
-                proc,
-                loop_cursor,
-                vec_width,
-                (loop_cursor.name() + "o", loop_cursor.name() + "i"),
-                tail="cut",
-            )
-            outer_loop_cursor = proc.forward(loop_cursor)
-            inner_loop_cursor = outer_loop_cursor.body()[0]
-        else:
-            raise BLAS_SchedulingError(
-                "Cannot parallelize reduction over a loop with hi smaller than vector width"
-            )
+    if not (
+        isinstance(loop_cursor.hi(), LiteralCursor)
+        and loop_cursor.hi().value() > parllel_factor
+    ):
+        proc = divide_loop(
+            proc,
+            loop_cursor,
+            parllel_factor,
+            (loop_cursor.name() + "o", loop_cursor.name() + "i"),
+            tail="cut",
+        )
+        outer_loop_cursor = proc.forward(loop_cursor)
+    else:
+        raise BLAS_SchedulingError(
+            "Cannot parallelize reduction over a loop with hi smaller than vector width"
+        )
 
-        proc = reorder_loops(proc, outer_loop_cursor)
+    proc = reorder_loops(proc, outer_loop_cursor)
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    allocation_cursors = []
+    for buffer in reduction_buffers:
+        proc = simplify(stage_mem(proc, outer_loop_cursor, buffer, "reg", accum=True))
         outer_loop_cursor = proc.forward(outer_loop_cursor)
-        for buffer in reduction_buffers:
-            proc = simplify(
-                stage_mem(proc, outer_loop_cursor, buffer, reg_name(buffer), accum=True)
-            )
+        alloc_cursor = outer_loop_cursor.prev().prev()
+        allocation_cursors.append(alloc_cursor)
+        proc = set_memory(proc, alloc_cursor, memory_type)
+        proc = set_precision(proc, alloc_cursor, precision)
+
         outer_loop_cursor = proc.forward(outer_loop_cursor)
         proc = stage_alloc(proc, outer_loop_cursor.prev().prev())
         forwarded_outer_loop = proc.forward(outer_loop_cursor)
@@ -482,62 +479,8 @@ def parallelize_reduction(
         proc = fission(proc, forwarded_outer_loop.after())
         forwarded_outer_loop = proc.forward(outer_loop_cursor)
         proc = reorder_loops(proc, forwarded_outer_loop.parent())
-    else:
-        if not (
-            isinstance(loop_cursor.hi(), LiteralCursor)
-            and loop_cursor.hi().value() > vec_width * accumulators_count
-        ):
-            proc = divide_loop(
-                proc,
-                loop_cursor,
-                vec_width * accumulators_count,
-                (loop_cursor.name() + "o", loop_cursor.name() + "i"),
-                tail="cut",
-            )
-            outer_loop_cursor = proc.forward(loop_cursor)
-            inner_loop_cursor = outer_loop_cursor.body()[0]
-            proc = divide_loop(
-                proc,
-                inner_loop_cursor,
-                vec_width,
-                (loop_cursor.name() + "m", loop_cursor.name() + "i"),
-                perfect=True,
-            )
-            outer_loop_cursor = proc.forward(loop_cursor)
-            middle_loop_cursor = proc.forward(inner_loop_cursor)
-            inner_loop_cursor = middle_loop_cursor.body()[0]
-        else:
-            raise BLAS_SchedulingError(
-                "Cannot parallelize reduction over a loop with hi smaller than vector_width * accumulators_count"
-            )
 
-        proc = reorder_loops(proc, outer_loop_cursor)
-        proc = reorder_loops(proc, outer_loop_cursor)
-        for buffer in reduction_buffers:
-            proc = simplify(
-                stage_mem(proc, outer_loop_cursor, buffer, reg_name(buffer), accum=True)
-            )
-        outer_loop_cursor = proc.forward(outer_loop_cursor)
-        alloc_cursor = outer_loop_cursor.prev().prev()
-        proc = stage_alloc(proc, alloc_cursor)
-        proc = stage_alloc(proc, alloc_cursor)
-        forwarded_outer_loop = proc.forward(outer_loop_cursor)
-        proc = fission(proc, forwarded_outer_loop.before(), n_lifts=2)
-        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
-        proc = fission(proc, forwarded_outer_loop.after(), n_lifts=2)
-        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
-        proc = reorder_loops(proc, forwarded_outer_loop.parent())
-        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
-        proc = reorder_loops(proc, forwarded_outer_loop.parent())
-        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
-        proc = unroll_loop(proc, forwarded_outer_loop.prev())
-        forwarded_outer_loop = proc.forward(forwarded_outer_loop)
-        proc = unroll_loop(proc, forwarded_outer_loop.next())
-
-    for buffer in reduction_buffers:
-        proc = set_memory(proc, reg_name(buffer), memory_type)
-        proc = set_precision(proc, reg_name(buffer), precision)
-    return proc
+    return proc, tuple(allocation_cursors)
 
 
 def interleave_outer_loop_with_inner_loop(
@@ -626,46 +569,51 @@ def vectorize(
         if isinstance(stmt, ReduceCursor) and len(stmt.idx()) == 0:
             reduction_buffers.append(stmt.name())
 
-    if accumulators_count != None and len(reduction_buffers) > 0:
-        if interleave_factor % accumulators_count != 0:
-            raise BLAS_SchedulingError(
-                "vectorize interleave_factor must be a multiple of the accumulators_count"
-            )
-        proc = parallelize_reduction(
+    if len(reduction_buffers):
+        proc, allocation_cursors = parallelize_reduction(
             proc,
             loop_cursor,
             reduction_buffers,
             vec_width,
+            memory_type,
+            precision,
+        )
+        loop_cursor = proc.forward(loop_cursor)
+        inner_loop = loop_cursor.body()[0]
+    else:
+        inner_loop = loop_cursor
+    proc = vectorize_to_loops(proc, inner_loop, vec_width, memory_type, precision)
+    if len(reduction_buffers) and accumulators_count > 1:
+        allocation_cursors = [proc.forward(cur) for cur in allocation_cursors]
+        loop_cursor = proc.forward(loop_cursor)
+        proc, _ = parallelize_reduction(
+            proc,
+            loop_cursor,
+            [f"{i.name()}[0:{vec_width}]" for i in allocation_cursors],
             accumulators_count,
             memory_type,
             precision,
         )
         loop_cursor = proc.forward(loop_cursor)
-        if accumulators_count > 1:
-            middle_loop = loop_cursor.body()[0]
-            inner_loop = middle_loop.body()[0]
-            proc = vectorize_to_loops(
-                proc, inner_loop, vec_width, memory_type, precision
-            )
-            if instructions != None:
-                proc = replace_all(proc, instructions)
-            proc = interleave_execution(proc, middle_loop, accumulators_count)
+        if instructions != None:
+            proc = replace_all(proc, instructions)
+        if interleave_factor is not None and interleave_factor > 0:
+            loop_cursor = proc.forward(loop_cursor)
+            inner_loop = loop_cursor.body()[0]
+            proc = interleave_execution(proc, inner_loop, accumulators_count)
+            if interleave_factor % accumulators_count != 0:
+                raise BLAS_SchedulingError(
+                    "vectorize interleave_factor must be a multiple of the accumulators_count"
+                )
             proc = interleave_execution(
                 proc, loop_cursor, interleave_factor // accumulators_count
             )
-        else:
-            inner_loop = loop_cursor.body()[0]
-            proc = vectorize_to_loops(
-                proc, inner_loop, vec_width, memory_type, precision
-            )
-            if instructions != None:
-                proc = replace_all(proc, instructions)
-            proc = interleave_execution(proc, loop_cursor, interleave_factor)
-    else:
-        proc = vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision)
+
+    elif interleave_factor is not None:
         if instructions != None:
             proc = replace_all(proc, instructions)
         proc = interleave_execution(proc, loop_cursor, interleave_factor)
+
     return proc
 
 
