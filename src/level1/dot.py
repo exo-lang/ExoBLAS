@@ -39,20 +39,18 @@ def dot_template(n: size, x: [R][n], y: [R][n], result: R):
     """
 {{
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi32({bound} - {a});
+    __m256i prefix = _mm256_set1_epi32({bound});
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
     {dst_data} = _mm256_maskload_ps(&{src_data}, cmp);
 }}
 """
 )
-def mm256_prefix_load_ps(
-    dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM, bound: size, a: size
-):
+def mm256_prefix_load_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM, bound: size):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
-    assert bound - a < 8
+    assert bound <= 8
     for i in seq(0, 8):
-        if i + a < bound:
+        if i < bound:
             dst[i] = src[i]
 
 
@@ -60,20 +58,18 @@ def mm256_prefix_load_ps(
     """
        {{
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-            __m256i prefix = _mm256_set1_epi64x({bound} - {a});
+            __m256i prefix = _mm256_set1_epi64x({bound});
             __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
             {dst_data} = _mm256_maskload_pd(&{src_data}, cmp);
        }}
        """
 )
-def mm256_prefix_load_pd(
-    dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM, bound: size, a: size
-):
+def mm256_prefix_load_pd(dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM, bound: size):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
-    assert bound - a < 4
+    assert bound <= 4
     for i in seq(0, 4):
-        if i + a < bound:
+        if i < bound:
             dst[i] = src[i]
 
 
@@ -81,7 +77,7 @@ def mm256_prefix_load_pd(
     """
 {{
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi32({bound} - {a});
+    __m256i prefix = _mm256_set1_epi32({bound});
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
     __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), {src1_data}, _mm256_castsi256_ps(cmp));
     {dst_data} = _mm256_fmadd_ps(prefixed_src1, {src2_data}, {dst_data});
@@ -89,19 +85,15 @@ def mm256_prefix_load_pd(
 """
 )
 def mm256_prefix_fmadd_ps(
-    dst: [f32][8] @ AVX2,
-    src1: [f32][8] @ AVX2,
-    src2: [f32][8] @ AVX2,
-    bound: size,
-    a: size,
+    dst: [f32][8] @ AVX2, src1: [f32][8] @ AVX2, src2: [f32][8] @ AVX2, bound: size
 ):
     assert stride(src1, 0) == 1
     assert stride(src2, 0) == 1
     assert stride(dst, 0) == 1
-    assert bound - a < 8
+    assert bound <= 8
 
     for i in seq(0, 8):
-        if i + a < bound:
+        if i < bound:
             dst[i] += src1[i] * src2[i]
 
 
@@ -109,7 +101,7 @@ def mm256_prefix_fmadd_ps(
     """
 {{
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi64x({bound} - {a});
+    __m256i prefix = _mm256_set1_epi64x({bound});
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
     __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), {src1_data}, _mm256_castsi256_pd(cmp));
     {dst_data} = _mm256_fmadd_pd(prefixed_src1, {src2_data}, {dst_data});
@@ -117,19 +109,15 @@ def mm256_prefix_fmadd_ps(
 """
 )
 def mm256_prefix_fmadd_pd(
-    dst: [f64][4] @ AVX2,
-    src1: [f64][4] @ AVX2,
-    src2: [f64][4] @ AVX2,
-    bound: size,
-    a: size,
+    dst: [f64][4] @ AVX2, src1: [f64][4] @ AVX2, src2: [f64][4] @ AVX2, bound: size
 ):
     assert stride(src1, 0) == 1
     assert stride(src2, 0) == 1
     assert stride(dst, 0) == 1
-    assert bound - a < 4
+    assert bound <= 4
 
     for i in seq(0, 4):
-        if i + a < bound:
+        if i < bound:
             dst[i] += src1[i] * src2[i]
 
 
