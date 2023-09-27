@@ -204,7 +204,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
 
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
-    def fission_stmts(body, depth=1):
+    def fission_stmts(proc, body, depth=1):
         for stmt in list(body)[:-1]:
             forwarded_stmt = proc.forward(stmt)
             proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
@@ -214,7 +214,9 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             elif isinstance(stmt, ForSeqCursor):
                 raise BLAS_SchedulingError("This is an inner loop vectorizer")
 
-    fission_stmts(inner_loop_cursor.body())
+        return proc
+
+    proc = fission_stmts(proc, inner_loop_cursor.body())
 
     def detect_madd(expr):
         return (
@@ -307,6 +309,9 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             if not isinstance(stmt.orelse(), InvalidCursor):
                 raise BLAS_SchedulingError("Not implemented yet")
             proc = vectorize_stmt(proc, stmt.body()[0], depth + 1)
+        elif isinstance(stmt, AssignCursor):
+            # This will be a store
+            pass
         else:
             raise BLAS_SchedulingError("Not implemented yet")
         return proc
