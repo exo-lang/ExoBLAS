@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 
 from exo import *
 from exo.libs.memories import DRAM_STATIC
@@ -86,6 +87,15 @@ def get_statement(cursor):
     return cursor
 
 
+def is_already_divided(loop_cursor, div_factor):
+    return (
+        len(loop_cursor.body()) == 1
+        and isinstance(loop_cursor.body()[0], ForSeqCursor)
+        and isinstance(loop_cursor.body()[0].hi(), LiteralCursor)
+        and loop_cursor.body()[0].hi().value() == div_factor
+    )
+
+
 def stage_expr(proc, expr_cursor, new_name, precision="R", memory=DRAM, n_lifts=1):
     """
     for i in seq(0, hi):
@@ -138,6 +148,37 @@ def stage_alloc(proc, alloc_cursor):
     )
     proc = lift_alloc(proc, alloc_cursor, n_lifts=1)
     return proc
+
+
+@dataclass
+class auto_divide_loop_cursors:
+    outer_loop_cursor: ForSeqCursor
+    inner_loop_cursor: ForSeqCursor
+    tail_loop_cursor: ForSeqCursor
+
+
+def auto_divide_loop(proc, loop_cursor, div_const, tail="guard", perfect=False):
+    loop_cursor = proc.forward(loop_cursor)
+    loop_iter = loop_cursor.name()
+    proc = divide_loop(
+        proc,
+        loop_cursor,
+        div_const,
+        (loop_iter + "o", loop_iter + "i"),
+        tail=tail,
+        perfect=perfect,
+    )
+    outer_loop_cursor = proc.forward(loop_cursor)
+    inner_loop_cursor = outer_loop_cursor.body()[0]
+
+    if perfect == True or tail in ("cut", "cut_and_guard"):
+        tail_loop_cursor = InvalidCursor()
+    else:
+        tail_loop_cursor = outer_loop_cursor.next()
+
+    return proc, auto_divide_loop_cursors(
+        outer_loop_cursor, inner_loop_cursor, tail_loop_cursor
+    )
 
 
 def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
@@ -204,16 +245,23 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
 
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
+    stmts = []
+
     def fission_stmts(proc, body, depth=1):
-        for stmt in list(body)[:-1]:
+        body_list = list(body)
+        for stmt in body_list[:-1]:
             forwarded_stmt = proc.forward(stmt)
+            stmts.append(stmt)
             proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
             forwarded_stmt = proc.forward(stmt)
-            if isinstance(stmt, IfCursor):
-                fission_stmts(stmt.body(), depth + 1)
-            elif isinstance(stmt, ForSeqCursor):
+            if isinstance(forwarded_stmt, IfCursor):
+                proc = fission_stmts(proc, forwarded_stmt.body(), depth + 1)
+            elif isinstance(forwarded_stmt, ForSeqCursor):
                 raise BLAS_SchedulingError("This is an inner loop vectorizer")
-
+        forwarded_stmt = body_list[-1]
+        stmts.append(forwarded_stmt)
+        if isinstance(forwarded_stmt, IfCursor):
+            proc = fission_stmts(proc, forwarded_stmt.body(), depth + 1)
         return proc
 
     proc = fission_stmts(proc, inner_loop_cursor.body())
@@ -274,7 +322,6 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
     def vectorize_rhs(proc, stmt, depth=1):
         if not is_assign_or_reduce(stmt):
             return proc
-
         flat_rhs = get_expr_subtree_cursors(stmt.rhs(), stmt, False)
 
         for expr in flat_rhs:
@@ -295,6 +342,8 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
                 forwarded_stmt = proc.forward(stmt)
 
                 alloc_cursor = forwarded_stmt.prev().prev()
+                if depth > 1:
+                    proc = lift_alloc(proc, alloc_cursor, n_lifts=depth - 1)
                 proc = stage_alloc(proc, alloc_cursor)
 
                 forwarded_stmt = proc.forward(stmt)
@@ -316,8 +365,14 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             raise BLAS_SchedulingError("Not implemented yet")
         return proc
 
-    for stmt in inner_loop_cursor.body():
-        proc = vectorize_stmt(proc, stmt)
+    for stmt in stmts:
+        forwarded_stmt = proc.forward(stmt)
+        if isinstance(forwarded_stmt, IfCursor):
+            continue
+        inner_loop = get_enclosing_loop(forwarded_stmt)
+        if isinstance(inner_loop, ForSeqCursor):
+            assert len(inner_loop.body()) == 1
+            proc = vectorize_stmt(proc, inner_loop.body()[0])
 
     for alloc in staged_allocs:
         proc = set_memory(proc, alloc, memory_type)
@@ -443,8 +498,8 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
 def parallelize_reduction(
     proc,
     loop_cursor,
-    reduction_buffers,
-    parllel_factor,
+    reduction_buffer_window,
+    parallel_factor,
     memory_type,
     precision,
     tail="cut",
@@ -455,66 +510,57 @@ def parallelize_reduction(
 
     ----->
 
-    xReg: f32[parllel_factor]
-    for ii in seq(0, parllel_factor):
+    xReg: f32[parallel_factor]
+    for ii in seq(0, parallel_factor):
         xReg[ii][...] = 0.0
-    for io in seq(0, n / parllel_factor):
+    for io in seq(0, n / parallel_factor):
         for ii in seq(0, vec_width):
-            xReg[ii][..] += y[io * parllel_factor + ii]
-    for ii in seq(0, parllel_factor):
+            xReg[ii][..] += y[io * parallel_factor + ii]
+    for ii in seq(0, parallel_factor):
         x[...] += xReg[ii]
 
     Returns: (proc, allocation cursors)
     """
+    # Check arguments pre-condition
     if not isinstance(loop_cursor, ForSeqCursor):
         raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
 
-    if not isinstance(reduction_buffers, list):
-        reduction_buffers = [reduction_buffers]
+    if not isinstance(parallel_factor, int):
+        raise BLAS_SchedulingError("parallel_factor must be an integer")
 
-    if parllel_factor is None or parllel_factor == 1:
-        return proc, []
+    if parallel_factor <= 1:
+        return proc, None
 
+    # Forward input cursors
     loop_cursor = proc.forward(loop_cursor)
 
-    if not (
-        isinstance(loop_cursor.hi(), LiteralCursor)
-        and loop_cursor.hi().value() > parllel_factor
-    ):
-        proc = divide_loop(
-            proc,
-            loop_cursor,
-            parllel_factor,
-            (loop_cursor.name() + "o", loop_cursor.name() + "i"),
-            tail=tail,
-        )
-        outer_loop_cursor = proc.forward(loop_cursor)
+    # Divide the loop if necessary
+    if is_already_divided(loop_cursor, parallel_factor):
+        outer_loop_cursor = loop_cursor
     else:
-        raise BLAS_SchedulingError(
-            "Cannot parallelize reduction over a loop with hi smaller than vector width"
-        )
+        proc, cursors = auto_divide_loop(proc, loop_cursor, parallel_factor, tail=tail)
+        outer_loop_cursor = cursors.outer_loop_cursor
 
     proc = reorder_loops(proc, outer_loop_cursor)
     outer_loop_cursor = proc.forward(outer_loop_cursor)
-    allocation_cursors = []
-    for buffer in reduction_buffers:
-        proc = simplify(stage_mem(proc, outer_loop_cursor, buffer, "reg", accum=True))
-        outer_loop_cursor = proc.forward(outer_loop_cursor)
-        alloc_cursor = outer_loop_cursor.prev().prev()
-        allocation_cursors.append(alloc_cursor)
-        proc = set_memory(proc, alloc_cursor, memory_type)
-        proc = set_precision(proc, alloc_cursor, precision)
 
-        outer_loop_cursor = proc.forward(outer_loop_cursor)
-        proc = stage_alloc(proc, outer_loop_cursor.prev().prev())
-        forwarded_outer_loop = proc.forward(outer_loop_cursor)
-        proc = fission(proc, forwarded_outer_loop.before())
-        forwarded_outer_loop = proc.forward(outer_loop_cursor)
-        proc = fission(proc, forwarded_outer_loop.after())
-        forwarded_outer_loop = proc.forward(outer_loop_cursor)
-        proc = reorder_loops(proc, forwarded_outer_loop.parent())
+    proc = simplify(
+        stage_mem(proc, outer_loop_cursor, reduction_buffer_window, "reg", accum=True)
+    )
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    alloc_cursor = outer_loop_cursor.prev().prev()
+    proc = set_memory(proc, alloc_cursor, memory_type)
+    proc = set_precision(proc, alloc_cursor, precision)
 
-    return proc, tuple(allocation_cursors)
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    proc = stage_alloc(proc, outer_loop_cursor.prev().prev())
+    proc = fission(proc, outer_loop_cursor.before())
+    proc = fission(proc, outer_loop_cursor.after())
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    proc = reorder_loops(proc, outer_loop_cursor.parent())
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+
+    return proc, proc.forward(alloc_cursor)
 
 
 def interleave_outer_loop_with_inner_loop(
@@ -595,62 +641,119 @@ def vectorize(
     memory_type,
     precision,
     instructions,
+    vectorize_tail=True,
 ):
+    # Check pre-conditions
+    if not isinstance(loop_cursor, ForSeqCursor):
+        raise BLAS_SchedulingError("Expected loop_cursor to be a ForSeqCursor")
+
+    if not isinstance(vec_width, int) and vec_width > 1:
+        raise BLAS_SchedulingError("Expected vec_width to be an integer > 1")
+
+    if not isinstance(interleave_factor, int) and interleave_factor > 0:
+        raise BLAS_SchedulingError("Expected interleave_factor to be an integer > 1")
+
+    if not isinstance(accumulators_count, int) and accumulators_count > 0:
+        raise BLAS_SchedulingError("Expected accumulators_count to be an integer > 1")
+
+    # You add multiple accumulators to increase your ILP.
+    # If you don't interleave the execution by at least that
+    # much, there is no reason to use mutliple accumulators.
+    if interleave_factor % accumulators_count != 0:
+        raise BLAS_SchedulingError(
+            "Expected interleave_factor % accumulators_count == 0"
+        )
+
+    # Forward argument cursors
     loop_cursor = proc.forward(loop_cursor)
 
+    # Get reduction buffers, for now assumes those are buffers
+    # of 0 dimensions. We should change to be buffers that are
+    # independent on the loop
     reduction_buffers = []
     for stmt in loop_cursor.body():
         if isinstance(stmt, ReduceCursor) and len(stmt.idx()) == 0:
             reduction_buffers.append(stmt.name())
 
-    if len(reduction_buffers):
-        proc, allocation_cursors = parallelize_reduction(
-            proc,
-            loop_cursor,
-            reduction_buffers,
-            vec_width,
-            memory_type,
-            precision,
-            tail="guard",
-        )
-        loop_cursor = proc.forward(loop_cursor)
-        inner_loop = loop_cursor.body()[0]
-        proc = cut_loop(proc, loop_cursor, FormattedExprStr("_ - 1", loop_cursor.hi()))
-        inner_loop = proc.forward(inner_loop)
-        proc = remove_if(proc, inner_loop.body()[0])
-    else:
-        inner_loop = loop_cursor
-    proc = vectorize_to_loops(proc, inner_loop, vec_width, memory_type, precision)
-    if len(reduction_buffers) and accumulators_count > 1:
-        allocation_cursors = [proc.forward(cur) for cur in allocation_cursors]
-        loop_cursor = proc.forward(loop_cursor)
-        proc, _ = parallelize_reduction(
-            proc,
-            loop_cursor,
-            [f"{i.name()}[0:{vec_width}]" for i in allocation_cursors],
-            accumulators_count,
-            memory_type,
-            precision,
-        )
-        loop_cursor = proc.forward(loop_cursor)
-        if instructions != None:
-            proc = replace_all(proc, instructions)
-        if interleave_factor is not None and interleave_factor > 0:
-            loop_cursor = proc.forward(loop_cursor)
-            inner_loop = loop_cursor.body()[0]
-            proc = interleave_execution(proc, inner_loop, accumulators_count)
-            if interleave_factor % accumulators_count != 0:
-                raise BLAS_SchedulingError(
-                    "vectorize interleave_factor must be a multiple of the accumulators_count"
-                )
-            proc = interleave_execution(
-                proc, loop_cursor, interleave_factor // accumulators_count
-            )
+    is_perfect = (
+        isinstance(loop_cursor.hi(), LiteralCursor)
+        and isinstance(loop_cursor.lo(), LiteralCursor)
+        and (loop_cursor.hi().value() - loop_cursor.lo().value()) % vec_width == 0
+    )
+    tail = "cut" if is_perfect or not vectorize_tail else "guard"
 
-    elif interleave_factor is not None:
-        if instructions != None:
-            proc = replace_all(proc, instructions)
-        proc = interleave_execution(proc, loop_cursor, interleave_factor)
+    # Divide the loop to expose parallelism
+    proc, cursors = auto_divide_loop(proc, loop_cursor, vec_width, tail=tail)
+    outer_loop_cursor = cursors.outer_loop_cursor
+    inner_loop_cursor = cursors.inner_loop_cursor
+
+    # Parallelize all reductions
+    allocation_cursors = []
+    for reduction_buffer in reduction_buffers:
+        proc, allocation_cursor = parallelize_reduction(
+            proc, outer_loop_cursor, reduction_buffer, vec_width, memory_type, precision
+        )
+        allocation_cursors.append(allocation_cursor)
+
+    if not is_perfect:
+        # Generate tail loop
+        # We manually cut the loop to get the tail loop so that the tail loop
+        # automatically uses the parallelized reduction buffer, instead of
+        # accumulating into a scalar. This also means that when you vectorize
+        # the tail loop (e.g. using mask instructions). You don't need
+        # to do two vector reduction, but only one.
+        proc = cut_loop(
+            proc, outer_loop_cursor, FormattedExprStr("_ - 1", outer_loop_cursor.hi())
+        )
+
+        outer_loop_cursor = proc.forward(outer_loop_cursor)
+        inner_loop_cursor = outer_loop_cursor.body()[0]
+        tail_loop_cursor = outer_loop_cursor.next().body()[0]
+
+        # Now that we have a tail loop, the conditional in the main loop
+        # can be removed
+        proc = remove_if(proc, inner_loop_cursor.body()[0])
+
+        proc = vectorize_to_loops(
+            proc, tail_loop_cursor, vec_width, memory_type, precision
+        )
+
+    # We can now expand scalar operations to SIMD in the main loop
+    proc = vectorize_to_loops(
+        proc, inner_loop_cursor, vec_width, memory_type, precision
+    )
+
+    if interleave_factor == 1:
+        return replace_all(proc, instructions)
+
+    div_factor = accumulators_count if accumulators_count > 1 else interleave_factor
+
+    if accumulators_count > 1:
+        proc, cursors = auto_divide_loop(
+            proc, outer_loop_cursor, div_factor, tail="cut"
+        )
+        outer_loop_cursor = cursors.outer_loop_cursor
+        inner_loop_cursor = cursors.inner_loop_cursor
+
+        for reduction in allocation_cursors:
+            proc, _ = parallelize_reduction(
+                proc,
+                outer_loop_cursor,
+                f"{reduction.name()}[0:{vec_width}]",
+                accumulators_count,
+                memory_type,
+                precision,
+                tail="cut",
+            )
+        outer_loop_cursor = proc.forward(outer_loop_cursor)
+        inner_loop_cursor = outer_loop_cursor.body()[0]
+        inner_loop_cursor = proc.forward(inner_loop_cursor)
+        proc = interleave_execution(proc, inner_loop_cursor, interleave_factor)
+
+    proc = interleave_execution(
+        proc, outer_loop_cursor, interleave_factor // accumulators_count
+    )
+    proc = replace_all(proc, instructions)
 
     return proc
 

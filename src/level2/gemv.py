@@ -89,7 +89,7 @@ def schedule_NonTrans(
     stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
-
+    return stride_1
     stride_1 = vectorize(
         stride_1,
         stride_1.find_loop("j"),
@@ -98,7 +98,8 @@ def schedule_NonTrans(
         VECTORIZATION_INTERLEAVE_FACTOR,
         memory,
         precision,
-        None,
+        [],
+        vectorize_tail=memory == AVX2,
     )
 
     stride_1 = interleave_outer_loop_with_inner_loop(

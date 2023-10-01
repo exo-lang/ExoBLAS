@@ -173,10 +173,11 @@ class Microkernel:
                 sched_mk.find_loop(loop_iter),
                 machine.vec_width,
                 min(N_r // machine.vec_width, 2),
-                None,
+                1,
                 machine.mem_type,
                 self.precision,
-                None,
+                [],
+                vectorize_tail=machine.mem_type == AVX2,
             )
         sched_mk = replace_all(
             simplify(sched_mk), machine.get_instructions(self.precision)

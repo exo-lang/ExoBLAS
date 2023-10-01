@@ -11,6 +11,13 @@ from composed_schedules import (
     interleave_outer_loop_with_inner_loop,
     apply_to_block,
     hoist_stmt,
+    vectorize_to_loops,
+    interleave_execution,
+    parallelize_reduction,
+    interleave_outer_loop_with_inner_loop,
+    apply_to_block,
+    hoist_stmt,
+    stage_expr,
 )
 from blas_composed_schedules import blas_vectorize
 from codegen_helpers import (
@@ -178,6 +185,7 @@ def schedule_trmv_row_major_vectorize_reuse_over_rows(
     level_2_params.instructions = None
     inner_loop = trmv.find_loop("j")
     outer_loop = inner_loop.parent()
+    return trmv
     trmv = blas_vectorize(trmv, inner_loop, level_2_params)
     trmv = simplify(trmv)
     trmv = interleave_outer_loop_with_inner_loop(
