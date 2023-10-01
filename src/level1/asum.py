@@ -12,6 +12,7 @@ from composed_schedules import (
     interleave_execution,
     parallelize_reduction,
     stage_expr,
+    auto_divide_loop,
 )
 from codegen_helpers import (
     specialize_precision,
@@ -34,7 +35,7 @@ def asum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
 
 ### EXO_LOC SCHEDULE START ###
 def schedule_asum_stride_1(asum, params):
-    simple_stride_1 = generate_stride_1_proc(asum, params.precision)
+    asum = generate_stride_1_proc(asum, params.precision)
 
     VEC_W = params.vec_width
     INTERLEAVE_FACTOR = params.interleave_factor
@@ -43,60 +44,52 @@ def schedule_asum_stride_1(asum, params):
     precision = params.precision
 
     if None in instructions:
-        return simple_stride_1
+        return asum
 
-    simple_stride_1 = stage_mem(
-        simple_stride_1,
-        simple_stride_1.find_loop("i").body(),
+    asum = stage_mem(
+        asum,
+        asum.find_loop("i").body(),
         f"x[i]",
         "xReg",
     )
 
-    simple_stride_1, _ = parallelize_reduction(
-        simple_stride_1,
-        simple_stride_1.find_loop("i"),
-        "result",
+    asum, _ = parallelize_reduction(
+        asum,
+        asum.find_loop("i"),
+        "result_",
         VEC_W,
         memory,
         precision,
     )
 
-    simple_stride_1 = expand_dim(simple_stride_1, "xReg", VEC_W, "ii")
-    simple_stride_1 = lift_alloc(simple_stride_1, "xReg")
-    simple_stride_1 = fission(
-        simple_stride_1, simple_stride_1.find("xReg[_] = _").after()
-    )
+    asum = expand_dim(asum, "xReg", VEC_W, "ii")
+    asum = lift_alloc(asum, "xReg")
+    asum = fission(asum, asum.find("xReg[_] = _").after())
 
-    simple_stride_1 = stage_expr(
-        simple_stride_1, simple_stride_1.find("select(_)"), "selectReg"
-    )
+    asum = stage_expr(asum, asum.find("select(_)"), "selectReg")
 
     for buffer in ["xReg", "selectReg"]:
-        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-        simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
+        asum = set_memory(asum, buffer, memory)
+        asum = set_precision(asum, buffer, precision)
 
-    simple_stride_1, _ = parallelize_reduction(
-        simple_stride_1,
-        simple_stride_1.find_loop("io"),
+    asum, _ = parallelize_reduction(
+        asum,
+        asum.find_loop("io"),
         f"reg[0:{VEC_W}]",
         INTERLEAVE_FACTOR // 2,
         memory,
         precision,
     )
 
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
-    simple_stride_1 = unroll_loop(simple_stride_1, simple_stride_1.find_loop("ioi"))
-    simple_stride_1 = interleave_execution(
-        simple_stride_1, simple_stride_1.find_loop("ioi"), INTERLEAVE_FACTOR // 2
-    )
-    simple_stride_1 = interleave_execution(
-        simple_stride_1, simple_stride_1.find_loop("ioo"), 2
-    )
-    simple_stride_1 = unroll_loop(simple_stride_1, simple_stride_1.find_loop("ioi"))
+    asum = replace_all(asum, instructions)
+    asum = unroll_loop(asum, asum.find_loop("ioi"))
+    asum = interleave_execution(asum, asum.find_loop("ioi"), INTERLEAVE_FACTOR // 2)
+    asum = interleave_execution(asum, asum.find_loop("ioo"), 2)
+    asum = unroll_loop(asum, asum.find_loop("ioi"))
 
-    simple_stride_1 = simplify(simple_stride_1)
+    asum = simplify(asum)
 
-    return simple_stride_1
+    return asum
 
 
 INTERLEAVE_FACTOR = 8
