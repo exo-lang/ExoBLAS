@@ -695,6 +695,9 @@ def vectorize(
         )
         allocation_cursors.append(allocation_cursor)
 
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    inner_loop_cursor = outer_loop_cursor.body()[0]
+
     if tail == "guard":
         # Generate tail loop
         # We manually cut the loop to get the tail loop so that the tail loop
@@ -707,7 +710,6 @@ def vectorize(
         )
 
         outer_loop_cursor = proc.forward(outer_loop_cursor)
-        inner_loop_cursor = outer_loop_cursor.body()[0]
         tail_loop_cursor = outer_loop_cursor.next().body()[0]
 
         # Now that we have a tail loop, the conditional in the main loop
