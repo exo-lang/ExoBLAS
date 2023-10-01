@@ -695,7 +695,7 @@ def vectorize(
         )
         allocation_cursors.append(allocation_cursor)
 
-    if not is_perfect:
+    if tail == "guard":
         # Generate tail loop
         # We manually cut the loop to get the tail loop so that the tail loop
         # automatically uses the parallelized reduction buffer, instead of
