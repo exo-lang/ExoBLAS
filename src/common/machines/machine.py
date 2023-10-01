@@ -46,6 +46,7 @@ class MachineParameters:
     sign_instr_f32: Any
     select_instr_f32: Any
     assoc_reduce_add_f32_buffer: Any
+    abs_instr_f32: Any
 
     load_instr_f64: Any
     load_backwards_instr_f64: Any
@@ -69,6 +70,7 @@ class MachineParameters:
     reg_copy_instr_f64: Any
     sign_instr_f64: Any
     select_instr_f64: Any
+    abs_instr_f64: Any
 
     convert_f32_lower_to_f64: Any
     convert_f32_upper_to_f64: Any

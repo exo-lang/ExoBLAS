@@ -330,6 +330,30 @@ def mm256_prefix_broadcast_sd_scalar(out: [f64][4] @ AVX2, val: f64, bound: size
             out[i] = val
 
 
+@instr(
+    "{dst_data} = _mm256_and_ps({src_data}, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));"
+)
+def avx2_abs_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    for i in seq(0, 8):
+        dst[i] = select(0.0, src[i], src[i], -src[i])
+
+
+@instr(
+    """
+{dst_data} = _mm256_and_pd({src_data}, _mm256_castsi256_pd (_mm256_blend_epi32( _mm256_set1_epi32(0x7FFFFFFF),
+                                                                                _mm256_set1_epi32(0xFFFFFFFF),
+                                                                                1 + 4 + 16 + 64)));
+"""
+)
+def avx2_abs_pd(dst: [f64][8] @ AVX2, src: [f64][8] @ AVX2):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    for i in seq(0, 4):
+        dst[i] = select(0.0, src[i], src[i], -src[i])
+
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -361,6 +385,7 @@ Machine = MachineParameters(
     reg_copy_instr_f32=avx2_reg_copy_ps,
     sign_instr_f32=avx2_sign_ps,
     select_instr_f32=avx2_select_ps,
+    abs_instr_f32=avx2_abs_ps,
     load_instr_f64=mm256_loadu_pd,
     load_backwards_instr_f64=avx2_loadu_pd_backwards,
     prefix_load_instr_f64=mm256_prefix_load_pd,
@@ -383,6 +408,7 @@ Machine = MachineParameters(
     reg_copy_instr_f64=avx2_reg_copy_pd,
     sign_instr_f64=avx2_sign_pd,
     select_instr_f64=avx2_select_pd,
+    abs_instr_f64=avx2_abs_pd,
     convert_f32_lower_to_f64=avx2_convert_f32_lower_to_f64,
     convert_f32_upper_to_f64=avx2_convert_f32_upper_to_f64,
 )
