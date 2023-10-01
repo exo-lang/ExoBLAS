@@ -11,6 +11,8 @@ import exo_blas_config as C
 from composed_schedules import (
     apply_to_block,
     hoist_stmt,
+    interleave_execution,
+    vectorize_to_loops,
 )
 from blas_composed_schedules import blas_vectorize
 from codegen_helpers import (
@@ -39,6 +41,8 @@ def schedule_dot_stride_1(dot, params):
     main_loop = dot.find_loop("i")
     dot = stage_mem(dot, dot.body(), "result", "result_")
     dot = blas_vectorize(dot, main_loop, params)
+    dot = unroll_loop(dot, dot.find_loop("ioi"))
+    dot = unroll_loop(dot, dot.find_loop("ioi"))
     return simplify(dot)
 
 

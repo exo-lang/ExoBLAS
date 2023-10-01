@@ -25,4 +25,5 @@ def blas_vectorize(proc, loop_cursor, params):
         params.mem_type,
         params.precision,
         params.instructions,
+        vectorize_tail=params.mem_type == AVX2,
     )
