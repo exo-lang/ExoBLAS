@@ -112,4 +112,9 @@ for precision in ("f32", "f64"):
         )
         export_exo_proc(globals(), proc_stride_1)
 
+# TODO: A better schedule for AVX2 on skylake results in main loop that issues 8 loads,
+# then accumulates into 4 buffers: 0, 1, 2, 3, 0, 1, 2, 3.
+# Right now we can easily get to 0, 0, 1, 1, 2, 2, 3, 3.
+# However, this results in a dependency between consecutive FMAs
+
 ### EXO_LOC SCHEDULE END ###
