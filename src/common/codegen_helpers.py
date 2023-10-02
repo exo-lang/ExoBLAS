@@ -71,7 +71,7 @@ def bind_builtins_args(proc, body, precision):
         if isinstance(stmt, ForSeqCursor):
             proc = bind_builtins_args(proc, stmt.body(), precision)
         elif isinstance(stmt, IfCursor):
-            proc = bind_builtins_args(proc, stmt.body())
+            proc = bind_builtins_args(proc, stmt.body(), precision)
             if not isinstance(stmt.orelse(), InvalidCursor):
                 proc = bind_builtins_args(proc, stmt.orelse(), precision)
         elif isinstance(stmt, ReduceCursor):

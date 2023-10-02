@@ -8,14 +8,12 @@ from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize_to_loops,
     interleave_execution,
     parallelize_reduction,
     stage_expr,
-    auto_divide_loop,
+    auto_stage_mem,
 )
 from codegen_helpers import (
-    specialize_precision,
     generate_stride_any_proc,
     export_exo_proc,
     generate_stride_1_proc,
@@ -37,66 +35,60 @@ def asum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
 def schedule_asum_stride_1(asum, params):
     asum = generate_stride_1_proc(asum, params.precision)
 
-    VEC_W = params.vec_width
-    INTERLEAVE_FACTOR = params.interleave_factor
-    memory = params.mem_type
-    instructions = params.instructions
-    precision = params.precision
-
-    if None in instructions:
+    if None in params.instructions:
         return asum
 
-    asum = stage_mem(
-        asum,
-        asum.find_loop("i").body(),
-        f"x[i]",
-        "xReg",
-    )
+    loop = asum.find_loop("i")
 
     asum, _ = parallelize_reduction(
         asum,
-        asum.find_loop("i"),
+        loop,
         "result_",
-        VEC_W,
-        memory,
-        precision,
+        params.vec_width,
+        params.mem_type,
+        params.precision,
+        tail="guard",
     )
 
-    asum = expand_dim(asum, "xReg", VEC_W, "ii")
-    asum = lift_alloc(asum, "xReg")
-    asum = fission(asum, asum.find("xReg[_] = _").after())
-
+    loop = asum.forward(loop)
+    asum = cut_loop(asum, loop, FormattedExprStr("_ - 1", loop.hi()))
+    asum = remove_if(asum, loop.body()[0].body()[0])
+    asum = auto_stage_mem(asum, asum.find("x[_]"), "xReg")
     asum = stage_expr(asum, asum.find("select(_)"), "selectReg")
+    asum = simplify(asum)
 
-    for buffer in ["xReg", "selectReg"]:
-        asum = set_memory(asum, buffer, memory)
-        asum = set_precision(asum, buffer, precision)
+    tail_select = asum.find("select(_) #1")
+    args = [tail_select.args()[1], tail_select.args()[2], tail_select.args()[3].arg()]
+    asum = stage_expr(asum, args, "xRegTail", n_lifts=2)
+    asum = stage_expr(asum, tail_select, "selectRegTail", n_lifts=2)
+
+    for buffer in ["xReg", "selectReg", "xRegTail", "selectRegTail"]:
+        asum = set_memory(asum, buffer, params.mem_type)
+        asum = set_precision(asum, buffer, params.precision)
 
     asum, _ = parallelize_reduction(
         asum,
         asum.find_loop("io"),
-        f"reg[0:{VEC_W}]",
-        INTERLEAVE_FACTOR // 2,
-        memory,
-        precision,
+        f"reg[0:{params.vec_width}]",
+        params.accumulators_count,
+        params.mem_type,
+        params.precision,
     )
 
-    asum = replace_all(asum, instructions)
-    asum = unroll_loop(asum, asum.find_loop("ioi"))
-    asum = interleave_execution(asum, asum.find_loop("ioi"), INTERLEAVE_FACTOR // 2)
-    asum = interleave_execution(asum, asum.find_loop("ioo"), 2)
-    asum = unroll_loop(asum, asum.find_loop("ioi"))
+    asum = replace_all(asum, params.instructions)
 
+    asum = unroll_loop(asum, asum.find_loop("ioi"))
+    asum = interleave_execution(asum, asum.find_loop("ioi"), params.accumulators_count)
+    asum = interleave_execution(
+        asum,
+        asum.find_loop("ioo"),
+        params.interleave_factor // params.accumulators_count,
+    )
+    asum = unroll_loop(asum, asum.find_loop("ioi"))
     asum = simplify(asum)
 
     return asum
 
-
-INTERLEAVE_FACTOR = 8
-
-#################################################
-# Generate specialized kernels for f32 precision
-#################################################
 
 template_sched_list = [
     (asum, schedule_asum_stride_1),
@@ -109,7 +101,12 @@ for precision in ("f32", "f64"):
             proc_stride_any, proc_stride_any.body(), precision
         )
         export_exo_proc(globals(), proc_stride_any)
-        proc_stride_1 = sched(template, Level_1_Params(precision=precision))
+        proc_stride_1 = sched(
+            template,
+            Level_1_Params(
+                precision=precision, interleave_factor=7, accumulators_count=7
+            ),
+        )
         proc_stride_1 = bind_builtins_args(
             proc_stride_1, proc_stride_1.body(), precision
         )

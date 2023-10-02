@@ -111,6 +111,7 @@ Machine = MachineParameters(
     select_instr_f32=None,
     assoc_reduce_add_f32_buffer=neon_assoc_reduce_add_instr_4xf32_buffer,
     abs_instr_f32=None,
+    prefix_abs_instr_f32=None,
     load_instr_f64=neon_vld_2xf64,
     load_backwards_instr_f64=neon_vld_2xf64_backwards,
     prefix_load_instr_f64=None,
@@ -134,6 +135,7 @@ Machine = MachineParameters(
     sign_instr_f64=neon_vneg_2xf64,
     select_instr_f64=None,
     abs_instr_f64=None,
+    prefix_abs_instr_f64=None,
     convert_f32_lower_to_f64=neon_convert_f32_lower_to_f64,
     convert_f32_upper_to_f64=neon_convert_f32_upper_to_f64,
 )

@@ -342,9 +342,7 @@ def avx2_abs_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2):
 
 @instr(
     """
-{dst_data} = _mm256_and_pd({src_data}, _mm256_castsi256_pd (_mm256_blend_epi32( _mm256_set1_epi32(0x7FFFFFFF),
-                                                                                _mm256_set1_epi32(0xFFFFFFFF),
-                                                                                1 + 4 + 16 + 64)));
+{dst_data} = _mm256_and_pd({src_data}, _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 """
 )
 def avx2_abs_pd(dst: [f64][8] @ AVX2, src: [f64][8] @ AVX2):
@@ -352,6 +350,46 @@ def avx2_abs_pd(dst: [f64][8] @ AVX2, src: [f64][8] @ AVX2):
     assert stride(src, 0) == 1
     for i in seq(0, 4):
         dst[i] = select(0.0, src[i], src[i], -src[i])
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi32({bound});
+__m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+__m256 src_abs = _mm256_and_ps({src_data}, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+{dst_data} = _mm256_blendv_ps ({src_data}, src_abs, _mm256_castsi256_ps(cmp));
+}}
+"""
+)
+def avx2_prefix_abs_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound <= 8
+    for i in seq(0, 8):
+        if i < bound:
+            dst[i] = select(0.0, src[i], src[i], -src[i])
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi64x({bound});
+__m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+__m256d src_abs = _mm256_and_pd({src_data}, _mm256_castsi256_pd(_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+{dst_data} = _mm256_blendv_pd ({src_data}, src_abs, _mm256_castsi256_pd(cmp));
+}}
+"""
+)
+def avx2_prefix_abs_pd(dst: [f64][4] @ AVX2, src: [f64][4] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound <= 4
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = select(0.0, src[i], src[i], -src[i])
 
 
 Machine = MachineParameters(
@@ -386,6 +424,7 @@ Machine = MachineParameters(
     sign_instr_f32=avx2_sign_ps,
     select_instr_f32=avx2_select_ps,
     abs_instr_f32=avx2_abs_ps,
+    prefix_abs_instr_f32=avx2_prefix_abs_ps,
     load_instr_f64=mm256_loadu_pd,
     load_backwards_instr_f64=avx2_loadu_pd_backwards,
     prefix_load_instr_f64=mm256_prefix_load_pd,
@@ -409,6 +448,7 @@ Machine = MachineParameters(
     sign_instr_f64=avx2_sign_pd,
     select_instr_f64=avx2_select_pd,
     abs_instr_f64=avx2_abs_pd,
+    prefix_abs_instr_f64=avx2_prefix_abs_pd,
     convert_f32_lower_to_f64=avx2_convert_f32_lower_to_f64,
     convert_f32_upper_to_f64=avx2_convert_f32_upper_to_f64,
 )
