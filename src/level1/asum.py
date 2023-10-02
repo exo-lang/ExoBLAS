@@ -35,7 +35,7 @@ def asum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
 def schedule_asum_stride_1(asum, params):
     asum = generate_stride_1_proc(asum, params.precision)
 
-    if isinstance(params.mem_type, AVX2):
+    if not isinstance(params.mem_type, AVX2):
         return asum
 
     loop = asum.find_loop("i")
