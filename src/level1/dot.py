@@ -39,7 +39,6 @@ def dot_template(n: size, x: [R][n], y: [R][n], result: R):
 def schedule_dot_stride_1(dot, params):
     dot = generate_stride_1_proc(dot, params.precision)
     main_loop = dot.find_loop("i")
-    dot = stage_mem(dot, dot.body(), "result", "result_")
     dot = blas_vectorize(dot, main_loop, params)
     dot = unroll_loop(dot, dot.find_loop("ioi"))
     dot = unroll_loop(dot, dot.find_loop("ioi"))

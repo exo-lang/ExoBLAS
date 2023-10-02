@@ -30,6 +30,7 @@ def specialize_precision(template_proc, precision):
 def generate_stride_any_proc(template_proc, precision):
     proc = specialize_precision(template_proc, precision)
     proc = rename(proc, proc.name() + "_stride_any")
+    proc = stage_scalar_args(proc)
     return proc
 
 
@@ -41,9 +42,48 @@ def generate_stride_1_proc(template_proc, precision):
             proc = proc.add_assertion(
                 f"stride({arg.name()}, {len(arg.shape()) - 1}) == 1"
             )
+    proc = stage_scalar_args(proc)
     return proc
 
 
 def export_exo_proc(globals, proc):
     globals[proc.name()] = proc
     globals.setdefault("__all__", []).append(proc.name())
+
+
+def bind_builtins_args(proc, body, precision):
+    def expr_visitor(proc, expr):
+        if isinstance(expr, BuiltInFunctionCursor):
+            for arg in expr.args():
+                proc = bind_expr(proc, [arg], "arg")
+                alloc_cursor = proc.forward(stmt).prev().prev()
+                proc = set_precision(proc, alloc_cursor, precision)
+            return proc
+        elif isinstance(expr, BinaryOpCursor):
+            proc = expr_visitor(proc, expr.lhs())
+            return expr_visitor(proc, expr.rhs())
+        elif isinstance(expr, UnaryMinusCursor):
+            return expr_visitor(expr.arg())
+        else:
+            return proc
+
+    for stmt in body:
+        if isinstance(stmt, ForSeqCursor):
+            proc = bind_builtins_args(proc, stmt.body(), precision)
+        elif isinstance(stmt, IfCursor):
+            proc = bind_builtins_args(proc, stmt.body(), precision)
+            if not isinstance(stmt.orelse(), InvalidCursor):
+                proc = bind_builtins_args(proc, stmt.orelse(), precision)
+        elif isinstance(stmt, ReduceCursor):
+            proc = expr_visitor(proc, stmt.rhs())
+        elif isinstance(stmt, AssignCursor):
+            proc = expr_visitor(proc, stmt.rhs())
+
+    return proc
+
+
+def stage_scalar_args(proc):
+    for arg in proc.args():
+        if arg.type().is_numeric() and not arg.is_tensor():
+            proc = stage_mem(proc, proc.body(), arg.name(), f"{arg.name()}_")
+    return proc

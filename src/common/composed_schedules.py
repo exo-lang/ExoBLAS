@@ -96,7 +96,7 @@ def is_already_divided(loop_cursor, div_factor):
     )
 
 
-def stage_expr(proc, expr_cursor, new_name, precision="R", memory=DRAM, n_lifts=1):
+def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts=1):
     """
     for i in seq(0, hi):
         s (e(i));
@@ -110,10 +110,13 @@ def stage_expr(proc, expr_cursor, new_name, precision="R", memory=DRAM, n_lifts=
         s (new_name[i]);
     """
 
-    expr_cursor = proc.forward(expr_cursor)
-    enclosing_loop = get_enclosing_loop(expr_cursor)
-    stmt = get_statement(expr_cursor)
-    proc = bind_expr(proc, [expr_cursor], new_name)
+    if not isinstance(expr_cursors, list):
+        expr_cursors = [expr_cursors]
+
+    expr_cursors = [proc.forward(c) for c in expr_cursors]
+    enclosing_loop = get_enclosing_loop(expr_cursors[0])
+    stmt = get_statement(expr_cursors[0])
+    proc = bind_expr(proc, expr_cursors, new_name, cse=True)
     stmt = proc.forward(stmt)
     bind_stmt = stmt.prev()
     alloc_stmt = bind_stmt.prev()
