@@ -130,7 +130,7 @@ def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts
     return proc
 
 
-def stage_alloc(proc, alloc_cursor):
+def stage_alloc(proc, alloc_cursor, n_lifts=1):
     """
     for i in seq(0, hi):
         B1;
@@ -149,7 +149,7 @@ def stage_alloc(proc, alloc_cursor):
     proc = expand_dim(
         proc, alloc_cursor, expr_to_string(enclosing_loop.hi()), enclosing_loop.name()
     )
-    proc = lift_alloc(proc, alloc_cursor, n_lifts=1)
+    proc = lift_alloc(proc, alloc_cursor, n_lifts=n_lifts)
     return proc
 
 
@@ -237,15 +237,6 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
     else:
         inner_loop_cursor = loop_cursor
 
-    inner_loop_stmts = list(inner_loop_cursor.body())
-
-    staged_allocs = []
-
-    for stmt in inner_loop_stmts:
-        if isinstance(stmt, AllocCursor):
-            proc = stage_alloc(proc, stmt)
-            staged_allocs.append(stmt)
-
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
     stmts = []
@@ -253,14 +244,19 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
     def fission_stmts(proc, body, depth=1):
         body_list = list(body)
         for stmt in body_list[:-1]:
-            forwarded_stmt = proc.forward(stmt)
-            stmts.append(stmt)
-            proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
-            forwarded_stmt = proc.forward(stmt)
-            if isinstance(forwarded_stmt, IfCursor):
-                proc = fission_stmts(proc, forwarded_stmt.body(), depth + 1)
-            elif isinstance(forwarded_stmt, ForSeqCursor):
-                raise BLAS_SchedulingError("This is an inner loop vectorizer")
+            if isinstance(stmt, AllocCursor):
+                proc = stage_alloc(proc, stmt, n_lifts=depth)
+                proc = set_memory(proc, stmt, memory_type)
+                proc = set_precision(proc, stmt, precision)
+            else:
+                forwarded_stmt = proc.forward(stmt)
+                stmts.append(stmt)
+                proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
+                forwarded_stmt = proc.forward(stmt)
+                if isinstance(forwarded_stmt, IfCursor):
+                    proc = fission_stmts(proc, forwarded_stmt.body(), depth + 1)
+                elif isinstance(forwarded_stmt, ForSeqCursor):
+                    raise BLAS_SchedulingError("This is an inner loop vectorizer")
         forwarded_stmt = body_list[-1]
         stmts.append(forwarded_stmt)
         if isinstance(forwarded_stmt, IfCursor):
@@ -376,10 +372,6 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         if isinstance(inner_loop, ForSeqCursor):
             assert len(inner_loop.body()) == 1
             proc = vectorize_stmt(proc, inner_loop.body()[0])
-
-    for alloc in staged_allocs:
-        proc = set_memory(proc, alloc, memory_type)
-        proc = set_precision(proc, alloc, precision)
 
     return proc
 
