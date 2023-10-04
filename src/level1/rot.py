@@ -46,13 +46,22 @@ def schedule_rot_stride_1(rot, params):
     rot = blas_vectorize(rot, loop_cursor, params)
     loop_cursor = rot.forward(loop_cursor)
 
-    # TODO: We want to hoist the broadcasts in the vectorized
-    # loops. However, currently when we have to remove the loop,
-    # we have to generate if guards around them. If there is too
-    # of those ifs, it is causing problems with machine generation.
+    rot = add_unsafe_guard(
+        rot,
+        loop_cursor.as_block(),
+        FormattedExprStr("_ < _", loop_cursor.lo(), loop_cursor.hi()),
+    )
+    loop_cursor = rot.find_loop("ioo")
+    rot = apply_to_block(rot, loop_cursor.body(), hoist_stmt)
+    middle_loop = rot.find_loop("ioi")
+    rot = add_unsafe_guard(
+        rot,
+        middle_loop.as_block(),
+        FormattedExprStr("_ < _", middle_loop.lo(), middle_loop.hi()),
+    )
+    middle_loop = rot.find_loop("ioi")
+    rot = apply_to_block(rot, middle_loop.body(), hoist_stmt)
 
-    # rot = apply_to_block(rot, loop_cursor.body(), hoist_stmt)
-    # rot = apply_to_block(rot, loop_cursor.next().body(), hoist_stmt)
     return rot
 
 
