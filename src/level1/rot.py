@@ -38,8 +38,11 @@ def schedule_rot_stride_1(rot, params):
     rot = generate_stride_1_proc(rot, params.precision)
     loop_cursor = rot.find_loop("i")
     rot = bind_expr(rot, rot.find("y[_]", many=True), "yReg", cse=True)
+    rot = set_precision(rot, "yReg", params.precision)
     rot = bind_expr(rot, rot.find("s_", many=True), "sReg", cse=True)
+    rot = set_precision(rot, "sReg", params.precision)
     rot = bind_expr(rot, rot.find("c_", many=True), "cReg", cse=True)
+    rot = set_precision(rot, "cReg", params.precision)
     rot = blas_vectorize(rot, loop_cursor, params)
     loop_cursor = rot.forward(loop_cursor)
 
