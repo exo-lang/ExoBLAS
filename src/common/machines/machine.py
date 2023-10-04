@@ -39,11 +39,14 @@ class MachineParameters:
     set_zero_instr_f32: Any
     assoc_reduce_add_instr_f32: Any
     mul_instr_f32: Any
+    prefix_mul_instr_f32: Any
     add_instr_f32: Any
+    prefix_add_instr_f32: Any
     reduce_add_wide_instr_f32: Any
     prefix_reduce_add_wide_instr_f32: Any
     reg_copy_instr_f32: Any
     sign_instr_f32: Any
+    prefix_sign_instr_f32: Any
     select_instr_f32: Any
     assoc_reduce_add_f32_buffer: Any
     abs_instr_f32: Any
@@ -64,12 +67,15 @@ class MachineParameters:
     set_zero_instr_f64: Any
     assoc_reduce_add_instr_f64: Any
     mul_instr_f64: Any
+    prefix_mul_instr_f64: Any
     add_instr_f64: Any
+    prefix_add_instr_f64: Any
     reduce_add_wide_instr_f64: Any
     prefix_reduce_add_wide_instr_f64: Any
     assoc_reduce_add_f64_buffer: Any
     reg_copy_instr_f64: Any
     sign_instr_f64: Any
+    prefix_sign_instr_f64: Any
     select_instr_f64: Any
     abs_instr_f64: Any
     prefix_abs_instr_f64: Any

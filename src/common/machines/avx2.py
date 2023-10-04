@@ -359,7 +359,7 @@ __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32({bound});
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
 __m256 src_abs = _mm256_and_ps({src_data}, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-{dst_data} = _mm256_blendv_ps ({src_data}, src_abs, _mm256_castsi256_ps(cmp));
+{dst_data} = _mm256_blendv_ps ({dst_data}, src_abs, _mm256_castsi256_ps(cmp));
 }}
 """
 )
@@ -379,7 +379,7 @@ __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x({bound});
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
 __m256d src_abs = _mm256_and_pd({src_data}, _mm256_castsi256_pd(_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
-{dst_data} = _mm256_blendv_pd ({src_data}, src_abs, _mm256_castsi256_pd(cmp));
+{dst_data} = _mm256_blendv_pd ({dst_data}, src_abs, _mm256_castsi256_pd(cmp));
 }}
 """
 )
@@ -390,6 +390,144 @@ def avx2_prefix_abs_pd(dst: [f64][4] @ AVX2, src: [f64][4] @ AVX2, bound: size):
     for i in seq(0, 4):
         if i < bound:
             dst[i] = select(0.0, src[i], src[i], -src[i])
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi32({bound});
+__m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+__m256 src_sign = _mm256_mul_ps({src_data}, _mm256_set1_ps(-1.0f));;
+{dst_data} = _mm256_blendv_ps ({dst_data}, src_sign, _mm256_castsi256_ps(cmp));
+}}
+"""
+)
+def avx2_prefix_sign_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound <= 8
+
+    for i in seq(0, 8):
+        if i < bound:
+            dst[i] = -src[i]
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi64x({bound});
+__m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+__m256d src_sign = _mm256_mul_pd({src_data}, _mm256_set1_pd(-1.0f));
+{dst_data} = _mm256_blendv_pd ({dst_data}, src_sign, _mm256_castsi256_pd(cmp));
+}}
+"""
+)
+def avx2_prefix_sign_pd(dst: [f64][4] @ AVX2, src: [f64][4] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound <= 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = -src[i]
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi32({bound});
+__m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+__m256 mul = _mm256_mul_ps({x_data}, {y_data});
+{out_data} = _mm256_blendv_ps ({out_data}, mul, _mm256_castsi256_ps(cmp));
+}}
+"""
+)
+def mm256_prefix_mul_ps(
+    out: [f32][8] @ AVX2, x: [f32][8] @ AVX2, y: [f32][8] @ AVX2, bound: size
+):
+    assert stride(out, 0) == 1
+    assert stride(x, 0) == 1
+    assert stride(y, 0) == 1
+    assert bound <= 8
+
+    for i in seq(0, 8):
+        if i < bound:
+            out[i] = x[i] * y[i]
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi64x({bound});
+__m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+__m256d mul = _mm256_mul_pd({x_data}, {y_data});
+{out_data} = _mm256_blendv_pd ({out_data}, mul, _mm256_castsi256_pd(cmp));
+}}
+"""
+)
+def mm256_prefix_mul_pd(
+    out: [f64][4] @ AVX2, x: [f64][4] @ AVX2, y: [f64][4] @ AVX2, bound: size
+):
+    assert stride(out, 0) == 1
+    assert stride(x, 0) == 1
+    assert stride(y, 0) == 1
+    assert bound <= 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            out[i] = x[i] * y[i]
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi32({bound});
+__m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+__m256 add = _mm256_add_ps({x_data}, {y_data});
+{out_data} = _mm256_blendv_ps ({out_data}, add, _mm256_castsi256_ps(cmp));
+}}
+"""
+)
+def mm256_prefix_add_ps(
+    out: [f32][8] @ AVX2, x: [f32][8] @ AVX2, y: [f32][8] @ AVX2, bound: size
+):
+    assert stride(out, 0) == 1
+    assert stride(x, 0) == 1
+    assert stride(y, 0) == 1
+    assert bound <= 8
+
+    for i in seq(0, 8):
+        if i < bound:
+            out[i] = x[i] + y[i]
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi64x({bound});
+__m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+__m256d add = _mm256_add_pd({x_data}, {y_data});
+{out_data} = _mm256_blendv_pd ({out_data}, add, _mm256_castsi256_pd(cmp));
+}}
+"""
+)
+def mm256_prefix_add_pd(
+    out: [f64][4] @ AVX2, x: [f64][4] @ AVX2, y: [f64][4] @ AVX2, bound: size
+):
+    assert stride(out, 0) == 1
+    assert stride(x, 0) == 1
+    assert stride(y, 0) == 1
+    assert bound <= 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            out[i] = x[i] + y[i]
 
 
 Machine = MachineParameters(
@@ -417,11 +555,14 @@ Machine = MachineParameters(
     assoc_reduce_add_instr_f32=avx2_assoc_reduce_add_ps,
     assoc_reduce_add_f32_buffer=avx2_assoc_reduce_add_ps_buffer,
     mul_instr_f32=mm256_mul_ps,
+    prefix_mul_instr_f32=mm256_prefix_mul_ps,
     add_instr_f32=mm256_add_ps,
+    prefix_add_instr_f32=mm256_prefix_add_ps,
     reduce_add_wide_instr_f32=avx2_reduce_add_wide_ps,
     prefix_reduce_add_wide_instr_f32=avx2_prefix_reduce_add_wide_ps,
     reg_copy_instr_f32=avx2_reg_copy_ps,
     sign_instr_f32=avx2_sign_ps,
+    prefix_sign_instr_f32=avx2_prefix_sign_ps,
     select_instr_f32=avx2_select_ps,
     abs_instr_f32=avx2_abs_ps,
     prefix_abs_instr_f32=avx2_prefix_abs_ps,
@@ -440,12 +581,15 @@ Machine = MachineParameters(
     set_zero_instr_f64=mm256_setzero_pd,
     assoc_reduce_add_instr_f64=avx2_assoc_reduce_add_pd,
     mul_instr_f64=mm256_mul_pd,
+    prefix_mul_instr_f64=mm256_prefix_mul_pd,
     add_instr_f64=mm256_add_pd,
+    prefix_add_instr_f64=mm256_prefix_add_pd,
     reduce_add_wide_instr_f64=avx2_reduce_add_wide_pd,
     prefix_reduce_add_wide_instr_f64=avx2_prefix_reduce_add_wide_pd,
     assoc_reduce_add_f64_buffer=avx2_assoc_reduce_add_pd_buffer,
     reg_copy_instr_f64=avx2_reg_copy_pd,
     sign_instr_f64=avx2_sign_pd,
+    prefix_sign_instr_f64=avx2_prefix_sign_pd,
     select_instr_f64=avx2_select_pd,
     abs_instr_f64=avx2_abs_pd,
     prefix_abs_instr_f64=avx2_prefix_abs_pd,
