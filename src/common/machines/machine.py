@@ -37,6 +37,7 @@ class MachineParameters:
     fmadd_instr_f32: Any
     prefix_fmadd_instr_f32: Any
     set_zero_instr_f32: Any
+    prefix_set_zero_instr_f32: Any
     assoc_reduce_add_instr_f32: Any
     mul_instr_f32: Any
     prefix_mul_instr_f32: Any
@@ -65,6 +66,7 @@ class MachineParameters:
     fmadd_instr_f64: Any
     prefix_fmadd_instr_f64: Any
     set_zero_instr_f64: Any
+    prefix_set_zero_instr_f64: Any
     assoc_reduce_add_instr_f64: Any
     mul_instr_f64: Any
     prefix_mul_instr_f64: Any
