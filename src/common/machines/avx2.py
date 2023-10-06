@@ -530,6 +530,44 @@ def mm256_prefix_add_pd(
             out[i] = x[i] + y[i]
 
 
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi32({bound});
+__m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+{dst_data} = _mm256_blendv_ps ({dst_data}, _mm256_setzero_ps(), _mm256_castsi256_ps(cmp));
+}}
+"""
+)
+def mm256_prefix_setzero_ps(dst: [f32][8] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert bound <= 8
+
+    for i in seq(0, 8):
+        if i < bound:
+            dst[i] = 0.0
+
+
+@instr(
+    """
+{{
+__m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+__m256i prefix = _mm256_set1_epi64x({bound});
+__m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+{dst_data} = _mm256_blendv_pd ({dst_data}, _mm256_setzero_pd(), _mm256_castsi256_pd(cmp));
+}}
+"""
+)
+def mm256_prefix_setzero_pd(dst: [f64][4] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert bound <= 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = 0.0
+
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -552,6 +590,7 @@ Machine = MachineParameters(
     fmadd_instr_f32=mm256_fmadd_ps,
     prefix_fmadd_instr_f32=mm256_prefix_fmadd_ps,
     set_zero_instr_f32=mm256_setzero_ps,
+    prefix_set_zero_instr_f32=mm256_prefix_setzero_ps,
     assoc_reduce_add_instr_f32=avx2_assoc_reduce_add_ps,
     assoc_reduce_add_f32_buffer=avx2_assoc_reduce_add_ps_buffer,
     mul_instr_f32=mm256_mul_ps,
@@ -579,6 +618,7 @@ Machine = MachineParameters(
     fmadd_instr_f64=mm256_fmadd_pd,
     prefix_fmadd_instr_f64=mm256_prefix_fmadd_pd,
     set_zero_instr_f64=mm256_setzero_pd,
+    prefix_set_zero_instr_f64=mm256_prefix_setzero_pd,
     assoc_reduce_add_instr_f64=avx2_assoc_reduce_add_pd,
     mul_instr_f64=mm256_mul_pd,
     prefix_mul_instr_f64=mm256_prefix_mul_pd,
