@@ -41,7 +41,6 @@ def schedule_scal_stride_1(scal, params):
     scal = generate_stride_1_proc(scal, params.precision)
     main_loop = scal.find_loop("i")
     scal = blas_vectorize(scal, main_loop, params)
-    print(scal)
     main_loop = scal.find_loop("ioo")
     scal = add_unsafe_guard(
         scal,
