@@ -66,6 +66,8 @@ template_sched_list = [
     (scal_template_alpha_0, schedule_scal_stride_1),
 ]
 
+# TODO: Debug alpha zero case
+
 for precision in ("f32", "f64"):
     for template, sched in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
