@@ -56,6 +56,9 @@ def sdsdot_template(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
 
 ### EXO_LOC SCHEDULE START ###
 def schedule_dsdot_stride_1(proc, params, name):
+    # TODO: This optimization strategy appears to be the wrong one from
+    # benchmarking results. Need to investigate it why.
+
     proc = rename(proc, name)
     proc = proc.add_assertion("stride(x, 0) == 1")
     proc = proc.add_assertion("stride(y, 0) == 1")
