@@ -1,6 +1,6 @@
 #pragma once
 
-#include "exo_sdsdot.h"
+#include "exo_dsdot.h"
 
 float exo_sdsdot(const int N, const float alpha, const float *X, const int incX,
                  const float *Y, const int incY) {
