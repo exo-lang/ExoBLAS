@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "correctness_helpers.h"
-#include "exo_sdsdot_h.h"
+#include "exo_sdsdot.h"
 #include "generate_buffer.h"
 
 void test_sdsdot(int N, float alpha, int incX, int incY) {

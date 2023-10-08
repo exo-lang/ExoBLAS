@@ -8,19 +8,46 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-
+from blas_composed_schedules import blas_vectorize
+from composed_schedules import (
+    parallelize_reduction,
+    auto_divide_loop,
+    auto_stage_mem,
+    vectorize_to_loops,
+    interleave_execution,
+)
+from codegen_helpers import (
+    export_exo_proc,
+)
+from parameters import Level_1_Params
 
 ### EXO_LOC ALGORITHM START ###
 @proc
 def dsdot_template(n: size, x: [f32][n], y: [f32][n], result: f64):
-    d_result: f64
-    d_result = 0.0
+    d_dot: f64
+    d_dot = 0.0
     for i in seq(0, n):
         d_x: f64
         d_x = x[i]
         d_y: f64
         d_y = y[i]
-        d_result += d_x * d_y
+        d_dot += d_x * d_y
+    result = d_dot
+
+
+@proc
+def sdsdot_template(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
+    d_result: f64
+    d_dot: f64
+    d_dot = 0.0
+    for i in seq(0, n):
+        d_x: f64
+        d_x = x[i]
+        d_y: f64
+        d_y = y[i]
+        d_dot += d_x * d_y
+    d_result = d_dot
+    d_result += sb
     result = d_result
 
 
@@ -28,125 +55,77 @@ def dsdot_template(n: size, x: [f32][n], y: [f32][n], result: f64):
 
 
 ### EXO_LOC SCHEDULE START ###
-def schedule_dsdot_stride_1(VEC_W, memory, instructions):
-    simple_stride_1 = rename(dsdot_template, "exo_dsdot_stride_1")
-    simple_stride_1 = simple_stride_1.add_assertion("stride(x, 0) == 1")
-    simple_stride_1 = simple_stride_1.add_assertion("stride(y, 0) == 1")
+def schedule_dsdot_stride_1(proc, params, name):
+    # TODO: This optimization strategy appears to be the wrong one from
+    # benchmarking results. Need to investigate it why.
 
-    simple_stride_1 = divide_loop(
-        simple_stride_1, "for i in _:_", VEC_W, ("io", "ii"), tail="cut"
-    )
+    proc = rename(proc, name)
+    proc = proc.add_assertion("stride(x, 0) == 1")
+    proc = proc.add_assertion("stride(y, 0) == 1")
 
-    simple_stride_1 = reorder_loops(simple_stride_1, "io ii")
-    simple_stride_1 = simplify(
-        stage_mem(simple_stride_1, "for io in _:_", "d_result", "resultReg", accum=True)
-    )
-    simple_stride_1 = expand_dim(simple_stride_1, "resultReg :_ ", VEC_W, "ii")
-    simple_stride_1 = lift_alloc(simple_stride_1, "resultReg : _")
-    simple_stride_1 = fission(
-        simple_stride_1, simple_stride_1.find("for io in _:_").before()
-    )
-    simple_stride_1 = fission(
-        simple_stride_1, simple_stride_1.find("for io in _:_").after()
-    )
-    simple_stride_1 = reorder_loops(simple_stride_1, "ii io")
+    if params.mem_type is not AVX2:
+        return proc
 
-    simple_stride_1 = stage_mem(
-        simple_stride_1,
-        "for ii in _:_ #1",
-        f"x[{VEC_W} * io: {VEC_W} * io + {VEC_W}]",
-        "xReg",
+    main_loop = proc.find_loop("i")
+    proc, cursors = auto_divide_loop(proc, main_loop, params.vec_width // 2, tail="cut")
+    proc, cursors = auto_divide_loop(proc, main_loop, 2, tail="cut")
+    proc = reorder_loops(proc, proc.find_loop("ioi"))
+    proc, _ = parallelize_reduction(
+        proc, main_loop, "d_dot", params.vec_width // 2, params.mem_type, "f64"
     )
-    simple_stride_1 = stage_mem(
-        simple_stride_1,
-        "for ii in _:_ #1",
-        f"y[{VEC_W} * io: {VEC_W} * io + {VEC_W}]",
-        "yReg",
+    proc = auto_stage_mem(proc, proc.find("x[_]"), "xReg", n_lifts=2)
+    proc = auto_stage_mem(proc, proc.find("y[_]"), "yReg", n_lifts=2)
+    proc = set_memory(proc, "xReg", params.mem_type)
+    proc = set_memory(proc, "yReg", params.mem_type)
+    proc = simplify(proc)
+    proc = reorder_loops(proc, proc.find_loop("ii #1"))
+    proc = vectorize_to_loops(
+        proc, proc.find_loop("ii #1"), params.vec_width // 2, params.mem_type, "f64"
     )
-
-    simple_stride_1 = expand_dim(simple_stride_1, "d_x", VEC_W, "ii")
-    simple_stride_1 = lift_alloc(simple_stride_1, "d_x")
-    simple_stride_1 = expand_dim(simple_stride_1, "d_y", VEC_W, "ii")
-    simple_stride_1 = lift_alloc(simple_stride_1, "d_y")
-
-    simple_stride_1 = fission(
-        simple_stride_1, simple_stride_1.find("d_y[_] = _").after()
+    proc = interleave_execution(proc, proc.find_loop("ioi"), 2)
+    proc, _ = parallelize_reduction(
+        proc,
+        proc.find_loop("ioo"),
+        f"reg[0:{params.vec_width // 2}]",
+        params.accumulators_count,
+        params.mem_type,
+        "f64",
+        tail="cut",
     )
-    simple_stride_1 = fission(
-        simple_stride_1, simple_stride_1.find("d_y[_] = _").before()
-    )
-
-    loops_to_cuts = [
-        simple_stride_1.find("resultReg[_] = _").parent(),
-        simple_stride_1.find("d_x[_] = _").parent(),
-        simple_stride_1.find("d_y[_] = _").parent(),
-        simple_stride_1.find("resultReg += _").parent(),
-        simple_stride_1.find("d_result += _").parent(),
+    instructions = [
+        C.Machine.load_instr_f32,
+        C.Machine.store_instr_f32,
+        C.Machine.load_instr_f64,
+        C.Machine.store_instr_f64,
+        C.Machine.set_zero_instr_f64,
+        C.Machine.fmadd_instr_f64,
+        C.Machine.reduce_add_wide_instr_f64,
+        C.Machine.assoc_reduce_add_instr_f64,
     ]
 
-    for loop in loops_to_cuts:
-        simple_stride_1 = cut_loop(simple_stride_1, loop, VEC_W // 2)
-        simple_stride_1 = shift_loop(
-            simple_stride_1, simple_stride_1.forward(loop).next(), 0
-        )
-
-    simple_stride_1 = divide_dim(simple_stride_1, "d_x", 0, VEC_W // 2)
-    simple_stride_1 = divide_dim(simple_stride_1, "d_y", 0, VEC_W // 2)
-    simple_stride_1 = divide_dim(simple_stride_1, "resultReg", 0, VEC_W // 2)
-
-    for buffer in ["xReg", "yReg", "resultReg", "d_x", "d_y"]:
-        simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
-
-    simple_stride_1 = simplify(simple_stride_1)
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
-
-    # TODO: remove once set_memory takes allocation cursor
-    for p in [("d_x", "x"), ("d_y", "y")]:
-        buffer = p[0]
-        rhs = p[1]
-        tail_loop_block = simple_stride_1.find(f"{buffer} = {rhs}[_]").expand(0, 2)
-        simple_stride_1 = stage_mem(
-            simple_stride_1, tail_loop_block, buffer, f"{buffer}_tmp"
-        )
-        tmp_buffer = simple_stride_1.find(f"{buffer}_tmp : _")
-        xReg_buffer = tmp_buffer.prev()
-        simple_stride_1 = reuse_buffer(simple_stride_1, tmp_buffer, xReg_buffer)
-        simple_stride_1 = set_memory(simple_stride_1, f"{buffer}_tmp", DRAM)
-
-    return simple_stride_1
+    proc = replace_all(proc, instructions)
+    for i in range(0, 4):
+        proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_lower_to_f64)
+        proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_upper_to_f64)
+    proc = unroll_loop(proc, "iooi")
+    proc = interleave_execution(proc, proc.find_loop("iooi"), params.accumulators_count)
+    proc = unroll_loop(proc, "iooi")
+    return proc
 
 
-exo_dsdot_stride_any = dsdot_template
-exo_dsdot_stride_any = rename(exo_dsdot_stride_any, "exo_dsdot_stride_any")
+export_exo_proc(globals(), rename(dsdot_template, "exo_dsdot_stride_any"))
+export_exo_proc(globals(), rename(sdsdot_template, "exo_sdsdot_stride_any"))
+export_exo_proc(
+    globals(),
+    schedule_dsdot_stride_1(
+        dsdot_template, Level_1_Params(precision="f32"), "exo_dsdot_stride_1"
+    ),
+)
+export_exo_proc(
+    globals(),
+    schedule_dsdot_stride_1(
+        sdsdot_template, Level_1_Params(precision="f32"), "exo_sdsdot_stride_1"
+    ),
+)
 
-instructions = [
-    C.Machine.load_instr_f32,
-    C.Machine.store_instr_f32,
-    C.Machine.set_zero_instr_f64,
-    C.Machine.fmadd_instr_f64,
-    C.Machine.assoc_reduce_add_instr_f64,
-]
-
-if None not in instructions:
-    exo_dsdot_stride_1 = schedule_dsdot_stride_1(
-        C.Machine.vec_width, C.Machine.mem_type, instructions
-    )
-    for i in range(2):
-        exo_dsdot_stride_1 = replace(
-            exo_dsdot_stride_1, "for ii in _:_", C.Machine.convert_f32_lower_to_f64
-        )
-        exo_dsdot_stride_1 = replace(
-            exo_dsdot_stride_1, "for ii in _:_", C.Machine.convert_f32_upper_to_f64
-        )
-else:
-    exo_dsdot_stride_1 = dsdot_template
-    exo_dsdot_stride_1 = rename(exo_dsdot_stride_1, "exo_dsdot_stride_1")
 ### EXO_LOC SCHEDULE END ###
-
-entry_points = [exo_dsdot_stride_any, exo_dsdot_stride_1]
-
-if __name__ == "__main__":
-    for p in entry_points:
-        print(p)
-
-__all__ = [p.name() for p in entry_points]

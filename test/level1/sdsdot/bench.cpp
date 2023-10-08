@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "exo_sdsdot_h.h"
+#include "exo_sdsdot.h"
 #include "generate_buffer.h"
 
 static void BM_cblas_sdsdot(benchmark::State &state) {
