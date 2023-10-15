@@ -8,7 +8,7 @@
 #include "generate_buffer.h"
 
 void test_sgemm(const enum CBLAS_TRANSPOSE transa,
-                const enum CBLAS_TRANSPOSE transb, const int n, const int m,
+                const enum CBLAS_TRANSPOSE transb, const int m, const int n,
                 const int k, const float alpha, const float beta) {
   std::cout << "Running sgemm test: N = " << n << ", alpha = " << alpha
             << ", beta = " << beta << ", trasnsa = " << transa
@@ -18,11 +18,11 @@ void test_sgemm(const enum CBLAS_TRANSPOSE transa,
   auto c = AlignedBuffer2D<float>(m, n);
   auto c2 = c;
 
-  cblas_sgemm(CblasRowMajor, transa, transb, m, n, k, alpha, a.data(), m,
-              b.data(), k, beta, c.data(), m);
+  cblas_sgemm(CblasRowMajor, transa, transb, m, n, k, alpha, a.data(), k,
+              b.data(), n, beta, c.data(), n);
 
-  exo_sgemm(CblasRowMajor, transa, transb, m, n, k, &alpha, &beta, a.data(),
-            b.data(), c2.data());
+  exo_sgemm(CblasRowMajor, transa, transb, m, n, k, alpha, a.data(), k,
+            b.data(), n, beta, c2.data(), n);
 
   double epsilon = 0.01;
   for (int i = 0; i < m * n; i++) {
@@ -40,7 +40,7 @@ void test_sgemm(const enum CBLAS_TRANSPOSE transa,
 }
 
 int main() {
-  std::vector<int> dims{32, 48, 64, 256, 257, 2000, 4519};
+  std::vector<int> dims{1, 32, 48, 64, 256, 257, 1000};
   std::vector<CBLAS_TRANSPOSE> transas{CblasNoTrans};
   std::vector<CBLAS_TRANSPOSE> transbs{CblasNoTrans};
   std::vector<float> alphas{1.0};

@@ -13,16 +13,6 @@
 #include "exo_sgemm.h"
 #include "generate_buffer.h"
 
-static void print_matrix(std::vector<float> M, int n, int k) {
-  for (int i = 0; i < k; i++) {
-    for (int j = 0; j < n; j++) {
-      std::cout << M[j * k + i] << ", ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-}
-
 static void BM_SGEMM_CBLAS(benchmark::State &state) {
   int n = state.range(0);
   int m = state.range(1);
@@ -56,8 +46,8 @@ static void BM_SGEMM_EXO(benchmark::State &state) {
   const float beta = 1.0f;
 
   for (auto _ : state) {
-    exo_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, &alpha, &beta,
-              a.data(), b.data(), c.data());
+    exo_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha,
+              a.data(), k, b.data(), n, beta, c.data(), n);
   }
 
   state.counters["flops"] = benchmark::Counter(
@@ -70,14 +60,14 @@ BENCHMARK(BM_SGEMM_CBLAS)
     ->Args({1, 1, 1})
     ->Args({4, 4, 4})
     ->Args({48, 48, 48})
-    ->Args({48*2, 48*2, 48*2})
-    ->Args({48*4, 48*4, 48*4})
-    ->Args({48*8, 48*8, 48*8})
+    ->Args({48 * 2, 48 * 2, 48 * 2})
+    ->Args({48 * 4, 48 * 4, 48 * 4})
+    ->Args({48 * 8, 48 * 8, 48 * 8})
     ->Args({528, 240, 528})
     ->Args({1056, 240, 528})
-    ->Args({1056*2, 240, 528})
-    ->Args({1056*2, 240*2, 528*2})
-    ->Args({1056*2*2*2, 240*4*2, 528*2*2});
+    ->Args({1056 * 2, 240, 528})
+    ->Args({1056 * 2, 240 * 2, 528 * 2})
+    ->Args({1056 * 2 * 2 * 2, 240 * 4 * 2, 528 * 2 * 2});
 //    ->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
 
 BENCHMARK(BM_SGEMM_EXO)
@@ -85,14 +75,12 @@ BENCHMARK(BM_SGEMM_EXO)
     ->Args({1, 1, 1})
     ->Args({4, 4, 4})
     ->Args({48, 48, 48})
-    ->Args({48*2, 48*2, 48*2})
-    ->Args({48*4, 48*4, 48*4})
-    ->Args({48*8, 48*8, 48*8})
+    ->Args({48 * 2, 48 * 2, 48 * 2})
+    ->Args({48 * 4, 48 * 4, 48 * 4})
+    ->Args({48 * 8, 48 * 8, 48 * 8})
     ->Args({528, 240, 528})
     ->Args({1056, 240, 528})
-    ->Args({1056*2, 240, 528})
-    ->Args({1056*2, 240*2, 528*2})
-    ->Args({1056*2*2*2, 240*4*2, 528*2*2});
-    //->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
-
-
+    ->Args({1056 * 2, 240, 528})
+    ->Args({1056 * 2, 240 * 2, 528 * 2})
+    ->Args({1056 * 2 * 2 * 2, 240 * 4 * 2, 528 * 2 * 2});
+//->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
