@@ -69,7 +69,9 @@ def schedule_gemm_matmul(gemm, params):
     gemm = reorder_loops(gemm, k_loop)
 
     # Stage C tile outside the outer product and into accelerator memory
-    gemm = simplify(auto_stage_mem(gemm, gemm.find("C[_] += _"), "C_reg", n_lifts=3))
+    gemm = simplify(
+        auto_stage_mem(gemm, gemm.find("C[_] += _"), "C_reg", n_lifts=3, accum=True)
+    )
     gemm = set_memory(gemm, "C_reg", params.mem_type)
     gemm = divide_dim(gemm, "C_reg", 1, params.vec_width)
 
@@ -86,12 +88,15 @@ def schedule_gemm_matmul(gemm, params):
         )
 
     gemm = simplify(gemm)
-
     gemm = replace_all(gemm, params.instructions)
 
     # Don't dynamically index into register arrays
-    for loop in ("i1o", "i0", "i0o", "jio", "ii", "i1o", "i0"):
+    for loop in ("i1o", "i0", "i0o", "jio", "ii"):
         gemm = unroll_loop(gemm, loop)
+
+    print(gemm, best_n, best_m)
+    gemm = interleave_execution(gemm, gemm.find_loop("i1o"), best_n)
+    gemm = interleave_execution(gemm, gemm.find_loop("i0"), best_m)
 
     return simplify(gemm)
 
