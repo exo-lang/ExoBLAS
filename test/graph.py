@@ -285,8 +285,17 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.savefig(fig_file_name)
 
 
+def get_geo_mean(vals):
+    gm = 1.0
+    for val in vals:
+        gm *= val
+    return gm ** (1 / len(vals))
+
+
 def peak_compute_plot(params, names_to_points):
     plt.clf()
+
+    peak = 128.0
 
     for name in names_to_points:
         points = names_to_points[name]
@@ -300,10 +309,13 @@ def peak_compute_plot(params, names_to_points):
             y = [(2 * p[0][0] * p[0][1] * p[0][2] / p[1]) for p in points]
         elif kernel_name[1:] == "syrk":
             y = [(p[0][0] * p[0][1] * p[0][2] / p[1]) for p in points]
-        plt.plot(x, y, label=name)
+        percent_of_peak = [i * 100 / peak for i in y]
+        gm = get_geo_mean(percent_of_peak)
+        gm_text = f"POP GM {int(gm)}"
+        plt.plot(x, y, label=name + f" ({gm_text})")
 
     peak_x = [x[0], x[-1]]
-    peak_y = [128.0, 128.0]
+    peak_y = [peak, peak]
 
     plt.plot(peak_x, peak_y, label="peak compute")
     plot_cache_boundries(128.0)
