@@ -157,6 +157,14 @@ def log_2(x):
     return math.log(x, 2)
 
 
+def plot_cache_boundries(ymax):
+    plt.vlines(x=log_2(192 * 1024), ymin=0, ymax=ymax, color="red", label="L1")
+    plt.vlines(
+        x=log_2(3 * 1024 * 1024 // 2), ymin=0, ymax=ymax, color="gray", label="L2"
+    )
+    plt.vlines(x=log_2(9 * 1024 * 1024), ymin=0, ymax=ymax, color="yellow", label="L3")
+
+
 """
 A dict of raw data
 perf_res = {
@@ -214,8 +222,8 @@ def peak_bandwidth_plot(params, names_to_points):
     plt.clf()
     for name in names_to_points:
         points = names_to_points[name]
-        
-        args = {f : s for f, s in [ele.split(":") for ele in params]}
+
+        args = {f: s for f, s in [ele.split(":") for ele in params]}
         x = [log_2(mem_footprint(k_name, p[0], wordsize, **args)) for p in points]
         y = [scale(get_gbyte_sec(p[0], p[1], **args)) for p in points]
 
@@ -282,7 +290,12 @@ def peak_compute_plot(params, names_to_points):
 
     for name in names_to_points:
         points = names_to_points[name]
-        x = [log_2(p[0][0] * p[0][1] * p[0][2] * wordsize) for p in points]
+        x = [
+            log_2(
+                (p[0][0] * p[0][1] + p[0][0] * p[0][2] + p[0][1] * p[0][2]) * wordsize
+            )
+            for p in points
+        ]
         if kernel_name[1:] == "gemm":
             y = [(2 * p[0][0] * p[0][1] * p[0][2] / p[1]) for p in points]
         elif kernel_name[1:] == "syrk":
@@ -293,6 +306,7 @@ def peak_compute_plot(params, names_to_points):
     peak_y = [128.0, 128.0]
 
     plt.plot(peak_x, peak_y, label="peak compute")
+    plot_cache_boundries(128.0)
 
     plt.legend()
 
