@@ -29,16 +29,10 @@ def gemm_matmul_template(M: size, N: size, K: size, A: R[M, K], B: R[K, N], C: R
                 C[i, j] += A[i, k] * B[k, j]
 
 
-def schedule_gemm_matmul(gemm, params):
-    gemm = generate_stride_any_proc(gemm, params.precision)
-
-    i_loop = gemm.find_loop("i")
+def schedule_op_gemm_matmul(gemm, k_loop, params):
+    k_loop = gemm.forward(k_loop)
+    i_loop = k_loop.body()[0]
     j_loop = i_loop.body()[0]
-    k_loop = j_loop.body()[0]
-
-    # Turn into an outer product
-    gemm = reorder_loops(gemm, j_loop)
-    gemm = reorder_loops(gemm, i_loop)
 
     # Cast as a (m x K x (vec_width x n) ) matmul
     best_m = 1
@@ -60,47 +54,101 @@ def schedule_gemm_matmul(gemm, params):
 
     gemm = tile_loops(gemm, [(i_loop, best_m), (j_loop, params.vec_width * best_n)])
 
+    outer_i_loop = gemm.forward(i_loop)
+    outer_j_loop = gemm.forward(j_loop)
+    inner_i_loop = outer_j_loop.body()[0]
+    inner_j_loop = inner_i_loop.body()[0]
+
     # Decompose into 3 gemms
-    gemm = fission(gemm, gemm.find_loop("io").after())
-    gemm = fission(gemm, gemm.find_loop("jo").after(), n_lifts=2)
+    gemm = fission(gemm, outer_i_loop.after())
+    gemm = fission(gemm, outer_j_loop.after(), n_lifts=2)
 
     # Calculate entire C as (m x K x vec_width) using outer product
     gemm = reorder_loops(gemm, k_loop)
     gemm = reorder_loops(gemm, k_loop)
 
+    fma_stmt = inner_j_loop.body()[0]
+
     # Stage C tile outside the outer product and into accelerator memory
-    gemm = simplify(
-        auto_stage_mem(gemm, gemm.find("C[_] += _"), "C_reg", n_lifts=3, accum=True)
-    )
-    gemm = set_memory(gemm, "C_reg", params.mem_type)
-    gemm = divide_dim(gemm, "C_reg", 1, params.vec_width)
+    gemm = simplify(auto_stage_mem(gemm, fma_stmt, "C_reg", n_lifts=3, accum=True))
+
+    k_loop = gemm.forward(k_loop)
+    C_reg_alloc = k_loop.prev().prev()
+    C_reg_init_outer_loop = k_loop.prev()
+    C_reg_init_inner_loop = C_reg_init_outer_loop.body()[0]
+    C_accum_back_outer_loop = k_loop.next()
+    C_accum_back_inner_loop = C_accum_back_outer_loop.body()[0]
+
+    gemm = set_memory(gemm, C_reg_alloc, params.mem_type)
+    gemm = divide_dim(gemm, C_reg_alloc, 1, params.vec_width)
+
+    fma_stmt = gemm.forward(fma_stmt)
+    B_read = fma_stmt.rhs().rhs()  # We are assuming B is the rhs
 
     # Stage B vector to load once across rows
-    gemm = simplify(auto_stage_mem(gemm, gemm.find("B[_]"), "B_reg", n_lifts=2))
-    gemm = set_memory(gemm, "B_reg", params.mem_type)
-    gemm = divide_dim(gemm, "B_reg", 0, params.vec_width)
+    gemm = simplify(auto_stage_mem(gemm, B_read, "B_reg", n_lifts=2))
+
+    inner_i_loop = gemm.forward(inner_i_loop)
+    B_reg_alloc = inner_i_loop.prev().prev()
+    B_load_loop = inner_i_loop.prev()
+
+    gemm = set_memory(gemm, B_reg_alloc, params.mem_type)
+    gemm = divide_dim(gemm, B_reg_alloc, 0, params.vec_width)
 
     # Vectorize loops
-    for iter_name in ("i1", "i0 #1", "ji", "i1"):
-        inner_loop_cursor = gemm.find_loop(iter_name)
+    for inner_loop in (
+        C_reg_init_inner_loop,
+        B_load_loop,
+        inner_j_loop,
+        C_accum_back_inner_loop,
+    ):
         gemm = vectorize_to_loops(
-            gemm, inner_loop_cursor, params.vec_width, params.mem_type, params.precision
+            gemm, inner_loop, params.vec_width, params.mem_type, params.precision
         )
 
     # Hoist A broadcast across (vec_width x n) columns of B
-    gemm = apply_to_block(gemm, gemm.find_loop("jio").body(), hoist_stmt)
+    inner_j_loop = gemm.forward(inner_j_loop)
+    gemm = apply_to_block(gemm, inner_j_loop.body(), hoist_stmt)
 
     gemm = simplify(gemm)
-    gemm = replace_all(gemm, params.instructions)
+
+    # Hoisting causes `inner_j_loop` to disappear
+    inner_i_loop = gemm.forward(inner_i_loop)
+    inner_j_loop = inner_i_loop.body()[2]
 
     # Don't dynamically index into register arrays
-    for loop in ("i1o", "i0", "i0o", "jio", "ii"):
+    for loop in (
+        C_reg_init_inner_loop,
+        C_reg_init_outer_loop,
+        B_load_loop,
+        inner_j_loop,
+        inner_i_loop,
+    ):
         gemm = unroll_loop(gemm, loop)
 
-    gemm = interleave_execution(gemm, gemm.find_loop("i1o"), best_n)
-    gemm = interleave_execution(gemm, gemm.find_loop("i0"), best_m)
+    # Interleave accumulate loop, shouldn't exceed ISA registers since
+    # compilers will fuse the load from C with the reduction
+    gemm = interleave_execution(gemm, C_accum_back_inner_loop, best_n)
+    gemm = interleave_execution(gemm, C_accum_back_outer_loop, best_m)
+
+    # Instructions...
+    gemm = replace_all(gemm, params.instructions)
 
     return simplify(gemm)
+
+
+def schedule_gemm_matmul(gemm, params):
+    gemm = generate_stride_any_proc(gemm, params.precision)
+
+    i_loop = gemm.find_loop("i")
+    j_loop = i_loop.body()[0]
+    k_loop = j_loop.body()[0]
+
+    # Turn into an outer product
+    gemm = reorder_loops(gemm, j_loop)
+    gemm = reorder_loops(gemm, i_loop)
+
+    return schedule_op_gemm_matmul(gemm, k_loop, params)
 
 
 template_sched_list = [

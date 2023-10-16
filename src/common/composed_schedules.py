@@ -787,6 +787,8 @@ def auto_stage_mem(proc, cursor, new_buff_name, n_lifts=1, accum=False):
     if not isinstance(cursor, (ReadCursor, ReduceCursor, AssignCursor)):
         raise BLAS_SchedulingError("auto_stage_mem expects a read a cursor")
 
+    cursor = proc.forward(cursor)
+
     lo = []
     hi = []
     loop = get_enclosing_loop(cursor)
