@@ -18,7 +18,9 @@ from parameters import Level_3_Params
 
 
 @proc
-def gemm_matmul_template(M: size, N: size, K: size, A: R[M, K], B: R[K, N], C: R[M, N]):
+def gemm_matmul_template(
+    M: size, N: size, K: size, A: [R][M, K], B: [R][K, N], C: [R][M, N]
+):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     assert stride(C, 1) == 1

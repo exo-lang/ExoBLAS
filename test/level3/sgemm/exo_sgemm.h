@@ -34,5 +34,8 @@ void exo_sgemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA,
   if (ldc != N) {
     throw UnsupportedParameterException("sgemm::ldc must be N");
   }
-  exo_sgemm_matmul_stride_any(nullptr, M, N, K, A, B, C);
+  exo_sgemm_matmul_stride_any(nullptr, M, N, K,
+                              exo_win_2f32c{.data = A, .strides = {lda, 1}},
+                              exo_win_2f32c{.data = B, .strides = {ldb, 1}},
+                              exo_win_2f32{.data = C, .strides{ldc, 1}});
 }
