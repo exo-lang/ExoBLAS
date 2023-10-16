@@ -35,6 +35,8 @@ def schedule_op_gemm_matmul(gemm, k_loop, params):
     j_loop = i_loop.body()[0]
 
     # Cast as a (m x K x (vec_width x n) ) matmul
+
+    # Solve the constraints for m and n
     best_m = 1
     best_n = 1
     registers_used = lambda m, n: m * n + n + 1
@@ -133,6 +135,19 @@ def schedule_op_gemm_matmul(gemm, k_loop, params):
 
     # Instructions...
     gemm = replace_all(gemm, params.instructions)
+    gemm = simplify(gemm)
+
+    outer_i_loop = gemm.forward(outer_i_loop)
+    A_times_B_strip_gemm_k_loop = outer_i_loop.next()
+    A_strip_times_B_gemm_k_loop = outer_i_loop.next().next()
+
+    # Turn A times B strip into a 3 loop outer product gemm
+    A_times_B_strip_gemm_outer_i_loop = A_times_B_strip_gemm_k_loop.body()[0]
+    gemm = mult_loops(
+        gemm,
+        A_times_B_strip_gemm_outer_i_loop,
+        A_times_B_strip_gemm_outer_i_loop.name()[:-1],
+    )
 
     return simplify(gemm)
 
