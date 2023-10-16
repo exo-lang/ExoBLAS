@@ -87,6 +87,9 @@ def schedule_gemm_matmul(gemm, params):
             gemm, inner_loop_cursor, params.vec_width, params.mem_type, params.precision
         )
 
+    # Hoist A broadcast across (vec_width x n) columns of B
+    gemm = apply_to_block(gemm, gemm.find_loop("jio").body(), hoist_stmt)
+
     gemm = simplify(gemm)
     gemm = replace_all(gemm, params.instructions)
 
@@ -94,7 +97,6 @@ def schedule_gemm_matmul(gemm, params):
     for loop in ("i1o", "i0", "i0o", "jio", "ii"):
         gemm = unroll_loop(gemm, loop)
 
-    print(gemm, best_n, best_m)
     gemm = interleave_execution(gemm, gemm.find_loop("i1o"), best_n)
     gemm = interleave_execution(gemm, gemm.find_loop("i0"), best_m)
 
