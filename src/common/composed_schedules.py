@@ -783,13 +783,13 @@ def tile_loops(proc, loop_tile_pairs):
     return proc
 
 
-def auto_stage_mem(proc, read_cursor, new_buff_name, n_lifts=1):
-    if not isinstance(read_cursor, ReadCursor):
+def auto_stage_mem(proc, cursor, new_buff_name, n_lifts=1, accum=False):
+    if not isinstance(cursor, (ReadCursor, ReduceCursor, AssignCursor)):
         raise BLAS_SchedulingError("auto_stage_mem expects a read a cursor")
 
     lo = []
     hi = []
-    loop = get_enclosing_loop(read_cursor)
+    loop = get_enclosing_loop(cursor)
     loops = [loop]
     for _ in range(n_lifts - 1):
         loop = get_enclosing_loop(loop)
@@ -800,13 +800,13 @@ def auto_stage_mem(proc, read_cursor, new_buff_name, n_lifts=1):
         loop = loops[i]
         subst[loop.name()] = f"(({expr_to_string(loop.hi(), subst)})-1)"
 
-    for idx in read_cursor.idx():
+    for idx in cursor.idx():
         hi.append(expr_to_string(idx, subst))
 
     for key in subst:
         subst[key] = 0
 
-    for idx in read_cursor.idx():
+    for idx in cursor.idx():
         lo.append(expr_to_string(idx, subst))
 
     def ith_idx(i):
@@ -815,6 +815,6 @@ def auto_stage_mem(proc, read_cursor, new_buff_name, n_lifts=1):
         else:
             return f"{lo[i]}:(({hi[i]})+1)"
 
-    window = ",".join([ith_idx(i) for i in range(len(read_cursor.idx()))])
-    window = f"{read_cursor.name()}[{window}]"
-    return stage_mem(proc, loops[-1], window, new_buff_name)
+    window = ",".join([ith_idx(i) for i in range(len(cursor.idx()))])
+    window = f"{cursor.name()}[{window}]"
+    return stage_mem(proc, loops[-1], window, new_buff_name, accum=accum)

@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <cblas.h>
+#include <math.h>
 
 #include <algorithm>
 #include <cassert>
@@ -13,7 +14,7 @@
 #include "exo_sgemm.h"
 #include "generate_buffer.h"
 
-static void BM_SGEMM_CBLAS(benchmark::State &state) {
+static void BM_cblas_sgemm(benchmark::State &state) {
   int n = state.range(0);
   int m = state.range(1);
   int k = state.range(2);
@@ -28,13 +29,9 @@ static void BM_SGEMM_CBLAS(benchmark::State &state) {
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha,
                 a.data(), k, b.data(), n, beta, c.data(), n);
   }
-
-  state.counters["flops"] = benchmark::Counter(
-      static_cast<double>(state.iterations()) * 2 * m * n * k,
-      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-static void BM_SGEMM_EXO(benchmark::State &state) {
+static void BM_exo_sgemm(benchmark::State &state) {
   int n = state.range(0);
   int m = state.range(1);
   int k = state.range(2);
@@ -49,38 +46,23 @@ static void BM_SGEMM_EXO(benchmark::State &state) {
     exo_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha,
               a.data(), k, b.data(), n, beta, c.data(), n);
   }
-
-  state.counters["flops"] = benchmark::Counter(
-      static_cast<double>(state.iterations()) * 2 * m * n * k,
-      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK(BM_SGEMM_CBLAS)
-    ->ArgNames({"n", "m", "k"})
-    ->Args({1, 1, 1})
-    ->Args({4, 4, 4})
-    ->Args({48, 48, 48})
-    ->Args({48 * 2, 48 * 2, 48 * 2})
-    ->Args({48 * 4, 48 * 4, 48 * 4})
-    ->Args({48 * 8, 48 * 8, 48 * 8})
-    ->Args({528, 240, 528})
-    ->Args({1056, 240, 528})
-    ->Args({1056 * 2, 240, 528})
-    ->Args({1056 * 2, 240 * 2, 528 * 2})
-    ->Args({1056 * 2 * 2 * 2, 240 * 4 * 2, 528 * 2 * 2});
-//    ->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
+static void gemm_arguments(benchmark::internal::Benchmark *b) {
+  int L1 = 192 * 1024 / 4;
+  int max_N = sqrt(L1 / 3);
 
-BENCHMARK(BM_SGEMM_EXO)
-    ->ArgNames({"n", "m", "k"})
-    ->Args({1, 1, 1})
-    ->Args({4, 4, 4})
-    ->Args({48, 48, 48})
-    ->Args({48 * 2, 48 * 2, 48 * 2})
-    ->Args({48 * 4, 48 * 4, 48 * 4})
-    ->Args({48 * 8, 48 * 8, 48 * 8})
-    ->Args({528, 240, 528})
-    ->Args({1056, 240, 528})
-    ->Args({1056 * 2, 240, 528})
-    ->Args({1056 * 2, 240 * 2, 528 * 2})
-    ->Args({1056 * 2 * 2 * 2, 240 * 4 * 2, 528 * 2 * 2});
-//->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
+  int multiple = 24;
+  for (int i = 1; i < 1000; ++i) {
+    int N = i * multiple;
+    if (N < max_N) {
+      b->Args({N, N, N});
+    } else {
+      break;
+    }
+  }
+}
+
+BENCHMARK(BM_cblas_sgemm)->ArgNames({"n", "m", "k"})->Apply(gemm_arguments);
+
+BENCHMARK(BM_exo_sgemm)->ArgNames({"n", "m", "k"})->Apply(gemm_arguments);
