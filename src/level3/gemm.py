@@ -31,7 +31,7 @@ def gemm_matmul_template(
                 C[i, j] += A[i, k] * B[k, j]
 
 
-def schedule_op_gemm_matmul(gemm, k_loop, params):
+def schedule_op_gemm_matmul_no_mem_sys_tiling(gemm, k_loop, params):
     k_loop = gemm.forward(k_loop)
     i_loop = k_loop.body()[0]
     j_loop = i_loop.body()[0]
@@ -55,9 +55,7 @@ def schedule_op_gemm_matmul(gemm, k_loop, params):
                 best_registers_used = guess_registers_used
                 best_m = m
                 best_n = n
-
     gemm = tile_loops(gemm, [(i_loop, best_m), (j_loop, params.vec_width * best_n)])
-
     outer_i_loop = gemm.forward(i_loop)
     outer_j_loop = gemm.forward(j_loop)
     inner_i_loop = outer_j_loop.body()[0]
@@ -151,7 +149,59 @@ def schedule_op_gemm_matmul(gemm, k_loop, params):
         A_times_B_strip_gemm_outer_i_loop.name()[:-1],
     )
 
-    return simplify(gemm)
+    return simplify(gemm), best_m, best_n * params.vec_width
+
+
+def schedule_outer_product_gemm_as_tiles(
+    gemm, k_loop, k_tile, i_tile, j_tile, gemm_no_mem_sys_tiling, params
+):
+    untiled_gemm = gemm
+
+    k_loop = gemm.forward(k_loop)
+    i_loop = k_loop.body()[0]
+    j_loop = i_loop.body()[0]
+
+    # Tile problem
+    tiled_gemm = tile_loops(
+        gemm, [(k_loop, k_tile), (i_loop, i_tile), (j_loop, j_tile)]
+    )
+
+    # Copy A
+    tiled_gemm = simplify(
+        auto_stage_mem(tiled_gemm, tiled_gemm.find("A[_]"), "A_copy", n_lifts=4)
+    )
+
+    # Vectorize A copy
+    i_loop = tiled_gemm.forward(i_loop)
+    copy_outer_loop = i_loop.body()[1]
+    copy_inner_loop = copy_outer_loop.body()[0]
+    tiled_gemm = vectorize_to_loops(
+        tiled_gemm, copy_inner_loop, params.vec_width, params.mem_type, params.precision
+    )
+    interleave_1 = min(C.Machine.n_vec_registers, k_tile // params.vec_width)
+    interleave_2 = min(
+        i_tile, C.Machine.n_vec_registers // (k_tile // params.vec_width)
+    )
+    tiled_gemm = interleave_execution(tiled_gemm, copy_inner_loop, interleave_1)
+    if interleave_2 > 1:
+        tiled_gemm = simplify(tiled_gemm)
+        tiled_gemm = unroll_loop(tiled_gemm, copy_inner_loop)
+        tiled_gemm = interleave_execution(tiled_gemm, copy_outer_loop, interleave_2)
+
+    tiled_gemm = lift_alloc(tiled_gemm, "A_copy", n_lifts=2)
+    tiled_gemm = set_memory(tiled_gemm, "A_copy", DRAM_STATIC)
+
+    tiled_gemm = replace_all(tiled_gemm, [untiled_gemm])
+    for i in range(0, 4):
+        tiled_gemm = call_eqv(
+            tiled_gemm,
+            tiled_gemm.find(f"{untiled_gemm.name()}(_)"),
+            gemm_no_mem_sys_tiling,
+        )
+
+    tiled_gemm = replace_all(tiled_gemm, params.instructions)
+
+    return simplify(tiled_gemm)
 
 
 def schedule_gemm_matmul(gemm, params):
@@ -165,7 +215,37 @@ def schedule_gemm_matmul(gemm, params):
     gemm = reorder_loops(gemm, j_loop)
     gemm = reorder_loops(gemm, i_loop)
 
-    return schedule_op_gemm_matmul(gemm, k_loop, params)
+    # Get inner gemm
+    gemm_no_mem_sys_tiling, m, n = schedule_op_gemm_matmul_no_mem_sys_tiling(
+        gemm, k_loop, params
+    )
+    gemm_no_mem_sys_tiling = rename(
+        gemm_no_mem_sys_tiling, f"{gemm_no_mem_sys_tiling.name()}_no_mem_sys_tiling"
+    )
+
+    # A tile will be a i_tile x k_tile
+    # B tile will be a k_tile x j_tile
+
+    # We iterate down B in the inner gemm
+    # So, we need to always have space for k_tile pages
+
+    # Once we touch k_tiles pages from B, we need to keep
+    # working on the same pages i.e. j_tiles = 4096
+
+    # Not sure if there is a reason for what to choose as
+    # i_tiles. If we set, it as i_tiles=j_tiles=4096, then
+    # it would be simple to think about the problem because
+    # pages will be split evenly between A and B
+
+    k_tile = 80
+    i_tile = 4096
+    j_tile = 4096
+
+    tiled_gemm = schedule_outer_product_gemm_as_tiles(
+        gemm, k_loop, k_tile, i_tile, j_tile, gemm_no_mem_sys_tiling, params
+    )
+
+    return tiled_gemm
 
 
 template_sched_list = [

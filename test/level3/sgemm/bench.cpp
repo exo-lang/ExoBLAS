@@ -15,8 +15,8 @@
 #include "generate_buffer.h"
 
 static void BM_cblas_sgemm(benchmark::State &state) {
-  int n = state.range(0);
-  int m = state.range(1);
+  int m = state.range(0);
+  int n = state.range(1);
   int k = state.range(2);
   auto a = AlignedBuffer2D<float>(m, k);
   auto b = AlignedBuffer2D<float>(k, n);
@@ -32,8 +32,8 @@ static void BM_cblas_sgemm(benchmark::State &state) {
 }
 
 static void BM_exo_sgemm(benchmark::State &state) {
-  int n = state.range(0);
-  int m = state.range(1);
+  int m = state.range(0);
+  int n = state.range(1);
   int k = state.range(2);
   auto a = AlignedBuffer2D<float>(m, k);
   auto b = AlignedBuffer2D<float>(k, n);
@@ -49,20 +49,26 @@ static void BM_exo_sgemm(benchmark::State &state) {
 }
 
 static void gemm_arguments(benchmark::internal::Benchmark *b) {
-  int L1 = 192 * 1024 / 4;
-  int max_N = sqrt(L1 / 3);
+  int maxMem = 9 * 1024 * 1024;
 
-  int multiple = 24;
+  int m_multiple = 4;
+  int n_multiple = 24;
+  int k_multiple = 80;
   for (int i = 1; i < 1000; ++i) {
-    int N = i * multiple;
-    if (N < max_N) {
-      b->Args({N, N, N});
+    int M = i * m_multiple;
+    int N = i * n_multiple;
+    int K = i * k_multiple;
+
+    int total = M * N + M * K + N * K;
+
+    if (total < maxMem) {
+      b->Args({M, N, K});
     } else {
       break;
     }
   }
 }
 
-BENCHMARK(BM_cblas_sgemm)->ArgNames({"n", "m", "k"})->Apply(gemm_arguments);
+BENCHMARK(BM_cblas_sgemm)->ArgNames({"m", "n", "k"})->Apply(gemm_arguments);
 
-BENCHMARK(BM_exo_sgemm)->ArgNames({"n", "m", "k"})->Apply(gemm_arguments);
+BENCHMARK(BM_exo_sgemm)->ArgNames({"m", "n", "k"})->Apply(gemm_arguments);
