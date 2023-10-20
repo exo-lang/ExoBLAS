@@ -29,6 +29,7 @@ def get_expr_dependencies(expr):
             yield from get_expr_dependencies(e)
     elif isinstance(expr, ReadCursor):
         yield expr.name()
+        yield from get_expr_dependencies(expr.idx())
     elif isinstance(expr, UnaryMinusCursor):
         yield from get_expr_dependencies(expr.arg())
     elif isinstance(expr, BuiltInFunctionCursor):
@@ -45,10 +46,13 @@ def get_stmt_dependencies(stmt):
     if isinstance(stmt, BlockCursor):
         for s in stmt:
             yield from get_stmt_dependencies(s)
-    elif isinstance(stmt, (ReadCursor, ReduceCursor)):
+    elif isinstance(stmt, (ReduceCursor, AssignCursor)):
         yield stmt.name()
         yield from get_expr_dependencies(stmt.idx())
         yield from get_expr_dependencies(stmt.rhs())
+    elif isinstance(stmt, ReadCursor):
+        yield stmt.name()
+        yield from get_expr_dependencies(stmt.idx())
     elif isinstance(stmt, CallCursor):
         yield from get_expr_dependencies(stmt.args())
     elif isinstance(stmt, IfCursor):
