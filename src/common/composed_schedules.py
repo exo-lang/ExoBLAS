@@ -725,7 +725,7 @@ def vectorize(
 
         # Now that we have a tail loop, the conditional in the main loop
         # can be removed
-        proc = remove_if(proc, inner_loop_cursor.body()[0])
+        proc = eliminate_dead_code(proc, inner_loop_cursor.body()[0])
 
         proc = vectorize_to_loops(
             proc, tail_loop_cursor, vec_width, memory_type, precision
