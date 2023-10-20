@@ -153,6 +153,10 @@ def stage_alloc(proc, alloc_cursor, n_lifts=1):
     return proc
 
 
+def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
+    return stage_alloc(proc, alloc_cursor, n_lifts=n_lifts)
+
+
 @dataclass
 class auto_divide_loop_cursors:
     outer_loop_cursor: ForSeqCursor
@@ -182,6 +186,10 @@ def auto_divide_loop(proc, loop_cursor, div_const, tail="guard", perfect=False):
     return proc, auto_divide_loop_cursors(
         outer_loop_cursor, inner_loop_cursor, tail_loop_cursor
     )
+
+
+def scalar_loop_to_simd_loops(proc, loop_cursor, vec_width, memory_type, precision):
+    return vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision)
 
 
 def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
@@ -312,6 +320,14 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
                 return lhs_cursors + rhs_cursors + [expr]
             else:
                 return lhs_cursors + rhs_cursors
+        elif isinstance(expr, UnaryMinusCursor):
+            return get_expr_subtree_cursors(expr.arg(), stmt, False) + [expr]
+        elif isinstance(expr, BuiltInFunctionCursor):
+            exprs = []
+            for arg in expr.args():
+                exprs = exprs + get_expr_subtree_cursors(arg, stmt, False)
+            exprs = exprs + [expr]
+            return exprs
         else:
             return [expr]
 
@@ -742,6 +758,9 @@ def vectorize(
                 precision,
                 tail="cut",
             )
+            outer_loop_cursor = proc.forward(outer_loop_cursor)
+            proc = unroll_loop(proc, outer_loop_cursor.prev())
+            proc = unroll_loop(proc, outer_loop_cursor.next())
         outer_loop_cursor = proc.forward(outer_loop_cursor)
         inner_loop_cursor = outer_loop_cursor.body()[0]
         inner_loop_cursor = proc.forward(inner_loop_cursor)
