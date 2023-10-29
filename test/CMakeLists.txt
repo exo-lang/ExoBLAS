@@ -45,14 +45,17 @@ function(add_exo_blas_test kernel precision)
   )
   target_include_directories(${precision_kernel}_bench PRIVATE ${precision_kernel})
 
-  add_test(NAME cblas_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=cblas|CBLAS)
+  set(benchmark_min_warmup_time "--benchmark_min_warmup_time=1")
+  set(benchmark_min_time "--benchmark_min_time=1s")
+
+  add_test(NAME cblas_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=cblas|CBLAS ${benchmark_min_warmup_time} ${benchmark_min_time})
   set_tests_properties(
     cblas_${precision_kernel}_bench
     PROPERTIES
     ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=console;BENCHMARK_OUT=${bla_vendor_benchmark_json_output}"
   )
 
-  add_test(NAME exo_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=exo|EXO)
+  add_test(NAME exo_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=exo|EXO ${benchmark_min_warmup_time} ${benchmark_min_time})
   set_tests_properties(
     exo_${precision_kernel}_bench
     PROPERTIES

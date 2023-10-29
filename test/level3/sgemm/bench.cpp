@@ -48,27 +48,42 @@ static void BM_exo_sgemm(benchmark::State &state) {
   }
 }
 
-static void gemm_arguments(benchmark::internal::Benchmark *b) {
-  int maxMem = 9 * 1024 * 1024;
+static void gemm_arguments_fixed_n(benchmark::internal::Benchmark *b) {
+  size_t L1 = 192 * 1024;
+  size_t L2 = 3 * 1024 * 1024 / 2;
+  size_t L3 = 9 * 1024 * 1024;
+  size_t DRAM = L3 * 2;
+  size_t minMem = 0;
+  size_t maxMem = DRAM;
 
-  int m_multiple = 4;
-  int n_multiple = 24;
-  int k_multiple = 80;
-  for (int i = 1; i < 1000; ++i) {
-    int M = i * m_multiple;
-    int N = i * n_multiple;
-    int K = i * k_multiple;
+  for (size_t N = 24; N <= 72; N += 24) {
+    size_t m_multiple = 4;
+    size_t k_multiple = 384;
+    for (size_t i = 1; i < 1000; i += 1) {
+      size_t M = i * m_multiple;
+      size_t K = i * k_multiple;
 
-    int total = M * N + M * K + N * K;
+      size_t total = M * N + M * K + N * K;
+      total *= 4;
 
-    if (total < maxMem) {
-      b->Args({M, N, K});
-    } else {
-      break;
+      if (total < maxMem && total >= minMem) {
+        b->Args({M, N, K, N});
+      }
+    }
+    for (int i = 1; i < 5; ++i) {
+      b->Args({4096 * i, N, 4096 * i, N});
     }
   }
 }
 
-BENCHMARK(BM_cblas_sgemm)->ArgNames({"m", "n", "k"})->Apply(gemm_arguments);
+static void gemm_arguments_large(benchmark::internal::Benchmark *b) {
+  for (int i = 1; i < 4; ++i) {
+    b->Args({4096 * i, 3072 * i, 96 * 10 * i});
+  }
+}
 
-BENCHMARK(BM_exo_sgemm)->ArgNames({"m", "n", "k"})->Apply(gemm_arguments);
+BENCHMARK(BM_cblas_sgemm)
+    ->ArgNames({"m", "n", "k"})
+    ->Apply(gemm_arguments_large);
+
+BENCHMARK(BM_exo_sgemm)->ArgNames({"m", "n", "k"})->Apply(gemm_arguments_large);

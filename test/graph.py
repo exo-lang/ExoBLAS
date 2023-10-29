@@ -186,10 +186,10 @@ for benchmark_name in jsons_dict:
 
         if kernel_name[1:] in level3_kernels:
             size = []
-            for li in lis[1:]:
+            for li in lis[1:4]:
                 n = int(li.split(":")[1])
                 size.append(n)
-            params = ()
+            params = tuple(lis[4:])
 
         time = d["cpu_time"]  # ns
         # size : word already

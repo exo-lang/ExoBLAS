@@ -29,6 +29,7 @@ def get_expr_dependencies(expr):
             yield from get_expr_dependencies(e)
     elif isinstance(expr, ReadCursor):
         yield expr.name()
+        yield from get_expr_dependencies(expr.idx())
     elif isinstance(expr, UnaryMinusCursor):
         yield from get_expr_dependencies(expr.arg())
     elif isinstance(expr, BuiltInFunctionCursor):

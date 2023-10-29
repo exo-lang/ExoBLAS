@@ -9,7 +9,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
-from introspection import get_stmt_dependencies, get_declaration
+from introspection import get_stmt_dependencies, get_declaration, get_expr_dependencies
 
 
 class BLAS_SchedulingError(Exception):
@@ -130,7 +130,7 @@ def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts
     return proc
 
 
-def stage_alloc(proc, alloc_cursor, n_lifts=1):
+def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
     """
     for i in seq(0, hi):
         B1;
@@ -145,16 +145,17 @@ def stage_alloc(proc, alloc_cursor, n_lifts=1):
         B2;
     """
     alloc_cursor = proc.forward(alloc_cursor)
-    enclosing_loop = get_enclosing_loop(alloc_cursor)
-    proc = expand_dim(
-        proc, alloc_cursor, expr_to_string(enclosing_loop.hi()), enclosing_loop.name()
-    )
-    proc = lift_alloc(proc, alloc_cursor, n_lifts=n_lifts)
+    for i in range(n_lifts):
+        enclosing_scope = alloc_cursor.parent()
+        if isinstance(enclosing_scope, ForSeqCursor):
+            proc = expand_dim(
+                proc,
+                alloc_cursor,
+                expr_to_string(enclosing_scope.hi()),
+                enclosing_scope.name(),
+            )
+        proc = lift_alloc(proc, alloc_cursor, n_lifts=n_lifts)
     return proc
-
-
-def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
-    return stage_alloc(proc, alloc_cursor, n_lifts=n_lifts)
 
 
 @dataclass
@@ -253,7 +254,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         body_list = list(body)
         for stmt in body_list[:-1]:
             if isinstance(stmt, AllocCursor):
-                proc = stage_alloc(proc, stmt, n_lifts=depth)
+                proc = parallelize_and_lift_alloc(proc, stmt, n_lifts=depth)
                 proc = set_memory(proc, stmt, memory_type)
                 proc = set_precision(proc, stmt, precision)
             else:
@@ -359,7 +360,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
                 alloc_cursor = forwarded_stmt.prev().prev()
                 if depth > 1:
                     proc = lift_alloc(proc, alloc_cursor, n_lifts=depth - 1)
-                proc = stage_alloc(proc, alloc_cursor)
+                proc = parallelize_and_lift_alloc(proc, alloc_cursor)
 
                 forwarded_stmt = proc.forward(stmt)
                 proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
@@ -438,7 +439,7 @@ def interleave_execution(proc, loop_cursor, interleave_factor):
 
     for stmt in inner_loop_stmts:
         if isinstance(stmt, AllocCursor):
-            proc = stage_alloc(proc, stmt)
+            proc = parallelize_and_lift_alloc(proc, stmt)
 
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
@@ -564,7 +565,7 @@ def parallelize_reduction(
     proc = set_precision(proc, alloc_cursor, precision)
 
     outer_loop_cursor = proc.forward(outer_loop_cursor)
-    proc = stage_alloc(proc, outer_loop_cursor.prev().prev())
+    proc = parallelize_and_lift_alloc(proc, outer_loop_cursor.prev().prev())
     proc = fission(proc, outer_loop_cursor.before())
     proc = fission(proc, outer_loop_cursor.after())
     outer_loop_cursor = proc.forward(outer_loop_cursor)
@@ -625,7 +626,7 @@ def interleave_outer_loop_with_inner_loop(
 
     for stmt in middle_loop_stmts:
         if isinstance(stmt, AllocCursor):
-            proc = stage_alloc(proc, stmt)
+            proc = parallelize_and_lift_alloc(proc, stmt)
 
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
@@ -839,3 +840,81 @@ def auto_stage_mem(proc, cursor, new_buff_name, n_lifts=1, accum=False):
     window = ",".join([ith_idx(i) for i in range(len(cursor.idx()))])
     window = f"{cursor.name()}[{window}]"
     return stage_mem(proc, loops[-1], window, new_buff_name, accum=accum)
+
+
+def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
+    if not isinstance(expr_cursors, list):
+        expr_cursors = [expr_cursors]
+
+    if not all([isinstance(cursor, ExprCursor) for cursor in expr_cursors]):
+        raise BLAS_SchedulingError("auto_stage_mem expects a read a cursor")
+
+    expr_cursors = [proc.forward(c) for c in expr_cursors]
+    original_stmt = get_statement(expr_cursors[0])
+
+    proc = bind_expr(proc, expr_cursors, new_buff_name, cse=True)
+    original_stmt = proc.forward(original_stmt)
+    assign_cursor = original_stmt.prev()
+    alloc_cursor = assign_cursor.prev()
+    expr_cursor = assign_cursor.rhs()
+    deps = list(get_expr_dependencies(expr_cursor))
+
+    assert isinstance(assign_cursor, AssignCursor)
+    assert isinstance(alloc_cursor, AllocCursor)
+
+    anchor_stmt = assign_cursor
+
+    def hoist_as_loop(proc, stmt_cursor):
+        stmt_cursor = proc.forward(stmt_cursor)
+        while not isinstance(stmt_cursor.prev(), InvalidCursor):
+            proc = reorder_stmts(proc, stmt_cursor.expand(1, 0))
+            stmt_cursor = proc.forward(stmt_cursor)
+
+        proc = fission(proc, stmt_cursor.after())
+
+        return proc
+
+    for i in range(n_lifts):
+        parent = anchor_stmt.parent()
+
+        if not isinstance(parent, ForSeqCursor):
+            raise BLAS_SchedulingError("Not implemented yet")
+        if parent.name() in deps:
+            proc = parallelize_and_lift_alloc(proc, alloc_cursor)
+        else:
+            proc = lift_alloc(proc, alloc_cursor)
+
+        proc = hoist_as_loop(proc, anchor_stmt)
+        anchor_stmt = proc.forward(anchor_stmt)
+        anchor_stmt = anchor_stmt.parent()
+
+    alloc_cursor = proc.forward(alloc_cursor)
+    loop_nest = alloc_cursor.next()
+
+    def try_removing_loops(proc, loop):
+        child_stmt = loop.body()[0]
+        if isinstance(child_stmt, ForSeqCursor):
+            proc = try_removing_loops(proc, child_stmt)
+        try:
+            proc = remove_loop(proc, loop)
+        except:
+            pass
+        return proc
+
+    proc = try_removing_loops(proc, loop_nest)
+    alloc_cursor = proc.forward(alloc_cursor)
+    proc = set_precision(proc, alloc_cursor, precision)
+    scopes_nest = alloc_cursor.next()
+
+    def lift_all_ifs(proc, scope, depth=0):
+        if isinstance(scope, IfCursor):
+            for i in range(depth):
+                proc = lift_scope(proc, scope)
+        child_stmt = scope.body()[0]
+        if isinstance(child_stmt, (ForSeqCursor, IfCursor)):
+            proc = lift_all_ifs(proc, child_stmt, depth + 1)
+        return proc
+
+    proc = lift_all_ifs(proc, scopes_nest)
+
+    return proc

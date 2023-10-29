@@ -10,9 +10,6 @@
 void test_sgemm(const enum CBLAS_TRANSPOSE transa,
                 const enum CBLAS_TRANSPOSE transb, const int m, const int n,
                 const int k, const float alpha, const float beta) {
-  std::cout << "Running sgemm test: N = " << n << ", alpha = " << alpha
-            << ", beta = " << beta << ", trasnsa = " << transa
-            << ", transb = " << transb << "..." << std::endl;
   auto a = AlignedBuffer2D<float>(m, k);
   auto b = AlignedBuffer2D<float>(k, n);
   auto c = AlignedBuffer2D<float>(m, n);
@@ -29,29 +26,35 @@ void test_sgemm(const enum CBLAS_TRANSPOSE transa,
     double correct = c[i];
     double exo_out = c2[i];
     if (!check_relative_error_okay(correct, exo_out, epsilon)) {
+      std::cout << "Running sgemm test: N = " << n << ", alpha = " << alpha
+                << ", beta = " << beta << ", trasnsa = " << transa
+                << ", transb = " << transb << "..." << std::endl;
+
       std::cout << "Error at " << i / n << ", " << i % n
                 << ". Expected: " << correct << ", got: " << exo_out
                 << std::endl;
       exit(1);
     }
   }
-
-  std::cout << "Passed!" << std::endl;
 }
 
 int main() {
-  std::vector<int> dims{1, 32, 48, 64, 256, 257, 1000};
+  std::vector<int> dims{1, 7, 32, 48, 49, 64, 256, 257, 1000};
   std::vector<CBLAS_TRANSPOSE> transas{CblasNoTrans};
   std::vector<CBLAS_TRANSPOSE> transbs{CblasNoTrans};
   std::vector<float> alphas{1.0};
   std::vector<float> betas{1.0};
 
-  for (auto const n : dims) {
-    for (auto const transa : transas) {
-      for (auto const transb : transbs) {
-        for (auto const alpha : alphas) {
-          for (auto const beta : betas) {
-            test_sgemm(transa, transb, n, n, n, alpha, beta);
+  for (auto const m : dims) {
+    for (auto const n : dims) {
+      for (auto const k : dims) {
+        for (auto const transa : transas) {
+          for (auto const transb : transbs) {
+            for (auto const alpha : alphas) {
+              for (auto const beta : betas) {
+                test_sgemm(transa, transb, m, n, k, alpha, beta);
+              }
+            }
           }
         }
       }
