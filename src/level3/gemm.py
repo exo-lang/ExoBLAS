@@ -64,7 +64,9 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
                 best_registers_used = guess_registers_used
                 best_m = m
                 best_n = n
-    gemm = tile_loops(gemm, [(i_loop, best_m), (j_loop, params.vec_width * best_n)])
+    gemm = tile_loops_top_down(
+        gemm, [(i_loop, best_m), (j_loop, params.vec_width * best_n)]
+    )
     outer_i_loop = gemm.forward(i_loop)
     outer_j_loop = gemm.forward(j_loop)
     inner_i_loop = outer_j_loop.body()[0]
@@ -156,9 +158,14 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = ordered_stage_expr(
         gemm, gemm.find("B[_]"), "B_repacked_access_order", params.precision, 5
     )
-    # B_flattened_cursor = gemm.find("B_flattened : _")
-    # gemm = set_memory(gemm, B_flattened_cursor, DRAM_STATIC)
-    # gemm = bound_alloc(gemm, B_flattened_cursor, [math.ceil(max_N / (best_n * params.vec_width)), max_K, None, None], unsafe_disable_checks=True)
+    B_repacked_access_order = gemm.find("B_repacked_access_order : _")
+    gemm = set_memory(gemm, B_repacked_access_order, DRAM_STATIC)
+    gemm = bound_alloc(
+        gemm,
+        B_repacked_access_order,
+        [math.ceil(max_N / (best_n * params.vec_width)), max_K, None, None],
+        unsafe_disable_checks=True,
+    )
 
     # TODO: we don't want any template pattern matching here
     gemm = vectorize_to_loops(
@@ -169,6 +176,14 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
 
     gemm = ordered_stage_expr(
         gemm, gemm.find("A[_]"), "A_repacked_access_order", params.precision, 5
+    )
+    A_repacked_access_order = gemm.find("A_repacked_access_order : _")
+    gemm = set_memory(gemm, A_repacked_access_order, DRAM_STATIC)
+    gemm = bound_alloc(
+        gemm,
+        A_repacked_access_order,
+        [math.ceil(max_M / best_m), max_K, None],
+        unsafe_disable_checks=True,
     )
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
@@ -203,13 +218,10 @@ def schedule_outer_product_gemm_as_tiles(gemm, k_loop, k_tile, i_tile, j_tile, p
     i_loop = k_loop.body()[0]
     j_loop = i_loop.body()[0]
 
-    # Tile problem
-    tiled_gemm = tile_loops(
-        gemm, [(k_loop, k_tile), (i_loop, i_tile), (j_loop, j_tile)]
-    )
+    tiled_gemm = tile_loops_bottom_up(gemm, k_loop, [k_tile, i_tile, j_tile])
 
     tiled_gemm = replace_all(tiled_gemm, [inner_gemm_base])
-    for i in range(0, 4):
+    for i in range(0, 8):
         tiled_gemm = call_eqv(
             tiled_gemm,
             tiled_gemm.find(f"{inner_gemm_base.name()}(_)"),

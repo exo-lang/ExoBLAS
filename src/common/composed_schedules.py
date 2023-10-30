@@ -179,7 +179,7 @@ def auto_divide_loop(proc, loop_cursor, div_const, tail="guard", perfect=False):
     outer_loop_cursor = proc.forward(loop_cursor)
     inner_loop_cursor = outer_loop_cursor.body()[0]
 
-    if perfect == True or tail in ("cut", "cut_and_guard"):
+    if perfect == True or tail == "guard":
         tail_loop_cursor = InvalidCursor()
     else:
         tail_loop_cursor = outer_loop_cursor.next()
@@ -775,7 +775,7 @@ def vectorize(
     return proc
 
 
-def tile_loops(proc, loop_tile_pairs):
+def tile_loops_top_down(proc, loop_tile_pairs):
 
     loop_tile_pairs = [(proc.forward(i[0]), i[1]) for i in loop_tile_pairs]
 
@@ -800,6 +800,51 @@ def tile_loops(proc, loop_tile_pairs):
             proc = interleave_outer_loop_with_inner_loop(
                 proc, inner_loop, loop, tile_size
             )
+    return proc
+
+
+def tile_loops_bottom_up(proc, outer_most_loop, tiles):
+    loop = outer_most_loop
+    for i in tiles[:-1]:
+        if not len(loop.body()) == 1:
+            raise BLAS_SchedulingError("All loop must have a body length of 1")
+        if not isinstance(loop.body()[0], ForSeqCursor):
+            raise BLAS_SchedulingError("Did not find a nested loop")
+
+    loops = []
+    loop = outer_most_loop
+    for i in tiles:
+        loops.append((loop, i))
+        loop = loop.body()[0]
+
+    def get_depth(loop):
+        if not isinstance(loop, ForSeqCursor):
+            return 0
+        return max([get_depth(i) for i in loop.body()]) + 1
+
+    def push_loop_in(proc, loop, depth):
+        if get_depth(loop) == depth:
+            return proc
+        count = len(loop.body())
+        for stmt in list(loop.body())[:-1]:
+            proc = fission(proc, stmt.after())
+        loop = proc.forward(loop)
+        loops = []
+        for i in range(count):
+            loops.append(loop)
+            loop = loop.next()
+        for loop in loops:
+            if get_depth(loop) == depth:
+                continue
+            proc = reorder_loops(proc, loop)
+            proc = push_loop_in(proc, proc.forward(loop), depth)
+        return proc
+
+    for depth, (loop, tile) in enumerate(loops[::-1]):
+        proc, cursors = auto_divide_loop(proc, loop, tile, tail="cut")
+        proc = push_loop_in(proc, cursors.inner_loop_cursor, depth + 1)
+        proc = push_loop_in(proc, cursors.tail_loop_cursor, depth + 1)
+
     return proc
 
 

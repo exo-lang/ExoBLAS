@@ -16,7 +16,7 @@ from exo.stdlib.scheduling import *
 from kernels.gemm_kernels import GEPP_kernel, GEBP_kernel, Microkernel
 from format_options import *
 
-from composed_schedules import tile_loops, auto_stage_mem
+from composed_schedules import tile_loops_top_down, auto_stage_mem
 
 import exo_blas_config as C
 
@@ -605,7 +605,7 @@ class GEMM:
         k_loop = gemm_scheduled.find_loop("k")
         gemm_scheduled = reorder_loops(gemm_scheduled, i_loop)
         gemm_scheduled = reorder_loops(gemm_scheduled, i_loop)
-        gemm_scheduled = tile_loops(
+        gemm_scheduled = tile_loops_top_down(
             gemm_scheduled,
             [(j_loop, self.N_blk), (k_loop, self.K_blk), (i_loop, self.M_blk)],
         )
@@ -613,7 +613,7 @@ class GEMM:
         ji_loop = gemm_scheduled.find_loop("ji")
         ki_loop = gemm_scheduled.find_loop("ki")
         gemm_scheduled = reorder_loops(gemm_scheduled, ki_loop)
-        gemm_scheduled = tile_loops(
+        gemm_scheduled = tile_loops_top_down(
             gemm_scheduled, [(ji_loop, self.N_reg), (ii_loop, self.M_reg)]
         )
         gemm_scheduled = simplify(gemm_scheduled)
