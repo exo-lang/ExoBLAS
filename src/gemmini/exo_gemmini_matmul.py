@@ -135,7 +135,7 @@ def sink_if(p, if_cursor):
                 s1
     """
     while True:
-        if not isinstance(if_cursor.body()[0], pc.ForSeqCursor):
+        if not isinstance(if_cursor.body()[0], pc.ForCursor):
             break
         else:
             p = lift_scope(p, if_cursor.body()[0])
@@ -157,7 +157,7 @@ def add_guard(p, c):
     c = p.forward(c)
     while True:
         c = c.parent()
-        if not isinstance(c, pc.ForSeqCursor):
+        if not isinstance(c, pc.ForCursor):
             break
         try:
             hi = c.hi().value()
@@ -185,7 +185,7 @@ def remove_redundant_loops(p, c, num=0):
     cur_depth = 0
     while True:
         c = c.parent()
-        if not isinstance(c, pc.ForSeqCursor):
+        if not isinstance(c, pc.ForCursor):
             break
         try:
             if cur_depth >= num:
@@ -221,7 +221,7 @@ def find_child_loop(loop_c, name):
                 count += 1
                 child_loop = loop_c.body()[0]
                 if (
-                    isinstance(child_loop, pc.ForSeqCursor)
+                    isinstance(child_loop, pc.ForCursor)
                     and child_loop.name() == name
                 ):
                     return child_loop, count
@@ -254,7 +254,7 @@ def fuse_two_loops(p, c):
     except:
         return p, False
 
-    if isinstance(c, pc.ForSeqCursor) and isinstance(next_c, pc.ForSeqCursor):
+    if isinstance(c, pc.ForCursor) and isinstance(next_c, pc.ForCursor):
         if c.name() == next_c.name() and c.hi().value() == next_c.hi().value():
             p = fuse(p, c, next_c, unsafe_disable_check=True)
             return p, True
@@ -273,7 +273,7 @@ def fuse_all_loops(p, cursor):
     recursively calls fuse_two_loops to all the loops
     """
     while True:
-        if isinstance(cursor, pc.ForSeqCursor):
+        if isinstance(cursor, pc.ForCursor):
             p = fuse_all_loops(p, cursor.body()[0])
 
         # Fuse in current scope
@@ -307,7 +307,7 @@ def autolift_alloc(p, alloc_c, dep_set=None, max_size=0):
     accum_size = 1
     while True:
         try:
-            if not isinstance(loop_c, pc.ForSeqCursor):
+            if not isinstance(loop_c, pc.ForCursor):
                 break
             if dep_set == None or loop_c.name() in dep_set:
                 if accum_size < max_size:

@@ -17,7 +17,7 @@ def get_statemnts(proc):
             if isinstance(stmt, IfCursor):
                 yield from get_statemnts_helper(stmt.body())
                 yield from get_statemnts_helper(stmt.orelse())
-            elif isinstance(stmt, ForSeqCursor):
+            elif isinstance(stmt, ForCursor):
                 yield from get_statemnts_helper(stmt.body())
 
     return get_statemnts_helper(proc.body())
@@ -58,7 +58,7 @@ def get_stmt_dependencies(stmt):
     elif isinstance(stmt, IfCursor):
         yield from get_expr_dependencies(stmt.cond())
         yield from get_stmt_dependencies(stmt.body())
-    elif isinstance(stmt, ForSeqCursor):
+    elif isinstance(stmt, ForCursor):
         yield from get_expr_dependencies(stmt.hi())
         yield from get_stmt_dependencies(stmt.body())
     elif isinstance(stmt, AllocCursor):
