@@ -259,7 +259,7 @@ def schedule_gemm_matmul(gemm, params):
 
     CoffeLake_STLB = 1536
     elem_size = 4 if params.precision == "f32" else 8
-    k_tile = CoffeLake_STLB // 4 // elem_size
+    k_tile = CoffeLake_STLB // 2 // elem_size
     i_tile = 4096
     j_tile = 3072  # should be 4096, using this for now until inner gemm tail cases are implemented.
 
