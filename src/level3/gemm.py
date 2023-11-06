@@ -64,7 +64,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
                 best_registers_used = guess_registers_used
                 best_m = m
                 best_n = n
-    gemm = tile_loops_top_down(
+    gemm, _ = tile_loops_top_down(
         gemm, [(i_loop, best_m), (j_loop, params.vec_width * best_n)]
     )
     outer_i_loop = gemm.forward(i_loop)
