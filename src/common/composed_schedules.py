@@ -783,15 +783,16 @@ def tile_loops_top_down(proc, loop_tile_pairs):
     for i in range(len(loop_tile_pairs)):
         outer_loop = loop_tile_pairs[i][0]
         tile_size = loop_tile_pairs[i][1]
-        proc = divide_loop(
-            proc,
-            outer_loop,
-            tile_size,
-            (outer_loop.name() + "o", outer_loop.name() + "i"),
-            tail="cut",
-        )
+        new_names = (outer_loop.name() + "o", outer_loop.name() + "i")
+        if isinstance(outer_loop.hi(), LiteralCursor) and (
+            outer_loop.hi().value() % tile_size == 0
+        ):
+            proc = divide_loop(proc, outer_loop, tile_size, new_names, perfect=True)
+        else:
+            proc = divide_loop(proc, outer_loop, tile_size, new_names, tail="cut")
         inner_loop = proc.forward(outer_loop).body()[0]
         inner_loops.append(inner_loop)
+
     for i in range(len(loop_tile_pairs) - 2, -1, -1):
         inner_loop = inner_loops[i]
         tile_size = loop_tile_pairs[i][1]
@@ -800,7 +801,7 @@ def tile_loops_top_down(proc, loop_tile_pairs):
             proc = interleave_outer_loop_with_inner_loop(
                 proc, inner_loop, loop, tile_size
             )
-    return proc
+    return proc, [proc.forward(l) for l in inner_loops]
 
 
 def tile_loops_bottom_up(proc, outer_most_loop, tiles):
