@@ -10,7 +10,7 @@
 template <typename T>
 class AlignedBuffer {
  public:
-  AlignedBuffer(size_t N, int inc, size_t alignment) {
+  AlignedBuffer(size_t N, int inc, size_t alignment = 64) {
     size_ = 1 + (N - 1) * abs(inc);
     alignment_ = alignment;
     alloc_alligned();
@@ -78,7 +78,7 @@ class AlignedBuffer {
 template <typename T>
 class AlignedBuffer2D : public AlignedBuffer<T> {
  public:
-  AlignedBuffer2D(size_t M, size_t N, size_t alignment)
+  AlignedBuffer2D(size_t M, size_t N, size_t alignment = 64)
       : AlignedBuffer<T>(M * N, 1, alignment) {}
 
   AlignedBuffer2D(size_t M, size_t N, T value, size_t alignment)
