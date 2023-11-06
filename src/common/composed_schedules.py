@@ -146,6 +146,7 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
     """
     alloc_cursor = proc.forward(alloc_cursor)
     for i in range(n_lifts):
+        alloc_cursor = proc.forward(alloc_cursor)
         enclosing_scope = alloc_cursor.parent()
         if isinstance(enclosing_scope, ForSeqCursor):
             proc = expand_dim(
@@ -154,7 +155,7 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
                 expr_to_string(enclosing_scope.hi()),
                 enclosing_scope.name(),
             )
-        proc = lift_alloc(proc, alloc_cursor, n_lifts=n_lifts)
+        proc = lift_alloc(proc, alloc_cursor)
     return proc
 
 
