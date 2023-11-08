@@ -33,6 +33,161 @@ def gemm_matmul_template(
                 C[i, j] += A[i, k] * B[k, j]
 
 
+def generate_op_gemm(gemm, params):
+    gemm = generate_stride_any_proc(gemm, params.precision)
+
+    i_loop = gemm.find_loop("i")
+    j_loop = i_loop.body()[0]
+    k_loop = j_loop.body()[0]
+
+    # Turn into an outer product
+    gemm = reorder_loops(gemm, j_loop)
+    gemm = reorder_loops(gemm, i_loop)
+
+    return gemm
+
+
+def schedule_op_gemm_matmul_no_mem_sys_tiling_no_copy(gemm, k_loop, params):
+    k_loop = gemm.forward(k_loop)
+
+    i_loop = k_loop.body()[0]
+    j_loop = i_loop.body()[0]
+
+    # Cast as a (m x K x (vec_width x n) ) matmul
+
+    # Solve the constraints for m and n
+    best_m = 1
+    best_n = 1
+    registers_used = lambda m, n: m * n + n + 1
+    best_registers_used = registers_used(best_m, best_n)
+    max_gp_registers = C.Machine.n_vec_registers // 2  # Heuristic
+    for m in range(1, max_gp_registers):
+        for n in range(1, C.Machine.n_vec_registers):
+            guess_registers_used = registers_used(m, n)
+            if guess_registers_used > C.Machine.n_vec_registers:
+                break
+            if guess_registers_used > best_registers_used or (
+                guess_registers_used == best_registers_used and m * n > best_m * best_n
+            ):
+                best_registers_used = guess_registers_used
+                best_m = m
+                best_n = n
+
+    gemm, i_loop_cursors = auto_divide_loop(gemm, i_loop, best_m, tail="cut")
+    gemm, j_loop_cursors = auto_divide_loop(
+        gemm, j_loop, C.Machine.vec_width * best_n, tail="guard"
+    )
+    gemm = reorder_loops(gemm, i_loop_cursors.inner_loop_cursor)
+
+    outer_i_loop = i_loop_cursors.outer_loop_cursor
+    outer_j_loop = j_loop_cursors.outer_loop_cursor
+    inner_i_loop = i_loop_cursors.inner_loop_cursor
+    inner_j_loop = j_loop_cursors.inner_loop_cursor
+
+    # Decompose into 2 gemms
+    gemm = fission(gemm, outer_i_loop.after())
+
+    # Calculate entire C as (m x K x vec_width) using outer product
+    gemm = reorder_loops(gemm, k_loop)
+    gemm = reorder_loops(gemm, k_loop)
+
+    fma_stmt = inner_j_loop.body()[0].body()[0]
+
+    # Stage C tile outside the outer product and into accelerator memory
+    gemm = simplify(auto_stage_mem(gemm, fma_stmt, "C_reg", n_lifts=3, accum=True))
+
+    k_loop = gemm.forward(k_loop)
+    C_reg_alloc = k_loop.prev().prev()
+    C_reg_init_outer_loop = k_loop.prev()
+    C_reg_init_inner_loop = C_reg_init_outer_loop.body()[0]
+    C_accum_back_outer_loop = k_loop.next()
+    C_accum_back_inner_loop = C_accum_back_outer_loop.body()[0]
+
+    gemm = set_memory(gemm, C_reg_alloc, params.mem_type)
+    gemm = divide_dim(gemm, C_reg_alloc, 1, params.vec_width)
+
+    fma_stmt = gemm.forward(fma_stmt)
+    B_read = fma_stmt.rhs().rhs()  # We are assuming B is the rhs
+
+    # Stage B vector to load once across rows
+    gemm = simplify(auto_stage_mem(gemm, B_read, "B_reg", n_lifts=2))
+
+    inner_i_loop = gemm.forward(inner_i_loop)
+    B_reg_alloc = inner_i_loop.prev().prev()
+    B_load_loop = inner_i_loop.prev()
+
+    gemm = set_memory(gemm, B_reg_alloc, params.mem_type)
+    gemm = divide_dim(gemm, B_reg_alloc, 0, params.vec_width)
+
+    # Vectorize loops
+    for inner_loop in (
+        C_reg_init_inner_loop,
+        B_load_loop,
+        inner_j_loop,
+        C_accum_back_inner_loop,
+    ):
+        gemm = vectorize_to_loops(
+            gemm, inner_loop, params.vec_width, params.mem_type, params.precision
+        )
+
+    gemm = simplify(gemm)
+
+    # Hoist zeroing accumulator
+    gemm = apply_to_block(gemm, gemm.forward(C_reg_init_inner_loop).body(), hoist_stmt)
+    gemm = apply_to_block(gemm, gemm.forward(C_reg_init_outer_loop).body(), hoist_stmt)
+
+    # Cut main/tail loops to remove the guards in the main loop
+    outer_j_loop = gemm.forward(outer_j_loop)
+    gemm = cut_loop(gemm, outer_j_loop, FormattedExprStr("_ - 1", outer_j_loop.hi()))
+    gemm = eliminate_dead_code_pass(gemm)
+
+    # Hoist A broadcast across (vec_width x n) columns of B
+    inner_j_loop = gemm.forward(inner_j_loop)
+    gemm = apply_to_block(gemm, inner_j_loop.body(), hoist_stmt)
+
+    def unroll_and_interleave_loops(gemm, j_loop, is_tail):
+        j_loop = gemm.forward(j_loop)
+        outer_c_init_loop = j_loop.body()[3]
+        k_loop = outer_c_init_loop.next()
+        outer_c_accum_loop = k_loop.next()
+
+        gemm = unroll_loop(gemm, outer_c_init_loop.body()[0])
+        gemm = unroll_loop(gemm, outer_c_init_loop)
+
+        B_load_loop = k_loop.body()[1]
+        C_fma_outer_loop = B_load_loop.next()
+        C_fma_inner_loop = C_fma_outer_loop.body()[0 if is_tail else 2]
+        gemm = unroll_loop(gemm, B_load_loop)
+        gemm = unroll_loop(gemm, C_fma_inner_loop)
+        gemm = unroll_loop(gemm, C_fma_outer_loop)
+
+        inner_c_accum_loop = outer_c_accum_loop.body()[0]
+        gemm = reorder_loops(gemm, outer_c_accum_loop)
+        gemm = interleave_execution(gemm, outer_c_accum_loop, best_m)
+        gemm = interleave_execution(gemm, inner_c_accum_loop, best_n)
+
+        return gemm
+
+    # Instructions...
+    gemm = replace_all(gemm, params.instructions)
+    gemm = simplify(gemm)
+
+    outer_j_loop = gemm.forward(outer_j_loop)
+    gemm = unroll_and_interleave_loops(gemm, outer_j_loop, False)
+    gemm = unroll_and_interleave_loops(gemm, outer_j_loop.next(), True)
+
+    return gemm
+
+
+def schedule_gemm_matmul_no_mem_sys_tiling_no_copy(gemm, params):
+    gemm = generate_op_gemm(gemm, params)
+    gemm = schedule_op_gemm_matmul_no_mem_sys_tiling_no_copy(
+        gemm, gemm.find_loop("k"), params
+    )
+    gemm = rename(gemm, f"{gemm.name()}_no_mem_sys_tiling_no_copy")
+    return gemm
+
+
 def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm, k_loop, max_K, max_M, max_N, params
 ):
@@ -271,7 +426,8 @@ def schedule_gemm_matmul(gemm, params):
 
 
 template_sched_list = [
-    (gemm_matmul_template, schedule_gemm_matmul),
+    # (gemm_matmul_template, schedule_gemm_matmul),
+    (gemm_matmul_template, schedule_gemm_matmul_no_mem_sys_tiling_no_copy)
 ]
 
 for precision in ("f32",):

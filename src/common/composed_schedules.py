@@ -965,3 +965,21 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     proc = lift_all_ifs(proc, scopes_nest)
 
     return proc
+
+
+def eliminate_dead_code_pass(proc):
+    def visit(proc, block):
+        for s in block:
+            if isinstance(s, ForSeqCursor):
+                proc = visit(proc, s.body())
+            elif isinstance(s, IfCursor):
+                proc = visit(proc, s.body())
+                if not isinstance(s.orelse(), InvalidCursor):
+                    proc = visit(proc, s.orelse())
+            try:
+                proc = eliminate_dead_code(proc, s)
+            except:
+                pass
+        return proc
+
+    return visit(proc, proc.body())
