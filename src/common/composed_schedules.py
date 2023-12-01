@@ -58,8 +58,8 @@ def expr_to_string(expr_cursor, subst={}):
 
 
 def get_enclosing_scope(cursor, scope_type):
-    if not scope_type in (ForSeqCursor, IfCursor):
-        raise BLAS_SchedulingError("scope type must be ForSeqCursor or IfCursor")
+    if not scope_type in (ForCursor, IfCursor):
+        raise BLAS_SchedulingError("scope type must be ForCursor or IfCursor")
 
     cursor = cursor.parent()
     while not isinstance(cursor, (scope_type, InvalidCursor)):
@@ -72,7 +72,7 @@ def get_enclosing_scope(cursor, scope_type):
 
 
 def get_enclosing_loop(cursor):
-    return get_enclosing_scope(cursor, ForSeqCursor)
+    return get_enclosing_scope(cursor, ForCursor)
 
 
 def get_enclosing_if(cursor):
@@ -90,7 +90,7 @@ def get_statement(cursor):
 def is_already_divided(loop_cursor, div_factor):
     return (
         len(loop_cursor.body()) == 1
-        and isinstance(loop_cursor.body()[0], ForSeqCursor)
+        and isinstance(loop_cursor.body()[0], ForCursor)
         and isinstance(loop_cursor.body()[0].hi(), LiteralCursor)
         and loop_cursor.body()[0].hi().value() == div_factor
     )
@@ -148,7 +148,7 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
     for i in range(n_lifts):
         alloc_cursor = proc.forward(alloc_cursor)
         enclosing_scope = alloc_cursor.parent()
-        if isinstance(enclosing_scope, ForSeqCursor):
+        if isinstance(enclosing_scope, ForCursor):
             proc = expand_dim(
                 proc,
                 alloc_cursor,
@@ -161,9 +161,9 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
 
 @dataclass
 class auto_divide_loop_cursors:
-    outer_loop_cursor: ForSeqCursor
-    inner_loop_cursor: ForSeqCursor
-    tail_loop_cursor: ForSeqCursor
+    outer_loop_cursor: ForCursor
+    inner_loop_cursor: ForCursor
+    tail_loop_cursor: ForCursor
 
 
 def auto_divide_loop(proc, loop_cursor, div_const, tail="guard", perfect=False):
@@ -223,9 +223,9 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         lhs(i + delta) = (e_0(i + delta), e_1(i + delta), ..., e_n(i + delta));
     """
 
-    if not isinstance(loop_cursor, ForSeqCursor):
+    if not isinstance(loop_cursor, ForCursor):
         raise BLAS_SchedulingError(
-            "vectorize_to_loops loop_cursor must be a ForSeqCursor"
+            "vectorize_to_loops loop_cursor must be a ForCursor"
         )
 
     loop_cursor = proc.forward(loop_cursor)
@@ -265,7 +265,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
                 forwarded_stmt = proc.forward(stmt)
                 if isinstance(forwarded_stmt, IfCursor):
                     proc = fission_stmts(proc, forwarded_stmt.body(), depth + 1)
-                elif isinstance(forwarded_stmt, ForSeqCursor):
+                elif isinstance(forwarded_stmt, ForCursor):
                     raise BLAS_SchedulingError("This is an inner loop vectorizer")
         forwarded_stmt = body_list[-1]
         stmts.append(forwarded_stmt)
@@ -387,7 +387,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         if isinstance(forwarded_stmt, IfCursor):
             continue
         inner_loop = get_enclosing_loop(forwarded_stmt)
-        if isinstance(inner_loop, ForSeqCursor):
+        if isinstance(inner_loop, ForCursor):
             assert len(inner_loop.body()) == 1
             proc = vectorize_stmt(proc, inner_loop.body()[0])
 
@@ -411,8 +411,8 @@ def interleave_execution(proc, loop_cursor, interleave_factor):
         S3
         ... x interleave_factor
     """
-    if not isinstance(loop_cursor, ForSeqCursor):
-        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
+    if not isinstance(loop_cursor, ForCursor):
+        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForCursor")
 
     if interleave_factor == 1:
         return proc
@@ -535,8 +535,8 @@ def parallelize_reduction(
     Returns: (proc, allocation cursors)
     """
     # Check arguments pre-condition
-    if not isinstance(loop_cursor, ForSeqCursor):
-        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForSeqCursor")
+    if not isinstance(loop_cursor, ForCursor):
+        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForCursor")
 
     if not isinstance(parallel_factor, int):
         raise BLAS_SchedulingError("parallel_factor must be an integer")
@@ -657,8 +657,8 @@ def vectorize(
     vectorize_tail=True,
 ):
     # Check pre-conditions
-    if not isinstance(loop_cursor, ForSeqCursor):
-        raise BLAS_SchedulingError("Expected loop_cursor to be a ForSeqCursor")
+    if not isinstance(loop_cursor, ForCursor):
+        raise BLAS_SchedulingError("Expected loop_cursor to be a ForCursor")
 
     if not isinstance(vec_width, int) and vec_width > 1:
         raise BLAS_SchedulingError("Expected vec_width to be an integer > 1")
@@ -810,7 +810,7 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
     for i in tiles[:-1]:
         if not len(loop.body()) == 1:
             raise BLAS_SchedulingError("All loop must have a body length of 1")
-        if not isinstance(loop.body()[0], ForSeqCursor):
+        if not isinstance(loop.body()[0], ForCursor):
             raise BLAS_SchedulingError("Did not find a nested loop")
 
     loops = []
@@ -820,7 +820,7 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
         loop = loop.body()[0]
 
     def get_depth(loop):
-        if not isinstance(loop, ForSeqCursor):
+        if not isinstance(loop, ForCursor):
             return 0
         return max([get_depth(i) for i in loop.body()]) + 1
 
@@ -924,7 +924,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     for i in range(n_lifts):
         parent = anchor_stmt.parent()
 
-        if not isinstance(parent, ForSeqCursor):
+        if not isinstance(parent, ForCursor):
             raise BLAS_SchedulingError("Not implemented yet")
         if parent.name() in deps:
             proc = parallelize_and_lift_alloc(proc, alloc_cursor)
@@ -940,7 +940,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
 
     def try_removing_loops(proc, loop):
         child_stmt = loop.body()[0]
-        if isinstance(child_stmt, ForSeqCursor):
+        if isinstance(child_stmt, ForCursor):
             proc = try_removing_loops(proc, child_stmt)
         try:
             proc = remove_loop(proc, loop)
@@ -958,7 +958,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
             for i in range(depth):
                 proc = lift_scope(proc, scope)
         child_stmt = scope.body()[0]
-        if isinstance(child_stmt, (ForSeqCursor, IfCursor)):
+        if isinstance(child_stmt, (ForCursor, IfCursor)):
             proc = lift_all_ifs(proc, child_stmt, depth + 1)
         return proc
 

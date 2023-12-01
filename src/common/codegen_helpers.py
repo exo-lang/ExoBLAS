@@ -68,7 +68,7 @@ def bind_builtins_args(proc, body, precision):
             return proc
 
     for stmt in body:
-        if isinstance(stmt, ForSeqCursor):
+        if isinstance(stmt, ForCursor):
             proc = bind_builtins_args(proc, stmt.body(), precision)
         elif isinstance(stmt, IfCursor):
             proc = bind_builtins_args(proc, stmt.body(), precision)
