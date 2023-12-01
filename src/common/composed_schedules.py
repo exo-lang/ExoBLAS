@@ -148,7 +148,7 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
     for i in range(n_lifts):
         alloc_cursor = proc.forward(alloc_cursor)
         enclosing_scope = alloc_cursor.parent()
-        if isinstance(enclosing_scope, ForSeqCursor):
+        if isinstance(enclosing_scope, ForCursor):
             proc = expand_dim(
                 proc,
                 alloc_cursor,
@@ -810,7 +810,7 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
     for i in tiles[:-1]:
         if not len(loop.body()) == 1:
             raise BLAS_SchedulingError("All loop must have a body length of 1")
-        if not isinstance(loop.body()[0], ForSeqCursor):
+        if not isinstance(loop.body()[0], ForCursor):
             raise BLAS_SchedulingError("Did not find a nested loop")
 
     loops = []
@@ -820,7 +820,7 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
         loop = loop.body()[0]
 
     def get_depth(loop):
-        if not isinstance(loop, ForSeqCursor):
+        if not isinstance(loop, ForCursor):
             return 0
         return max([get_depth(i) for i in loop.body()]) + 1
 
@@ -924,7 +924,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     for i in range(n_lifts):
         parent = anchor_stmt.parent()
 
-        if not isinstance(parent, ForSeqCursor):
+        if not isinstance(parent, ForCursor):
             raise BLAS_SchedulingError("Not implemented yet")
         if parent.name() in deps:
             proc = parallelize_and_lift_alloc(proc, alloc_cursor)
@@ -940,7 +940,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
 
     def try_removing_loops(proc, loop):
         child_stmt = loop.body()[0]
-        if isinstance(child_stmt, ForSeqCursor):
+        if isinstance(child_stmt, ForCursor):
             proc = try_removing_loops(proc, child_stmt)
         try:
             proc = remove_loop(proc, loop)
@@ -958,7 +958,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
             for i in range(depth):
                 proc = lift_scope(proc, scope)
         child_stmt = scope.body()[0]
-        if isinstance(child_stmt, (ForSeqCursor, IfCursor)):
+        if isinstance(child_stmt, (ForCursor, IfCursor)):
             proc = lift_all_ifs(proc, child_stmt, depth + 1)
         return proc
 
