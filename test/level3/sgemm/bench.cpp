@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <cblas.h>
+#include <math.h>
 
 #include <algorithm>
 #include <cassert>
@@ -13,19 +14,9 @@
 #include "exo_sgemm.h"
 #include "generate_buffer.h"
 
-static void print_matrix(std::vector<float> M, int n, int k) {
-  for (int i = 0; i < k; i++) {
-    for (int j = 0; j < n; j++) {
-      std::cout << M[j * k + i] << ", ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
-}
-
-static void BM_SGEMM_CBLAS(benchmark::State &state) {
-  int n = state.range(0);
-  int m = state.range(1);
+static void BM_cblas_sgemm(benchmark::State &state) {
+  int m = state.range(0);
+  int n = state.range(1);
   int k = state.range(2);
   auto a = AlignedBuffer2D<float>(m, k);
   auto b = AlignedBuffer2D<float>(k, n);
@@ -38,15 +29,11 @@ static void BM_SGEMM_CBLAS(benchmark::State &state) {
     cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha,
                 a.data(), k, b.data(), n, beta, c.data(), n);
   }
-
-  state.counters["flops"] = benchmark::Counter(
-      static_cast<double>(state.iterations()) * 2 * m * n * k,
-      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-static void BM_SGEMM_EXO(benchmark::State &state) {
-  int n = state.range(0);
-  int m = state.range(1);
+static void BM_exo_sgemm(benchmark::State &state) {
+  int m = state.range(0);
+  int n = state.range(1);
   int k = state.range(2);
   auto a = AlignedBuffer2D<float>(m, k);
   auto b = AlignedBuffer2D<float>(k, n);
@@ -56,43 +43,51 @@ static void BM_SGEMM_EXO(benchmark::State &state) {
   const float beta = 1.0f;
 
   for (auto _ : state) {
-    exo_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, &alpha, &beta,
-              a.data(), b.data(), c.data());
+    exo_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha,
+              a.data(), k, b.data(), n, beta, c.data(), n);
   }
-
-  state.counters["flops"] = benchmark::Counter(
-      static_cast<double>(state.iterations()) * 2 * m * n * k,
-      benchmark::Counter::kIsRate, benchmark::Counter::kIs1000);
 }
 
-BENCHMARK(BM_SGEMM_CBLAS)
-    ->ArgNames({"n", "m", "k"})
-    ->Args({1, 1, 1})
-    ->Args({4, 4, 4})
-    ->Args({48, 48, 48})
-    ->Args({48*2, 48*2, 48*2})
-    ->Args({48*4, 48*4, 48*4})
-    ->Args({48*8, 48*8, 48*8})
-    ->Args({528, 240, 528})
-    ->Args({1056, 240, 528})
-    ->Args({1056*2, 240, 528})
-    ->Args({1056*2, 240*2, 528*2})
-    ->Args({1056*2*2*2, 240*4*2, 528*2*2});
-//    ->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
+static void gemm_arguments_increasing(benchmark::internal::Benchmark *b) {
+  size_t L1 = 192 * 1024;
+  size_t L2 = 3 * 1024 * 1024 / 2;
+  size_t L3 = 9 * 1024 * 1024;
+  size_t DRAM = L3 * 20;
+  size_t minMem = 0;
+  size_t maxMem = DRAM;
 
-BENCHMARK(BM_SGEMM_EXO)
-    ->ArgNames({"n", "m", "k"})
-    ->Args({1, 1, 1})
-    ->Args({4, 4, 4})
-    ->Args({48, 48, 48})
-    ->Args({48*2, 48*2, 48*2})
-    ->Args({48*4, 48*4, 48*4})
-    ->Args({48*8, 48*8, 48*8})
-    ->Args({528, 240, 528})
-    ->Args({1056, 240, 528})
-    ->Args({1056*2, 240, 528})
-    ->Args({1056*2, 240*2, 528*2})
-    ->Args({1056*2*2*2, 240*4*2, 528*2*2});
-    //->ArgsProduct({benchmark::CreateRange(48, 48*100, 48)});
+  int m_multiple = 32;
+  int k_multiple = 96;
+  int n_multiple = 24;
+  for (int i = 1; i < 1000; i += 4) {
+    int M = i * m_multiple;
+    int N = i * n_multiple;
+    int K = i * k_multiple;
 
+    size_t total = (size_t)M * N + (size_t)M * K + (size_t)N * K;
+    total *= 4;
 
+    if (total < maxMem && total >= minMem) {
+      b->Args({M, N, K});
+    }
+  }
+}
+
+static void gemm_arguments_large(benchmark::internal::Benchmark *b) {
+  for (int i = 1; i < 4; ++i) {
+    b->Args({4096 * i, 3072 * i, 96 * 10 * i});
+  }
+}
+
+BENCHMARK(BM_cblas_sgemm)
+    ->ArgNames({"m", "n", "k"})
+    ->Apply(gemm_arguments_large);
+
+BENCHMARK(BM_exo_sgemm)->ArgNames({"m", "n", "k"})->Apply(gemm_arguments_large);
+
+// BENCHMARK(BM_cblas_sgemm)
+//     ->ArgNames({"m", "n", "k"})
+//     ->Apply(gemm_arguments_increasing);
+
+// BENCHMARK(BM_exo_sgemm)->ArgNames({"m", "n",
+// "k"})->Apply(gemm_arguments_increasing);
