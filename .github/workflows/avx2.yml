@@ -2,9 +2,8 @@ name: AVX2
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "master" ]
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -32,7 +31,7 @@ jobs:
       run: git clone https://github.com/google/benchmark; cmake -S benchmark -B benchmark/build -DCMAKE_BUILD_TYPE=Release -DBENCHMARK_ENABLE_TESTING=NO ; cmake --build benchmark/build; cmake --install benchmark/build --prefix ~/.local
 
     - name: Install Exo
-      run: git clone https://github.com/exo-lang/exo.git ; cd exo; git checkout master; python -m pip install build ; python -m build . ; python -m pip install dist/*.whl
+      run: git clone https://github.com/exo-lang/exo.git ; cd exo; git checkout main; python -m pip install build ; python -m build . ; python -m pip install dist/*.whl
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
