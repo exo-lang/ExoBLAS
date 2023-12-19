@@ -116,7 +116,7 @@ def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts
     expr_cursors = [proc.forward(c) for c in expr_cursors]
     enclosing_loop = get_enclosing_loop(expr_cursors[0])
     stmt = get_statement(expr_cursors[0])
-    proc = bind_expr(proc, expr_cursors, new_name, cse=True)
+    proc = bind_expr(proc, expr_cursors, new_name)
     stmt = proc.forward(stmt)
     bind_stmt = stmt.prev()
     alloc_stmt = bind_stmt.prev()
@@ -224,9 +224,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
     """
 
     if not isinstance(loop_cursor, ForCursor):
-        raise BLAS_SchedulingError(
-            "vectorize_to_loops loop_cursor must be a ForCursor"
-        )
+        raise BLAS_SchedulingError("vectorize_to_loops loop_cursor must be a ForCursor")
 
     loop_cursor = proc.forward(loop_cursor)
 
@@ -899,7 +897,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     expr_cursors = [proc.forward(c) for c in expr_cursors]
     original_stmt = get_statement(expr_cursors[0])
 
-    proc = bind_expr(proc, expr_cursors, new_buff_name, cse=True)
+    proc = bind_expr(proc, expr_cursors, new_buff_name)
     original_stmt = proc.forward(original_stmt)
     assign_cursor = original_stmt.prev()
     alloc_cursor = assign_cursor.prev()

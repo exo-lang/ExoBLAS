@@ -57,7 +57,7 @@ def schedule_rotm_stride_1(rotm, params):
     rotm = generate_stride_1_proc(rotm, params.precision)
 
     loop_cursor = rotm.find_loop("i")
-    rotm = bind_expr(rotm, rotm.find("y[_]", many=True), "yReg", cse=True)
+    rotm = bind_expr(rotm, rotm.find("y[_]", many=True), "yReg")
     rotm = set_precision(rotm, "yReg", params.precision)
     rotm = blas_vectorize(rotm, loop_cursor, params)
     loop_cursor = rotm.forward(loop_cursor)
