@@ -211,9 +211,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   double dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - j - 1];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - j + n];
   }
-  xCopy[n - i - 1] = dot + A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[n - i - 1];
+  xCopy[-1 - i + n] = dot + A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[-1 - i + n];
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l] = xCopy[l];
@@ -233,9 +233,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   double dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - j - 1) * x.strides[0]];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - j + n) * x.strides[0]];
   }
-  xCopy[n - i - 1] = dot + A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[(n - i - 1) * x.strides[0]];
+  xCopy[-1 - i + n] = dot + A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[(-1 - i + n) * x.strides[0]];
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l * x.strides[0]] = xCopy[l];
@@ -257,9 +257,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   double dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - j - 1];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - j + n];
   }
-  xCopy[n - i - 1] = dot;
+  xCopy[-1 - i + n] = dot;
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l] += xCopy[l];
@@ -279,9 +279,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   double dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - j - 1) * x.strides[0]];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - j + n) * x.strides[0]];
   }
-  xCopy[n - i - 1] = dot;
+  xCopy[-1 - i + n] = dot;
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l * x.strides[0]] += xCopy[l];
@@ -305,9 +305,9 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - i - 1];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - i + n];
   }
-  xCopy[n - i - 1] += A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[n - i - 1];
+  xCopy[-1 - i + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[-1 - i + n];
 }
 for (int_fast32_t i = 0; i < n; i++) {
   x.data[i] = xCopy[i];
@@ -329,9 +329,9 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - i - 1) * x.strides[0]];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - i + n) * x.strides[0]];
   }
-  xCopy[n - i - 1] += A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[(n - i - 1) * x.strides[0]];
+  xCopy[-1 - i + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[(-1 - i + n) * x.strides[0]];
 }
 for (int_fast32_t i = 0; i < n; i++) {
   x.data[i * x.strides[0]] = xCopy[i];
@@ -355,7 +355,7 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - i - 1];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - i + n];
   }
 }
 for (int_fast32_t i = 0; i < n; i++) {
@@ -378,7 +378,7 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - i - 1) * x.strides[0]];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - i + n) * x.strides[0]];
   }
 }
 for (int_fast32_t i = 0; i < n; i++) {
@@ -591,9 +591,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   float dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - j - 1];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - j + n];
   }
-  xCopy[n - i - 1] = dot + A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[n - i - 1];
+  xCopy[-1 - i + n] = dot + A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[-1 - i + n];
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l] = xCopy[l];
@@ -613,9 +613,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   float dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - j - 1) * x.strides[0]];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - j + n) * x.strides[0]];
   }
-  xCopy[n - i - 1] = dot + A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[(n - i - 1) * x.strides[0]];
+  xCopy[-1 - i + n] = dot + A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[(-1 - i + n) * x.strides[0]];
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l * x.strides[0]] = xCopy[l];
@@ -637,9 +637,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   float dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - j - 1];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - j + n];
   }
-  xCopy[n - i - 1] = dot;
+  xCopy[-1 - i + n] = dot;
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l] += xCopy[l];
@@ -659,9 +659,9 @@ for (int_fast32_t i = 0; i < n; i++) {
   float dot;
   dot = 0.0;
   for (int_fast32_t j = 0; j < i; j++) {
-    dot += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - j - 1) * x.strides[0]];
+    dot += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - j + n) * x.strides[0]];
   }
-  xCopy[n - i - 1] = dot;
+  xCopy[-1 - i + n] = dot;
 }
 for (int_fast32_t l = 0; l < n; l++) {
   x.data[l * x.strides[0]] += xCopy[l];
@@ -685,9 +685,9 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - i - 1];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - i + n];
   }
-  xCopy[n - i - 1] += A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[n - i - 1];
+  xCopy[-1 - i + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[-1 - i + n];
 }
 for (int_fast32_t i = 0; i < n; i++) {
   x.data[i] = xCopy[i];
@@ -709,9 +709,9 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - i - 1) * x.strides[0]];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - i + n) * x.strides[0]];
   }
-  xCopy[n - i - 1] += A.data[(n - i - 1) * A.strides[0] + n - i - 1] * x.data[(n - i - 1) * x.strides[0]];
+  xCopy[-1 - i + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - i + n] * x.data[(-1 - i + n) * x.strides[0]];
 }
 for (int_fast32_t i = 0; i < n; i++) {
   x.data[i * x.strides[0]] = xCopy[i];
@@ -735,7 +735,7 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[n - i - 1];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[-1 - i + n];
   }
 }
 for (int_fast32_t i = 0; i < n; i++) {
@@ -758,7 +758,7 @@ for (int_fast32_t i = 0; i < n; i++) {
 }
 for (int_fast32_t i = 0; i < n; i++) {
   for (int_fast32_t j = 0; j < i; j++) {
-    xCopy[n - j - 1] += A.data[(n - i - 1) * A.strides[0] + n - j - 1] * x.data[(n - i - 1) * x.strides[0]];
+    xCopy[-1 - j + n] += A.data[(-1 - i + n) * A.strides[0] + -1 - j + n] * x.data[(-1 - i + n) * x.strides[0]];
   }
 }
 for (int_fast32_t i = 0; i < n; i++) {

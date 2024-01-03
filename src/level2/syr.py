@@ -53,7 +53,7 @@ def specialize_syr(syr, precision):
     for arg in args:
         specialized = set_precision(specialized, arg, precision)
 
-    return specialized
+    return simplify(specialized)
 
 
 def schedule_interleave_syr_row_major_stride_1(
@@ -68,7 +68,7 @@ def schedule_interleave_syr_row_major_stride_1(
     stride_1 = apply_to_block(stride_1, stride_1.forward(j_loop).body(), hoist_stmt)
     stride_1 = replace_all(stride_1, instructions)
 
-    return stride_1
+    return simplify(stride_1)
 
 
 #################################################

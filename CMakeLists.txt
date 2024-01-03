@@ -24,6 +24,10 @@ if (NOT HAVE_AVX2 AND NOT HAVE_NEON)
   message(FATAL_ERROR "cannot build without one of AVX2 or neon")
 endif()
 
+if (NOT DEFINED TARGET_ARCH)
+  message(FATAL_ERROR "TARGET_ARCH is not defined by the preset configuration")
+endif()
+
 find_package(Exo REQUIRED)
 
 add_subdirectory(src)

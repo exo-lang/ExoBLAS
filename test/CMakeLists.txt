@@ -21,7 +21,7 @@ find_package(Python 3 REQUIRED Interpreter)
 # Generic test-case function
 ###############################################################################
 
-function(add_exo_blas_test kernel precision)
+function(add_exo_blas_test level kernel precision)
   set(precision_kernel "${precision}${kernel}")
 
   set(bla_vendor_benchmark_results_dir "${PROJECT_SOURCE_DIR}/benchmark_results/${BLA_VENDOR}")
@@ -79,6 +79,10 @@ function(add_exo_blas_test kernel precision)
     PROPERTIES
     ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1"
   )
+
+  # Add codgen test
+  add_test(NAME ${precision_kernel}_codegen
+          COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/codegen/check_diff.py" ${TARGET_ARCH} ${level} exo_${kernel})
 
   add_test(
     NAME ${precision_kernel}_graph

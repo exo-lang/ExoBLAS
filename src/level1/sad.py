@@ -76,4 +76,4 @@ sad = set_memory(sad, "tmp_reg:_", DRAM)
 # sad = replace_all(sad, [mm256_sad_epu8])
 sad = bind_builtins_args(sad, sad.body(), "i8")
 
-print(sad)
+sad = simplify(sad)

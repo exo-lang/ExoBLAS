@@ -49,7 +49,7 @@ def specialize_ger(precision, alpha):
     for arg in args:
         specialized = set_precision(specialized, arg, precision)
 
-    return specialized
+    return simplify(specialized)
 
 
 def schedule_ger_row_major_stride_1(
@@ -62,7 +62,7 @@ def schedule_ger_row_major_stride_1(
 
     stride_1 = stage_mem(stride_1, stride_1.body(), "alpha", "alpha_")
 
-    return stride_1
+    return simplify(stride_1)
 
 
 #################################################

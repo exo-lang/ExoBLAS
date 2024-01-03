@@ -60,9 +60,9 @@ for (int_fast32_t io = 0; io < ((n) / (16)); io++) {
   __m256d xReg[4];
   __m256d xReg1[4];
   xReg[0] = _mm256_loadu_pd(&x.data[16 * io]);
-  xReg[1] = _mm256_loadu_pd(&x.data[16 * io + 4]);
-  xReg[2] = _mm256_loadu_pd(&x.data[16 * io + 8]);
-  xReg[3] = _mm256_loadu_pd(&x.data[16 * io + 12]);
+  xReg[1] = _mm256_loadu_pd(&x.data[4 + 16 * io]);
+  xReg[2] = _mm256_loadu_pd(&x.data[8 + 16 * io]);
+  xReg[3] = _mm256_loadu_pd(&x.data[12 + 16 * io]);
   xReg1[0] = xReg[0];
   xReg1[1] = xReg[1];
   xReg1[2] = xReg[2];
@@ -138,9 +138,9 @@ for (int_fast32_t io = 0; io < ((n) / (32)); io++) {
   __m256 xReg[4];
   __m256 xReg1[4];
   xReg[0] = _mm256_loadu_ps(&x.data[32 * io]);
-  xReg[1] = _mm256_loadu_ps(&x.data[32 * io + 8]);
-  xReg[2] = _mm256_loadu_ps(&x.data[32 * io + 16]);
-  xReg[3] = _mm256_loadu_ps(&x.data[32 * io + 24]);
+  xReg[1] = _mm256_loadu_ps(&x.data[8 + 32 * io]);
+  xReg[2] = _mm256_loadu_ps(&x.data[16 + 32 * io]);
+  xReg[3] = _mm256_loadu_ps(&x.data[24 + 32 * io]);
   xReg1[0] = xReg[0];
   xReg1[1] = xReg[1];
   xReg1[2] = xReg[2];

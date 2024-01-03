@@ -548,7 +548,7 @@ for (int_fast32_t io = 0; io < 4; io++) {
   }
   for (int_fast32_t iio = 0; iio < 8; iio++) {
     for (int_fast32_t jio = 0; jio < ((iio) / (2)); jio++) {
-      avx2_microkernel_4x8_3(ctxt,(struct exo_win_2f64){ &C.data[(32 * io + 4 * iio) * (C.strides[0]) + 8 * jio + 32 * io], { C.strides[0], 1 } },(struct exo_win_2f64c){ &A1.data[(32 * io + 4 * iio) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f64c){ &A2.data[8 * jio + 32 * io], { A2.strides[0], 1 } });
+      avx2_microkernel_4x8_3(ctxt,(struct exo_win_2f64){ &C.data[(4 * iio + 32 * io) * (C.strides[0]) + 8 * jio + 32 * io], { C.strides[0], 1 } },(struct exo_win_2f64c){ &A1.data[(4 * iio + 32 * io) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f64c){ &A2.data[8 * jio + 32 * io], { A2.strides[0], 1 } });
     }
     for (int_fast32_t iii = 0; iii < 4; iii++) {
       for (int_fast32_t jii = 0; jii < (iii + 4 * iio) % 8; jii++) {

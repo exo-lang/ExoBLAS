@@ -47,7 +47,7 @@ def specialize_syr2(syr2, precision):
     for arg in args:
         specialized = set_precision(specialized, arg, precision)
 
-    return specialized
+    return simplify(specialized)
 
 
 def schedule_interleave_syr2_row_major_stride_1(
@@ -58,7 +58,7 @@ def schedule_interleave_syr2_row_major_stride_1(
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
 
-    return stride_1
+    return simplify(stride_1)
 
 
 #################################################
