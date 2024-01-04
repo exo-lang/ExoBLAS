@@ -82,7 +82,7 @@ EXO_ASSUME(K <= 192);
 EXO_ASSUME(M <= 4096);
 EXO_ASSUME(N <= 3072);
 static float B_repacked_access_order[128 * 192 * 3 * 8];
-for (int_fast32_t io = 0; io < ((M) / (4)); io++) {
+if (((M) / (4)) > 0) {
   for (int_fast32_t jo = 0; jo < ((N) / (24)); jo++) {
     for (int_fast32_t k = 0; k < K; k++) {
       __m256 reg[3];
@@ -96,8 +96,8 @@ for (int_fast32_t io = 0; io < ((M) / (4)); io++) {
   }
 }
 static float A_repacked_access_order[1024 * 192 * 4];
-for (int_fast32_t io = 0; io < ((M) / (4)); io++) {
-  for (int_fast32_t jo = 0; jo < ((N) / (24)); jo++) {
+if (((N) / (24)) > 0) {
+  for (int_fast32_t io = 0; io < ((M) / (4)); io++) {
     for (int_fast32_t k = 0; k < K; k++) {
       A_repacked_access_order[io * 768 + k * 4] = A.data[4 * io * A.strides[0] + k];
       A_repacked_access_order[io * 768 + k * 4 + 1] = A.data[(1 + 4 * io) * A.strides[0] + k];
