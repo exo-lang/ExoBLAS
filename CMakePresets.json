@@ -16,7 +16,7 @@
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_BUILD_TYPE": "Release",
         "BLA_VENDOR": "Apple",
-        "TARGET_ARCH": "neon"
+        "TARGET_ARCH": "apple-silicon"
       }
     },
     {
@@ -27,7 +27,7 @@
       "binaryDir": "${sourceDir}/build/linux-arm64",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "TARGET_ARCH": "neon"
+        "TARGET_ARCH": "linux-arm64"
       }
     },
     {
