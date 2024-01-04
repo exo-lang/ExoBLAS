@@ -911,6 +911,7 @@ class SYRK:
             )
 
             unsafe_microkernel_base.unsafe_assert_eq(unsafe_microkernel_scheduled)
+            unsafe_microkernel_scheduled = simplify(unsafe_microkernel_scheduled)
 
             diag_syrk_scheduled = call_eqv(
                 diag_syrk_scheduled,
@@ -924,6 +925,7 @@ class SYRK:
         # diag_syrk_scheduled = diag_syrk_scheduled.add_assertion("stride(C, 0)==32")
         # diag_syrk_scheduled.unsafe_assert_eq(diag_syrk_base)
 
+        diag_syrk_scheduled = simplify(diag_syrk_scheduled)
         gepp_syrk_scheduled = call_eqv(
             gepp_syrk_scheduled, "diag_handler(_)", diag_syrk_scheduled
         )
