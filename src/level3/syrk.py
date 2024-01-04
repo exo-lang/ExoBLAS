@@ -1217,7 +1217,7 @@ e_reg = 16
 ssyrk = SYRK(C.Machine, "f32", k_blk, m_blk, m_blk_small, m_reg, n_reg, e_reg)
 
 for i in range(13):
-    ssyrk[i] = simplify(ssyrk[i])
+    ssyrk.entry_points[i] = simplify(ssyrk.entry_points[i])
 
 exo_ssyrk_lower_notranspose_noalpha_nobeta = ssyrk.entry_points[0]
 exo_ssyrk_lower_notranspose_alpha_nobeta = ssyrk.entry_points[1]
@@ -1239,7 +1239,7 @@ dsyrk = SYRK(C.Machine, "f64", k_blk, m_blk, m_blk_small, m_reg, n_reg // 2, e_r
 C.Machine.vec_width *= 2
 
 for i in range(13):
-    dsyrk[i] = simplify(dsyrk[i])
+    dsyrk.entry_points[i] = simplify(dsyrk.entry_points[i])
 
 exo_dsyrk_lower_notranspose_noalpha_nobeta = dsyrk.entry_points[0]
 exo_dsyrk_lower_notranspose_alpha_nobeta = dsyrk.entry_points[1]
