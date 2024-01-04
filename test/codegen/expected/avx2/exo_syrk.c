@@ -548,7 +548,7 @@ for (int_fast32_t io = 0; io < 4; io++) {
   }
   for (int_fast32_t iio = 0; iio < 8; iio++) {
     for (int_fast32_t jio = 0; jio < ((iio) / (2)); jio++) {
-      avx2_microkernel_4x8_3(ctxt,(struct exo_win_2f64){ &C.data[(4 * iio + 32 * io) * (C.strides[0]) + 8 * jio + 32 * io], { C.strides[0], 1 } },(struct exo_win_2f64c){ &A1.data[(4 * iio + 32 * io) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f64c){ &A2.data[8 * jio + 32 * io], { A2.strides[0], 1 } });
+      avx2_microkernel_4x8_3(ctxt,(struct exo_win_2f64){ &C.data[(32 * io + 4 * iio) * (C.strides[0]) + 32 * io + 8 * jio], { C.strides[0], 1 } },(struct exo_win_2f64c){ &A1.data[(32 * io + 4 * iio) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f64c){ &A2.data[32 * io + 8 * jio], { A2.strides[0], 1 } });
     }
     for (int_fast32_t iii = 0; iii < 4; iii++) {
       for (int_fast32_t jii = 0; jii < (iii + 4 * iio) % 8; jii++) {
@@ -571,7 +571,7 @@ for (int_fast32_t io = 0; io < 4; io++) {
 // )
 static void dexo_dsyrk_lower_notranspose_alpha( void *ctxt, int_fast32_t N, int_fast32_t K, const double* A1, const double* alpha, const double* A2, double* C ) {
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     double *temp = (double*) malloc(1 * sizeof(*temp));
     temp[0] = 0.0;
     for (int_fast32_t k = 0; k < K; k++) {
@@ -597,10 +597,10 @@ EXO_ASSUME(K >= 1);
 // assert stride(A2, 1) == 1
 // assert stride(C, 1) == 1
 for (int_fast32_t ko = 0; ko < ((K) / (256)); ko++) {
-  gepp_dsyrk_scheduled(ctxt,N + 0,(struct exo_win_2f64c){ &A1[256 * ko], { K, 1 } },(struct exo_win_2f64c){ &A2[(256 * ko) * N], { N, 1 } },(struct exo_win_2f64){ &C[0], { N, 1 } });
+  gepp_dsyrk_scheduled(ctxt,N,(struct exo_win_2f64c){ &A1[256 * ko], { K, 1 } },(struct exo_win_2f64c){ &A2[(256 * ko) * N], { N, 1 } },(struct exo_win_2f64){ &C[0], { N, 1 } });
 }
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     if (K % 256 > 0) {
       for (int_fast32_t ki = 0; ki < K % 256; ki++) {
         C[i * N + j] += A1[i * K + ki + (K / 256) * 256] * A2[(ki + (K / 256) * 256) * N + j];
@@ -627,7 +627,7 @@ for (int_fast32_t j = 0; j < N; j++) {
   }
 }
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     for (int_fast32_t k = 0; k < K; k++) {
       C[i * N + j] += temp[k * N + i] * A2[k * N + j];
     }
@@ -651,7 +651,7 @@ EXO_ASSUME(K >= 1);
 // assert stride(C, 1) == 1
 EXO_ASSUME(N == K);
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     for (int_fast32_t k = 0; k < K; k++) {
       C[i * N + j] += A1[k * N + i] * A2[k * N + j];
     }
@@ -670,7 +670,7 @@ for (int_fast32_t i = 0; i < N; i++) {
 static void dexo_dsyrk_upper_notranspose_alpha( void *ctxt, int_fast32_t N, int_fast32_t K, const double* A1, const double* alpha, const double* A2, double* C ) {
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += alpha[0] * A1[i * K + k] * A2[j * K + k];
     }
   }
@@ -687,7 +687,7 @@ for (int_fast32_t j = 0; j < N; j++) {
 static void dexo_dsyrk_upper_notranspose_noalpha( void *ctxt, int_fast32_t N, int_fast32_t K, const double* A1, const double* A2, double* C ) {
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += A1[i * K + k] * A2[j * K + k];
     }
   }
@@ -706,7 +706,7 @@ static void dexo_dsyrk_upper_transpose_alpha( void *ctxt, int_fast32_t N, int_fa
 EXO_ASSUME(K == N);
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += A1[k * N + i] * A2[k * N + j] * alpha[0];
     }
   }
@@ -724,7 +724,7 @@ static void dexo_dsyrk_upper_transpose_noalpha( void *ctxt, int_fast32_t N, int_
 EXO_ASSUME(K == N);
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += A1[k * N + i] * A2[k * N + j];
     }
   }
@@ -1758,10 +1758,10 @@ for (int_fast32_t io = 0; io < ((N) / (128)); io++) {
       }
     }
   }
-  d_diag_handler_scheduled(ctxt,(struct exo_win_2f64c){ &A1.data[(128 * io) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f64c){ &A2.data[128 * io + 1], { A2.strides[0], 1 } },(struct exo_win_2f64){ &C.data[(128 * io) * (C.strides[0]) + 128 * io + 1], { C.strides[0], 1 } });
+  d_diag_handler_scheduled(ctxt,(struct exo_win_2f64c){ &A1.data[(128 * io) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f64c){ &A2.data[1 + 128 * io], { A2.strides[0], 1 } },(struct exo_win_2f64){ &C.data[(128 * io) * (C.strides[0]) + 1 + 128 * io], { C.strides[0], 1 } });
 }
 for (int_fast32_t ii = 0; ii < N % 128; ii++) {
-  for (int_fast32_t j = 0; j < ii + ((N) / (128)) * 128 + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + (ii + ((N) / (128)) * 128); j++) {
     for (int_fast32_t k = 0; k < 256; k++) {
       C.data[(ii + (N / 128) * 128) * C.strides[0] + j] += A1.data[(ii + (N / 128) * 128) * A1.strides[0] + k] * A2.data[k * A2.strides[0] + j];
     }
@@ -1793,10 +1793,10 @@ for (int_fast32_t io = 0; io < ((N) / (128)); io++) {
       }
     }
   }
-  s_diag_handler_scheduled(ctxt,(struct exo_win_2f32c){ &A1.data[(128 * io) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f32c){ &A2.data[128 * io + 1], { A2.strides[0], 1 } },(struct exo_win_2f32){ &C.data[(128 * io) * (C.strides[0]) + 128 * io + 1], { C.strides[0], 1 } });
+  s_diag_handler_scheduled(ctxt,(struct exo_win_2f32c){ &A1.data[(128 * io) * (A1.strides[0])], { A1.strides[0], 1 } },(struct exo_win_2f32c){ &A2.data[1 + 128 * io], { A2.strides[0], 1 } },(struct exo_win_2f32){ &C.data[(128 * io) * (C.strides[0]) + 1 + 128 * io], { C.strides[0], 1 } });
 }
 for (int_fast32_t ii = 0; ii < N % 128; ii++) {
-  for (int_fast32_t j = 0; j < ii + ((N) / (128)) * 128 + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + (ii + ((N) / (128)) * 128); j++) {
     for (int_fast32_t k = 0; k < 256; k++) {
       C.data[(ii + (N / 128) * 128) * C.strides[0] + j] += A1.data[(ii + (N / 128) * 128) * A1.strides[0] + k] * A2.data[k * A2.strides[0] + j];
     }
@@ -1936,7 +1936,7 @@ free(C_reg);
 // )
 static void sexo_ssyrk_lower_notranspose_alpha( void *ctxt, int_fast32_t N, int_fast32_t K, const float* A1, const float* alpha, const float* A2, float* C ) {
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     float *temp = (float*) malloc(1 * sizeof(*temp));
     temp[0] = 0.0;
     for (int_fast32_t k = 0; k < K; k++) {
@@ -1962,10 +1962,10 @@ EXO_ASSUME(K >= 1);
 // assert stride(A2, 1) == 1
 // assert stride(C, 1) == 1
 for (int_fast32_t ko = 0; ko < ((K) / (256)); ko++) {
-  gepp_ssyrk_scheduled(ctxt,N + 0,(struct exo_win_2f32c){ &A1[256 * ko], { K, 1 } },(struct exo_win_2f32c){ &A2[(256 * ko) * N], { N, 1 } },(struct exo_win_2f32){ &C[0], { N, 1 } });
+  gepp_ssyrk_scheduled(ctxt,N,(struct exo_win_2f32c){ &A1[256 * ko], { K, 1 } },(struct exo_win_2f32c){ &A2[(256 * ko) * N], { N, 1 } },(struct exo_win_2f32){ &C[0], { N, 1 } });
 }
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     if (K % 256 > 0) {
       for (int_fast32_t ki = 0; ki < K % 256; ki++) {
         C[i * N + j] += A1[i * K + ki + (K / 256) * 256] * A2[(ki + (K / 256) * 256) * N + j];
@@ -1992,7 +1992,7 @@ for (int_fast32_t j = 0; j < N; j++) {
   }
 }
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     for (int_fast32_t k = 0; k < K; k++) {
       C[i * N + j] += temp[k * N + i] * A2[k * N + j];
     }
@@ -2016,7 +2016,7 @@ EXO_ASSUME(K >= 1);
 // assert stride(C, 1) == 1
 EXO_ASSUME(N == K);
 for (int_fast32_t i = 0; i < N; i++) {
-  for (int_fast32_t j = 0; j < i + 1; j++) {
+  for (int_fast32_t j = 0; j < 1 + i; j++) {
     for (int_fast32_t k = 0; k < K; k++) {
       C[i * N + j] += A1[k * N + i] * A2[k * N + j];
     }
@@ -2035,7 +2035,7 @@ for (int_fast32_t i = 0; i < N; i++) {
 static void sexo_ssyrk_upper_notranspose_alpha( void *ctxt, int_fast32_t N, int_fast32_t K, const float* A1, const float* alpha, const float* A2, float* C ) {
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += alpha[0] * A1[i * K + k] * A2[j * K + k];
     }
   }
@@ -2052,7 +2052,7 @@ for (int_fast32_t j = 0; j < N; j++) {
 static void sexo_ssyrk_upper_notranspose_noalpha( void *ctxt, int_fast32_t N, int_fast32_t K, const float* A1, const float* A2, float* C ) {
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += A1[i * K + k] * A2[j * K + k];
     }
   }
@@ -2071,7 +2071,7 @@ static void sexo_ssyrk_upper_transpose_alpha( void *ctxt, int_fast32_t N, int_fa
 EXO_ASSUME(K == N);
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += A1[k * N + i] * A2[k * N + j] * alpha[0];
     }
   }
@@ -2089,7 +2089,7 @@ static void sexo_ssyrk_upper_transpose_noalpha( void *ctxt, int_fast32_t N, int_
 EXO_ASSUME(K == N);
 for (int_fast32_t j = 0; j < N; j++) {
   for (int_fast32_t k = 0; k < K; k++) {
-    for (int_fast32_t i = 0; i < j + 1; i++) {
+    for (int_fast32_t i = 0; i < 1 + j; i++) {
       C[i * N + j] += A1[k * N + i] * A2[k * N + j];
     }
   }

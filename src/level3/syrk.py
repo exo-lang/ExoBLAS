@@ -667,7 +667,7 @@ class SYRK:
     def generate_syrk_gepp_base(self, syrk_win: Procedure):
         gepp_syrk_base = rename(syrk_win, "gepp_syrk_base")
         gepp_syrk_base = gepp_syrk_base.partial_eval(K=self.microkernel.K_blk)
-        return gepp_syrk_base
+        return simplify(gepp_syrk_base)
 
     def generate_syrk_gepp_lower_notranspose_noalpha(
         self, syrk: Procedure, diag_handler: Procedure
@@ -1103,7 +1103,7 @@ class SYRK:
                 gepp_syrk_scheduled, "k_microkernel(_)", k_microkernel_scheduled
             )
 
-        return gepp_syrk_scheduled, gepp_syrk_base
+        return simplify(gepp_syrk_scheduled), simplify(gepp_syrk_base)
 
     def schedule_syrk_lower_notranspose_noalpha(self, ssyrk_base: Procedure):
         syrk = divide_loop(
@@ -1117,14 +1117,14 @@ class SYRK:
             syrk, "gepp_syrk_base(_)", self.gepp_syrk_scheduled_lower_notranspose
         )
         #        print(syrk)
-        return syrk
+        return simplify(syrk)
 
     def bind(self, proc, buffer, reg, machine):
         proc = bind_expr(proc, buffer, reg)
         proc = expand_dim(proc, reg, machine.vec_width, "ji")
         proc = lift_alloc(proc, f"{reg} : _", n_lifts=2)
         proc = fission(proc, proc.find(f"{reg} = _").after())
-        return proc
+        return simplify(proc)
 
     def stage(self, proc, buffer, reg, machine):
         proc = stage_mem(
@@ -1133,7 +1133,7 @@ class SYRK:
         proc = expand_dim(proc, reg, machine.vec_width, f"ji")
         proc = lift_alloc(proc, f"{reg} : _", n_lifts=2)
         proc = fission(proc, proc.find(f"{reg}[_] = _").after())
-        return proc
+        return simplify(proc)
 
     def schedule_apply_scalar(
         self,
@@ -1203,7 +1203,7 @@ class SYRK:
         syrk = rename(syrk, "exo_" + prefix + name)
         for arg in args:
             syrk = set_precision(syrk, arg, precision)
-        return syrk
+        return simplify(syrk)
 
 
 k_blk = 256
