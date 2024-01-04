@@ -12,7 +12,6 @@ repos:
     hooks:
       - id: black
         language_version: python3
-
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: v1.3.5
     hooks:
