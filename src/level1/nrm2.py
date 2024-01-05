@@ -72,7 +72,7 @@ def schedule_nrm2_stride_1(VEC_W, memory, instructions, precision):
 
     simple_stride_1 = replace_all(simple_stride_1, instructions)
 
-    return simple_stride_1
+    return simplify(simple_stride_1)
 
 
 def schedule_nrm2_stride_1_interleaved(
@@ -152,7 +152,7 @@ def schedule_nrm2_stride_1_interleaved(
     simple_stride_1 = interleave_instructions(simple_stride_1, "im")
     simple_stride_1 = interleave_instructions(simple_stride_1, "im")
 
-    return simple_stride_1
+    return simplify(simple_stride_1)
 
 
 #################################################

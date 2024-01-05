@@ -15,7 +15,8 @@
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_BUILD_TYPE": "Release",
-	"BLA_VENDOR": "Apple"
+        "BLA_VENDOR": "Apple",
+        "TARGET_ARCH": "apple-silicon"
       }
     },
     {
@@ -25,7 +26,8 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-arm64",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "TARGET_ARCH": "linux-arm64"
       }
     },
     {
@@ -37,7 +39,8 @@
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-march=native -fno-tree-vectorize -fno-unroll-loops -O3 -ffast-math -std=c11",
         "CMAKE_CXX_FLAGS": "-march=native -fno-tree-vectorize -fno-unroll-loops -O3 -ffast-math",
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Release",
+        "TARGET_ARCH": "avx2"
       }
     }
   ]

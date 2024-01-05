@@ -47,7 +47,7 @@ def generate_stride_1_proc(template_proc, precision):
 
 
 def export_exo_proc(globals, proc):
-    globals[proc.name()] = proc
+    globals[proc.name()] = simplify(proc)
     globals.setdefault("__all__", []).append(proc.name())
 
 

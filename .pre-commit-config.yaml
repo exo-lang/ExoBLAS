@@ -4,7 +4,9 @@ repos:
     hooks:
     -   id: check-yaml
     -   id: end-of-file-fixer
+        exclude: ^test/codegen/expected/
     -   id: trailing-whitespace
+        exclude: ^test/codegen/expected/
   - repo: https://github.com/psf/black
     rev: 22.10.0
     hooks:
@@ -15,3 +17,4 @@ repos:
     hooks:
       - id: clang-format
         args: [--style=Google, -i]
+        exclude: ^test/codegen/expected/
