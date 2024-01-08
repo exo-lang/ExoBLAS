@@ -456,7 +456,7 @@ def interleave_execution(proc, loop_cursor, interleave_factor):
     return proc
 
 
-def hoist_stmt(proc, stmt_cursor):
+def hoist_stmt(proc, stmt):
     """
     for i in seq(0, hi):
         B1;
@@ -470,26 +470,43 @@ def hoist_stmt(proc, stmt_cursor):
         B1;
         B2;
     """
-    if not isinstance(stmt_cursor, StmtCursor):
+    stmt = proc.forward(stmt)
+
+    # Type Checking
+    if not isinstance(stmt, StmtCursor):
         raise BLAS_SchedulingError("Cannot hoist cursor that are not statements")
 
-    if isinstance(stmt_cursor, AllocCursor):
-        return lift_alloc(proc, stmt_cursor)
+    loop = stmt.parent()
 
-    enclosing_loop = get_enclosing_loop(stmt_cursor)
-    if enclosing_loop.name() in get_stmt_dependencies(stmt_cursor):
+    # Pre-condition 1: a scope exists
+    if not isinstance(loop, ForCursor):
+        raise BLAS_SchedulingError("Statement is not within a loop")
+
+    # Pre-condition 2: fail-fast, no dependency on a loop
+    deps = list(get_stmt_dependencies(stmt))
+    if isinstance(loop, ForCursor) and loop.name() in deps:
         raise BLAS_SchedulingError(
             "Cannot hoist cursor to a statement that depends on enclosing loop"
         )
 
-    stmt_cursor = proc.forward(stmt_cursor)
-    while not isinstance(stmt_cursor.prev(), InvalidCursor):
-        proc = reorder_stmts(proc, stmt_cursor.expand(1, 0))
-        stmt_cursor = proc.forward(stmt_cursor)
+    # Alloc is a special case
+    if isinstance(stmt, AllocCursor):
+        return lift_alloc(proc, stmt)
 
-    proc = fission(proc, stmt_cursor.after())
-    stmt_cursor = proc.forward(stmt_cursor)
-    proc = remove_loop(proc, stmt_cursor.parent())
+    # Reorder the statement to the top of the loop
+    while not isinstance(stmt.prev(), InvalidCursor):
+        prev_stmt = stmt.prev()
+        if isinstance(prev_stmt, AllocCursor) and prev_stmt.name() in deps:
+            proc = lift_alloc(proc, prev_stmt)
+        else:
+            proc = reorder_stmts(proc, stmt.expand(1, 0))
+        stmt = proc.forward(stmt)
+
+    # Pull the statement on its own outside the loop
+    if len(loop.body()) > 1:
+        proc = fission(proc, stmt.after())
+        stmt = proc.forward(stmt)
+    proc = remove_loop(proc, stmt.parent())
     return proc
 
 
@@ -500,7 +517,7 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
     for stmt in block_cursor:
         try:
             proc = stmt_scheduling_op(proc, stmt)
-        except:
+        except (SchedulingError, BLAS_SchedulingError):
             pass
 
     return proc

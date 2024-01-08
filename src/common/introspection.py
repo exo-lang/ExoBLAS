@@ -50,9 +50,6 @@ def get_stmt_dependencies(stmt):
         yield stmt.name()
         yield from get_expr_dependencies(stmt.idx())
         yield from get_expr_dependencies(stmt.rhs())
-    elif isinstance(stmt, ReadCursor):
-        yield stmt.name()
-        yield from get_expr_dependencies(stmt.idx())
     elif isinstance(stmt, CallCursor):
         yield from get_expr_dependencies(stmt.args())
     elif isinstance(stmt, IfCursor):
