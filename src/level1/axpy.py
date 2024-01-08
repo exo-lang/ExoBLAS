@@ -5,7 +5,7 @@ from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
-import exo.API_cursors as pc
+from exo.API_cursors import *
 
 import exo_blas_config as C
 from composed_schedules import (
@@ -42,8 +42,16 @@ def schedule_axpy_stride_1(axpy, params):
     simple_stride_1 = generate_stride_1_proc(axpy, params.precision)
     main_loop = simple_stride_1.find_loop("i")
     simple_stride_1 = blas_vectorize(simple_stride_1, main_loop, params)
+
+    def hoist_non_alloc(proc, stmt):
+        stmt = proc.forward(stmt)
+        if isinstance(stmt, AllocCursor):
+            return proc
+        else:
+            return hoist_stmt(proc, stmt)
+
     simple_stride_1 = apply_to_block(
-        simple_stride_1, simple_stride_1.forward(main_loop).body(), hoist_stmt
+        simple_stride_1, simple_stride_1.forward(main_loop).body(), hoist_non_alloc
     )
     return simplify(simple_stride_1)
 
