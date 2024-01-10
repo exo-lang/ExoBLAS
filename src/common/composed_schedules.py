@@ -9,7 +9,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
-from introspection import get_stmt_dependencies, get_declaration, get_expr_dependencies
+from introspection import *
 
 
 class BLAS_SchedulingError(Exception):
@@ -483,7 +483,7 @@ def hoist_stmt(proc, stmt):
         raise BLAS_SchedulingError("Statement is not within a loop")
 
     # Pre-condition 2: fail-fast, no dependency on a loop
-    deps = list(get_stmt_dependencies(stmt))
+    deps = list(get_symbol(proc, stmt))
     if isinstance(loop, ForCursor) and loop.name() in deps:
         raise BLAS_SchedulingError(
             "Cannot hoist cursor to a statement that depends on enclosing loop"
@@ -919,7 +919,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     assign_cursor = original_stmt.prev()
     alloc_cursor = assign_cursor.prev()
     expr_cursor = assign_cursor.rhs()
-    deps = list(get_expr_dependencies(expr_cursor))
+    deps = list(get_symbol(proc, expr_cursor))
 
     assert isinstance(assign_cursor, AssignCursor)
     assert isinstance(alloc_cursor, AllocCursor)
