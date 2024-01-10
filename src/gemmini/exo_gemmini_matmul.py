@@ -24,7 +24,7 @@ from composed_schedules import (
     get_enclosing_loop,
     auto_divide_loop,
 )
-from introspection import get_stmt_dependencies, get_declaration
+from introspection import *
 
 ld_i8_block_id1 = reorder_loops(ld_i8_block_id1, "i j")
 ld_i8_block_id2 = reorder_loops(ld_i8_block_id2, "i j")
@@ -220,10 +220,7 @@ def find_child_loop(loop_c, name):
             if len(loop_c.body()) == 1:
                 count += 1
                 child_loop = loop_c.body()[0]
-                if (
-                    isinstance(child_loop, pc.ForCursor)
-                    and child_loop.name() == name
-                ):
+                if isinstance(child_loop, pc.ForCursor) and child_loop.name() == name:
                     return child_loop, count
                 loop_c = loop_c.body()[0]
             else:
@@ -332,7 +329,7 @@ def bind_and_lift(p, expr_c, max_size=0):
             a[i] = A[i]
             C[...] = a[i]
     """
-    dep_set = set(d for d in get_stmt_dependencies(expr_c))
+    dep_set = set(d for d in get_symbol(expr_c))
     p = bind_expr(p, [expr_c], expr_c.name() + "_tmp")
     assign_c = expr_c.parent()
     load_c = p.forward(assign_c).prev()

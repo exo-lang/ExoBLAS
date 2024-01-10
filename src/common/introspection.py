@@ -10,58 +10,154 @@ from exo.API_cursors import *
 from exo.stdlib.analysis import *
 
 
-def get_statemnts(proc):
-    def get_statemnts_helper(body):
-        for stmt in body:
-            yield stmt
-            if isinstance(stmt, IfCursor):
-                yield from get_statemnts_helper(stmt.body())
-                yield from get_statemnts_helper(stmt.orelse())
-            elif isinstance(stmt, ForCursor):
-                yield from get_statemnts_helper(stmt.body())
+def _get_stmts(proc, block=InvalidCursor(), node_first=False):
+    return_args = False
+    if isinstance(block, InvalidCursor):
+        return_args = True
+        block = proc.body()
+        # TODO: forward here once block forwarding works
+        # block = proc.forward(block)
+    elif isinstance(block, StmtCursor):
+        block = proc.forward(block)
+        block = block.as_block()
+    elif not isinstance(block, BlockCursor):
+        raise TypeError(
+            f"Got type {type(block)}, expected an instance of {BlockCursor} or {StmtCursor}"
+        )
 
-    return get_statemnts_helper(proc.body())
+    def yield_args():
+        for arg in proc.args():
+            yield arg
+
+    if node_first and return_args:
+        yield from yield_args()
+
+    def traversal(block):
+        for s in block:
+            if node_first:
+                yield s
+            if isinstance(s, IfCursor):
+                yield from traversal(s.body())
+                if not isinstance(s.orelse(), InvalidCursor):
+                    yield from traversal(s.orelse())
+            elif isinstance(s, ForCursor):
+                yield from traversal(s.body())
+            elif isinstance(
+                s,
+                (
+                    AssignCursor,
+                    ReduceCursor,
+                    AssignConfigCursor,
+                    PassCursor,
+                    AllocCursor,
+                    CallCursor,
+                    WindowStmtCursor,
+                ),
+            ):
+                pass
+            else:
+                raise TypeError(f"Type {type(s)} is not supported.")
+            if not node_first:
+                yield s
+
+    yield from traversal(block)
+
+    if not node_first and return_args:
+        yield from yield_args()
 
 
-def get_expr_dependencies(expr):
-    if isinstance(expr, (ExprListCursor, tuple, list)):
-        for e in expr:
-            yield from get_expr_dependencies(e)
-    elif isinstance(expr, ReadCursor):
-        yield expr.name()
-        yield from get_expr_dependencies(expr.idx())
-    elif isinstance(expr, UnaryMinusCursor):
-        yield from get_expr_dependencies(expr.arg())
-    elif isinstance(expr, BuiltInFunctionCursor):
-        yield from get_expr_dependencies(expr.args())
-    elif isinstance(expr, BinaryOpCursor):
-        yield from get_expr_dependencies(expr.lhs())
-        yield from get_expr_dependencies(expr.rhs())
-    elif isinstance(expr, WindowExprCursor):
-        yield expr.name()
-        yield from get_expr_dependencies(expr.idx())
+def lrn_stmts(proc, block=InvalidCursor()):
+    yield from _get_stmts(proc, block, node_first=False)
 
 
-def get_stmt_dependencies(stmt):
-    if isinstance(stmt, BlockCursor):
-        for s in stmt:
-            yield from get_stmt_dependencies(s)
-    elif isinstance(stmt, (ReduceCursor, AssignCursor)):
-        yield stmt.name()
-        yield from get_expr_dependencies(stmt.idx())
-        yield from get_expr_dependencies(stmt.rhs())
-    elif isinstance(stmt, CallCursor):
-        yield from get_expr_dependencies(stmt.args())
-    elif isinstance(stmt, IfCursor):
-        yield from get_expr_dependencies(stmt.cond())
-        yield from get_stmt_dependencies(stmt.body())
-    elif isinstance(stmt, ForCursor):
-        yield from get_expr_dependencies(stmt.hi())
-        yield from get_stmt_dependencies(stmt.body())
-    elif isinstance(stmt, AllocCursor):
-        yield from get_expr_dependencies(stmt.shape())
-    elif isinstance(stmt, WindowStmtCursor):
-        yield from get_expr_dependencies(stmt.winexpr())
+def nlr_stmts(proc, block=InvalidCursor()):
+    yield from _get_stmts(proc, block=block, node_first=True)
+
+
+def _get_exprs(proc, expr, node_first=False):
+    if not isinstance(expr, (ExprCursorPrototype, ExprListCursor)):
+        raise TypeError(
+            f"Got type {type(expr)}, expected an instance of {ExprCursorPrototype} or {ExprListCursor}"
+        )
+
+    if isinstance(expr, ExprCursorPrototype):
+        expr = proc.forward(expr)
+
+    def traversal(expr):
+        if node_first:
+            yield expr
+        if isinstance(expr, (ExprListCursor, tuple, list)):
+            for e in expr:
+                yield from traversal(e)
+        elif isinstance(expr, (ReadCursor, WindowExprCursor)):
+            yield from traversal(expr.idx())
+        elif isinstance(expr, UnaryMinusCursor):
+            yield from traversal(expr.arg())
+        elif isinstance(expr, BinaryOpCursor):
+            yield from traversal(expr.lhs())
+            yield from traversal(expr.rhs())
+        elif isinstance(expr, BuiltInFunctionCursor):
+            yield from traversal(expr.args())
+        elif isinstance(expr, (LiteralCursor, ReadConfigCursor)):
+            pass
+        else:
+            raise TypeError(f"Type {type(expr)} is not supported.")
+        if not node_first:
+            yield expr
+
+    yield from traversal(expr)
+
+
+def lrn_exprs(proc, expr):
+    yield from _get_exprs(proc, expr, node_first=False)
+
+
+def nlr_exprs(proc, expr):
+    yield from _get_exprs(proc, expr, node_first=True)
+
+
+def _get_cursors(proc, cursor=InvalidCursor(), node_first=False):
+    if isinstance(cursor, (ExprCursorPrototype, ExprListCursor)):
+        yield from _get_exprs(proc, cursor, node_first)
+    else:
+        for s in _get_stmts(proc, cursor, node_first):
+            if node_first:
+                yield s
+            if isinstance(s, (ArgCursor, AllocCursor)):
+                if s.is_tensor():
+                    yield from _get_exprs(proc, s.shape(), node_first)
+            elif isinstance(s, (AssignCursor, ReduceCursor)):
+                yield from _get_exprs(proc, s.idx(), node_first)
+                yield from _get_exprs(proc, s.rhs(), node_first)
+            elif isinstance(s, ForCursor):
+                yield from _get_exprs(proc, s.lo(), node_first)
+                yield from _get_exprs(proc, s.hi(), node_first)
+            elif isinstance(s, IfCursor):
+                yield from _get_exprs(proc, s.cond())
+            elif isinstance(s, CallCursor):
+                yield from _get_exprs(proc, s.args(), node_first)
+            elif isinstance(s, WindowExprCursor):
+                yield from _get_exprs(proc, s.idx(), node_first)
+            elif isinstance(s, (ReadConfigCursor, LiteralCursor)):
+                pass
+            else:
+                raise TypeError(f"Type {type(s)} is not supported.")
+            if not node_first:
+                yield s
+
+
+def lrn(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(proc, cursor=cursor, node_first=False)
+
+
+def nlr(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(proc, cursor=cursor, node_first=True)
+
+
+def get_symbol(proc, cursor=InvalidCursor()):
+    for c in lrn(proc, cursor):
+        if hasattr(c, "name"):
+            yield c.name()
 
 
 def get_declaration(proc, stmt_context, name):
