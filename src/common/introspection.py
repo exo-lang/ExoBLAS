@@ -9,6 +9,8 @@ from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 from exo.stdlib.analysis import *
 
+from exceptions import *
+
 
 def _get_stmts(proc, block=InvalidCursor(), node_first=False):
     return_args = False
@@ -67,7 +69,7 @@ def _get_stmts(proc, block=InvalidCursor(), node_first=False):
 
 
 def lrn_stmts(proc, block=InvalidCursor()):
-    yield from _get_stmts(proc, block, node_first=False)
+    yield from _get_stmts(proc, block=block, node_first=False)
 
 
 def nlr_stmts(proc, block=InvalidCursor()):
@@ -179,3 +181,60 @@ def get_unique_names(proc):
         if name in syms:
             continue
         yield name
+
+
+def is_loop(proc, loop):
+    loop = proc.forward(loop)
+    return isinstance(loop, ForCursor)
+
+
+def check_is_loop(proc, loop):
+    if not is_loop(proc, loop):
+        raise TypeError(f"loop is not a {ForCursor}")
+
+
+def is_loop_bounds_const(proc, loop):
+    check_is_loop(proc, loop)
+    loop = proc.forward(loop)
+    return isinstance(loop.lo(), LiteralCursor) and isinstance(loop.hi(), LiteralCursor)
+
+
+def loop_body_len(proc, loop):
+    check_is_loop(proc, loop)
+    loop = proc.forward(loop)
+    return len(loop.body())
+
+
+def is_single_stmt_loop(proc, loop):
+    check_is_loop(proc, loop)
+    loop = proc.forward(loop)
+    return loop_body_len(proc, loop) == 1
+
+
+def get_enclosing_scope(proc, cursor, scope_type):
+    if not scope_type in (ForCursor, IfCursor):
+        raise BLAS_SchedulingError("scope type must be ForCursor or IfCursor")
+
+    cursor = proc.forward(cursor)
+    cursor = cursor.parent()
+    while not isinstance(cursor, (scope_type, InvalidCursor)):
+        cursor = cursor.parent()
+
+    if isinstance(cursor, InvalidCursor):
+        raise BLAS_SchedulingError("No enclosing scope found")
+
+    return cursor
+
+
+def get_enclosing_loop(proc, cursor, n=1):
+    cursor = proc.forward(cursor)
+    for i in range(n):
+        cursor = get_enclosing_scope(proc, cursor, ForCursor)
+    return cursor
+
+
+def get_enclosing_if(proc, cursor, n=1):
+    cursor = proc.forward(cursor)
+    for i in range(n):
+        cursor = get_enclosing_scope(proc, cursor, IfCursor)
+    return cursor
