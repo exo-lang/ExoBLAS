@@ -46,13 +46,13 @@ void exo_dsdot_stride_1( void *ctxt, int_fast32_t n, struct exo_win_1f32c x, str
 // assert stride(y, 0) == 1
 double d_dot;
 d_dot = 0.0;
-__m256d reg;
-reg = _mm256_setzero_pd();
-__m256d reg_1[4];
-reg_1[0] = _mm256_setzero_pd();
-reg_1[1] = _mm256_setzero_pd();
-reg_1[2] = _mm256_setzero_pd();
-reg_1[3] = _mm256_setzero_pd();
+__m256d var0;
+var0 = _mm256_setzero_pd();
+__m256d var1[4];
+var1[0] = _mm256_setzero_pd();
+var1[1] = _mm256_setzero_pd();
+var1[2] = _mm256_setzero_pd();
+var1[3] = _mm256_setzero_pd();
 for (int_fast32_t iooo = 0; iooo < ((n) / (32)); iooo++) {
   __m256 xReg[4];
   __m256 yReg[4];
@@ -82,19 +82,19 @@ for (int_fast32_t iooo = 0; iooo < ((n) / (32)); iooo++) {
   d_y[1][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[1], 1));
   d_y[2][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[2], 1));
   d_y[3][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[3], 1));
-  reg_1[0] = _mm256_fmadd_pd(d_x[0][0], d_y[0][0], reg_1[0]);
-  reg_1[1] = _mm256_fmadd_pd(d_x[1][0], d_y[1][0], reg_1[1]);
-  reg_1[2] = _mm256_fmadd_pd(d_x[2][0], d_y[2][0], reg_1[2]);
-  reg_1[3] = _mm256_fmadd_pd(d_x[3][0], d_y[3][0], reg_1[3]);
-  reg_1[0] = _mm256_fmadd_pd(d_x[0][1], d_y[0][1], reg_1[0]);
-  reg_1[1] = _mm256_fmadd_pd(d_x[1][1], d_y[1][1], reg_1[1]);
-  reg_1[2] = _mm256_fmadd_pd(d_x[2][1], d_y[2][1], reg_1[2]);
-  reg_1[3] = _mm256_fmadd_pd(d_x[3][1], d_y[3][1], reg_1[3]);
+  var1[0] = _mm256_fmadd_pd(d_x[0][0], d_y[0][0], var1[0]);
+  var1[1] = _mm256_fmadd_pd(d_x[1][0], d_y[1][0], var1[1]);
+  var1[2] = _mm256_fmadd_pd(d_x[2][0], d_y[2][0], var1[2]);
+  var1[3] = _mm256_fmadd_pd(d_x[3][0], d_y[3][0], var1[3]);
+  var1[0] = _mm256_fmadd_pd(d_x[0][1], d_y[0][1], var1[0]);
+  var1[1] = _mm256_fmadd_pd(d_x[1][1], d_y[1][1], var1[1]);
+  var1[2] = _mm256_fmadd_pd(d_x[2][1], d_y[2][1], var1[2]);
+  var1[3] = _mm256_fmadd_pd(d_x[3][1], d_y[3][1], var1[3]);
 }
-reg = _mm256_add_pd(reg_1[0], reg);
-reg = _mm256_add_pd(reg_1[1], reg);
-reg = _mm256_add_pd(reg_1[2], reg);
-reg = _mm256_add_pd(reg_1[3], reg);
+var0 = _mm256_add_pd(var1[0], var0);
+var0 = _mm256_add_pd(var1[1], var0);
+var0 = _mm256_add_pd(var1[2], var0);
+var0 = _mm256_add_pd(var1[3], var0);
 for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
   __m256 xReg;
   xReg = _mm256_loadu_ps(&x.data[32 * (n / 32) + 8 * iooi]);
@@ -106,12 +106,12 @@ for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
   d_x[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg, 1));
   d_y[0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 0));
   d_y[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 1));
-  reg = _mm256_fmadd_pd(d_x[0], d_y[0], reg);
-  reg = _mm256_fmadd_pd(d_x[1], d_y[1], reg);
+  var0 = _mm256_fmadd_pd(d_x[0], d_y[0], var0);
+  var0 = _mm256_fmadd_pd(d_x[1], d_y[1], var0);
 }
 
     {
-        __m256d tmp = _mm256_hadd_pd(reg, reg);
+        __m256d tmp = _mm256_hadd_pd(var0, var0);
         __m256d upper_bits = _mm256_castpd128_pd256(_mm256_extractf128_pd (tmp, 1));
         tmp = _mm256_add_pd(tmp, upper_bits);
         *(&d_dot) += _mm256_cvtsd_f64(tmp);
@@ -168,13 +168,13 @@ void exo_sdsdot_stride_1( void *ctxt, int_fast32_t n, const float* sb, struct ex
 double d_result;
 double d_dot;
 d_dot = 0.0;
-__m256d reg;
-reg = _mm256_setzero_pd();
-__m256d reg_1[4];
-reg_1[0] = _mm256_setzero_pd();
-reg_1[1] = _mm256_setzero_pd();
-reg_1[2] = _mm256_setzero_pd();
-reg_1[3] = _mm256_setzero_pd();
+__m256d var0;
+var0 = _mm256_setzero_pd();
+__m256d var1[4];
+var1[0] = _mm256_setzero_pd();
+var1[1] = _mm256_setzero_pd();
+var1[2] = _mm256_setzero_pd();
+var1[3] = _mm256_setzero_pd();
 for (int_fast32_t iooo = 0; iooo < ((n) / (32)); iooo++) {
   __m256 xReg[4];
   __m256 yReg[4];
@@ -204,19 +204,19 @@ for (int_fast32_t iooo = 0; iooo < ((n) / (32)); iooo++) {
   d_y[1][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[1], 1));
   d_y[2][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[2], 1));
   d_y[3][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[3], 1));
-  reg_1[0] = _mm256_fmadd_pd(d_x[0][0], d_y[0][0], reg_1[0]);
-  reg_1[1] = _mm256_fmadd_pd(d_x[1][0], d_y[1][0], reg_1[1]);
-  reg_1[2] = _mm256_fmadd_pd(d_x[2][0], d_y[2][0], reg_1[2]);
-  reg_1[3] = _mm256_fmadd_pd(d_x[3][0], d_y[3][0], reg_1[3]);
-  reg_1[0] = _mm256_fmadd_pd(d_x[0][1], d_y[0][1], reg_1[0]);
-  reg_1[1] = _mm256_fmadd_pd(d_x[1][1], d_y[1][1], reg_1[1]);
-  reg_1[2] = _mm256_fmadd_pd(d_x[2][1], d_y[2][1], reg_1[2]);
-  reg_1[3] = _mm256_fmadd_pd(d_x[3][1], d_y[3][1], reg_1[3]);
+  var1[0] = _mm256_fmadd_pd(d_x[0][0], d_y[0][0], var1[0]);
+  var1[1] = _mm256_fmadd_pd(d_x[1][0], d_y[1][0], var1[1]);
+  var1[2] = _mm256_fmadd_pd(d_x[2][0], d_y[2][0], var1[2]);
+  var1[3] = _mm256_fmadd_pd(d_x[3][0], d_y[3][0], var1[3]);
+  var1[0] = _mm256_fmadd_pd(d_x[0][1], d_y[0][1], var1[0]);
+  var1[1] = _mm256_fmadd_pd(d_x[1][1], d_y[1][1], var1[1]);
+  var1[2] = _mm256_fmadd_pd(d_x[2][1], d_y[2][1], var1[2]);
+  var1[3] = _mm256_fmadd_pd(d_x[3][1], d_y[3][1], var1[3]);
 }
-reg = _mm256_add_pd(reg_1[0], reg);
-reg = _mm256_add_pd(reg_1[1], reg);
-reg = _mm256_add_pd(reg_1[2], reg);
-reg = _mm256_add_pd(reg_1[3], reg);
+var0 = _mm256_add_pd(var1[0], var0);
+var0 = _mm256_add_pd(var1[1], var0);
+var0 = _mm256_add_pd(var1[2], var0);
+var0 = _mm256_add_pd(var1[3], var0);
 for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
   __m256 xReg;
   xReg = _mm256_loadu_ps(&x.data[32 * (n / 32) + 8 * iooi]);
@@ -228,12 +228,12 @@ for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
   d_x[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg, 1));
   d_y[0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 0));
   d_y[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 1));
-  reg = _mm256_fmadd_pd(d_x[0], d_y[0], reg);
-  reg = _mm256_fmadd_pd(d_x[1], d_y[1], reg);
+  var0 = _mm256_fmadd_pd(d_x[0], d_y[0], var0);
+  var0 = _mm256_fmadd_pd(d_x[1], d_y[1], var0);
 }
 
     {
-        __m256d tmp = _mm256_hadd_pd(reg, reg);
+        __m256d tmp = _mm256_hadd_pd(var0, var0);
         __m256d upper_bits = _mm256_castpd128_pd256(_mm256_extractf128_pd (tmp, 1));
         tmp = _mm256_add_pd(tmp, upper_bits);
         *(&d_dot) += _mm256_cvtsd_f64(tmp);

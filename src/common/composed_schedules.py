@@ -339,8 +339,10 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             return proc
         flat_rhs = get_expr_subtree_cursors(stmt.rhs(), stmt, False)
 
+        name_gen = get_unique_names(proc)
+
         for expr in flat_rhs:
-            proc = stage_expr(proc, expr, f"reg", precision, memory_type, depth)
+            proc = stage_expr(proc, expr, next(name_gen), precision, memory_type, depth)
 
         return proc
 
@@ -350,7 +352,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
             alloc_stmt = get_declaration(proc, stmt, stmt.name())
             if alloc_stmt.mem() != memory_type:
 
-                lhs_reg = "reg"
+                lhs_reg = next(get_unique_names(proc))
                 proc = stage_mem(
                     proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}", lhs_reg
                 )
@@ -483,7 +485,7 @@ def hoist_stmt(proc, stmt):
         raise BLAS_SchedulingError("Statement is not within a loop")
 
     # Pre-condition 2: fail-fast, no dependency on a loop
-    deps = list(get_symbol(proc, stmt))
+    deps = list(get_symbols(proc, stmt))
     if isinstance(loop, ForCursor) and loop.name() in deps:
         raise BLAS_SchedulingError(
             "Cannot hoist cursor to a statement that depends on enclosing loop"
@@ -573,7 +575,13 @@ def parallelize_reduction(
     outer_loop_cursor = proc.forward(outer_loop_cursor)
 
     proc = simplify(
-        stage_mem(proc, outer_loop_cursor, reduction_buffer_window, "reg", accum=True)
+        stage_mem(
+            proc,
+            outer_loop_cursor,
+            reduction_buffer_window,
+            next(get_unique_names(proc)),
+            accum=True,
+        )
     )
     outer_loop_cursor = proc.forward(outer_loop_cursor)
     alloc_cursor = outer_loop_cursor.prev().prev()
@@ -919,7 +927,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     assign_cursor = original_stmt.prev()
     alloc_cursor = assign_cursor.prev()
     expr_cursor = assign_cursor.rhs()
-    deps = list(get_symbol(proc, expr_cursor))
+    deps = list(get_symbols(proc, expr_cursor))
 
     assert isinstance(assign_cursor, AssignCursor)
     assert isinstance(alloc_cursor, AllocCursor)

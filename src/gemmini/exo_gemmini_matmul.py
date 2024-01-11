@@ -329,7 +329,7 @@ def bind_and_lift(p, expr_c, max_size=0):
             a[i] = A[i]
             C[...] = a[i]
     """
-    dep_set = set(d for d in get_symbol(expr_c))
+    dep_set = set(d for d in get_symbols(expr_c))
     p = bind_expr(p, [expr_c], expr_c.name() + "_tmp")
     assign_c = expr_c.parent()
     load_c = p.forward(assign_c).prev()

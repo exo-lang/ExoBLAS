@@ -69,7 +69,7 @@ def schedule_asum_stride_1(asum, params):
     asum, _ = parallelize_reduction(
         asum,
         asum.find_loop("io"),
-        f"reg[0:{params.vec_width}]",
+        f"var0[0:{params.vec_width}]",
         params.accumulators_count,
         params.mem_type,
         params.precision,
