@@ -23,25 +23,25 @@ void exo_dsyr_row_major_Lower_stride_1( void *ctxt, int_fast32_t n, const double
 // assert stride(A, 1) == 1
 // assert stride(x, 0) == 1
 for (int_fast32_t i = 0; i < n; i++) {
-  __m256d reg;
+  __m256d var0;
   if (((1 + i) / (4)) > 0) {
-    reg = _mm256_broadcast_sd((alpha));
+    var0 = _mm256_broadcast_sd((alpha));
   }
-  __m256d reg_1;
+  __m256d var1;
   if (((1 + i) / (4)) > 0) {
-    reg_1 = _mm256_broadcast_sd(&x.data[i]);
+    var1 = _mm256_broadcast_sd(&x.data[i]);
   }
-  __m256d reg_2;
+  __m256d var2;
   if (((1 + i) / (4)) > 0) {
-    reg_2 = _mm256_mul_pd(reg, reg_1);
+    var2 = _mm256_mul_pd(var0, var1);
   }
-  __m256d reg_3;
-  __m256d reg_4;
+  __m256d var3;
+  __m256d var4;
   for (int_fast32_t jo = 0; jo < ((1 + i) / (4)); jo++) {
-    reg_3 = _mm256_loadu_pd(&x.data[4 * jo]);
-    reg_4 = _mm256_loadu_pd(&A.data[(i) * (A.strides[0]) + 4 * jo]);
-    reg_4 = _mm256_fmadd_pd(reg_2, reg_3, reg_4);
-    _mm256_storeu_pd(&A.data[(i) * (A.strides[0]) + 4 * jo], reg_4);
+    var3 = _mm256_loadu_pd(&x.data[4 * jo]);
+    var4 = _mm256_loadu_pd(&A.data[(i) * (A.strides[0]) + 4 * jo]);
+    var4 = _mm256_fmadd_pd(var2, var3, var4);
+    _mm256_storeu_pd(&A.data[(i) * (A.strides[0]) + 4 * jo], var4);
   }
   for (int_fast32_t ji = 0; ji < (1 + i) % 4; ji++) {
     A.data[i * A.strides[0] + ji + ((1 + i) / 4) * 4] += *alpha * x.data[i] * x.data[ji + ((1 + i) / 4) * 4];
@@ -74,25 +74,25 @@ void exo_dsyr_row_major_Upper_stride_1( void *ctxt, int_fast32_t n, const double
 // assert stride(A, 1) == 1
 // assert stride(x, 0) == 1
 for (int_fast32_t i = 0; i < n; i++) {
-  __m256d reg;
+  __m256d var0;
   if (exo_floor_div(-i + n, 4) > 0) {
-    reg = _mm256_broadcast_sd((alpha));
+    var0 = _mm256_broadcast_sd((alpha));
   }
-  __m256d reg_1;
+  __m256d var1;
   if (exo_floor_div(-i + n, 4) > 0) {
-    reg_1 = _mm256_broadcast_sd(&x.data[i]);
+    var1 = _mm256_broadcast_sd(&x.data[i]);
   }
-  __m256d reg_2;
+  __m256d var2;
   if (exo_floor_div(-i + n, 4) > 0) {
-    reg_2 = _mm256_mul_pd(reg, reg_1);
+    var2 = _mm256_mul_pd(var0, var1);
   }
-  __m256d reg_3;
-  __m256d reg_4;
+  __m256d var3;
+  __m256d var4;
   for (int_fast32_t jo = 0; jo < exo_floor_div(-i + n, 4); jo++) {
-    reg_3 = _mm256_loadu_pd(&x.data[i + 4 * jo]);
-    reg_4 = _mm256_loadu_pd(&A.data[(i) * (A.strides[0]) + i + 4 * jo]);
-    reg_4 = _mm256_fmadd_pd(reg_2, reg_3, reg_4);
-    _mm256_storeu_pd(&A.data[(i) * (A.strides[0]) + i + 4 * jo], reg_4);
+    var3 = _mm256_loadu_pd(&x.data[i + 4 * jo]);
+    var4 = _mm256_loadu_pd(&A.data[(i) * (A.strides[0]) + i + 4 * jo]);
+    var4 = _mm256_fmadd_pd(var2, var3, var4);
+    _mm256_storeu_pd(&A.data[(i) * (A.strides[0]) + i + 4 * jo], var4);
   }
   for (int_fast32_t ji = 0; ji < (-i + n) % 4; ji++) {
     A.data[i * A.strides[0] + i + ji + exo_floor_div((-i + n), 4) * 4] += *alpha * x.data[i] * x.data[i + ji + exo_floor_div((-i + n), 4) * 4];
@@ -125,25 +125,25 @@ void exo_ssyr_row_major_Lower_stride_1( void *ctxt, int_fast32_t n, const float*
 // assert stride(A, 1) == 1
 // assert stride(x, 0) == 1
 for (int_fast32_t i = 0; i < n; i++) {
-  __m256 reg;
+  __m256 var0;
   if (((1 + i) / (8)) > 0) {
-    reg = _mm256_broadcast_ss((alpha));
+    var0 = _mm256_broadcast_ss((alpha));
   }
-  __m256 reg_1;
+  __m256 var1;
   if (((1 + i) / (8)) > 0) {
-    reg_1 = _mm256_broadcast_ss(&x.data[i]);
+    var1 = _mm256_broadcast_ss(&x.data[i]);
   }
-  __m256 reg_2;
+  __m256 var2;
   if (((1 + i) / (8)) > 0) {
-    reg_2 = _mm256_mul_ps(reg, reg_1);
+    var2 = _mm256_mul_ps(var0, var1);
   }
-  __m256 reg_3;
-  __m256 reg_4;
+  __m256 var3;
+  __m256 var4;
   for (int_fast32_t jo = 0; jo < ((1 + i) / (8)); jo++) {
-    reg_3 = _mm256_loadu_ps(&x.data[8 * jo]);
-    reg_4 = _mm256_loadu_ps(&A.data[(i) * (A.strides[0]) + 8 * jo]);
-    reg_4 = _mm256_fmadd_ps(reg_2, reg_3, reg_4);
-    _mm256_storeu_ps(&A.data[(i) * (A.strides[0]) + 8 * jo], reg_4);
+    var3 = _mm256_loadu_ps(&x.data[8 * jo]);
+    var4 = _mm256_loadu_ps(&A.data[(i) * (A.strides[0]) + 8 * jo]);
+    var4 = _mm256_fmadd_ps(var2, var3, var4);
+    _mm256_storeu_ps(&A.data[(i) * (A.strides[0]) + 8 * jo], var4);
   }
   for (int_fast32_t ji = 0; ji < (1 + i) % 8; ji++) {
     A.data[i * A.strides[0] + ji + ((1 + i) / 8) * 8] += *alpha * x.data[i] * x.data[ji + ((1 + i) / 8) * 8];
@@ -176,25 +176,25 @@ void exo_ssyr_row_major_Upper_stride_1( void *ctxt, int_fast32_t n, const float*
 // assert stride(A, 1) == 1
 // assert stride(x, 0) == 1
 for (int_fast32_t i = 0; i < n; i++) {
-  __m256 reg;
+  __m256 var0;
   if (exo_floor_div(-i + n, 8) > 0) {
-    reg = _mm256_broadcast_ss((alpha));
+    var0 = _mm256_broadcast_ss((alpha));
   }
-  __m256 reg_1;
+  __m256 var1;
   if (exo_floor_div(-i + n, 8) > 0) {
-    reg_1 = _mm256_broadcast_ss(&x.data[i]);
+    var1 = _mm256_broadcast_ss(&x.data[i]);
   }
-  __m256 reg_2;
+  __m256 var2;
   if (exo_floor_div(-i + n, 8) > 0) {
-    reg_2 = _mm256_mul_ps(reg, reg_1);
+    var2 = _mm256_mul_ps(var0, var1);
   }
-  __m256 reg_3;
-  __m256 reg_4;
+  __m256 var3;
+  __m256 var4;
   for (int_fast32_t jo = 0; jo < exo_floor_div(-i + n, 8); jo++) {
-    reg_3 = _mm256_loadu_ps(&x.data[i + 8 * jo]);
-    reg_4 = _mm256_loadu_ps(&A.data[(i) * (A.strides[0]) + i + 8 * jo]);
-    reg_4 = _mm256_fmadd_ps(reg_2, reg_3, reg_4);
-    _mm256_storeu_ps(&A.data[(i) * (A.strides[0]) + i + 8 * jo], reg_4);
+    var3 = _mm256_loadu_ps(&x.data[i + 8 * jo]);
+    var4 = _mm256_loadu_ps(&A.data[(i) * (A.strides[0]) + i + 8 * jo]);
+    var4 = _mm256_fmadd_ps(var2, var3, var4);
+    _mm256_storeu_ps(&A.data[(i) * (A.strides[0]) + i + 8 * jo], var4);
   }
   for (int_fast32_t ji = 0; ji < (-i + n) % 8; ji++) {
     A.data[i * A.strides[0] + i + ji + exo_floor_div((-i + n), 8) * 8] += *alpha * x.data[i] * x.data[i + ji + exo_floor_div((-i + n), 8) * 8];

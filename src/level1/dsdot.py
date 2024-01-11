@@ -86,7 +86,7 @@ def schedule_dsdot_stride_1(proc, params, name):
     proc, _ = parallelize_reduction(
         proc,
         proc.find_loop("ioo"),
-        f"reg[0:{params.vec_width // 2}]",
+        f"var0[0:{params.vec_width // 2}]",
         params.accumulators_count,
         params.mem_type,
         "f64",

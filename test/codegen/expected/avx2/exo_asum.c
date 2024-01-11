@@ -120,16 +120,16 @@ void exo_dasum_stride_1( void *ctxt, int_fast32_t n, struct exo_win_1f64c x, dou
 // assert stride(x, 0) == 1
 double result_;
 result_ = 0.0;
-__m256d reg;
-reg = _mm256_setzero_pd();
-__m256d reg_1[7];
-reg_1[0] = _mm256_setzero_pd();
-reg_1[1] = _mm256_setzero_pd();
-reg_1[2] = _mm256_setzero_pd();
-reg_1[3] = _mm256_setzero_pd();
-reg_1[4] = _mm256_setzero_pd();
-reg_1[5] = _mm256_setzero_pd();
-reg_1[6] = _mm256_setzero_pd();
+__m256d var0;
+var0 = _mm256_setzero_pd();
+__m256d var1[7];
+var1[0] = _mm256_setzero_pd();
+var1[1] = _mm256_setzero_pd();
+var1[2] = _mm256_setzero_pd();
+var1[3] = _mm256_setzero_pd();
+var1[4] = _mm256_setzero_pd();
+var1[5] = _mm256_setzero_pd();
+var1[6] = _mm256_setzero_pd();
 for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (7)); ioo++) {
   __m256d xReg[7];
   __m256d selectReg[7];
@@ -161,21 +161,21 @@ selectReg[5] = _mm256_and_pd(xReg[5], _mm256_castsi256_pd (_mm256_set1_epi64x(0x
   
 selectReg[6] = _mm256_and_pd(xReg[6], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
-  reg_1[0] = _mm256_add_pd(selectReg[0], reg_1[0]);
-  reg_1[1] = _mm256_add_pd(selectReg[1], reg_1[1]);
-  reg_1[2] = _mm256_add_pd(selectReg[2], reg_1[2]);
-  reg_1[3] = _mm256_add_pd(selectReg[3], reg_1[3]);
-  reg_1[4] = _mm256_add_pd(selectReg[4], reg_1[4]);
-  reg_1[5] = _mm256_add_pd(selectReg[5], reg_1[5]);
-  reg_1[6] = _mm256_add_pd(selectReg[6], reg_1[6]);
+  var1[0] = _mm256_add_pd(selectReg[0], var1[0]);
+  var1[1] = _mm256_add_pd(selectReg[1], var1[1]);
+  var1[2] = _mm256_add_pd(selectReg[2], var1[2]);
+  var1[3] = _mm256_add_pd(selectReg[3], var1[3]);
+  var1[4] = _mm256_add_pd(selectReg[4], var1[4]);
+  var1[5] = _mm256_add_pd(selectReg[5], var1[5]);
+  var1[6] = _mm256_add_pd(selectReg[6], var1[6]);
 }
-reg = _mm256_add_pd(reg_1[0], reg);
-reg = _mm256_add_pd(reg_1[1], reg);
-reg = _mm256_add_pd(reg_1[2], reg);
-reg = _mm256_add_pd(reg_1[3], reg);
-reg = _mm256_add_pd(reg_1[4], reg);
-reg = _mm256_add_pd(reg_1[5], reg);
-reg = _mm256_add_pd(reg_1[6], reg);
+var0 = _mm256_add_pd(var1[0], var0);
+var0 = _mm256_add_pd(var1[1], var0);
+var0 = _mm256_add_pd(var1[2], var0);
+var0 = _mm256_add_pd(var1[3], var0);
+var0 = _mm256_add_pd(var1[4], var0);
+var0 = _mm256_add_pd(var1[5], var0);
+var0 = _mm256_add_pd(var1[6], var0);
 for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 7; ioi++) {
   __m256d xReg;
   xReg = _mm256_loadu_pd(&x.data[28 * ((((3 + n) / 4) - 1) / 7) + 4 * ioi]);
@@ -183,7 +183,7 @@ for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 7; ioi++) {
   
 selectReg = _mm256_and_pd(xReg, _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
-  reg = _mm256_add_pd(selectReg, reg);
+  var0 = _mm256_add_pd(selectReg, var0);
 }
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
   __m256d xRegTail;
@@ -211,13 +211,13 @@ selectRegTail = _mm256_blendv_pd (selectRegTail, src_abs, _mm256_castsi256_pd(cm
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
     __m256d prefixed_src = _mm256_blendv_pd (_mm256_setzero_pd(), selectRegTail, _mm256_castsi256_pd(cmp));
-    reg = _mm256_add_pd(prefixed_src, reg);
+    var0 = _mm256_add_pd(prefixed_src, var0);
     }
     
 }
 
     {
-        __m256d tmp = _mm256_hadd_pd(reg, reg);
+        __m256d tmp = _mm256_hadd_pd(var0, var0);
         __m256d upper_bits = _mm256_castpd128_pd256(_mm256_extractf128_pd (tmp, 1));
         tmp = _mm256_add_pd(tmp, upper_bits);
         *(&result_) += _mm256_cvtsd_f64(tmp);
@@ -257,16 +257,16 @@ void exo_sasum_stride_1( void *ctxt, int_fast32_t n, struct exo_win_1f32c x, flo
 // assert stride(x, 0) == 1
 float result_;
 result_ = 0.0;
-__m256 reg;
-reg = _mm256_setzero_ps();
-__m256 reg_1[7];
-reg_1[0] = _mm256_setzero_ps();
-reg_1[1] = _mm256_setzero_ps();
-reg_1[2] = _mm256_setzero_ps();
-reg_1[3] = _mm256_setzero_ps();
-reg_1[4] = _mm256_setzero_ps();
-reg_1[5] = _mm256_setzero_ps();
-reg_1[6] = _mm256_setzero_ps();
+__m256 var0;
+var0 = _mm256_setzero_ps();
+__m256 var1[7];
+var1[0] = _mm256_setzero_ps();
+var1[1] = _mm256_setzero_ps();
+var1[2] = _mm256_setzero_ps();
+var1[3] = _mm256_setzero_ps();
+var1[4] = _mm256_setzero_ps();
+var1[5] = _mm256_setzero_ps();
+var1[6] = _mm256_setzero_ps();
 for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (7)); ioo++) {
   __m256 xReg[7];
   __m256 selectReg[7];
@@ -284,27 +284,27 @@ for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (7)); ioo++) {
   selectReg[4] = _mm256_and_ps(xReg[4], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
   selectReg[5] = _mm256_and_ps(xReg[5], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
   selectReg[6] = _mm256_and_ps(xReg[6], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  reg_1[0] = _mm256_add_ps(selectReg[0], reg_1[0]);
-  reg_1[1] = _mm256_add_ps(selectReg[1], reg_1[1]);
-  reg_1[2] = _mm256_add_ps(selectReg[2], reg_1[2]);
-  reg_1[3] = _mm256_add_ps(selectReg[3], reg_1[3]);
-  reg_1[4] = _mm256_add_ps(selectReg[4], reg_1[4]);
-  reg_1[5] = _mm256_add_ps(selectReg[5], reg_1[5]);
-  reg_1[6] = _mm256_add_ps(selectReg[6], reg_1[6]);
+  var1[0] = _mm256_add_ps(selectReg[0], var1[0]);
+  var1[1] = _mm256_add_ps(selectReg[1], var1[1]);
+  var1[2] = _mm256_add_ps(selectReg[2], var1[2]);
+  var1[3] = _mm256_add_ps(selectReg[3], var1[3]);
+  var1[4] = _mm256_add_ps(selectReg[4], var1[4]);
+  var1[5] = _mm256_add_ps(selectReg[5], var1[5]);
+  var1[6] = _mm256_add_ps(selectReg[6], var1[6]);
 }
-reg = _mm256_add_ps(reg_1[0], reg);
-reg = _mm256_add_ps(reg_1[1], reg);
-reg = _mm256_add_ps(reg_1[2], reg);
-reg = _mm256_add_ps(reg_1[3], reg);
-reg = _mm256_add_ps(reg_1[4], reg);
-reg = _mm256_add_ps(reg_1[5], reg);
-reg = _mm256_add_ps(reg_1[6], reg);
+var0 = _mm256_add_ps(var1[0], var0);
+var0 = _mm256_add_ps(var1[1], var0);
+var0 = _mm256_add_ps(var1[2], var0);
+var0 = _mm256_add_ps(var1[3], var0);
+var0 = _mm256_add_ps(var1[4], var0);
+var0 = _mm256_add_ps(var1[5], var0);
+var0 = _mm256_add_ps(var1[6], var0);
 for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 7; ioi++) {
   __m256 xReg;
   xReg = _mm256_loadu_ps(&x.data[56 * ((((7 + n) / 8) - 1) / 7) + 8 * ioi]);
   __m256 selectReg;
   selectReg = _mm256_and_ps(xReg, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  reg = _mm256_add_ps(selectReg, reg);
+  var0 = _mm256_add_ps(selectReg, var0);
 }
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
   __m256 xRegTail;
@@ -332,13 +332,13 @@ selectRegTail = _mm256_blendv_ps (selectRegTail, src_abs, _mm256_castsi256_ps(cm
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
     __m256 prefixed_src = _mm256_blendv_ps (_mm256_setzero_ps(), selectRegTail, _mm256_castsi256_ps(cmp));
-    reg = _mm256_add_ps(prefixed_src, reg);
+    var0 = _mm256_add_ps(prefixed_src, var0);
     }
     
 }
 
     {
-        __m256 tmp = _mm256_hadd_ps(reg, reg);
+        __m256 tmp = _mm256_hadd_ps(var0, var0);
         tmp = _mm256_hadd_ps(tmp, tmp);
         __m256 upper_bits = _mm256_castps128_ps256(_mm256_extractf128_ps(tmp, 1));
         tmp = _mm256_add_ps(tmp, upper_bits);

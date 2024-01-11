@@ -154,7 +154,7 @@ def nlr(proc, cursor=InvalidCursor()):
     yield from _get_cursors(proc, cursor=cursor, node_first=True)
 
 
-def get_symbol(proc, cursor=InvalidCursor()):
+def get_symbols(proc, cursor=InvalidCursor()):
     for c in lrn(proc, cursor):
         if hasattr(c, "name"):
             yield c.name()
@@ -168,3 +168,14 @@ def get_declaration(proc, stmt_context, name):
         if arg.name() == name:
             return arg
     return None
+
+
+def get_unique_names(proc):
+    cnt = 0
+    syms = set(get_symbols(proc))
+    while cnt < 100:
+        name = f"var{cnt}"
+        cnt += 1
+        if name in syms:
+            continue
+        yield name

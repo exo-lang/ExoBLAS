@@ -18,9 +18,9 @@ double _select_(double x, double v, double y, double z) {
 // )
 void sad( void *ctxt, const int8_t* x, const int8_t* y, float* result ) {
 *result = 0.0;
-float *reg = (float*) malloc(4 * sizeof(*reg));
+float *var0 = (float*) malloc(4 * sizeof(*var0));
 for (int_fast32_t ioi = 0; ioi < 4; ioi++) {
-  reg[ioi] = 0.0;
+  var0[ioi] = 0.0;
 }
 for (int_fast32_t ioo = 0; ioo < 32; ioo++) {
   float *tmp_reg1 = (float*) malloc(4 * sizeof(*tmp_reg1));
@@ -51,13 +51,13 @@ for (int_fast32_t ioo = 0; ioo < 32; ioo++) {
   free(yReg);
   free(xReg);
   for (int_fast32_t ioi = 0; ioi < 4; ioi++) {
-    reg[ioi] += tmp_reg1[ioi];
+    var0[ioi] += tmp_reg1[ioi];
   }
   free(tmp_reg1);
 }
 for (int_fast32_t ioi = 0; ioi < 4; ioi++) {
-  *result += reg[ioi];
+  *result += var0[ioi];
 }
-free(reg);
+free(var0);
 }
 
