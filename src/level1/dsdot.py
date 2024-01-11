@@ -84,7 +84,9 @@ def schedule_dsdot_stride_1(proc, params, name):
     proc, _ = auto_divide_loop(
         proc, proc.find_loop("ioo"), params.accumulators_count, tail="cut"
     )
-    proc = parallelize_reduction(proc, proc.find("var0[_] += _"), params.mem_type, 3)
+    proc = parallelize_reduction(
+        proc, proc.find("var0[_] += _"), params.mem_type, 3, True
+    )
     instructions = [
         C.Machine.load_instr_f32,
         C.Machine.store_instr_f32,
@@ -100,9 +102,7 @@ def schedule_dsdot_stride_1(proc, params, name):
     for i in range(0, 4):
         proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_lower_to_f64)
         proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_upper_to_f64)
-    proc = unroll_loop(proc, "iooi")
     proc = interleave_execution(proc, proc.find_loop("iooi"), params.accumulators_count)
-    proc = unroll_loop(proc, "iooi")
     return proc
 
 

@@ -500,7 +500,11 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
     return proc
 
 
-def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=2):
+def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=2, unroll=False):
+    # Auto-coersion
+    if isinstance(unroll, bool):
+        unroll = (unroll, unroll)
+
     reduc_stmt = proc.forward(reduc_stmt)
     reduc_loop = get_enclosing_loop(proc, reduc_stmt, nth_loop)
 
@@ -541,6 +545,13 @@ def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=2):
     # Reorder the loop nest back
     reduc_loop = proc.forward(reduc_loop)
     proc = reorder_loops(proc, reduc_loop.parent())
+
+    # Unroll any loops
+    reduc_loop = proc.forward(reduc_loop)
+    if unroll[0]:
+        proc = unroll_loop(proc, reduc_loop.prev())
+    if unroll[1]:
+        proc = unroll_loop(proc, reduc_loop.next())
 
     return proc
 
@@ -722,12 +733,9 @@ def vectorize(
             lrn_stmts(proc, inner_loop_cursor.body()),
         ):
             try:
-                proc = parallelize_reduction(proc, stmt, memory_type, nth_loop=3)
+                proc = parallelize_reduction(proc, stmt, memory_type, 3, True)
             except (SchedulingError, BLAS_SchedulingError, TypeError):
                 continue
-            outer_loop_cursor = proc.forward(outer_loop_cursor)
-            proc = unroll_loop(proc, outer_loop_cursor.prev())
-            proc = unroll_loop(proc, outer_loop_cursor.next())
         outer_loop_cursor = proc.forward(outer_loop_cursor)
         inner_loop_cursor = outer_loop_cursor.body()[0]
         inner_loop_cursor = proc.forward(inner_loop_cursor)

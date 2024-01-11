@@ -57,18 +57,16 @@ def schedule_asum_stride_1(asum, params):
     asum, _ = auto_divide_loop(
         asum, asum.find_loop("io"), params.accumulators_count, tail="cut"
     )
-    asum = parallelize_reduction(asum, asum.find("var0[_] += _"), params.mem_type, 3)
-
+    asum = parallelize_reduction(
+        asum, asum.find("var0[_] += _"), params.mem_type, 3, True
+    )
     asum = replace_all(asum, params.instructions)
-
-    asum = unroll_loop(asum, asum.find_loop("ioi"))
     asum = interleave_execution(asum, asum.find_loop("ioi"), params.accumulators_count)
     asum = interleave_execution(
         asum,
         asum.find_loop("ioo"),
         params.interleave_factor // params.accumulators_count,
     )
-    asum = unroll_loop(asum, asum.find_loop("ioi"))
     asum = simplify(asum)
 
     return asum
