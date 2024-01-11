@@ -212,10 +212,11 @@ def is_single_stmt_loop(proc, loop):
 
 
 # TODO: Add `proc` as first argument to these operations
-def get_enclosing_scope(cursor, scope_type):
+def get_enclosing_scope(proc, cursor, scope_type):
     if not scope_type in (ForCursor, IfCursor):
         raise BLAS_SchedulingError("scope type must be ForCursor or IfCursor")
 
+    cursor = proc.forward(cursor)
     cursor = cursor.parent()
     while not isinstance(cursor, (scope_type, InvalidCursor)):
         cursor = cursor.parent()
@@ -226,13 +227,15 @@ def get_enclosing_scope(cursor, scope_type):
     return cursor
 
 
-def get_enclosing_loop(cursor, n=1):
+def get_enclosing_loop(proc, cursor, n=1):
+    cursor = proc.forward(cursor)
     for i in range(n):
-        cursor = get_enclosing_scope(cursor, ForCursor)
+        cursor = get_enclosing_scope(proc, cursor, ForCursor)
     return cursor
 
 
-def get_enclosing_if(cursor, n=1):
+def get_enclosing_if(proc, cursor, n=1):
+    cursor = proc.forward(cursor)
     for i in range(n):
-        cursor = get_enclosing_scope(cursor, IfCursor)
+        cursor = get_enclosing_scope(proc, cursor, IfCursor)
     return cursor
