@@ -660,14 +660,6 @@ def vectorize(
     # Forward argument cursors
     loop_cursor = proc.forward(loop_cursor)
 
-    # Get reduction buffers, for now assumes those are buffers
-    # of 0 dimensions. We should change to be buffers that are
-    # independent on the loop
-    reduction_buffers = []
-    for stmt in loop_cursor.body():
-        if isinstance(stmt, ReduceCursor) and len(stmt.idx()) == 0:
-            reduction_buffers.append(stmt.name())
-
     is_perfect = (
         isinstance(loop_cursor.hi(), LiteralCursor)
         and isinstance(loop_cursor.lo(), LiteralCursor)
