@@ -10,10 +10,7 @@ from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
 from introspection import *
-
-
-class BLAS_SchedulingError(Exception):
-    pass
+from exceptions import *
 
 
 def expr_to_string(expr_cursor, subst={}):
@@ -55,28 +52,6 @@ def expr_to_string(expr_cursor, subst={}):
         raise BLAS_SchedulingError("WindowExprCursor is not supported")
     else:
         assert False, "Undefined Type"
-
-
-def get_enclosing_scope(cursor, scope_type):
-    if not scope_type in (ForCursor, IfCursor):
-        raise BLAS_SchedulingError("scope type must be ForCursor or IfCursor")
-
-    cursor = cursor.parent()
-    while not isinstance(cursor, (scope_type, InvalidCursor)):
-        cursor = cursor.parent()
-
-    if isinstance(cursor, InvalidCursor):
-        raise BLAS_SchedulingError("No enclosing scope found")
-
-    return cursor
-
-
-def get_enclosing_loop(cursor):
-    return get_enclosing_scope(cursor, ForCursor)
-
-
-def get_enclosing_if(cursor):
-    return get_enclosing_scope(cursor, IfCursor)
 
 
 def get_statement(cursor):
@@ -525,78 +500,49 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
     return proc
 
 
-def parallelize_reduction(
-    proc,
-    loop_cursor,
-    reduction_buffer_window,
-    parallel_factor,
-    memory_type,
-    precision,
-    tail="cut",
-):
-    """
-    for i in seq(0, n):
-        x[...] += y[i]
+def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=2):
+    reduc_stmt = proc.forward(reduc_stmt)
+    reduc_loop = get_enclosing_loop(reduc_stmt, nth_loop)
 
-    ----->
-
-    xReg: f32[parallel_factor]
-    for ii in seq(0, parallel_factor):
-        xReg[ii][...] = 0.0
-    for io in seq(0, n / parallel_factor):
-        for ii in seq(0, vec_width):
-            xReg[ii][..] += y[io * parallel_factor + ii]
-    for ii in seq(0, parallel_factor):
-        x[...] += xReg[ii]
-
-    Returns: (proc, allocation cursors)
-    """
-    # Check arguments pre-condition
-    if not isinstance(loop_cursor, ForCursor):
-        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForCursor")
-
-    if not isinstance(parallel_factor, int):
-        raise BLAS_SchedulingError("parallel_factor must be an integer")
-
-    if parallel_factor <= 1:
-        return proc, None
-
-    # Forward input cursors
-    loop_cursor = proc.forward(loop_cursor)
-
-    # Divide the loop if necessary
-    if is_already_divided(loop_cursor, parallel_factor):
-        outer_loop_cursor = loop_cursor
-    else:
-        proc, cursors = auto_divide_loop(proc, loop_cursor, parallel_factor, tail=tail)
-        outer_loop_cursor = cursors.outer_loop_cursor
-
-    proc = reorder_loops(proc, outer_loop_cursor)
-    outer_loop_cursor = proc.forward(outer_loop_cursor)
-
-    proc = simplify(
-        stage_mem(
-            proc,
-            outer_loop_cursor,
-            reduction_buffer_window,
-            next(get_unique_names(proc)),
-            accum=True,
+    # This is technically a duplicate check
+    if not is_loop(proc, reduc_loop) and is_single_stmt_loop(proc, reduc_loop):
+        raise BLAS_SchedulingError(
+            """
+        Incorrect structure, must of the form:
+            for ...    <---- nth-loop
+                for ...
+                    ...
+                        reduction
+                    ...
+        """
         )
+
+    # Stage reduction around the loop we are reducing over
+    proc = reorder_loops(proc, reduc_loop)
+    # This will effectively check that the lhs is actually a reduction over the loop
+    proc = auto_stage_mem(
+        proc, reduc_stmt, next(get_unique_names(proc)), n_lifts=nth_loop - 1, accum=True
     )
-    outer_loop_cursor = proc.forward(outer_loop_cursor)
-    alloc_cursor = outer_loop_cursor.prev().prev()
-    proc = set_memory(proc, alloc_cursor, memory_type)
-    proc = set_precision(proc, alloc_cursor, precision)
+    proc = simplify(proc)
 
-    outer_loop_cursor = proc.forward(outer_loop_cursor)
-    proc = parallelize_and_lift_alloc(proc, outer_loop_cursor.prev().prev())
-    proc = fission(proc, outer_loop_cursor.before())
-    proc = fission(proc, outer_loop_cursor.after())
-    outer_loop_cursor = proc.forward(outer_loop_cursor)
-    proc = reorder_loops(proc, outer_loop_cursor.parent())
-    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    # Set the memory of the newly created buffer
+    reduc_loop = proc.forward(reduc_loop)
+    alloc = reduc_loop.prev().prev()
+    proc = set_memory(proc, alloc, memory)
 
-    return proc, proc.forward(alloc_cursor)
+    # Parallelize the reduction
+    reduc_loop = proc.forward(reduc_loop)
+    proc = parallelize_and_lift_alloc(proc, reduc_loop.prev().prev())
+
+    # Fission the zero and store-back stages
+    proc = fission(proc, reduc_loop.before())
+    proc = fission(proc, reduc_loop.after())
+
+    # Reorder the loop nest back
+    reduc_loop = proc.forward(reduc_loop)
+    proc = reorder_loops(proc, reduc_loop.parent())
+
+    return proc
 
 
 def interleave_outer_loop_with_inner_loop(
@@ -724,12 +670,11 @@ def vectorize(
     inner_loop_cursor = cursors.inner_loop_cursor
 
     # Parallelize all reductions
-    allocation_cursors = []
-    for reduction_buffer in reduction_buffers:
-        proc, allocation_cursor = parallelize_reduction(
-            proc, outer_loop_cursor, reduction_buffer, vec_width, memory_type, precision
-        )
-        allocation_cursors.append(allocation_cursor)
+    for stmt in lrn_stmts(proc, inner_loop_cursor.body()):
+        try:
+            proc = parallelize_reduction(proc, stmt, memory_type)
+        except (SchedulingError, BLAS_SchedulingError, TypeError):
+            pass
 
     outer_loop_cursor = proc.forward(outer_loop_cursor)
     inner_loop_cursor = outer_loop_cursor.body()[0]
@@ -772,17 +717,14 @@ def vectorize(
         )
         outer_loop_cursor = cursors.outer_loop_cursor
         inner_loop_cursor = cursors.inner_loop_cursor
-
-        for reduction in allocation_cursors:
-            proc, _ = parallelize_reduction(
-                proc,
-                outer_loop_cursor,
-                f"{reduction.name()}[0:{vec_width}]",
-                accumulators_count,
-                memory_type,
-                precision,
-                tail="cut",
-            )
+        for stmt in filter(
+            lambda x: isinstance(x, (AssignCursor, ReduceCursor)),
+            lrn_stmts(proc, inner_loop_cursor.body()),
+        ):
+            try:
+                proc = parallelize_reduction(proc, stmt, memory_type, nth_loop=3)
+            except (SchedulingError, BLAS_SchedulingError, TypeError):
+                continue
             outer_loop_cursor = proc.forward(outer_loop_cursor)
             proc = unroll_loop(proc, outer_loop_cursor.prev())
             proc = unroll_loop(proc, outer_loop_cursor.next())
@@ -908,7 +850,7 @@ def auto_stage_mem(proc, cursor, new_buff_name, n_lifts=1, accum=False):
             return f"{lo[i]}:(({hi[i]})+1)"
 
     window = ",".join([ith_idx(i) for i in range(len(cursor.idx()))])
-    window = f"{cursor.name()}[{window}]"
+    window = f"{cursor.name()}[{window}]" if window else cursor.name()
     return stage_mem(proc, loops[-1], window, new_buff_name, accum=accum)
 
 

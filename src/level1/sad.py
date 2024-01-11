@@ -52,7 +52,8 @@ i_loop = sad.find_loop("i")
 
 # blocking, binding reg
 sad, loop_c = auto_divide_loop(sad, i_loop, 8, perfect=True)
-sad, _ = parallelize_reduction(sad, i_loop, "result", 4, AVX2, "R")
+sad, _ = auto_divide_loop(sad, i_loop, 4, perfect=True)
+sad = parallelize_reduction(sad, sad.find("result += _"), AVX2, 3)
 sad = stage_mem(sad, loop_c.inner_loop_cursor, "var0[ioi]", "tmp_reg", accum=True)
 # sad = auto_stage_mem(sad, 'reg[ioi]', 'tmp_reg', accum=True)
 sad = simplify(sad)

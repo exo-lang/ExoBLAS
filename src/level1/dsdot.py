@@ -70,9 +70,7 @@ def schedule_dsdot_stride_1(proc, params, name):
     proc, cursors = auto_divide_loop(proc, main_loop, params.vec_width // 2, tail="cut")
     proc, cursors = auto_divide_loop(proc, main_loop, 2, tail="cut")
     proc = reorder_loops(proc, proc.find_loop("ioi"))
-    proc, _ = parallelize_reduction(
-        proc, main_loop, "d_dot", params.vec_width // 2, params.mem_type, "f64"
-    )
+    proc = parallelize_reduction(proc, proc.find("d_dot += _"), params.mem_type, 3)
     proc = auto_stage_mem(proc, proc.find("x[_]"), "xReg", n_lifts=2)
     proc = auto_stage_mem(proc, proc.find("y[_]"), "yReg", n_lifts=2)
     proc = set_memory(proc, "xReg", params.mem_type)
@@ -83,15 +81,10 @@ def schedule_dsdot_stride_1(proc, params, name):
         proc, proc.find_loop("ii #1"), params.vec_width // 2, params.mem_type, "f64"
     )
     proc = interleave_execution(proc, proc.find_loop("ioi"), 2)
-    proc, _ = parallelize_reduction(
-        proc,
-        proc.find_loop("ioo"),
-        f"var0[0:{params.vec_width // 2}]",
-        params.accumulators_count,
-        params.mem_type,
-        "f64",
-        tail="cut",
+    proc, _ = auto_divide_loop(
+        proc, proc.find_loop("ioo"), params.accumulators_count, tail="cut"
     )
+    proc = parallelize_reduction(proc, proc.find("var0[_] += _"), params.mem_type, 3)
     instructions = [
         C.Machine.load_instr_f32,
         C.Machine.store_instr_f32,

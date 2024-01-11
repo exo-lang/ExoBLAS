@@ -7,12 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-from composed_schedules import (
-    interleave_execution,
-    parallelize_reduction,
-    stage_expr,
-    auto_stage_mem,
-)
+from composed_schedules import *
 from codegen_helpers import (
     generate_stride_any_proc,
     export_exo_proc,
@@ -40,15 +35,8 @@ def schedule_asum_stride_1(asum, params):
 
     loop = asum.find_loop("i")
 
-    asum, _ = parallelize_reduction(
-        asum,
-        loop,
-        "result_",
-        params.vec_width,
-        params.mem_type,
-        params.precision,
-        tail="guard",
-    )
+    asum, _ = auto_divide_loop(asum, loop, params.vec_width)
+    asum = parallelize_reduction(asum, asum.find("result_ += _"), params.mem_type)
 
     loop = asum.forward(loop)
     asum = cut_loop(asum, loop, FormattedExprStr("_ - 1", loop.hi()))
@@ -66,14 +54,10 @@ def schedule_asum_stride_1(asum, params):
         asum = set_memory(asum, buffer, params.mem_type)
         asum = set_precision(asum, buffer, params.precision)
 
-    asum, _ = parallelize_reduction(
-        asum,
-        asum.find_loop("io"),
-        f"var0[0:{params.vec_width}]",
-        params.accumulators_count,
-        params.mem_type,
-        params.precision,
+    asum, _ = auto_divide_loop(
+        asum, asum.find_loop("io"), params.accumulators_count, tail="cut"
     )
+    asum = parallelize_reduction(asum, asum.find("var0[_] += _"), params.mem_type, 3)
 
     asum = replace_all(asum, params.instructions)
 
