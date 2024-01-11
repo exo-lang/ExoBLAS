@@ -211,7 +211,6 @@ def is_single_stmt_loop(proc, loop):
     return loop_body_len(proc, loop) == 1
 
 
-# TODO: Add `proc` as first argument to these operations
 def get_enclosing_scope(proc, cursor, scope_type):
     if not scope_type in (ForCursor, IfCursor):
         raise BLAS_SchedulingError("scope type must be ForCursor or IfCursor")
