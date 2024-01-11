@@ -300,7 +300,7 @@ def autolift_alloc(p, alloc_c, dep_set=None, max_size=0):
             a[i] = ...
     """
     alloc_c = p.forward(alloc_c)
-    loop_c = get_enclosing_loop(alloc_c)
+    loop_c = get_enclosing_loop(p, alloc_c)
     accum_size = 1
     while True:
         try:
@@ -408,7 +408,7 @@ def reorder_loops_from_idx(proc, cursor):
     for idx in cursor.idx():
         idx_list.extend(recurse_add(idx))
 
-    top_par = get_enclosing_loop(cursor)
+    top_par = get_enclosing_loop(proc, cursor)
     while True:
         if (
             isinstance(top_par.parent(), pc.InvalidCursor)

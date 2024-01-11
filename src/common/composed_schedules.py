@@ -89,7 +89,7 @@ def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts
         expr_cursors = [expr_cursors]
 
     expr_cursors = [proc.forward(c) for c in expr_cursors]
-    enclosing_loop = get_enclosing_loop(expr_cursors[0])
+    enclosing_loop = get_enclosing_loop(proc, expr_cursors[0])
     stmt = get_statement(expr_cursors[0])
     proc = bind_expr(proc, expr_cursors, new_name)
     stmt = proc.forward(stmt)
@@ -361,7 +361,7 @@ def vectorize_to_loops(proc, loop_cursor, vec_width, memory_type, precision):
         forwarded_stmt = proc.forward(stmt)
         if isinstance(forwarded_stmt, IfCursor):
             continue
-        inner_loop = get_enclosing_loop(forwarded_stmt)
+        inner_loop = get_enclosing_loop(proc, forwarded_stmt)
         if isinstance(inner_loop, ForCursor):
             assert len(inner_loop.body()) == 1
             proc = vectorize_stmt(proc, inner_loop.body()[0])
@@ -502,7 +502,7 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
 
 def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=2):
     reduc_stmt = proc.forward(reduc_stmt)
-    reduc_loop = get_enclosing_loop(reduc_stmt, nth_loop)
+    reduc_loop = get_enclosing_loop(proc, reduc_stmt, nth_loop)
 
     # This is technically a duplicate check
     if not is_loop(proc, reduc_loop) and is_single_stmt_loop(proc, reduc_loop):
@@ -823,10 +823,10 @@ def auto_stage_mem(proc, cursor, new_buff_name, n_lifts=1, accum=False):
 
     lo = []
     hi = []
-    loop = get_enclosing_loop(cursor)
+    loop = get_enclosing_loop(proc, cursor)
     loops = [loop]
     for _ in range(n_lifts - 1):
-        loop = get_enclosing_loop(loop)
+        loop = get_enclosing_loop(proc, loop)
         loops.append(loop)
 
     subst = {}
