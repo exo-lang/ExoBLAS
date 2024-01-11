@@ -8,12 +8,7 @@ from exo import *
 from exo.syntax import *
 
 from exo.stdlib.scheduling import *
-from composed_schedules import (
-    vectorize,
-    apply_to_block,
-    hoist_stmt,
-    interleave_execution,
-)
+from composed_schedules import *
 
 
 class Microkernel:
@@ -166,19 +161,15 @@ class Microkernel:
             machine.vec_width,
         )
         sched_mk = set_memory(sched_mk, "C_reg", machine.mem_type)
-
         for loop_iter in ("i1", "j", "i1"):
-            sched_mk = vectorize(
-                sched_mk,
-                sched_mk.find_loop(loop_iter),
-                machine.vec_width,
-                min(N_r // machine.vec_width, 2),
-                1,
-                machine.mem_type,
-                self.precision,
-                [],
-                vectorize_tail=machine.mem_type == AVX2,
+            loop = sched_mk.find_loop(loop_iter)
+            sched_mk = scalar_loop_to_simd_loops(
+                sched_mk, loop, machine.vec_width, machine.mem_type, self.precision
             )
+            sched_mk = interleave_execution(
+                sched_mk, loop, min(N_r // machine.vec_width, 2)
+            )
+
         sched_mk = replace_all(
             simplify(sched_mk), machine.get_instructions(self.precision)
         )
