@@ -12,14 +12,9 @@ from composed_schedules import (
     apply_to_block,
     hoist_stmt,
 )
-from blas_composed_schedules import blas_vectorize
-from codegen_helpers import (
-    specialize_precision,
-    generate_stride_any_proc,
-    export_exo_proc,
-    generate_stride_1_proc,
-)
-from parameters import Level_1_Params
+from blaslib import *
+from codegen_helpers import *
+from parameters import *
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -39,9 +34,9 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 
 ### EXO_LOC SCHEDULE START ###
 def schedule_axpy_stride_1(axpy, params):
-    simple_stride_1 = generate_stride_1_proc(axpy, params.precision)
-    main_loop = simple_stride_1.find_loop("i")
-    simple_stride_1 = blas_vectorize(simple_stride_1, main_loop, params)
+    axpy = generate_stride_1_proc(axpy, params.precision)
+    main_loop = axpy.find_loop("i")
+    axpy = optimize_level_1(axpy, main_loop, params)
 
     def hoist_non_alloc(proc, stmt):
         stmt = proc.forward(stmt)
@@ -50,10 +45,8 @@ def schedule_axpy_stride_1(axpy, params):
         else:
             return hoist_stmt(proc, stmt)
 
-    simple_stride_1 = apply_to_block(
-        simple_stride_1, simple_stride_1.forward(main_loop).body(), hoist_non_alloc
-    )
-    return simplify(simple_stride_1)
+    axpy = apply_to_block(axpy, axpy.forward(main_loop).body(), hoist_non_alloc)
+    return simplify(axpy)
 
 
 template_sched_list = [

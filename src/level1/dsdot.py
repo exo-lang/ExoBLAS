@@ -8,12 +8,11 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-from blas_composed_schedules import blas_vectorize
 from composed_schedules import (
     parallelize_reduction,
     auto_divide_loop,
     auto_stage_mem,
-    vectorize_to_loops,
+    scalar_to_simd,
     interleave_execution,
 )
 from codegen_helpers import (
@@ -77,7 +76,7 @@ def schedule_dsdot_stride_1(proc, params, name):
     proc = set_memory(proc, "yReg", params.mem_type)
     proc = simplify(proc)
     proc = reorder_loops(proc, proc.find_loop("ii #1"))
-    proc = vectorize_to_loops(
+    proc = scalar_to_simd(
         proc, proc.find_loop("ii #1"), params.vec_width // 2, params.mem_type, "f64"
     )
     proc = interleave_execution(proc, proc.find_loop("ioi"), 2)

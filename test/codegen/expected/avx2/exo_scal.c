@@ -15,23 +15,23 @@
 void exo_dscal_alpha_0_stride_1( void *ctxt, int_fast32_t n, struct exo_win_1f64 x ) {
 // assert stride(x, 0) == 1
 if (0 < ((((3 + n) / (4)) - 1) / (4))) {
-  __m256d var1[4];
-  var1[0] = _mm256_setzero_pd();
-  var1[1] = _mm256_setzero_pd();
-  var1[2] = _mm256_setzero_pd();
-  var1[3] = _mm256_setzero_pd();
+  __m256d var0[4];
+  var0[0] = _mm256_setzero_pd();
+  var0[1] = _mm256_setzero_pd();
+  var0[2] = _mm256_setzero_pd();
+  var0[3] = _mm256_setzero_pd();
   for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
-    _mm256_storeu_pd(&x.data[16 * ioo], var1[0]);
-    _mm256_storeu_pd(&x.data[4 + 16 * ioo], var1[1]);
-    _mm256_storeu_pd(&x.data[8 + 16 * ioo], var1[2]);
-    _mm256_storeu_pd(&x.data[12 + 16 * ioo], var1[3]);
+    _mm256_storeu_pd(&x.data[16 * ioo], var0[0]);
+    _mm256_storeu_pd(&x.data[4 + 16 * ioo], var0[1]);
+    _mm256_storeu_pd(&x.data[8 + 16 * ioo], var0[2]);
+    _mm256_storeu_pd(&x.data[12 + 16 * ioo], var0[3]);
   }
 }
 if (0 < (((3 + n) / (4)) - 1) % 4) {
-  __m256d var1;
-  var1 = _mm256_setzero_pd();
+  __m256d var0;
+  var0 = _mm256_setzero_pd();
   for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
-    _mm256_storeu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var1);
+    _mm256_storeu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var0);
   }
 }
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
@@ -75,37 +75,37 @@ void exo_dscal_stride_1( void *ctxt, int_fast32_t n, const double* alpha, struct
 double alpha_;
 alpha_ = *alpha;
 if (0 < ((((3 + n) / (4)) - 1) / (4))) {
-  __m256d var3[4];
-  __m256d var4[4];
-  __m256d var5[4];
-  var3[0] = _mm256_broadcast_sd((&alpha_));
-  var3[1] = _mm256_broadcast_sd((&alpha_));
-  var3[2] = _mm256_broadcast_sd((&alpha_));
-  var3[3] = _mm256_broadcast_sd((&alpha_));
+  __m256d var0[4];
+  __m256d var1[4];
+  __m256d var2[4];
+  var0[0] = _mm256_broadcast_sd((&alpha_));
+  var0[1] = _mm256_broadcast_sd((&alpha_));
+  var0[2] = _mm256_broadcast_sd((&alpha_));
+  var0[3] = _mm256_broadcast_sd((&alpha_));
   for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
-    var4[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
-    var4[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
-    var4[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
-    var4[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
-    var5[0] = _mm256_mul_pd(var3[0], var4[0]);
-    var5[1] = _mm256_mul_pd(var3[1], var4[1]);
-    var5[2] = _mm256_mul_pd(var3[2], var4[2]);
-    var5[3] = _mm256_mul_pd(var3[3], var4[3]);
-    _mm256_storeu_pd(&x.data[16 * ioo], var5[0]);
-    _mm256_storeu_pd(&x.data[4 + 16 * ioo], var5[1]);
-    _mm256_storeu_pd(&x.data[8 + 16 * ioo], var5[2]);
-    _mm256_storeu_pd(&x.data[12 + 16 * ioo], var5[3]);
+    var1[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
+    var1[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
+    var1[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
+    var1[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
+    var2[0] = _mm256_mul_pd(var0[0], var1[0]);
+    var2[1] = _mm256_mul_pd(var0[1], var1[1]);
+    var2[2] = _mm256_mul_pd(var0[2], var1[2]);
+    var2[3] = _mm256_mul_pd(var0[3], var1[3]);
+    _mm256_storeu_pd(&x.data[16 * ioo], var2[0]);
+    _mm256_storeu_pd(&x.data[4 + 16 * ioo], var2[1]);
+    _mm256_storeu_pd(&x.data[8 + 16 * ioo], var2[2]);
+    _mm256_storeu_pd(&x.data[12 + 16 * ioo], var2[3]);
   }
 }
 if (0 < (((3 + n) / (4)) - 1) % 4) {
-  __m256d var3;
-  var3 = _mm256_broadcast_sd((&alpha_));
-  __m256d var4;
-  __m256d var5;
+  __m256d var0;
+  var0 = _mm256_broadcast_sd((&alpha_));
+  __m256d var1;
+  __m256d var2;
   for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
-    var4 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
-    var5 = _mm256_mul_pd(var3, var4);
-    _mm256_storeu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var5);
+    var1 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
+    var2 = _mm256_mul_pd(var0, var1);
+    _mm256_storeu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var2);
   }
 }
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
@@ -168,23 +168,23 @@ for (int_fast32_t i = 0; i < n; i++) {
 void exo_sscal_alpha_0_stride_1( void *ctxt, int_fast32_t n, struct exo_win_1f32 x ) {
 // assert stride(x, 0) == 1
 if (0 < ((((7 + n) / (8)) - 1) / (4))) {
-  __m256 var1[4];
-  var1[0] = _mm256_setzero_ps();
-  var1[1] = _mm256_setzero_ps();
-  var1[2] = _mm256_setzero_ps();
-  var1[3] = _mm256_setzero_ps();
+  __m256 var0[4];
+  var0[0] = _mm256_setzero_ps();
+  var0[1] = _mm256_setzero_ps();
+  var0[2] = _mm256_setzero_ps();
+  var0[3] = _mm256_setzero_ps();
   for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
-    _mm256_storeu_ps(&x.data[32 * ioo], var1[0]);
-    _mm256_storeu_ps(&x.data[8 + 32 * ioo], var1[1]);
-    _mm256_storeu_ps(&x.data[16 + 32 * ioo], var1[2]);
-    _mm256_storeu_ps(&x.data[24 + 32 * ioo], var1[3]);
+    _mm256_storeu_ps(&x.data[32 * ioo], var0[0]);
+    _mm256_storeu_ps(&x.data[8 + 32 * ioo], var0[1]);
+    _mm256_storeu_ps(&x.data[16 + 32 * ioo], var0[2]);
+    _mm256_storeu_ps(&x.data[24 + 32 * ioo], var0[3]);
   }
 }
 if (0 < (((7 + n) / (8)) - 1) % 4) {
-  __m256 var1;
-  var1 = _mm256_setzero_ps();
+  __m256 var0;
+  var0 = _mm256_setzero_ps();
   for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
-    _mm256_storeu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var1);
+    _mm256_storeu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var0);
   }
 }
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
@@ -228,37 +228,37 @@ void exo_sscal_stride_1( void *ctxt, int_fast32_t n, const float* alpha, struct 
 float alpha_;
 alpha_ = *alpha;
 if (0 < ((((7 + n) / (8)) - 1) / (4))) {
-  __m256 var3[4];
-  __m256 var4[4];
-  __m256 var5[4];
-  var3[0] = _mm256_broadcast_ss((&alpha_));
-  var3[1] = _mm256_broadcast_ss((&alpha_));
-  var3[2] = _mm256_broadcast_ss((&alpha_));
-  var3[3] = _mm256_broadcast_ss((&alpha_));
+  __m256 var0[4];
+  __m256 var1[4];
+  __m256 var2[4];
+  var0[0] = _mm256_broadcast_ss((&alpha_));
+  var0[1] = _mm256_broadcast_ss((&alpha_));
+  var0[2] = _mm256_broadcast_ss((&alpha_));
+  var0[3] = _mm256_broadcast_ss((&alpha_));
   for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
-    var4[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
-    var4[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
-    var4[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
-    var4[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
-    var5[0] = _mm256_mul_ps(var3[0], var4[0]);
-    var5[1] = _mm256_mul_ps(var3[1], var4[1]);
-    var5[2] = _mm256_mul_ps(var3[2], var4[2]);
-    var5[3] = _mm256_mul_ps(var3[3], var4[3]);
-    _mm256_storeu_ps(&x.data[32 * ioo], var5[0]);
-    _mm256_storeu_ps(&x.data[8 + 32 * ioo], var5[1]);
-    _mm256_storeu_ps(&x.data[16 + 32 * ioo], var5[2]);
-    _mm256_storeu_ps(&x.data[24 + 32 * ioo], var5[3]);
+    var1[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
+    var1[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
+    var1[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
+    var1[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
+    var2[0] = _mm256_mul_ps(var0[0], var1[0]);
+    var2[1] = _mm256_mul_ps(var0[1], var1[1]);
+    var2[2] = _mm256_mul_ps(var0[2], var1[2]);
+    var2[3] = _mm256_mul_ps(var0[3], var1[3]);
+    _mm256_storeu_ps(&x.data[32 * ioo], var2[0]);
+    _mm256_storeu_ps(&x.data[8 + 32 * ioo], var2[1]);
+    _mm256_storeu_ps(&x.data[16 + 32 * ioo], var2[2]);
+    _mm256_storeu_ps(&x.data[24 + 32 * ioo], var2[3]);
   }
 }
 if (0 < (((7 + n) / (8)) - 1) % 4) {
-  __m256 var3;
-  var3 = _mm256_broadcast_ss((&alpha_));
-  __m256 var4;
-  __m256 var5;
+  __m256 var0;
+  var0 = _mm256_broadcast_ss((&alpha_));
+  __m256 var1;
+  __m256 var2;
   for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
-    var4 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
-    var5 = _mm256_mul_ps(var3, var4);
-    _mm256_storeu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var5);
+    var1 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
+    var2 = _mm256_mul_ps(var0, var1);
+    _mm256_storeu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var2);
   }
 }
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {

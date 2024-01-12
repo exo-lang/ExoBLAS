@@ -12,9 +12,9 @@ from composed_schedules import (
     apply_to_block,
     hoist_stmt,
     interleave_execution,
-    vectorize_to_loops,
+    scalar_to_simd,
 )
-from blas_composed_schedules import blas_vectorize
+from blaslib import *
 from codegen_helpers import (
     specialize_precision,
     generate_stride_any_proc,
@@ -39,7 +39,7 @@ def dot_template(n: size, x: [R][n], y: [R][n], result: R):
 def schedule_dot_stride_1(dot, params):
     dot = generate_stride_1_proc(dot, params.precision)
     main_loop = dot.find_loop("i")
-    dot = blas_vectorize(dot, main_loop, params)
+    dot = optimize_level_1(dot, main_loop, params)
     return simplify(dot)
 
 

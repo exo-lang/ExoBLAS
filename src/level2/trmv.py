@@ -11,14 +11,14 @@ from composed_schedules import (
     interleave_outer_loop_with_inner_loop,
     apply_to_block,
     hoist_stmt,
-    vectorize_to_loops,
+    scalar_to_simd,
     interleave_execution,
     interleave_outer_loop_with_inner_loop,
     apply_to_block,
     hoist_stmt,
     stage_expr,
 )
-from blas_composed_schedules import blas_vectorize
+from blaslib import *
 from codegen_helpers import (
     specialize_precision,
     generate_stride_any_proc,
@@ -181,28 +181,6 @@ def schedule_trmv_row_major_vectorize_reuse_over_rows(
     isNonTrans = "NonTrans" in trmv.name()
 
     trmv = generate_stride_1_proc(trmv, level_1_params.precision)
-    level_2_params.instructions = None
-    inner_loop = trmv.find_loop("j")
-    outer_loop = inner_loop.parent()
-    return trmv
-    trmv = blas_vectorize(trmv, inner_loop, level_2_params)
-    trmv = simplify(trmv)
-    trmv = interleave_outer_loop_with_inner_loop(
-        trmv,
-        outer_loop,
-        inner_loop,
-        min(level_2_params.rows_interleave_factor, level_2_params.vec_width),
-    )
-    trmv = replace_all(trmv, C.Machine.get_instructions(level_2_params.precision))
-    trmv = unroll_loop(trmv, trmv.find_loop("ii"))
-    trmv = apply_to_block(trmv, trmv.find_loop("ii").body(), hoist_stmt)
-    trmv = unroll_loop(trmv, trmv.find_loop("ii"))
-    if isNonTrans:
-        dot_alloc = trmv.find("dot : _")
-        trmv = set_memory(trmv, "dot", DRAM_STATIC)
-        trmv = unroll_loop(trmv, trmv.find_loop("ii"))
-    trmv = simplify(trmv)
-
     return trmv
 
 

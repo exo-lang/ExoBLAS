@@ -11,7 +11,6 @@ from exo.API_cursors import *
 
 import exo_blas_config as C
 from composed_schedules import *
-from blas_composed_schedules import blas_vectorize
 from codegen_helpers import (
     generate_stride_any_proc,
     export_exo_proc,
@@ -115,7 +114,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
         inner_j_loop,
         C_accum_back_inner_loop,
     ):
-        gemm = vectorize_to_loops(
+        gemm = scalar_to_simd(
             gemm, inner_loop, params.vec_width, params.mem_type, params.precision
         )
 
@@ -169,7 +168,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     )
 
     # TODO: we don't want any template pattern matching here
-    gemm = vectorize_to_loops(
+    gemm = scalar_to_simd(
         gemm, gemm.find_loop("i0i"), params.vec_width, params.mem_type, params.precision
     )
     gemm = interleave_execution(gemm, gemm.find_loop("i0o"), best_n)
@@ -196,7 +195,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     # TODO: This was found by experimentation, there should be a better way to find why 4
     # is the right answer
     gemm, cursors = auto_divide_loop(gemm, gemm.find_loop("k #2"), 4, tail="cut")
-    gemm = unroll_loop(gemm, cursors.inner_loop_cursor)
+    gemm = unroll_loop(gemm, cursors.inner_loop)
 
     return original_gemm, simplify(gemm), best_m, best_n * params.vec_width
 

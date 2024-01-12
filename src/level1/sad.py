@@ -9,7 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 from composed_schedules import (
     auto_divide_loop,
-    vectorize_to_loops,
+    scalar_to_simd,
     vectorize,
     interleave_execution,
     parallelize_reduction,
@@ -54,7 +54,7 @@ i_loop = sad.find_loop("i")
 sad, loop_c = auto_divide_loop(sad, i_loop, 8, perfect=True)
 sad, _ = auto_divide_loop(sad, i_loop, 4, perfect=True)
 sad = parallelize_reduction(sad, sad.find("result += _"), AVX2, 3)
-sad = stage_mem(sad, loop_c.inner_loop_cursor, "var0[ioi]", "tmp_reg", accum=True)
+sad = stage_mem(sad, loop_c.inner_loop, "var0[ioi]", "tmp_reg", accum=True)
 # sad = auto_stage_mem(sad, 'reg[ioi]', 'tmp_reg', accum=True)
 sad = simplify(sad)
 sad = stage_expr(sad, sad.find("tmp_reg"), "tmp_reg1", memory=AVX2)

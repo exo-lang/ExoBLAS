@@ -163,7 +163,7 @@ class Microkernel:
         sched_mk = set_memory(sched_mk, "C_reg", machine.mem_type)
         for loop_iter in ("i1", "j", "i1"):
             loop = sched_mk.find_loop(loop_iter)
-            sched_mk = scalar_loop_to_simd_loops(
+            sched_mk = scalar_to_simd(
                 sched_mk, loop, machine.vec_width, machine.mem_type, self.precision
             )
             sched_mk = interleave_execution(
