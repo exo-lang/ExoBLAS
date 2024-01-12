@@ -11,7 +11,7 @@ from composed_schedules import (
     apply_to_block,
     hoist_stmt,
 )
-from blas_composed_schedules import blas_vectorize
+from blaslib import *
 from codegen_helpers import (
     generate_stride_any_proc,
     export_exo_proc,
@@ -59,7 +59,7 @@ def schedule_rotm_stride_1(rotm, params):
     loop_cursor = rotm.find_loop("i")
     rotm = bind_expr(rotm, rotm.find("y[_]", many=True), "yReg")
     rotm = set_precision(rotm, "yReg", params.precision)
-    rotm = blas_vectorize(rotm, loop_cursor, params)
+    rotm = optimize_level_1(rotm, loop_cursor, params)
     loop_cursor = rotm.forward(loop_cursor)
 
     rotm = add_unsafe_guard(

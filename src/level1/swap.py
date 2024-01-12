@@ -7,7 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-from blas_composed_schedules import blas_vectorize
+from blaslib import *
 from codegen_helpers import (
     generate_stride_any_proc,
     export_exo_proc,
@@ -32,7 +32,7 @@ def swap_template(n: size, x: [R][n], y: [R][n]):
 def schedule_swap(swap, params):
     swap = generate_stride_1_proc(swap, params.precision)
     main_loop = swap.find_loop("i")
-    swap = blas_vectorize(swap, main_loop, params)
+    swap = optimize_level_1(swap, main_loop, params)
     return simplify(swap)
 
 

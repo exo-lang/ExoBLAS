@@ -6,7 +6,7 @@ from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 
-from blas_composed_schedules import blas_vectorize
+from blaslib import *
 from codegen_helpers import (
     generate_stride_any_proc,
     export_exo_proc,
@@ -28,7 +28,7 @@ def copy_template(n: size, x: [R][n], y: [R][n]):
 def schedule_copy(exo_copy, params):
     exo_copy = generate_stride_1_proc(exo_copy, params.precision)
     main_loop = exo_copy.find_loop("i")
-    exo_copy = blas_vectorize(exo_copy, main_loop, params)
+    exo_copy = optimize_level_1(exo_copy, main_loop, params)
     return simplify(exo_copy)
 
 

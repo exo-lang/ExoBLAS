@@ -9,7 +9,7 @@ from exo.stdlib.scheduling import *
 from dot import exo_sdot_stride_1, dot_template, exo_ddot_stride_1
 import exo_blas_config as C
 from composed_schedules import (
-    vectorize_to_loops,
+    scalar_to_simd,
     interleave_execution,
     interleave_outer_loop_with_inner_loop,
     apply_to_block,

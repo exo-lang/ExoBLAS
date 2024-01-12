@@ -9,7 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 
 from composed_schedules import (
-    vectorize_to_loops,
+    scalar_to_simd,
     interleave_execution,
     interleave_outer_loop_with_inner_loop,
     apply_to_block,
@@ -63,7 +63,7 @@ def schedule_interleave_syr_row_major_stride_1(
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
 
     j_loop = stride_1.find_loop("j")
-    stride_1 = vectorize_to_loops(stride_1, j_loop, VEC_W, memory, precision)
+    stride_1 = scalar_to_simd(stride_1, j_loop, VEC_W, memory, precision)
     stride_1 = apply_to_block(stride_1, stride_1.forward(j_loop).body(), hoist_stmt)
     stride_1 = replace_all(stride_1, instructions)
 

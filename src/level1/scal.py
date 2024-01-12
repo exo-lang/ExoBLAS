@@ -12,7 +12,7 @@ from composed_schedules import (
     apply_to_block,
     hoist_stmt,
 )
-from blas_composed_schedules import blas_vectorize
+from blaslib import *
 from codegen_helpers import (
     generate_stride_any_proc,
     export_exo_proc,
@@ -40,7 +40,7 @@ def scal_template_alpha_0(n: size, x: [R][n]):
 def schedule_scal_stride_1(scal, params):
     scal = generate_stride_1_proc(scal, params.precision)
     main_loop = scal.find_loop("i")
-    scal = blas_vectorize(scal, main_loop, params)
+    scal = optimize_level_1(scal, main_loop, params)
     main_loop = scal.find_loop("ioo")
     scal = add_unsafe_guard(
         scal,
