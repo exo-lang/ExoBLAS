@@ -31,12 +31,7 @@ def optimize_level_1(proc, loop, params):
         proc, loop, vec_width, tail=tail
     )
 
-    # Parallelize all reductions
-    for stmt in lrn_stmts(proc, inner_loop.body()):
-        try:
-            proc = parallelize_reduction(proc, stmt, mem_type)
-        except (SchedulingError, BLAS_SchedulingError, TypeError):
-            pass
+    proc = parallelize_all_reductions(proc, inner_loop, mem_type)
 
     # Previous step calls fission which would change what
     # inner loop we are pointing at
@@ -63,12 +58,7 @@ def optimize_level_1(proc, loop, params):
         proc, outer_loop, interleave_factor, tail="cut"
     )
 
-    # Parallelize all reductions
-    for stmt in lrn_stmts(proc, inner_loop.body()):
-        try:
-            proc = parallelize_reduction(proc, stmt, mem_type, 3, True)
-        except (SchedulingError, BLAS_SchedulingError, TypeError):
-            pass
+    proc = parallelize_all_reductions(proc, inner_loop, mem_type, unroll=True)
 
     # Intereleave to increase ILP
     inner_loop = proc.forward(outer_loop).body()[0]

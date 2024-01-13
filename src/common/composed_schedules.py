@@ -499,60 +499,85 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
     return proc
 
 
-def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=2, unroll=False):
+def apply(
+    proc, cursors, op, errs=(SchedulingError, BLAS_SchedulingError, InvalidCursorError)
+):
+    for c in cursors:
+        try:
+            proc = op(proc, c)
+        except errs:
+            pass
+    return proc
+
+
+def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=None, unroll=False):
     # Auto-coersion
     if isinstance(unroll, bool):
         unroll = (unroll, unroll)
 
     reduc_stmt = proc.forward(reduc_stmt)
-    reduc_loop = get_enclosing_loop(proc, reduc_stmt, nth_loop)
 
-    # This is technically a duplicate check
-    if not is_loop(proc, reduc_loop) and is_single_stmt_loop(proc, reduc_loop):
-        raise BLAS_SchedulingError(
-            """
-        Incorrect structure, must of the form:
-            for ...    <---- nth-loop
-                for ...
-                    ...
-                        reduction
-                    ...
-        """
+    def rewrite(proc, reduc_stmt, memory, nth_loop, unroll):
+        reduc_loop = get_enclosing_loop(proc, reduc_stmt, nth_loop)
+
+        # Stage reduction around the loop we are reducing over
+        proc = reorder_loops(proc, reduc_loop)
+        # This will effectively check that the lhs is actually a reduction over the loop
+        proc = auto_stage_mem(
+            proc,
+            reduc_stmt,
+            next(get_unique_names(proc)),
+            n_lifts=nth_loop - 1,
+            accum=True,
         )
+        proc = simplify(proc)
 
-    # Stage reduction around the loop we are reducing over
-    proc = reorder_loops(proc, reduc_loop)
-    # This will effectively check that the lhs is actually a reduction over the loop
-    proc = auto_stage_mem(
-        proc, reduc_stmt, next(get_unique_names(proc)), n_lifts=nth_loop - 1, accum=True
-    )
-    proc = simplify(proc)
+        # Set the memory of the newly created buffer
+        reduc_loop = proc.forward(reduc_loop)
+        alloc = reduc_loop.prev().prev()
+        proc = set_memory(proc, alloc, memory)
 
-    # Set the memory of the newly created buffer
-    reduc_loop = proc.forward(reduc_loop)
-    alloc = reduc_loop.prev().prev()
-    proc = set_memory(proc, alloc, memory)
+        # Parallelize the reduction
+        reduc_loop = proc.forward(reduc_loop)
+        proc = parallelize_and_lift_alloc(proc, reduc_loop.prev().prev())
 
-    # Parallelize the reduction
-    reduc_loop = proc.forward(reduc_loop)
-    proc = parallelize_and_lift_alloc(proc, reduc_loop.prev().prev())
+        # Fission the zero and store-back stages
+        proc = fission(proc, reduc_loop.before())
+        proc = fission(proc, reduc_loop.after())
 
-    # Fission the zero and store-back stages
-    proc = fission(proc, reduc_loop.before())
-    proc = fission(proc, reduc_loop.after())
+        # Reorder the loop nest back
+        reduc_loop = proc.forward(reduc_loop)
+        proc = reorder_loops(proc, reduc_loop.parent())
 
-    # Reorder the loop nest back
-    reduc_loop = proc.forward(reduc_loop)
-    proc = reorder_loops(proc, reduc_loop.parent())
+        # Unroll any loops
+        reduc_loop = proc.forward(reduc_loop)
+        if unroll[0]:
+            proc = unroll_loop(proc, reduc_loop.prev())
+        if unroll[1]:
+            proc = unroll_loop(proc, reduc_loop.next())
 
-    # Unroll any loops
-    reduc_loop = proc.forward(reduc_loop)
-    if unroll[0]:
-        proc = unroll_loop(proc, reduc_loop.prev())
-    if unroll[1]:
-        proc = unroll_loop(proc, reduc_loop.next())
+        return proc
 
-    return proc
+    if nth_loop is None:
+        nth_loop = 2
+        while True:
+            try:
+                get_enclosing_loop(proc, reduc_stmt, nth_loop)
+            except BLAS_SchedulingError:
+                raise BLAS_SchedulingError("Could not find a candidate loop")
+            try:
+                return rewrite(proc, reduc_stmt, memory, nth_loop, unroll)
+            except (SchedulingError, BLAS_SchedulingError):
+                nth_loop += 1
+    else:
+        return rewrite(proc, reduc_stmt, memory, nth_loop, unroll)
+
+
+def parallelize_all_reductions(proc, block=InvalidCursor(), memory=DRAM, unroll=False):
+    stmts = lrn_stmts(proc, block)
+    stmts = filter(lambda s: isinstance(s, (AssignCursor, ReduceCursor)), stmts)
+    rewrite = lambda p, c: parallelize_reduction(p, c, memory, unroll=unroll)
+    return apply(proc, stmts, rewrite)
 
 
 def interleave_outer_loop_with_inner_loop(
@@ -926,10 +951,4 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
 def dce(proc, block=InvalidCursor()):
     stmts = nlr_stmts(proc, block)
     stmts = filter(lambda s: isinstance(s, (ForCursor, IfCursor)), stmts)
-    for s in stmts:
-        try:
-            proc = eliminate_dead_code(proc, s)
-        except (InvalidCursorError, SchedulingError):
-            continue
-
-    return proc
+    return apply(proc, stmts, eliminate_dead_code)
