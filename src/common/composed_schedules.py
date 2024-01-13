@@ -567,7 +567,7 @@ def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=None, unroll=F
                 raise BLAS_SchedulingError("Could not find a candidate loop")
             try:
                 return rewrite(proc, reduc_stmt, memory, nth_loop, unroll)
-            except (SchedulingError, BLAS_SchedulingError):
+            except (ValueError, SchedulingError, BLAS_SchedulingError):
                 nth_loop += 1
     else:
         return rewrite(proc, reduc_stmt, memory, nth_loop, unroll)
