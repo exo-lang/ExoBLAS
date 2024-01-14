@@ -9,7 +9,6 @@ import exo.API_cursors as pc
 
 import exo_blas_config as C
 from composed_schedules import (
-    apply_to_block,
     hoist_stmt,
     interleave_execution,
     scalar_to_simd,

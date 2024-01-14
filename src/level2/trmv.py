@@ -9,12 +9,10 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 from composed_schedules import (
     interleave_outer_loop_with_inner_loop,
-    apply_to_block,
     hoist_stmt,
     scalar_to_simd,
     interleave_execution,
     interleave_outer_loop_with_inner_loop,
-    apply_to_block,
     hoist_stmt,
     stage_expr,
 )

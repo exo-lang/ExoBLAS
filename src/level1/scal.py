@@ -8,10 +8,7 @@ from exo.stdlib.scheduling import *
 import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import (
-    apply_to_block,
-    hoist_stmt,
-)
+from composed_schedules import *
 from blaslib import *
 from codegen_helpers import (
     generate_stride_any_proc,
@@ -41,22 +38,6 @@ def schedule_scal_stride_1(scal, params):
     scal = generate_stride_1_proc(scal, params.precision)
     main_loop = scal.find_loop("i")
     scal = optimize_level_1(scal, main_loop, params)
-    main_loop = scal.find_loop("ioo")
-    scal = add_unsafe_guard(
-        scal,
-        main_loop.as_block(),
-        FormattedExprStr("_ < _", main_loop.lo(), main_loop.hi()),
-    )
-    main_loop = scal.find_loop("ioo")
-    scal = apply_to_block(scal, main_loop.body(), hoist_stmt)
-    middle_loop = scal.find_loop("ioi")
-    scal = add_unsafe_guard(
-        scal,
-        middle_loop.as_block(),
-        FormattedExprStr("_ < _", middle_loop.lo(), middle_loop.hi()),
-    )
-    middle_loop = scal.find_loop("ioi")
-    scal = apply_to_block(scal, middle_loop.body(), hoist_stmt)
     return simplify(scal)
 
 

@@ -8,14 +8,7 @@ from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
 
-from composed_schedules import (
-    scalar_to_simd,
-    interleave_execution,
-    interleave_outer_loop_with_inner_loop,
-    apply_to_block,
-    hoist_stmt,
-    stage_expr,
-)
+from composed_schedules import *
 
 
 ### EXO_LOC ALGORITHM START ###
@@ -64,7 +57,7 @@ def schedule_interleave_syr_row_major_stride_1(
 
     j_loop = stride_1.find_loop("j")
     stride_1 = scalar_to_simd(stride_1, j_loop, VEC_W, memory, precision)
-    stride_1 = apply_to_block(stride_1, stride_1.forward(j_loop).body(), hoist_stmt)
+    stride_1 = hoist_from_loop(stride_1, j_loop)
     stride_1 = replace_all(stride_1, instructions)
 
     return simplify(stride_1)
