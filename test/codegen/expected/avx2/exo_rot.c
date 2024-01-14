@@ -58,100 +58,87 @@ double s_;
 s_ = *s;
 double c_;
 c_ = *c;
-if (0 < ((((3 + n) / (4)) - 1) / (4))) {
+__m256d sReg;
+if (((3 + n) / (4)) - 1 > 0) {
+  sReg = _mm256_broadcast_sd((&s_));
+}
+__m256d cReg;
+if (((3 + n) / (4)) - 1 > 0) {
+  cReg = _mm256_broadcast_sd((&c_));
+}
+__m256d var3;
+if (((3 + n) / (4)) - 1 > 0) {
+  var3 = _mm256_mul_pd(sReg, _mm256_set1_pd(-1.0f));
+}
+for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
   __m256d xReg[4];
   __m256d yReg[4];
-  __m256d sReg[4];
-  __m256d cReg[4];
   __m256d var0[4];
   __m256d var1[4];
   __m256d var2[4];
-  __m256d var3[4];
   __m256d var4[4];
   __m256d var5[4];
   __m256d var6[4];
-  sReg[0] = _mm256_broadcast_sd((&s_));
-  sReg[1] = _mm256_broadcast_sd((&s_));
-  sReg[2] = _mm256_broadcast_sd((&s_));
-  sReg[3] = _mm256_broadcast_sd((&s_));
-  cReg[0] = _mm256_broadcast_sd((&c_));
-  cReg[1] = _mm256_broadcast_sd((&c_));
-  cReg[2] = _mm256_broadcast_sd((&c_));
-  cReg[3] = _mm256_broadcast_sd((&c_));
-  var3[0] = _mm256_mul_pd(sReg[0], _mm256_set1_pd(-1.0f));
-  var3[1] = _mm256_mul_pd(sReg[1], _mm256_set1_pd(-1.0f));
-  var3[2] = _mm256_mul_pd(sReg[2], _mm256_set1_pd(-1.0f));
-  var3[3] = _mm256_mul_pd(sReg[3], _mm256_set1_pd(-1.0f));
-  for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
-    xReg[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
-    xReg[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
-    xReg[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
-    xReg[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
-    yReg[0] = _mm256_loadu_pd(&y.data[16 * ioo]);
-    yReg[1] = _mm256_loadu_pd(&y.data[4 + 16 * ioo]);
-    yReg[2] = _mm256_loadu_pd(&y.data[8 + 16 * ioo]);
-    yReg[3] = _mm256_loadu_pd(&y.data[12 + 16 * ioo]);
-    var0[0] = _mm256_mul_pd(cReg[0], xReg[0]);
-    var0[1] = _mm256_mul_pd(cReg[1], xReg[1]);
-    var0[2] = _mm256_mul_pd(cReg[2], xReg[2]);
-    var0[3] = _mm256_mul_pd(cReg[3], xReg[3]);
-    var1[0] = _mm256_mul_pd(sReg[0], yReg[0]);
-    var1[1] = _mm256_mul_pd(sReg[1], yReg[1]);
-    var1[2] = _mm256_mul_pd(sReg[2], yReg[2]);
-    var1[3] = _mm256_mul_pd(sReg[3], yReg[3]);
-    var2[0] = _mm256_add_pd(var0[0], var1[0]);
-    var2[1] = _mm256_add_pd(var0[1], var1[1]);
-    var2[2] = _mm256_add_pd(var0[2], var1[2]);
-    var2[3] = _mm256_add_pd(var0[3], var1[3]);
-    _mm256_storeu_pd(&x.data[16 * ioo], var2[0]);
-    _mm256_storeu_pd(&x.data[4 + 16 * ioo], var2[1]);
-    _mm256_storeu_pd(&x.data[8 + 16 * ioo], var2[2]);
-    _mm256_storeu_pd(&x.data[12 + 16 * ioo], var2[3]);
-    var4[0] = _mm256_mul_pd(var3[0], xReg[0]);
-    var4[1] = _mm256_mul_pd(var3[1], xReg[1]);
-    var4[2] = _mm256_mul_pd(var3[2], xReg[2]);
-    var4[3] = _mm256_mul_pd(var3[3], xReg[3]);
-    var5[0] = _mm256_mul_pd(cReg[0], yReg[0]);
-    var5[1] = _mm256_mul_pd(cReg[1], yReg[1]);
-    var5[2] = _mm256_mul_pd(cReg[2], yReg[2]);
-    var5[3] = _mm256_mul_pd(cReg[3], yReg[3]);
-    var6[0] = _mm256_add_pd(var4[0], var5[0]);
-    var6[1] = _mm256_add_pd(var4[1], var5[1]);
-    var6[2] = _mm256_add_pd(var4[2], var5[2]);
-    var6[3] = _mm256_add_pd(var4[3], var5[3]);
-    _mm256_storeu_pd(&y.data[16 * ioo], var6[0]);
-    _mm256_storeu_pd(&y.data[4 + 16 * ioo], var6[1]);
-    _mm256_storeu_pd(&y.data[8 + 16 * ioo], var6[2]);
-    _mm256_storeu_pd(&y.data[12 + 16 * ioo], var6[3]);
-  }
+  xReg[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
+  xReg[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
+  xReg[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
+  xReg[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
+  yReg[0] = _mm256_loadu_pd(&y.data[16 * ioo]);
+  yReg[1] = _mm256_loadu_pd(&y.data[4 + 16 * ioo]);
+  yReg[2] = _mm256_loadu_pd(&y.data[8 + 16 * ioo]);
+  yReg[3] = _mm256_loadu_pd(&y.data[12 + 16 * ioo]);
+  var0[0] = _mm256_mul_pd(cReg, xReg[0]);
+  var0[1] = _mm256_mul_pd(cReg, xReg[1]);
+  var0[2] = _mm256_mul_pd(cReg, xReg[2]);
+  var0[3] = _mm256_mul_pd(cReg, xReg[3]);
+  var1[0] = _mm256_mul_pd(sReg, yReg[0]);
+  var1[1] = _mm256_mul_pd(sReg, yReg[1]);
+  var1[2] = _mm256_mul_pd(sReg, yReg[2]);
+  var1[3] = _mm256_mul_pd(sReg, yReg[3]);
+  var2[0] = _mm256_add_pd(var0[0], var1[0]);
+  var2[1] = _mm256_add_pd(var0[1], var1[1]);
+  var2[2] = _mm256_add_pd(var0[2], var1[2]);
+  var2[3] = _mm256_add_pd(var0[3], var1[3]);
+  _mm256_storeu_pd(&x.data[16 * ioo], var2[0]);
+  _mm256_storeu_pd(&x.data[4 + 16 * ioo], var2[1]);
+  _mm256_storeu_pd(&x.data[8 + 16 * ioo], var2[2]);
+  _mm256_storeu_pd(&x.data[12 + 16 * ioo], var2[3]);
+  var4[0] = _mm256_mul_pd(var3, xReg[0]);
+  var4[1] = _mm256_mul_pd(var3, xReg[1]);
+  var4[2] = _mm256_mul_pd(var3, xReg[2]);
+  var4[3] = _mm256_mul_pd(var3, xReg[3]);
+  var5[0] = _mm256_mul_pd(cReg, yReg[0]);
+  var5[1] = _mm256_mul_pd(cReg, yReg[1]);
+  var5[2] = _mm256_mul_pd(cReg, yReg[2]);
+  var5[3] = _mm256_mul_pd(cReg, yReg[3]);
+  var6[0] = _mm256_add_pd(var4[0], var5[0]);
+  var6[1] = _mm256_add_pd(var4[1], var5[1]);
+  var6[2] = _mm256_add_pd(var4[2], var5[2]);
+  var6[3] = _mm256_add_pd(var4[3], var5[3]);
+  _mm256_storeu_pd(&y.data[16 * ioo], var6[0]);
+  _mm256_storeu_pd(&y.data[4 + 16 * ioo], var6[1]);
+  _mm256_storeu_pd(&y.data[8 + 16 * ioo], var6[2]);
+  _mm256_storeu_pd(&y.data[12 + 16 * ioo], var6[3]);
 }
-if (0 < (((3 + n) / (4)) - 1) % 4) {
+for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
   __m256d xReg;
+  xReg = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
   __m256d yReg;
-  __m256d sReg;
-  sReg = _mm256_broadcast_sd((&s_));
-  __m256d cReg;
-  cReg = _mm256_broadcast_sd((&c_));
+  yReg = _mm256_loadu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
   __m256d var0;
+  var0 = _mm256_mul_pd(cReg, xReg);
   __m256d var1;
+  var1 = _mm256_mul_pd(sReg, yReg);
   __m256d var2;
-  __m256d var3;
-  var3 = _mm256_mul_pd(sReg, _mm256_set1_pd(-1.0f));
+  var2 = _mm256_add_pd(var0, var1);
+  _mm256_storeu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var2);
   __m256d var4;
+  var4 = _mm256_mul_pd(var3, xReg);
   __m256d var5;
+  var5 = _mm256_mul_pd(cReg, yReg);
   __m256d var6;
-  for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
-    xReg = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
-    yReg = _mm256_loadu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
-    var0 = _mm256_mul_pd(cReg, xReg);
-    var1 = _mm256_mul_pd(sReg, yReg);
-    var2 = _mm256_add_pd(var0, var1);
-    _mm256_storeu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var2);
-    var4 = _mm256_mul_pd(var3, xReg);
-    var5 = _mm256_mul_pd(cReg, yReg);
-    var6 = _mm256_add_pd(var4, var5);
-    _mm256_storeu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var6);
-  }
+  var6 = _mm256_add_pd(var4, var5);
+  _mm256_storeu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var6);
 }
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
   __m256d xReg;
@@ -172,22 +159,22 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
             yReg = _mm256_maskload_pd(&y.data[4 * io], cmp);
        }
        
-  __m256d sReg;
+  __m256d sReg_1;
   
     {
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    sReg = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&s_)), _mm256_castsi256_pd(cmp));
+    sReg_1 = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&s_)), _mm256_castsi256_pd(cmp));
     }
     
-  __m256d cReg;
+  __m256d cReg_1;
   
     {
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    cReg = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&c_)), _mm256_castsi256_pd(cmp));
+    cReg_1 = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&c_)), _mm256_castsi256_pd(cmp));
     }
     
   __m256d var0;
@@ -196,7 +183,7 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d mul = _mm256_mul_pd(cReg, xReg);
+__m256d mul = _mm256_mul_pd(cReg_1, xReg);
 var0 = _mm256_blendv_pd (var0, mul, _mm256_castsi256_pd(cmp));
 }
 
@@ -206,7 +193,7 @@ var0 = _mm256_blendv_pd (var0, mul, _mm256_castsi256_pd(cmp));
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d mul = _mm256_mul_pd(sReg, yReg);
+__m256d mul = _mm256_mul_pd(sReg_1, yReg);
 var1 = _mm256_blendv_pd (var1, mul, _mm256_castsi256_pd(cmp));
 }
 
@@ -228,14 +215,14 @@ var2 = _mm256_blendv_pd (var2, add, _mm256_castsi256_pd(cmp));
     _mm256_maskstore_pd(&x.data[4 * io], cmp, var2);
     }
     
-  __m256d var3;
+  __m256d var3_1;
   
 {
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d src_sign = _mm256_mul_pd(sReg, _mm256_set1_pd(-1.0f));
-var3 = _mm256_blendv_pd (var3, src_sign, _mm256_castsi256_pd(cmp));
+__m256d src_sign = _mm256_mul_pd(sReg_1, _mm256_set1_pd(-1.0f));
+var3_1 = _mm256_blendv_pd (var3_1, src_sign, _mm256_castsi256_pd(cmp));
 }
 
   __m256d var4;
@@ -244,7 +231,7 @@ var3 = _mm256_blendv_pd (var3, src_sign, _mm256_castsi256_pd(cmp));
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d mul = _mm256_mul_pd(var3, xReg);
+__m256d mul = _mm256_mul_pd(var3_1, xReg);
 var4 = _mm256_blendv_pd (var4, mul, _mm256_castsi256_pd(cmp));
 }
 
@@ -254,7 +241,7 @@ var4 = _mm256_blendv_pd (var4, mul, _mm256_castsi256_pd(cmp));
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d mul = _mm256_mul_pd(cReg, yReg);
+__m256d mul = _mm256_mul_pd(cReg_1, yReg);
 var5 = _mm256_blendv_pd (var5, mul, _mm256_castsi256_pd(cmp));
 }
 
@@ -313,100 +300,87 @@ float s_;
 s_ = *s;
 float c_;
 c_ = *c;
-if (0 < ((((7 + n) / (8)) - 1) / (4))) {
+__m256 sReg;
+if (((7 + n) / (8)) - 1 > 0) {
+  sReg = _mm256_broadcast_ss((&s_));
+}
+__m256 cReg;
+if (((7 + n) / (8)) - 1 > 0) {
+  cReg = _mm256_broadcast_ss((&c_));
+}
+__m256 var3;
+if (((7 + n) / (8)) - 1 > 0) {
+  var3 = _mm256_mul_ps(sReg, _mm256_set1_ps(-1.0f));
+}
+for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
   __m256 xReg[4];
   __m256 yReg[4];
-  __m256 sReg[4];
-  __m256 cReg[4];
   __m256 var0[4];
   __m256 var1[4];
   __m256 var2[4];
-  __m256 var3[4];
   __m256 var4[4];
   __m256 var5[4];
   __m256 var6[4];
-  sReg[0] = _mm256_broadcast_ss((&s_));
-  sReg[1] = _mm256_broadcast_ss((&s_));
-  sReg[2] = _mm256_broadcast_ss((&s_));
-  sReg[3] = _mm256_broadcast_ss((&s_));
-  cReg[0] = _mm256_broadcast_ss((&c_));
-  cReg[1] = _mm256_broadcast_ss((&c_));
-  cReg[2] = _mm256_broadcast_ss((&c_));
-  cReg[3] = _mm256_broadcast_ss((&c_));
-  var3[0] = _mm256_mul_ps(sReg[0], _mm256_set1_ps(-1.0f));
-  var3[1] = _mm256_mul_ps(sReg[1], _mm256_set1_ps(-1.0f));
-  var3[2] = _mm256_mul_ps(sReg[2], _mm256_set1_ps(-1.0f));
-  var3[3] = _mm256_mul_ps(sReg[3], _mm256_set1_ps(-1.0f));
-  for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
-    xReg[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
-    xReg[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
-    xReg[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
-    xReg[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
-    yReg[0] = _mm256_loadu_ps(&y.data[32 * ioo]);
-    yReg[1] = _mm256_loadu_ps(&y.data[8 + 32 * ioo]);
-    yReg[2] = _mm256_loadu_ps(&y.data[16 + 32 * ioo]);
-    yReg[3] = _mm256_loadu_ps(&y.data[24 + 32 * ioo]);
-    var0[0] = _mm256_mul_ps(cReg[0], xReg[0]);
-    var0[1] = _mm256_mul_ps(cReg[1], xReg[1]);
-    var0[2] = _mm256_mul_ps(cReg[2], xReg[2]);
-    var0[3] = _mm256_mul_ps(cReg[3], xReg[3]);
-    var1[0] = _mm256_mul_ps(sReg[0], yReg[0]);
-    var1[1] = _mm256_mul_ps(sReg[1], yReg[1]);
-    var1[2] = _mm256_mul_ps(sReg[2], yReg[2]);
-    var1[3] = _mm256_mul_ps(sReg[3], yReg[3]);
-    var2[0] = _mm256_add_ps(var0[0], var1[0]);
-    var2[1] = _mm256_add_ps(var0[1], var1[1]);
-    var2[2] = _mm256_add_ps(var0[2], var1[2]);
-    var2[3] = _mm256_add_ps(var0[3], var1[3]);
-    _mm256_storeu_ps(&x.data[32 * ioo], var2[0]);
-    _mm256_storeu_ps(&x.data[8 + 32 * ioo], var2[1]);
-    _mm256_storeu_ps(&x.data[16 + 32 * ioo], var2[2]);
-    _mm256_storeu_ps(&x.data[24 + 32 * ioo], var2[3]);
-    var4[0] = _mm256_mul_ps(var3[0], xReg[0]);
-    var4[1] = _mm256_mul_ps(var3[1], xReg[1]);
-    var4[2] = _mm256_mul_ps(var3[2], xReg[2]);
-    var4[3] = _mm256_mul_ps(var3[3], xReg[3]);
-    var5[0] = _mm256_mul_ps(cReg[0], yReg[0]);
-    var5[1] = _mm256_mul_ps(cReg[1], yReg[1]);
-    var5[2] = _mm256_mul_ps(cReg[2], yReg[2]);
-    var5[3] = _mm256_mul_ps(cReg[3], yReg[3]);
-    var6[0] = _mm256_add_ps(var4[0], var5[0]);
-    var6[1] = _mm256_add_ps(var4[1], var5[1]);
-    var6[2] = _mm256_add_ps(var4[2], var5[2]);
-    var6[3] = _mm256_add_ps(var4[3], var5[3]);
-    _mm256_storeu_ps(&y.data[32 * ioo], var6[0]);
-    _mm256_storeu_ps(&y.data[8 + 32 * ioo], var6[1]);
-    _mm256_storeu_ps(&y.data[16 + 32 * ioo], var6[2]);
-    _mm256_storeu_ps(&y.data[24 + 32 * ioo], var6[3]);
-  }
+  xReg[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
+  xReg[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
+  xReg[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
+  xReg[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
+  yReg[0] = _mm256_loadu_ps(&y.data[32 * ioo]);
+  yReg[1] = _mm256_loadu_ps(&y.data[8 + 32 * ioo]);
+  yReg[2] = _mm256_loadu_ps(&y.data[16 + 32 * ioo]);
+  yReg[3] = _mm256_loadu_ps(&y.data[24 + 32 * ioo]);
+  var0[0] = _mm256_mul_ps(cReg, xReg[0]);
+  var0[1] = _mm256_mul_ps(cReg, xReg[1]);
+  var0[2] = _mm256_mul_ps(cReg, xReg[2]);
+  var0[3] = _mm256_mul_ps(cReg, xReg[3]);
+  var1[0] = _mm256_mul_ps(sReg, yReg[0]);
+  var1[1] = _mm256_mul_ps(sReg, yReg[1]);
+  var1[2] = _mm256_mul_ps(sReg, yReg[2]);
+  var1[3] = _mm256_mul_ps(sReg, yReg[3]);
+  var2[0] = _mm256_add_ps(var0[0], var1[0]);
+  var2[1] = _mm256_add_ps(var0[1], var1[1]);
+  var2[2] = _mm256_add_ps(var0[2], var1[2]);
+  var2[3] = _mm256_add_ps(var0[3], var1[3]);
+  _mm256_storeu_ps(&x.data[32 * ioo], var2[0]);
+  _mm256_storeu_ps(&x.data[8 + 32 * ioo], var2[1]);
+  _mm256_storeu_ps(&x.data[16 + 32 * ioo], var2[2]);
+  _mm256_storeu_ps(&x.data[24 + 32 * ioo], var2[3]);
+  var4[0] = _mm256_mul_ps(var3, xReg[0]);
+  var4[1] = _mm256_mul_ps(var3, xReg[1]);
+  var4[2] = _mm256_mul_ps(var3, xReg[2]);
+  var4[3] = _mm256_mul_ps(var3, xReg[3]);
+  var5[0] = _mm256_mul_ps(cReg, yReg[0]);
+  var5[1] = _mm256_mul_ps(cReg, yReg[1]);
+  var5[2] = _mm256_mul_ps(cReg, yReg[2]);
+  var5[3] = _mm256_mul_ps(cReg, yReg[3]);
+  var6[0] = _mm256_add_ps(var4[0], var5[0]);
+  var6[1] = _mm256_add_ps(var4[1], var5[1]);
+  var6[2] = _mm256_add_ps(var4[2], var5[2]);
+  var6[3] = _mm256_add_ps(var4[3], var5[3]);
+  _mm256_storeu_ps(&y.data[32 * ioo], var6[0]);
+  _mm256_storeu_ps(&y.data[8 + 32 * ioo], var6[1]);
+  _mm256_storeu_ps(&y.data[16 + 32 * ioo], var6[2]);
+  _mm256_storeu_ps(&y.data[24 + 32 * ioo], var6[3]);
 }
-if (0 < (((7 + n) / (8)) - 1) % 4) {
+for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
   __m256 xReg;
+  xReg = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
   __m256 yReg;
-  __m256 sReg;
-  sReg = _mm256_broadcast_ss((&s_));
-  __m256 cReg;
-  cReg = _mm256_broadcast_ss((&c_));
+  yReg = _mm256_loadu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
   __m256 var0;
+  var0 = _mm256_mul_ps(cReg, xReg);
   __m256 var1;
+  var1 = _mm256_mul_ps(sReg, yReg);
   __m256 var2;
-  __m256 var3;
-  var3 = _mm256_mul_ps(sReg, _mm256_set1_ps(-1.0f));
+  var2 = _mm256_add_ps(var0, var1);
+  _mm256_storeu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var2);
   __m256 var4;
+  var4 = _mm256_mul_ps(var3, xReg);
   __m256 var5;
+  var5 = _mm256_mul_ps(cReg, yReg);
   __m256 var6;
-  for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
-    xReg = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
-    yReg = _mm256_loadu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
-    var0 = _mm256_mul_ps(cReg, xReg);
-    var1 = _mm256_mul_ps(sReg, yReg);
-    var2 = _mm256_add_ps(var0, var1);
-    _mm256_storeu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var2);
-    var4 = _mm256_mul_ps(var3, xReg);
-    var5 = _mm256_mul_ps(cReg, yReg);
-    var6 = _mm256_add_ps(var4, var5);
-    _mm256_storeu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var6);
-  }
+  var6 = _mm256_add_ps(var4, var5);
+  _mm256_storeu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var6);
 }
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
   __m256 xReg;
@@ -427,22 +401,22 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     yReg = _mm256_maskload_ps(&y.data[8 * io], cmp);
 }
 
-  __m256 sReg;
+  __m256 sReg_1;
   
     {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    sReg = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&s_)), _mm256_castsi256_ps(cmp));
+    sReg_1 = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&s_)), _mm256_castsi256_ps(cmp));
     }
     
-  __m256 cReg;
+  __m256 cReg_1;
   
     {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    cReg = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&c_)), _mm256_castsi256_ps(cmp));
+    cReg_1 = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&c_)), _mm256_castsi256_ps(cmp));
     }
     
   __m256 var0;
@@ -451,7 +425,7 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 mul = _mm256_mul_ps(cReg, xReg);
+__m256 mul = _mm256_mul_ps(cReg_1, xReg);
 var0 = _mm256_blendv_ps (var0, mul, _mm256_castsi256_ps(cmp));
 }
 
@@ -461,7 +435,7 @@ var0 = _mm256_blendv_ps (var0, mul, _mm256_castsi256_ps(cmp));
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 mul = _mm256_mul_ps(sReg, yReg);
+__m256 mul = _mm256_mul_ps(sReg_1, yReg);
 var1 = _mm256_blendv_ps (var1, mul, _mm256_castsi256_ps(cmp));
 }
 
@@ -483,14 +457,14 @@ var2 = _mm256_blendv_ps (var2, add, _mm256_castsi256_ps(cmp));
     _mm256_maskstore_ps(&x.data[8 * io], cmp, var2);
     }
     
-  __m256 var3;
+  __m256 var3_1;
   
 {
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 src_sign = _mm256_mul_ps(sReg, _mm256_set1_ps(-1.0f));;
-var3 = _mm256_blendv_ps (var3, src_sign, _mm256_castsi256_ps(cmp));
+__m256 src_sign = _mm256_mul_ps(sReg_1, _mm256_set1_ps(-1.0f));;
+var3_1 = _mm256_blendv_ps (var3_1, src_sign, _mm256_castsi256_ps(cmp));
 }
 
   __m256 var4;
@@ -499,7 +473,7 @@ var3 = _mm256_blendv_ps (var3, src_sign, _mm256_castsi256_ps(cmp));
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 mul = _mm256_mul_ps(var3, xReg);
+__m256 mul = _mm256_mul_ps(var3_1, xReg);
 var4 = _mm256_blendv_ps (var4, mul, _mm256_castsi256_ps(cmp));
 }
 
@@ -509,7 +483,7 @@ var4 = _mm256_blendv_ps (var4, mul, _mm256_castsi256_ps(cmp));
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 mul = _mm256_mul_ps(cReg, yReg);
+__m256 mul = _mm256_mul_ps(cReg_1, yReg);
 var5 = _mm256_blendv_ps (var5, mul, _mm256_castsi256_ps(cmp));
 }
 
