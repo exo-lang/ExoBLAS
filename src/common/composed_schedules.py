@@ -487,6 +487,21 @@ def hoist_stmt(proc, stmt):
     return proc
 
 
+def hoist_from_loop(proc, loop):
+    loop = proc.forward(loop)
+
+    if not is_loop(proc, loop):
+        raise BLAS_SchedulingError(f"loop must of type {ForCursor} not {type(loop)}")
+
+    def hoist_non_alloc(proc, stmt):
+        stmt = proc.forward(stmt)
+        if isinstance(stmt, AllocCursor):
+            return proc
+        return hoist_stmt(proc, stmt)
+
+    return apply(attempt(hoist_non_alloc))(proc, loop.body())
+
+
 def apply_to_block(proc, block_cursor, stmt_scheduling_op):
     if not isinstance(block_cursor, BlockCursor):
         raise BLAS_SchedulingError("cannot apply to a non-block cursor")
@@ -497,17 +512,6 @@ def apply_to_block(proc, block_cursor, stmt_scheduling_op):
         except (SchedulingError, BLAS_SchedulingError):
             pass
 
-    return proc
-
-
-def apply(
-    proc, cursors, op, errs=(SchedulingError, BLAS_SchedulingError, InvalidCursorError)
-):
-    for c in cursors:
-        try:
-            proc = op(proc, c)
-        except errs:
-            pass
     return proc
 
 
