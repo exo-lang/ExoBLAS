@@ -35,10 +35,10 @@ for (int_fast32_t i = 0; i < n; i++) {
   if (((1 + i) / (4)) > 0) {
     var2 = _mm256_mul_pd(var0, var1);
   }
-  __m256d var3;
-  __m256d var4;
   for (int_fast32_t jo = 0; jo < ((1 + i) / (4)); jo++) {
+    __m256d var3;
     var3 = _mm256_loadu_pd(&x.data[4 * jo]);
+    __m256d var4;
     var4 = _mm256_loadu_pd(&A.data[(i) * (A.strides[0]) + 4 * jo]);
     var4 = _mm256_fmadd_pd(var2, var3, var4);
     _mm256_storeu_pd(&A.data[(i) * (A.strides[0]) + 4 * jo], var4);
@@ -86,10 +86,10 @@ for (int_fast32_t i = 0; i < n; i++) {
   if (exo_floor_div(-i + n, 4) > 0) {
     var2 = _mm256_mul_pd(var0, var1);
   }
-  __m256d var3;
-  __m256d var4;
   for (int_fast32_t jo = 0; jo < exo_floor_div(-i + n, 4); jo++) {
+    __m256d var3;
     var3 = _mm256_loadu_pd(&x.data[i + 4 * jo]);
+    __m256d var4;
     var4 = _mm256_loadu_pd(&A.data[(i) * (A.strides[0]) + i + 4 * jo]);
     var4 = _mm256_fmadd_pd(var2, var3, var4);
     _mm256_storeu_pd(&A.data[(i) * (A.strides[0]) + i + 4 * jo], var4);
@@ -137,10 +137,10 @@ for (int_fast32_t i = 0; i < n; i++) {
   if (((1 + i) / (8)) > 0) {
     var2 = _mm256_mul_ps(var0, var1);
   }
-  __m256 var3;
-  __m256 var4;
   for (int_fast32_t jo = 0; jo < ((1 + i) / (8)); jo++) {
+    __m256 var3;
     var3 = _mm256_loadu_ps(&x.data[8 * jo]);
+    __m256 var4;
     var4 = _mm256_loadu_ps(&A.data[(i) * (A.strides[0]) + 8 * jo]);
     var4 = _mm256_fmadd_ps(var2, var3, var4);
     _mm256_storeu_ps(&A.data[(i) * (A.strides[0]) + 8 * jo], var4);
@@ -188,10 +188,10 @@ for (int_fast32_t i = 0; i < n; i++) {
   if (exo_floor_div(-i + n, 8) > 0) {
     var2 = _mm256_mul_ps(var0, var1);
   }
-  __m256 var3;
-  __m256 var4;
   for (int_fast32_t jo = 0; jo < exo_floor_div(-i + n, 8); jo++) {
+    __m256 var3;
     var3 = _mm256_loadu_ps(&x.data[i + 8 * jo]);
+    __m256 var4;
     var4 = _mm256_loadu_ps(&A.data[(i) * (A.strides[0]) + i + 8 * jo]);
     var4 = _mm256_fmadd_ps(var2, var3, var4);
     _mm256_storeu_ps(&A.data[(i) * (A.strides[0]) + i + 8 * jo], var4);
