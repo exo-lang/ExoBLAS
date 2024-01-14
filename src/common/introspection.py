@@ -238,3 +238,22 @@ def get_enclosing_if(proc, cursor, n=1):
     for i in range(n):
         cursor = get_enclosing_scope(proc, cursor, IfCursor)
     return cursor
+
+
+def get_index_in_body(proc, stmt, from_top=True):
+    stmt = proc.forward(stmt)
+    index = 0
+    while not isinstance(stmt.prev(), InvalidCursor):
+        stmt = stmt.prev()
+        index += 1
+    if not from_top:
+        parent = get_parent(proc, stmt)
+        index = -(len(parent.body()) - index)
+    return index
+
+
+def get_parent(proc, stmt):
+    parent = stmt.parent()
+    if isinstance(parent, InvalidCursor):
+        parent = proc
+    return parent

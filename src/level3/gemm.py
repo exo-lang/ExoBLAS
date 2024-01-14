@@ -120,7 +120,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
 
     # Hoist A broadcast across (vec_width x n) columns of B
     inner_j_loop = gemm.forward(inner_j_loop)
-    gemm = apply_to_block(gemm, inner_j_loop.body(), hoist_stmt)
+    gemm = hoist_from_loop(gemm, inner_j_loop)
 
     gemm = simplify(gemm)
 

@@ -8,10 +8,7 @@ from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
 import exo_blas_config as C
-from composed_schedules import (
-    apply_to_block,
-    hoist_stmt,
-)
+from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
 from parameters import *
@@ -37,15 +34,6 @@ def schedule_axpy_stride_1(axpy, params):
     axpy = generate_stride_1_proc(axpy, params.precision)
     main_loop = axpy.find_loop("i")
     axpy = optimize_level_1(axpy, main_loop, params)
-
-    def hoist_non_alloc(proc, stmt):
-        stmt = proc.forward(stmt)
-        if isinstance(stmt, AllocCursor):
-            return proc
-        else:
-            return hoist_stmt(proc, stmt)
-
-    axpy = apply_to_block(axpy, axpy.forward(main_loop).body(), hoist_non_alloc)
     return simplify(axpy)
 
 
