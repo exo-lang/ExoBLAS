@@ -34,7 +34,6 @@ def schedule_axpy_stride_1(axpy, params):
     axpy = generate_stride_1_proc(axpy, params.precision)
     main_loop = axpy.find_loop("i")
     axpy = optimize_level_1(axpy, main_loop, params)
-    axpy = hoist_from_loop(axpy, main_loop)
     return simplify(axpy)
 
 

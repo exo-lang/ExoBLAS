@@ -8,10 +8,7 @@ from exo.stdlib.scheduling import *
 import exo.API_cursors as pc
 
 import exo_blas_config as C
-from composed_schedules import (
-    apply_to_block,
-    hoist_stmt,
-)
+from composed_schedules import *
 from blaslib import *
 from codegen_helpers import (
     generate_stride_any_proc,
@@ -44,24 +41,6 @@ def schedule_rot_stride_1(rot, params):
     rot = bind_expr(rot, rot.find("c_", many=True), "cReg")
     rot = set_precision(rot, "cReg", params.precision)
     rot = optimize_level_1(rot, loop_cursor, params)
-    loop_cursor = rot.forward(loop_cursor)
-
-    rot = add_unsafe_guard(
-        rot,
-        loop_cursor.as_block(),
-        FormattedExprStr("_ < _", loop_cursor.lo(), loop_cursor.hi()),
-    )
-    loop_cursor = rot.find_loop("ioo")
-    rot = apply_to_block(rot, loop_cursor.body(), hoist_stmt)
-    middle_loop = rot.find_loop("ioi")
-    rot = add_unsafe_guard(
-        rot,
-        middle_loop.as_block(),
-        FormattedExprStr("_ < _", middle_loop.lo(), middle_loop.hi()),
-    )
-    middle_loop = rot.find_loop("ioi")
-    rot = apply_to_block(rot, middle_loop.body(), hoist_stmt)
-
     return rot
 
 

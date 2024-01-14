@@ -50,6 +50,11 @@ def optimize_level_1(proc, loop, params):
         # Eliminate the predication in the main inner loop
         proc = dce(proc, outer_loop)
 
+    # Hoist any stmt
+    index_from_end = get_index_in_body(proc, outer_loop, False)
+    proc = hoist_from_loop(proc, outer_loop)
+    outer_loop = get_parent(proc, outer_loop).body()[index_from_end]
+
     if interleave_factor == 1:
         return simplify(replace_all(proc, instructions))
 

@@ -175,7 +175,7 @@ class Microkernel:
         )
         for loop_iter in ("i1oo", "i0", "joo", "i1oo", "i0"):
             sched_mk = unroll_loop(sched_mk, sched_mk.find_loop(loop_iter))
-        sched_mk = apply_to_block(sched_mk, sched_mk.find_loop("i").body(), hoist_stmt)
+        sched_mk = hoist_from_loop(sched_mk, sched_mk.find_loop("i"))
         sched_mk = unroll_loop(sched_mk, sched_mk.find_loop("i"))
 
         k_loop = sched_mk.find_loop("k")

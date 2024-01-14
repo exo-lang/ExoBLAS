@@ -502,19 +502,6 @@ def hoist_from_loop(proc, loop):
     return apply(attempt(hoist_non_alloc))(proc, loop.body())
 
 
-def apply_to_block(proc, block_cursor, stmt_scheduling_op):
-    if not isinstance(block_cursor, BlockCursor):
-        raise BLAS_SchedulingError("cannot apply to a non-block cursor")
-
-    for stmt in block_cursor:
-        try:
-            proc = stmt_scheduling_op(proc, stmt)
-        except (SchedulingError, BLAS_SchedulingError):
-            pass
-
-    return proc
-
-
 def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=None, unroll=False):
     # Auto-coersion
     if isinstance(unroll, bool):
