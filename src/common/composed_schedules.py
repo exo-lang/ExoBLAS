@@ -11,6 +11,7 @@ from exo.API_cursors import *
 
 from introspection import *
 from exceptions import *
+from higher_order import *
 
 
 def expr_to_string(expr_cursor, subst={}):
@@ -573,11 +574,7 @@ def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=None, unroll=F
         return rewrite(proc, reduc_stmt, memory, nth_loop, unroll)
 
 
-def parallelize_all_reductions(proc, block=InvalidCursor(), memory=DRAM, unroll=False):
-    stmts = lrn_stmts(proc, block)
-    stmts = filter(lambda s: isinstance(s, (AssignCursor, ReduceCursor)), stmts)
-    rewrite = lambda p, c: parallelize_reduction(p, c, memory, unroll=unroll)
-    return apply(proc, stmts, rewrite)
+parallelize_all_reductions = make_pass(attempt(parallelize_reduction))
 
 
 def interleave_outer_loop_with_inner_loop(
@@ -948,7 +945,4 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     return proc
 
 
-def dce(proc, block=InvalidCursor()):
-    stmts = nlr_stmts(proc, block)
-    stmts = filter(lambda s: isinstance(s, (ForCursor, IfCursor)), stmts)
-    return apply(proc, stmts, eliminate_dead_code)
+dce = make_pass(attempt(eliminate_dead_code))
