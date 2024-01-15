@@ -76,6 +76,35 @@ def optimize_level_1(proc, loop, params):
     return proc
 
 
-__all__ = [
-    "optimize_level_1",
-]
+def schedule_level2(proc, params, reuse):
+    proc = generate_stride_1_proc(proc, params.precision)
+    # Taking a subspace of the 2D iteration dimension
+    proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width)
+    try:
+        proc = parallelize_reduction1(proc, proc.find("result += _"), AVX2)
+    except:
+        pass
+    print(proc)
+    proc = unroll_and_jam_parent(
+        proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)
+    )
+    # Reuse
+    proc = simplify(auto_stage_mem(proc, proc.find(reuse), "shared", n_lifts=2))
+    proc = set_memory(proc, "shared", AVX2)  # Simply to avoid a vector copy
+    # Generate SIMD loops, interleave multiple rows dots
+    proc = scalar_to_SIMD(
+        proc, proc.find_loop("ii").body()[0], params.vec_width, AVX2, params.precision
+    )
+    proc = interleave_execution(
+        proc, proc.find_loop("ii"), params.rows_interleave_factor
+    )
+    # Separate the tail case
+    loop = proc.find_loop("jo")
+    proc = cut_loop(proc, loop, FormattedExprStr("_ - 1", loop.hi()))
+    proc = eliminate_dead_code_pass(proc)
+    # Instruction Selection
+    proc = replace_all(proc, params.instructions)
+    return simplify(proc)
+
+
+__all__ = ["optimize_level_1", "schedule_level2"]
