@@ -45,6 +45,7 @@ class Level_2_Params(Level_1_Params):
     """
 
     rows_interleave_factor: int = 4
+    cols_interleave_factor: int = 1
 
     def __post_init__(self):
         super().__post_init__()

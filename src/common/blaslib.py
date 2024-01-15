@@ -11,6 +11,7 @@ from exo.API_cursors import *
 from composed_schedules import *
 from introspection import *
 from parameters import Level_1_Params
+from codegen_helpers import *
 
 
 def optimize_level_1(proc, loop, params):
@@ -76,35 +77,42 @@ def optimize_level_1(proc, loop, params):
     return proc
 
 
-def schedule_level2(proc, params, reuse):
+def optimize_level_2(proc, params, reuse):
     proc = generate_stride_1_proc(proc, params.precision)
+
     # Taking a subspace of the 2D iteration dimension
+    proc, _ = auto_divide_loop(
+        proc, proc.find_loop("i"), params.rows_interleave_factor, tail="cut"
+    )
     proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width)
-    try:
-        proc = parallelize_reduction1(proc, proc.find("result += _"), AVX2)
-    except:
-        pass
-    print(proc)
+    proc = parallelize_all_reductions(proc, proc.find_loop("jo"), params.mem_type, 2)
     proc = unroll_and_jam_parent(
         proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)
     )
-    # Reuse
+
+    # Data reuse across rows
     proc = simplify(auto_stage_mem(proc, proc.find(reuse), "shared", n_lifts=2))
     proc = set_memory(proc, "shared", AVX2)  # Simply to avoid a vector copy
-    # Generate SIMD loops, interleave multiple rows dots
-    proc = scalar_to_SIMD(
+
+    # Generate SIMD
+    proc = scalar_to_simd(
         proc, proc.find_loop("ii").body()[0], params.vec_width, AVX2, params.precision
     )
+
+    # Interleave multiple rows dots
     proc = interleave_execution(
         proc, proc.find_loop("ii"), params.rows_interleave_factor
     )
+
     # Separate the tail case
     loop = proc.find_loop("jo")
     proc = cut_loop(proc, loop, FormattedExprStr("_ - 1", loop.hi()))
-    proc = eliminate_dead_code_pass(proc)
+    proc = dce(proc)
+
     # Instruction Selection
     proc = replace_all(proc, params.instructions)
+    print(proc)
     return simplify(proc)
 
 
-__all__ = ["optimize_level_1", "schedule_level2"]
+__all__ = ["optimize_level_1", "optimize_level_2"]

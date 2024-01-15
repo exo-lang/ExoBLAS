@@ -568,71 +568,79 @@ def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=None, unroll=F
 parallelize_all_reductions = make_pass(attempt(parallelize_reduction))
 
 
+def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
+    inner_loops = [i for i in loop.body() if isinstance(i, ForCursor)]
+    if len(inner_loops) > 1:
+        raise BLAS_SchedulingError("Multiple loops found, decision is ambigious")
+    if len(inner_loops) == 0:
+        raise BLAS_SchedulingError("No loops found")
+
+    return interleave_outer_loop_with_inner_loop(
+        proc, loop, inner_loops[0], factor, unroll=unroll
+    )
+
+
+def unroll_and_jam_parent(proc, loop, factor, unroll=(True, True, True)):
+    outer_loop = loop.parent()
+    if not isinstance(outer_loop, ForCursor):
+        raise BLAS_SchedulingError("parent is not a loop")
+    return interleave_outer_loop_with_inner_loop(
+        proc, outer_loop, loop, factor, unroll=unroll
+    )
+
+
 def interleave_outer_loop_with_inner_loop(
-    proc, outer_loop, inner_loop, interleave_factor
+    proc,
+    outer_loop_cursor,
+    inner_loop_cursor,
+    interleave_factor,
+    unroll=(True, True, True),
 ):
-    """
-    for i in seq(0, hi):
-        B1;
-        for j in seq(0, hi'):
-            B;
-        B2;
-
-    --->
-
-    for io in seq(0, hi / interleave_factor):
-        for ii in seq(0, interleave_factor):
-            B1;
-        for j in seq(0, hi'):
-            for ii in seq(0, interleave_factor):
-                B;
-        for ii in seq(0, interleave_factor):
-            B2;
-
-    for io in seq(0, hi % interleave_factor):
-        B1;
-        for j in seq(0, hi'):
-            B;
-        B2;
-    """
     # TODO: check if inner_loop is directly in the body of outer_loop
-    outer_loop = proc.forward(outer_loop)
-    inner_loop = proc.forward(inner_loop)
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
 
     if (
-        isinstance(outer_loop.hi(), LiteralCursor)
-        and outer_loop.hi().value() == interleave_factor
+        isinstance(outer_loop_cursor.hi(), LiteralCursor)
+        and outer_loop_cursor.hi().value() == interleave_factor
     ):
-        middle_loop_cursor = outer_loop
+        middle_loop_cursor = outer_loop_cursor
     else:
         proc = divide_loop(
             proc,
-            outer_loop,
+            outer_loop_cursor,
             interleave_factor,
-            (outer_loop.name() + "o", outer_loop.name() + "i"),
+            (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"),
             tail="cut",
         )
 
-        outer_loop = proc.forward(outer_loop)
-        middle_loop_cursor = outer_loop.body()[0]
+        outer_loop_cursor = proc.forward(outer_loop_cursor)
+        middle_loop_cursor = outer_loop_cursor.body()[0]
     middle_loop_stmts = list(middle_loop_cursor.body())
 
+    proc = simplify(proc)
     for stmt in middle_loop_stmts:
         if isinstance(stmt, AllocCursor):
             proc = parallelize_and_lift_alloc(proc, stmt)
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
 
-    inner_loop = proc.forward(inner_loop)
+    if not isinstance(inner_loop_cursor.prev(), InvalidCursor):
+        proc = fission(proc, inner_loop_cursor.before())
+        inner_loop_cursor = proc.forward(inner_loop_cursor)
+        if unroll[0]:
+            proc = unroll_loop(proc, inner_loop_cursor.parent().prev())
 
-    if not isinstance(inner_loop.prev(), InvalidCursor):
-        proc = fission(proc, inner_loop.before())
+    if not isinstance(inner_loop_cursor.next(), InvalidCursor):
+        proc = fission(proc, inner_loop_cursor.after())
+        inner_loop_cursor = proc.forward(inner_loop_cursor)
+        if unroll[2]:
+            proc = unroll_loop(proc, inner_loop_cursor.parent().next())
 
-    inner_loop = proc.forward(inner_loop)
-    if not isinstance(inner_loop.next(), InvalidCursor):
-        proc = fission(proc, inner_loop.after())
+    inner_loop_cursor = proc.forward(inner_loop_cursor)
 
-    proc = simplify(proc)
-    inner_loop = proc.forward(inner_loop)
-    proc = reorder_loops(proc, inner_loop.parent())
+    proc = reorder_loops(proc, inner_loop_cursor.parent())
+    if unroll[1]:
+        proc = unroll_loop(proc, inner_loop_cursor.parent())
 
     return proc
 
@@ -936,4 +944,12 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
     return proc
 
 
-dce = make_pass(attempt(eliminate_dead_code))
+def _eliminate_dead_code_pruned(proc, s):
+    s = proc.forward(s)
+    if isinstance(s, ForCursor) and is_loop_bounds_const(s):
+        return proc
+    else:
+        return eliminate_dead_code(proc, s)
+
+
+dce = make_pass(attempt(_eliminate_dead_code_pruned))

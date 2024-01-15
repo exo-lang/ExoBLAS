@@ -14,7 +14,7 @@ from exo.API import compile_procs
 from blas_common_schedules import *
 import exo_blas_config as C
 from composed_schedules import *
-from blas_composed_schedules import *
+from blaslib import *
 from codegen_helpers import *
 from parameters import Level_1_Params, Level_2_Params
 
@@ -39,8 +39,8 @@ def gemv_row_major_Trans(
 ):
     assert stride(A, 1) == 1
 
-    for i in seq(0, n):
-        y[i] = beta * y[i]
+    for k in seq(0, n):
+        y[k] = beta * y[k]
     for i in seq(0, m):
         alphaXi: R
         alphaXi = alpha * x[i]
@@ -54,8 +54,8 @@ def gemv_row_major_Trans(
 ### EXO_LOC SCHEDULE START ###
 
 template_sched_list = [
-    (schedule_level2, gemv_row_major_NonTrans, "x[_]"),
-    (schedule_level2, gemv_row_major_Trans, "y[_] += _"),
+    (optimize_level_2, gemv_row_major_NonTrans, "x[_]"),
+    (optimize_level_2, gemv_row_major_Trans, "y[_] += _"),
 ]
 
 for precision in ("f32", "f64"):
@@ -73,7 +73,6 @@ for precision in ("f32", "f64"):
             params,
             reuse,
         )
-        print(proc_stride_1)
         export_exo_proc(globals(), proc_stride_1)
 
 ### EXO_LOC SCHEDULE END ###
