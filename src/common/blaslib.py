@@ -11,6 +11,7 @@ from exo.API_cursors import *
 from composed_schedules import *
 from introspection import *
 from parameters import Level_1_Params
+from codegen_helpers import *
 
 
 def optimize_level_1(proc, loop, params):
@@ -76,6 +77,51 @@ def optimize_level_1(proc, loop, params):
     return proc
 
 
-__all__ = [
-    "optimize_level_1",
-]
+def optimize_level_2(proc, params, reuse):
+    proc = generate_stride_1_proc(proc, params.precision)
+
+    # Taking a subspace of the 2D iteration dimension
+    proc, _ = auto_divide_loop(
+        proc, proc.find_loop("i"), params.rows_interleave_factor, tail="cut"
+    )
+
+    # Determine the tail strategy
+    vectorize_tail = params.mem_type in {AVX2}
+    tail = "guard" if vectorize_tail else "cut"
+
+    proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width, tail=tail)
+    proc = parallelize_all_reductions(proc, proc.find_loop("jo"), params.mem_type, 2)
+    proc = unroll_and_jam_parent(
+        proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)
+    )
+
+    # Data reuse across rows
+    proc = simplify(auto_stage_mem(proc, proc.find(reuse), "shared", n_lifts=2))
+    proc = set_memory(proc, "shared", params.mem_type)  # Simply to avoid a vector copy
+
+    # Generate SIMD
+    proc = scalar_to_simd(
+        proc,
+        proc.find_loop("ii").body()[0],
+        params.vec_width,
+        params.mem_type,
+        params.precision,
+    )
+
+    # Interleave multiple rows dots
+    proc = interleave_execution(
+        proc, proc.find_loop("ii"), params.rows_interleave_factor
+    )
+
+    # Separate the tail case
+    if vectorize_tail:
+        loop = proc.find_loop("jo")
+        proc = cut_loop(proc, loop, FormattedExprStr("_ - 1", loop.hi()))
+        proc = dce(proc, loop)
+
+    # Instruction Selection
+    proc = replace_all(proc, params.instructions)
+    return simplify(proc)
+
+
+__all__ = ["optimize_level_1", "optimize_level_2"]
