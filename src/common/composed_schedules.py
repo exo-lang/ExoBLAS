@@ -673,7 +673,7 @@ def vectorize(
         proc, loop, vec_width, tail=divide_tail
     )
 
-    proc = parallelize_all_reductions(proc, inner_loop, mem_type)
+    proc = parallelize_all_reductions(proc, inner_loop, mem_type, 2)
 
     # Previous step calls fission which would change what
     # inner loop we are pointing at
