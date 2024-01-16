@@ -97,11 +97,15 @@ def optimize_level_2(proc, params, reuse):
 
     # Data reuse across rows
     proc = simplify(auto_stage_mem(proc, proc.find(reuse), "shared", n_lifts=2))
-    proc = set_memory(proc, "shared", AVX2)  # Simply to avoid a vector copy
+    proc = set_memory(proc, "shared", params.mem_type)  # Simply to avoid a vector copy
 
     # Generate SIMD
     proc = scalar_to_simd(
-        proc, proc.find_loop("ii").body()[0], params.vec_width, AVX2, params.precision
+        proc,
+        proc.find_loop("ii").body()[0],
+        params.vec_width,
+        params.mem_type,
+        params.precision,
     )
 
     # Interleave multiple rows dots
