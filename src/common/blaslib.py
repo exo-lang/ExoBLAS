@@ -38,6 +38,9 @@ def optimize_level_1(proc, loop, params):
         proc, loop, interleave_factor, tail="cut"
     )
 
+    if interleave_factor == 1:
+        return simplify(proc)
+
     proc = parallelize_all_reductions(proc, inner_loop, mem_type, unroll=True)
 
     # Intereleave to increase ILP
