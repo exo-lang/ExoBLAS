@@ -84,7 +84,12 @@ def optimize_level_2(proc, params, reuse):
     proc, _ = auto_divide_loop(
         proc, proc.find_loop("i"), params.rows_interleave_factor, tail="cut"
     )
-    proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width)
+
+    # Determine the tail strategy
+    vectorize_tail = params.mem_type in {AVX2}
+    tail = "guard" if vectorize_tail else "cut"
+
+    proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width, tail=tail)
     proc = parallelize_all_reductions(proc, proc.find_loop("jo"), params.mem_type, 2)
     proc = unroll_and_jam_parent(
         proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)
@@ -105,13 +110,13 @@ def optimize_level_2(proc, params, reuse):
     )
 
     # Separate the tail case
-    loop = proc.find_loop("jo")
-    proc = cut_loop(proc, loop, FormattedExprStr("_ - 1", loop.hi()))
-    proc = dce(proc)
+    if vectorize_tail:
+        loop = proc.find_loop("jo")
+        proc = cut_loop(proc, loop, FormattedExprStr("_ - 1", loop.hi()))
+        proc = dce(proc, loop)
 
     # Instruction Selection
     proc = replace_all(proc, params.instructions)
-    print(proc)
     return simplify(proc)
 
 

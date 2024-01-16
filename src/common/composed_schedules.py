@@ -777,7 +777,7 @@ def tile_loops_top_down(proc, loop_tile_pairs):
         for j in range(i + 1, len(loop_tile_pairs)):
             loop = loop_tile_pairs[j][0]
             proc = interleave_outer_loop_with_inner_loop(
-                proc, inner_loop, loop, tile_size
+                proc, inner_loop, loop, tile_size, (False, False, False)
             )
     return proc, [proc.forward(l) for l in inner_loops]
 
