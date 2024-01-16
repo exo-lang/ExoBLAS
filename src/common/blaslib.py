@@ -33,13 +33,13 @@ def optimize_level_1(proc, loop, params):
     proc = hoist_from_loop(proc, loop)
     loop = get_parent(proc, loop).body()[index_from_end]
 
+    if interleave_factor == 1:
+        return simplify(proc)
+
     # Tile to exploit ILP
     proc, (loop, inner_loop, _) = auto_divide_loop(
         proc, loop, interleave_factor, tail="cut"
     )
-
-    if interleave_factor == 1:
-        return simplify(proc)
 
     proc = parallelize_all_reductions(proc, inner_loop, mem_type, unroll=True)
 
