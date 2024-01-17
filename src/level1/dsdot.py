@@ -13,7 +13,7 @@ from composed_schedules import (
     auto_divide_loop,
     auto_stage_mem,
     scalar_to_simd,
-    interleave_execution,
+    interleave_loop,
 )
 from codegen_helpers import (
     export_exo_proc,
@@ -79,7 +79,7 @@ def schedule_dsdot_stride_1(proc, params, name):
     proc = scalar_to_simd(
         proc, proc.find_loop("ii #1"), params.vec_width // 2, params.mem_type, "f64"
     )
-    proc = interleave_execution(proc, proc.find_loop("ioi"), 2)
+    proc = interleave_loop(proc, proc.find_loop("ioi"))
     proc, _ = auto_divide_loop(
         proc, proc.find_loop("ioo"), params.accumulators_count, tail="cut"
     )
@@ -101,7 +101,7 @@ def schedule_dsdot_stride_1(proc, params, name):
     for i in range(0, 4):
         proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_lower_to_f64)
         proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_upper_to_f64)
-    proc = interleave_execution(proc, proc.find_loop("iooi"), params.accumulators_count)
+    proc = interleave_loop(proc, proc.find_loop("iooi"))
     return proc
 
 

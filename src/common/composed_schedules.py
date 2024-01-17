@@ -369,67 +369,30 @@ def scalar_to_simd(proc, loop_cursor, vec_width, memory_type, precision):
     return proc
 
 
-def interleave_execution(proc, loop_cursor, interleave_factor):
+def interleave_loop(proc, loop, divide=None, tail="cut"):
     """
-    for i in seq(0, n):
+    for i in seq(0, c):
         S1
         S2
         S3
 
     ----->
-
-    for io in seq(0, n / interleave_factor):
-        S1
-        ... x interleave_factor
-        S2
-        ... x interleave_factor
-        S3
-        ... x interleave_factor
+    s1 x c
+    s2 x c
+    s3 x c
     """
-    if not isinstance(loop_cursor, ForCursor):
-        raise BLAS_SchedulingError("vectorize loop_cursor must be a ForCursor")
 
-    if interleave_factor == 1:
-        return proc
+    loop = proc.forward(loop)
 
-    loop_cursor = proc.forward(loop_cursor)
+    if divide is not None:
+        proc, (_, loop, _) = auto_divide_loop(proc, loop, divide, tail=tail)
 
-    if not (
-        isinstance(loop_cursor.hi(), LiteralCursor)
-        and loop_cursor.hi().value() == interleave_factor
-    ):
-        proc = divide_loop(
-            proc,
-            loop_cursor,
-            interleave_factor,
-            (loop_cursor.name() + "o", loop_cursor.name() + "i"),
-            tail="cut",
-        )
+    allocs = filter(lambda s: isinstance(s, AllocCursor), loop.body())
+    proc = apply(parallelize_and_lift_alloc)(proc, allocs)
 
-        outer_loop = proc.forward(loop_cursor)
-        inner_loop = outer_loop.body()[0]
-    else:
-        inner_loop = loop_cursor
-
-    inner_loop_stmts = list(inner_loop.body())
-
-    for stmt in inner_loop_stmts:
-        if isinstance(stmt, AllocCursor):
-            proc = parallelize_and_lift_alloc(proc, stmt)
-
-    inner_loop = proc.forward(inner_loop)
-
-    inner_loop_stmts = list(inner_loop.body())
-
-    for stmt in inner_loop_stmts[:-1]:
-        forwarded_stmt = proc.forward(stmt)
-        proc = fission(proc, forwarded_stmt.after())
-        forwarded_stmt = proc.forward(stmt).parent()
-        proc = unroll_loop(proc, forwarded_stmt)
-
-    last_loop = proc.forward(inner_loop_stmts[-1]).parent()
-    proc = unroll_loop(proc, last_loop)
-
+    stmts = list(proc.forward(loop).body())
+    proc = apply(fission)(proc, [s.after() for s in stmts[:-1]])
+    proc = apply(unroll_loop)(proc, [proc.forward(s).parent() for s in stmts])
     return proc
 
 

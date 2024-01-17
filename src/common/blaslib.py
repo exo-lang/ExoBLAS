@@ -45,7 +45,7 @@ def optimize_level_1(proc, loop, params):
 
     # Intereleave to increase ILP
     inner_loop = proc.forward(loop).body()[0]
-    proc = interleave_execution(proc, inner_loop, interleave_factor)
+    proc = interleave_loop(proc, inner_loop)
 
     # Instructions Selection
     proc = replace_all(proc, instructions)
@@ -86,9 +86,7 @@ def optimize_level_2(proc, params, reuse):
     )
 
     # Interleave multiple rows dots
-    proc = interleave_execution(
-        proc, proc.find_loop("ii"), params.rows_interleave_factor
-    )
+    proc = interleave_loop(proc, proc.find_loop("ii"))
 
     # Separate the tail case
     if vectorize_tail:
