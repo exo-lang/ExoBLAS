@@ -645,109 +645,46 @@ def interleave_outer_loop_with_inner_loop(
     return proc
 
 
+def cut_tail_and_unguard(proc, loop):
+    loop = proc.forward(loop)
+
+    # Cut the tail iterations
+    last_outer_iteration = FormattedExprStr("_ - 1", loop.hi())
+    proc = cut_loop(proc, loop, last_outer_iteration)
+
+    # Unguard
+    proc = dce(proc, loop)
+
+    return proc
+
+
 def vectorize(
     proc,
-    loop_cursor,
+    loop,
     vec_width,
-    interleave_factor,
-    accumulators_count,
-    memory_type,
     precision,
-    instructions,
-    vectorize_tail=True,
+    mem_type,
+    instructions=[],
+    tail="cut_and_predicate",
 ):
-    # Check pre-conditions
-    if not isinstance(loop_cursor, ForCursor):
-        raise BLAS_SchedulingError("Expected loop_cursor to be a ForCursor")
-
-    if not isinstance(vec_width, int) and vec_width > 1:
-        raise BLAS_SchedulingError("Expected vec_width to be an integer > 1")
-
-    if not isinstance(interleave_factor, int) and interleave_factor > 0:
-        raise BLAS_SchedulingError("Expected interleave_factor to be an integer > 1")
-
-    if not isinstance(accumulators_count, int) and accumulators_count > 0:
-        raise BLAS_SchedulingError("Expected accumulators_count to be an integer > 1")
-
-    # You add multiple accumulators to increase your ILP.
-    # If you don't interleave the execution by at least that
-    # much, there is no reason to use mutliple accumulators.
-    if interleave_factor % accumulators_count != 0:
-        raise BLAS_SchedulingError(
-            "Expected interleave_factor % accumulators_count == 0"
-        )
-
-    # Forward argument cursors
-    loop_cursor = proc.forward(loop_cursor)
-
-    is_perfect = (
-        isinstance(loop_cursor.hi(), LiteralCursor)
-        and isinstance(loop_cursor.lo(), LiteralCursor)
-        and (loop_cursor.hi().value() - loop_cursor.lo().value()) % vec_width == 0
+    # Tile to exploit vectorization
+    divide_tail = "guard" if tail in {"predicate", "cut_and_predicate"} else tail
+    proc, (outer_loop, inner_loop, _) = auto_divide_loop(
+        proc, loop, vec_width, tail=divide_tail
     )
-    tail = "cut" if is_perfect or not vectorize_tail else "guard"
 
-    # Divide the loop to expose parallelism
-    proc, cursors = auto_divide_loop(proc, loop_cursor, vec_width, tail=tail)
-    outer_loop = cursors.outer_loop
-    inner_loop = cursors.inner_loop
+    proc = parallelize_all_reductions(proc, inner_loop, mem_type, 2)
 
-    # Parallelize all reductions
-    for stmt in lrn_stmts(proc, inner_loop.body()):
-        try:
-            proc = parallelize_reduction(proc, stmt, memory_type)
-        except (SchedulingError, BLAS_SchedulingError, TypeError):
-            pass
-
+    # Previous step calls fission which would change what
+    # inner loop we are pointing at
     outer_loop = proc.forward(outer_loop)
     inner_loop = outer_loop.body()[0]
 
-    if tail == "guard":
-        # Generate tail loop
-        # We manually cut the loop to get the tail loop so that the tail loop
-        # automatically uses the parallelized reduction buffer, instead of
-        # accumulating into a scalar. This also means that when you vectorize
-        # the tail loop (e.g. using mask instructions). You don't need
-        # to do two vector reduction, but only one.
-        proc = cut_loop(proc, outer_loop, FormattedExprStr("_ - 1", outer_loop.hi()))
+    proc = scalar_to_simd(proc, inner_loop, vec_width, mem_type, precision)
 
-        outer_loop = proc.forward(outer_loop)
-        tail_loop = outer_loop.next().body()[0]
+    if tail == "cut_and_predicate":
+        proc = cut_tail_and_unguard(proc, outer_loop)
 
-        # Now that we have a tail loop, the conditional in the main loop
-        # can be removed
-        proc = eliminate_dead_code(proc, inner_loop.body()[0])
-
-        proc = scalar_to_simd(proc, tail_loop, vec_width, memory_type, precision)
-
-    # We can now expand scalar operations to SIMD in the main loop
-    proc = scalar_to_simd(proc, inner_loop, vec_width, memory_type, precision)
-
-    if interleave_factor == 1:
-        return replace_all(proc, instructions)
-
-    div_factor = accumulators_count if accumulators_count > 1 else interleave_factor
-
-    if accumulators_count > 1:
-        proc, cursors = auto_divide_loop(proc, outer_loop, div_factor, tail="cut")
-        outer_loop = cursors.outer_loop
-        inner_loop = cursors.inner_loop
-        for stmt in filter(
-            lambda x: isinstance(x, (AssignCursor, ReduceCursor)),
-            lrn_stmts(proc, inner_loop.body()),
-        ):
-            try:
-                proc = parallelize_reduction(proc, stmt, memory_type, 3, True)
-            except (SchedulingError, BLAS_SchedulingError, TypeError):
-                continue
-        outer_loop = proc.forward(outer_loop)
-        inner_loop = outer_loop.body()[0]
-        inner_loop = proc.forward(inner_loop)
-        proc = interleave_execution(proc, inner_loop, interleave_factor)
-
-    proc = interleave_execution(
-        proc, outer_loop, interleave_factor // accumulators_count
-    )
     proc = replace_all(proc, instructions)
 
     return proc
