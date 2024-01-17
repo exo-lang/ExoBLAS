@@ -11,7 +11,6 @@ from composed_schedules import (
     auto_divide_loop,
     scalar_to_simd,
     vectorize,
-    interleave_execution,
     parallelize_reduction,
     stage_expr,
     auto_stage_mem,

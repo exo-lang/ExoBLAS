@@ -10,7 +10,6 @@ import exo.API_cursors as pc
 import exo_blas_config as C
 from composed_schedules import (
     hoist_stmt,
-    interleave_execution,
     scalar_to_simd,
 )
 from blaslib import *

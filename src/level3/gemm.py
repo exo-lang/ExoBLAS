@@ -139,8 +139,8 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     # Interleave accumulate loop, shouldn't exceed ISA registers since
     # compilers will fuse the load from C with the reduction
     gemm = reorder_loops(gemm, C_accum_back_outer_loop)
-    gemm = interleave_execution(gemm, C_accum_back_outer_loop, best_m)
-    gemm = interleave_execution(gemm, C_accum_back_inner_loop, best_n)
+    gemm = interleave_loop(gemm, C_accum_back_outer_loop)
+    gemm = interleave_loop(gemm, C_accum_back_inner_loop)
 
     outer_i_loop = gemm.forward(outer_i_loop)
     A_times_B_strip_gemm_k_loop = outer_i_loop.next()
@@ -171,7 +171,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = scalar_to_simd(
         gemm, gemm.find_loop("i0i"), params.vec_width, params.mem_type, params.precision
     )
-    gemm = interleave_execution(gemm, gemm.find_loop("i0o"), best_n)
+    gemm = interleave_loop(gemm, gemm.find_loop("i0o"))
     gemm = unroll_loop(gemm, gemm.find_loop("i0o"))
 
     gemm = ordered_stage_expr(

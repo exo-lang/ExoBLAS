@@ -61,12 +61,15 @@ def schedule_asum_stride_1(asum, params):
         asum, asum.find("var0[_] += _"), params.mem_type, 3, True
     )
     asum = replace_all(asum, params.instructions)
-    asum = interleave_execution(asum, asum.find_loop("ioi"), params.accumulators_count)
-    asum = interleave_execution(
+    print(asum)
+    asum = interleave_loop(asum, asum.find_loop("ioi"))
+    print(asum)
+    asum = interleave_loop(
         asum,
         asum.find_loop("ioo"),
         params.interleave_factor // params.accumulators_count,
     )
+    print(asum)
     asum = simplify(asum)
 
     return asum

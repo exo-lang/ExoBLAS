@@ -15,7 +15,6 @@ from kernels.gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
 from composed_schedules import (
     scalar_to_simd,
-    interleave_execution,
     interleave_outer_loop_with_inner_loop,
     hoist_stmt,
     stage_expr,

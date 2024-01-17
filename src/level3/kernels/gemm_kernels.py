@@ -166,9 +166,7 @@ class Microkernel:
             sched_mk = scalar_to_simd(
                 sched_mk, loop, machine.vec_width, machine.mem_type, self.precision
             )
-            sched_mk = interleave_execution(
-                sched_mk, loop, min(N_r // machine.vec_width, 2)
-            )
+            sched_mk = interleave_loop(sched_mk, loop, min(N_r // machine.vec_width, 2))
 
         sched_mk = replace_all(
             simplify(sched_mk), machine.get_instructions(self.precision)
