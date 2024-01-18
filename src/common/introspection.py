@@ -257,3 +257,17 @@ def get_parent(proc, stmt):
     if isinstance(parent, InvalidCursor):
         parent = proc
     return parent
+
+
+def get_nth_inner_loop(proc, loop, n):
+    loop = proc.forward(loop)
+    inner_loops = list(filter(lambda s: is_loop(proc, s), loop.body()))
+    if n >= len(inner_loops):
+        raise BLAS_SchedulingError(
+            f"Expected exactly at least {n + 1} loops, found {len(inner_loops)}"
+        )
+    return inner_loops[n]
+
+
+def get_inner_loop(proc, loop):
+    return get_nth_inner_loop(proc, loop, 0)

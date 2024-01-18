@@ -853,3 +853,19 @@ def _eliminate_dead_code_pruned(proc, s):
 
 
 dce = make_pass(attempt(_eliminate_dead_code_pruned))
+
+
+def unroll_buffers(proc, block=InvalidCursor(), mem=None):
+    def rewrite(proc, alloc):
+        alloc = proc.forward(alloc)
+        if not isinstance(alloc, AllocCursor):
+            return proc
+        if not alloc.is_tensor():
+            return proc
+        diff = int(alloc.mem() is mem)
+        for i in range(0, len(alloc.shape()) - diff):
+            if isinstance(alloc.shape()[i], LiteralCursor):
+                return unroll_buffer(proc, alloc, i)
+        return proc
+
+    return make_pass(rewrite)(proc, block)
