@@ -12,7 +12,7 @@ from exo.stdlib.analysis import *
 from exceptions import *
 
 
-def _get_children(proc, cursor=InvalidCursor(), lr=True):
+def get_children(proc, cursor=InvalidCursor(), lr=True):
 
     if isinstance(cursor, InvalidCursor):
         cursor = proc
@@ -253,3 +253,28 @@ def get_nth_inner_loop(proc, loop, n):
 
 def get_inner_loop(proc, loop):
     return get_nth_inner_loop(proc, loop, 0)
+
+
+def is_op(proc, expr, op):
+    expr = proc.forward(expr)
+    return isinstance(expr, BinaryOpCursor) and expr.op() == op
+
+
+def is_add(proc, expr):
+    return is_op(proc, expr, "+")
+
+
+def is_sub(proc, expr):
+    return is_op(proc, expr, "-")
+
+
+def is_mul(proc, expr):
+    return is_op(proc, expr, "*")
+
+
+def is_div(proc, expr):
+    return is_op(proc, expr, "/")
+
+
+def is_mod(proc, expr):
+    return is_op(proc, expr, "%")

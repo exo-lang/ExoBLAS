@@ -912,33 +912,44 @@ def unfold_reduce(proc, reduce):
     return proc
 
 
-def stage_computation(proc, block=InvalidCursor(), precision="R", memory=DRAM):
-    name_gen = get_unique_names(proc)
+def fma_rule(proc, expr):
+    expr = proc.forward(expr)
 
-    def stage_expr(proc, e):
-        e = proc.forward(e)
+    if is_add(proc, expr):
+        if is_mul(proc, expr.lhs()):
+            return [expr.lhs().lhs(), expr.lhs().rhs(), expr.rhs()]
+        elif is_mul(proc, expr.rhs()):
+            return [expr.lhs(), expr.rhs().lhs(), expr.rhs().rhs()]
 
-        name = next(name_gen)
-        proc, cursors = bind_expr_(proc, e, name, rc=True)
+    return None
+
+
+def stage_computation(
+    proc, block=InvalidCursor(), precision="R", memory=DRAM, children_ops=[]
+):
+
+    if not isinstance(children_ops, list):
+        raise BLAS_SchedulingError("Expected children_ops to be a list")
+
+    def get_numeric_children(proc, cursor=InvalidCursor()):
+        check = lambda c: hasattr(c, "type") and c.type().is_numeric()
+        yield from filter(check, get_children(proc, cursor))
+
+    children_ops.append(get_numeric_children)
+
+    def stage(proc, expr):
+        expr = proc.forward(expr)
+
+        name = next(get_unique_names(proc))
+        proc, cursors = bind_expr_(proc, expr, name, rc=True)
         proc = set_precision(proc, name, precision)
         proc = set_memory(proc, name, memory)
-        e = cursors.assign.rhs()
+        expr = cursors.assign.rhs()
 
-        if isinstance(e, (ReadCursor, LiteralCursor)):
-            children = []
-        elif isinstance(e, UnaryMinusCursor):
-            children = [e.arg()]
-        elif isinstance(e, BinaryOpCursor):
-            children = [e.lhs(), e.rhs()]
-        elif isinstance(e, BuiltInFunctionCursor):
-            children = list(e.args())
-        else:
-            raise BLAS_SchedulingError(f"Type {type(e)} is unsupported.")
-        return proc, children
-
-    def stage(proc, c):
-        c = proc.forward(c)
-        return apply(stage)(*stage_expr(proc, c))
+        for children_op in children_ops:
+            if children := children_op(proc, expr):
+                break
+        return apply(stage)(proc, children)
 
     proc = make_pass(attempt(unfold_reduce))(proc, block)
     assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
