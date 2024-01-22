@@ -139,8 +139,14 @@ def get_symbols(proc, cursor=InvalidCursor()):
             yield c.name()
 
 
-def get_declaration(proc, stmt, name):
-    stmt = proc.forward(stmt)
+def get_declaration(proc, ctxt, name):
+    ctxt = proc.forward(ctxt)
+
+    if not isinstance(ctxt, StmtCursor):
+        stmt = get_enclosing_stmt(proc, ctxt)
+    else:
+        stmt = ctxt
+
     for stmt in get_observed_stmts(stmt):
         if isinstance(stmt, AllocCursor) and stmt.name() == name:
             return stmt

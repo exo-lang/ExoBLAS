@@ -15,23 +15,27 @@ from higher_order import *
 
 
 @dataclass
-class bind_expr_cursors:
+class bind_and_set_expr_cursors:
     alloc: AllocCursor
-    assign: AssignCursor
-    exprs: ExprCursor
+    bound_expr: ExprCursor
+    expr_reads: ExprCursor
 
 
-def bind_expr_(proc, exprs, new_name, rc=False):
+def bind_and_set_expr(proc, exprs, precision, memory, new_name=None, rc=False):
+    if new_name is None:
+        new_name = next(get_unique_names(proc))
+
     expr = exprs if isinstance(exprs, ExprCursor) else exprs[0]
     stmt = get_enclosing_stmt(proc, expr)
     proc = bind_expr(proc, exprs, new_name)
-    if not rc:
-        return proc
+    proc = set_precision(proc, new_name, precision)
+    proc = set_memory(proc, new_name, memory)
+
     alloc = get_declaration(proc, stmt, new_name)
-    assign = alloc.next()
+    bound_expr = alloc.next().rhs()
     # Disabled since forwarding after replace is not supported now
     # exprs = [proc.forward(e) for e in exprs]
-    return proc, bind_expr_cursors(alloc, assign, exprs)
+    return proc, bind_and_set_expr_cursors(alloc, bound_expr, exprs)
 
 
 def expr_to_string(expr_cursor, subst={}):
@@ -917,19 +921,55 @@ def fma_rule(proc, expr):
 
     if is_add(proc, expr):
         if is_mul(proc, expr.lhs()):
+            # (a * b) + c
             return [expr.lhs().lhs(), expr.lhs().rhs(), expr.rhs()]
         elif is_mul(proc, expr.rhs()):
+            # a + (b * c)
             return [expr.lhs(), expr.rhs().lhs(), expr.rhs().rhs()]
 
     return None
 
 
-def stage_computation(
-    proc, block=InvalidCursor(), precision="R", memory=DRAM, children_ops=[]
+def stage_expr_into_memory(proc, exprs, precision, memory):
+    if not isinstance(exprs, list):
+        exprs = [exprs]
+
+    expr = proc.forward(exprs[0])
+
+    # No need to stage if expr is already assigned
+    # to the target memory
+    parent = expr.parent()
+    if (
+        isinstance(parent, AssignCursor)
+        and get_declaration(proc, expr, parent.name()).mem() is memory
+    ):
+        return proc, expr
+
+    # No need to stage if expr is already read
+    # from the target memory
+    if (
+        isinstance(expr, ReadCursor)
+        and get_declaration(proc, expr, expr.name()).mem() is memory
+    ):
+        return proc, expr
+
+    return lift_rc(bind_and_set_expr, "bound_expr")(proc, exprs, precision, memory)
+
+
+def stage_compute(
+    proc,
+    block=InvalidCursor(),
+    precision="R",
+    memory=DRAM,
+    bind_op=None,
+    children_ops=[],
 ):
 
     if not isinstance(children_ops, list):
         raise BLAS_SchedulingError("Expected children_ops to be a list")
+
+    if bind_op is None:
+        bind_op = lift_rc(bind_and_set_expr, "bound_expr")
 
     def get_numeric_children(proc, cursor=InvalidCursor()):
         check = lambda c: hasattr(c, "type") and c.type().is_numeric()
@@ -937,15 +977,8 @@ def stage_computation(
 
     children_ops.append(get_numeric_children)
 
-    def stage(proc, expr):
-        expr = proc.forward(expr)
-
-        name = next(get_unique_names(proc))
-        proc, cursors = bind_expr_(proc, expr, name, rc=True)
-        proc = set_precision(proc, name, precision)
-        proc = set_memory(proc, name, memory)
-        expr = cursors.assign.rhs()
-
+    def stage(proc, exprs):
+        proc, expr = bind_op(proc, exprs, precision, memory)
         for children_op in children_ops:
             if children := children_op(proc, expr):
                 break
