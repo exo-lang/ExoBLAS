@@ -14,6 +14,26 @@ from exceptions import *
 from higher_order import *
 
 
+@dataclass
+class bind_expr_cursors:
+    alloc: AllocCursor
+    assign: AssignCursor
+    exprs: ExprCursor
+
+
+def bind_expr_(proc, exprs, new_name, rc=False):
+    expr = exprs if isinstance(exprs, ExprCursor) else exprs[0]
+    stmt = get_enclosing_stmt(proc, expr)
+    proc = bind_expr(proc, exprs, new_name)
+    if not rc:
+        return proc
+    alloc = get_declaration(proc, stmt, new_name)
+    assign = alloc.next()
+    # Disabled since forwarding after replace is not supported now
+    # exprs = [proc.forward(e) for e in exprs]
+    return proc, bind_expr_cursors(alloc, assign, exprs)
+
+
 def expr_to_string(expr_cursor, subst={}):
     def expr_list_to_string(expr_list, subst):
         expr_str_list = [expr_to_string(i, subst) for i in expr_list]
@@ -45,7 +65,7 @@ def expr_to_string(expr_cursor, subst={}):
         lhs_str = expr_to_string(expr_cursor.lhs(), subst)
         rhs_str = expr_to_string(expr_cursor.rhs(), subst)
         return f"({lhs_str}{binop_str}{rhs_str})"
-    elif isinstance(expr_cursor, BuiltInCursor):
+    elif isinstance(expr_cursor, BuiltInFunctionCursor):
         name = expr_cursor.name()
         args_str = expr_list_to_string(expr_cursor.args(), subst)
         return f"({name}({args_str[1:-1]}))"
@@ -727,18 +747,20 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
     return proc
 
 
-def auto_stage_mem(proc, cursor, new_buff_name, n_lifts=1, accum=False):
+def auto_stage_mem(proc, cursor, new_buff_name=None, n_lifts=1, accum=False):
     if not isinstance(cursor, (ReadCursor, ReduceCursor, AssignCursor)):
         raise BLAS_SchedulingError("auto_stage_mem expects a read a cursor")
+
+    if new_buff_name is None:
+        new_buff_name = next(get_unique_names(proc))
 
     cursor = proc.forward(cursor)
 
     lo = []
     hi = []
-    loop = get_enclosing_loop(proc, cursor)
-    loops = [loop]
-    for _ in range(n_lifts - 1):
-        loop = get_enclosing_loop(proc, loop)
+    loops = []
+    for n in range(1, n_lifts + 1):
+        loop = get_enclosing_loop(proc, cursor, n)
         loops.append(loop)
 
     subst = {}
@@ -763,7 +785,9 @@ def auto_stage_mem(proc, cursor, new_buff_name, n_lifts=1, accum=False):
 
     window = ",".join([ith_idx(i) for i in range(len(cursor.idx()))])
     window = f"{cursor.name()}[{window}]" if window else cursor.name()
-    return stage_mem(proc, loops[-1], window, new_buff_name, accum=accum)
+    block = cursor if n_lifts == 0 else loops[-1]
+    block = block if isinstance(block, StmtCursor) else get_enclosing_stmt(proc, block)
+    return stage_mem(proc, block, window, new_buff_name, accum=accum)
 
 
 def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
@@ -869,3 +893,54 @@ def unroll_buffers(proc, block=InvalidCursor(), mem=None):
         return proc
 
     return make_pass(rewrite)(proc, block)
+
+
+def unfold_reduce(proc, reduce):
+    if not isinstance(reduce, ReduceCursor):
+        raise BLAS_SchedulingError("Expected a reduce cursor")
+
+    proc = auto_stage_mem(proc, reduce, n_lifts=0)
+    reduce = proc.forward(reduce)
+    alloc = reduce.prev().prev()
+    proc = merge_writes(proc, reduce.as_block().expand(delta_lo=1, delta_hi=0))
+    assign = proc.forward(alloc).next()
+    last_assign = assign.next()
+    proc = inline_assign(proc, assign)
+    proc = commute_expr(proc, [proc.forward(last_assign).rhs()])
+    proc = delete_buffer(proc, alloc)
+
+    return proc
+
+
+def stage_computation(proc, block=InvalidCursor(), precision="R", memory=DRAM):
+    name_gen = get_unique_names(proc)
+
+    def stage_expr(proc, e):
+        e = proc.forward(e)
+
+        name = next(name_gen)
+        proc, cursors = bind_expr_(proc, e, name, rc=True)
+        proc = set_precision(proc, name, precision)
+        proc = set_memory(proc, name, memory)
+        e = cursors.assign.rhs()
+
+        if isinstance(e, (ReadCursor, LiteralCursor)):
+            children = []
+        elif isinstance(e, UnaryMinusCursor):
+            children = [e.arg()]
+        elif isinstance(e, BinaryOpCursor):
+            children = [e.lhs(), e.rhs()]
+        elif isinstance(e, BuiltInFunctionCursor):
+            children = list(e.args())
+        else:
+            raise BLAS_SchedulingError(f"Type {type(e)} is unsupported.")
+        return proc, children
+
+    def stage(proc, c):
+        c = proc.forward(c)
+        return apply(stage)(*stage_expr(proc, c))
+
+    proc = make_pass(attempt(unfold_reduce))(proc, block)
+    assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
+    exprs = [assign.rhs() for assign in assigns]
+    return apply(stage)(proc, exprs)

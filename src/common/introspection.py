@@ -162,8 +162,9 @@ def get_symbols(proc, cursor=InvalidCursor()):
             yield c.name()
 
 
-def get_declaration(proc, stmt_context, name):
-    for stmt in get_observed_stmts(stmt_context):
+def get_declaration(proc, stmt, name):
+    stmt = proc.forward(stmt)
+    for stmt in get_observed_stmts(stmt):
         if isinstance(stmt, AllocCursor) and stmt.name() == name:
             return stmt
     for arg in proc.args():
@@ -212,9 +213,6 @@ def is_single_stmt_loop(proc, loop):
 
 
 def get_enclosing_scope(proc, cursor, scope_type):
-    if not scope_type in (ForCursor, IfCursor):
-        raise BLAS_SchedulingError("scope type must be ForCursor or IfCursor")
-
     cursor = proc.forward(cursor)
     cursor = cursor.parent()
     while not isinstance(cursor, (scope_type, InvalidCursor)):
@@ -237,6 +235,13 @@ def get_enclosing_if(proc, cursor, n=1):
     cursor = proc.forward(cursor)
     for i in range(n):
         cursor = get_enclosing_scope(proc, cursor, IfCursor)
+    return cursor
+
+
+def get_enclosing_stmt(proc, cursor, n=1):
+    cursor = proc.forward(cursor)
+    for i in range(n):
+        cursor = get_enclosing_scope(proc, cursor, StmtCursor)
     return cursor
 
 
