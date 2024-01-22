@@ -12,140 +12,101 @@ from exo.stdlib.analysis import *
 from exceptions import *
 
 
-def _get_stmts(proc, block=InvalidCursor(), node_first=False):
-    return_args = False
-    if isinstance(block, InvalidCursor):
-        return_args = True
-        block = proc.body()
-        # TODO: forward here once block forwarding works
-        # block = proc.forward(block)
-    elif isinstance(block, StmtCursor):
-        block = proc.forward(block)
-        block = block.as_block()
-    elif not isinstance(block, BlockCursor):
-        raise TypeError(
-            f"Got type {type(block)}, expected an instance of {BlockCursor} or {StmtCursor}"
-        )
+def get_children(proc, cursor=InvalidCursor(), lr=True):
 
-    def yield_args():
-        for arg in proc.args():
-            yield arg
+    if isinstance(cursor, InvalidCursor):
+        cursor = proc
+    elif isinstance(cursor, (StmtCursor, ExprCursor)):
+        cursor = proc.forward(cursor)
 
-    if node_first and return_args:
-        yield from yield_args()
-
-    def traversal(block):
-        for s in block:
-            if node_first:
-                yield s
-            if isinstance(s, IfCursor):
-                yield from traversal(s.body())
-                if not isinstance(s.orelse(), InvalidCursor):
-                    yield from traversal(s.orelse())
-            elif isinstance(s, ForCursor):
-                yield from traversal(s.body())
-            elif isinstance(
-                s,
-                (
-                    AssignCursor,
-                    ReduceCursor,
-                    AssignConfigCursor,
-                    PassCursor,
-                    AllocCursor,
-                    CallCursor,
-                    WindowStmtCursor,
-                ),
-            ):
-                pass
-            else:
-                raise TypeError(f"Type {type(s)} is not supported.")
-            if not node_first:
-                yield s
-
-    yield from traversal(block)
-
-    if not node_first and return_args:
-        yield from yield_args()
-
-
-def lrn_stmts(proc, block=InvalidCursor()):
-    yield from _get_stmts(proc, block=block, node_first=False)
-
-
-def nlr_stmts(proc, block=InvalidCursor()):
-    yield from _get_stmts(proc, block=block, node_first=True)
-
-
-def _get_exprs(proc, expr, node_first=False):
-    if not isinstance(expr, (ExprCursorPrototype, ExprListCursor)):
-        raise TypeError(
-            f"Got type {type(expr)}, expected an instance of {ExprCursorPrototype} or {ExprListCursor}"
-        )
-
-    if isinstance(expr, ExprCursorPrototype):
-        expr = proc.forward(expr)
-
-    def traversal(expr):
-        if node_first:
-            yield expr
-        if isinstance(expr, (ExprListCursor, tuple, list)):
-            for e in expr:
-                yield from traversal(e)
-        elif isinstance(expr, (ReadCursor, WindowExprCursor)):
-            yield from traversal(expr.idx())
+    def expr_children(expr):
+        if isinstance(expr, (ReadCursor, WindowExprCursor)):
+            yield expr.idx()
         elif isinstance(expr, UnaryMinusCursor):
-            yield from traversal(expr.arg())
+            yield expr.arg()
         elif isinstance(expr, BinaryOpCursor):
-            yield from traversal(expr.lhs())
-            yield from traversal(expr.rhs())
+            yield expr.lhs()
+            yield expr.rhs()
         elif isinstance(expr, BuiltInFunctionCursor):
-            yield from traversal(expr.args())
+            yield from expr.args()
         elif isinstance(expr, (LiteralCursor, ReadConfigCursor)):
             pass
         else:
-            raise TypeError(f"Type {type(expr)} is not supported.")
-        if not node_first:
-            yield expr
+            raise BLAS_SchedulingError(
+                f"Got an instance of {type(expr)} which is unsupported."
+            )
 
-    yield from traversal(expr)
+    def stmt_children(stmt):
+        if isinstance(stmt, AllocCursor):
+            if stmt.is_tensor():
+                yield stmt.shape()
+        elif isinstance(stmt, (AssignCursor, ReduceCursor)):
+            yield stmt.idx()
+            yield stmt.rhs()
+        elif isinstance(stmt, ForCursor):
+            yield stmt.lo()
+            yield stmt.hi()
+            yield stmt.body()
+        elif isinstance(stmt, IfCursor):
+            yield stmt.cond()
+            yield stmt.body()
+            if not isinstance(stmt.orelse(), InvalidCursor):
+                yield stmt.orelse()
+        elif isinstance(stmt, CallCursor):
+            yield from stmt.args()
+        elif isinstance(stmts, WindowStmtCursor):
+            yield stmt.idx()
+        elif isinstance(stmt, AssignConfigCursor):
+            yield stmt.rhs()
+        elif isinstance(stmt, PassCursor):
+            pass
+        else:
+            raise BLAS_SchedulingError(
+                f"Got an instance of {type(stmt)} which is unsupported."
+            )
 
+    def generator():
+        if isinstance(cursor, (ExprListCursor, BlockCursor, tuple, list)):
+            for c in cursor:
+                yield c
+        elif isinstance(cursor, Procedure):
+            yield from cursor.args()
+            yield cursor.body()
+        elif isinstance(cursor, ArgCursor):
+            if cursor.is_tensor():
+                yield cursor.shape()
+        elif isinstance(cursor, ExprCursor):
+            yield from expr_children(cursor)
+        elif isinstance(cursor, StmtCursor):
+            yield from stmt_children(cursor)
+        else:
+            raise BLAS_SchedulingError(
+                f"Got an instance of {type(cursor)} which is unsupported."
+            )
 
-def lrn_exprs(proc, expr):
-    yield from _get_exprs(proc, expr, node_first=False)
-
-
-def nlr_exprs(proc, expr):
-    yield from _get_exprs(proc, expr, node_first=True)
-
-
-def _get_cursors(proc, cursor=InvalidCursor(), node_first=False):
-    if isinstance(cursor, (ExprCursorPrototype, ExprListCursor)):
-        yield from _get_exprs(proc, cursor, node_first)
+    if lr:
+        yield from generator()
     else:
-        for s in _get_stmts(proc, cursor, node_first):
-            if node_first:
-                yield s
-            if isinstance(s, (ArgCursor, AllocCursor)):
-                if s.is_tensor():
-                    yield from _get_exprs(proc, s.shape(), node_first)
-            elif isinstance(s, (AssignCursor, ReduceCursor)):
-                yield from _get_exprs(proc, s.idx(), node_first)
-                yield from _get_exprs(proc, s.rhs(), node_first)
-            elif isinstance(s, ForCursor):
-                yield from _get_exprs(proc, s.lo(), node_first)
-                yield from _get_exprs(proc, s.hi(), node_first)
-            elif isinstance(s, IfCursor):
-                yield from _get_exprs(proc, s.cond())
-            elif isinstance(s, CallCursor):
-                yield from _get_exprs(proc, s.args(), node_first)
-            elif isinstance(s, WindowExprCursor):
-                yield from _get_exprs(proc, s.idx(), node_first)
-            elif isinstance(s, (ReadConfigCursor, LiteralCursor)):
-                pass
-            else:
-                raise TypeError(f"Type {type(s)} is not supported.")
-            if not node_first:
-                yield s
+        children = list(generator())
+        yield from children[::-1]
+
+
+def _get_cursors(proc, cursor=InvalidCursor(), node_first=False, lr=True):
+
+    if not isinstance(cursor, InvalidCursor):
+        cursor = proc.forward(cursor)
+
+    def dfs(cursor):
+        if node_first:
+            yield cursor
+
+        for child in get_children(proc, cursor, lr):
+            yield from dfs(child)
+
+        if not node_first:
+            yield cursor
+
+    return dfs(cursor)
 
 
 def lrn(proc, cursor=InvalidCursor()):
@@ -156,14 +117,37 @@ def nlr(proc, cursor=InvalidCursor()):
     yield from _get_cursors(proc, cursor=cursor, node_first=True)
 
 
+def rln(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(proc, cursor=cursor, node_first=False, lr=False)
+
+
+def nrl(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(proc, cursor=cursor, node_first=True, lr=False)
+
+
+def lrn_stmts(proc, block=InvalidCursor()):
+    yield from filter(lambda s: isinstance(s, StmtCursor), lrn(proc, cursor=block))
+
+
+def nlr_stmts(proc, block=InvalidCursor()):
+    yield from filter(lambda s: isinstance(s, StmtCursor), nlr(proc, cursor=block))
+
+
 def get_symbols(proc, cursor=InvalidCursor()):
     for c in lrn(proc, cursor):
         if hasattr(c, "name"):
             yield c.name()
 
 
-def get_declaration(proc, stmt_context, name):
-    for stmt in get_observed_stmts(stmt_context):
+def get_declaration(proc, ctxt, name):
+    ctxt = proc.forward(ctxt)
+
+    if not isinstance(ctxt, StmtCursor):
+        stmt = get_enclosing_stmt(proc, ctxt)
+    else:
+        stmt = ctxt
+
+    for stmt in get_observed_stmts(stmt):
         if isinstance(stmt, AllocCursor) and stmt.name() == name:
             return stmt
     for arg in proc.args():
@@ -212,9 +196,6 @@ def is_single_stmt_loop(proc, loop):
 
 
 def get_enclosing_scope(proc, cursor, scope_type):
-    if not scope_type in (ForCursor, IfCursor):
-        raise BLAS_SchedulingError("scope type must be ForCursor or IfCursor")
-
     cursor = proc.forward(cursor)
     cursor = cursor.parent()
     while not isinstance(cursor, (scope_type, InvalidCursor)):
@@ -237,6 +218,13 @@ def get_enclosing_if(proc, cursor, n=1):
     cursor = proc.forward(cursor)
     for i in range(n):
         cursor = get_enclosing_scope(proc, cursor, IfCursor)
+    return cursor
+
+
+def get_enclosing_stmt(proc, cursor, n=1):
+    cursor = proc.forward(cursor)
+    for i in range(n):
+        cursor = get_enclosing_scope(proc, cursor, StmtCursor)
     return cursor
 
 
@@ -271,3 +259,28 @@ def get_nth_inner_loop(proc, loop, n):
 
 def get_inner_loop(proc, loop):
     return get_nth_inner_loop(proc, loop, 0)
+
+
+def is_op(proc, expr, op):
+    expr = proc.forward(expr)
+    return isinstance(expr, BinaryOpCursor) and expr.op() == op
+
+
+def is_add(proc, expr):
+    return is_op(proc, expr, "+")
+
+
+def is_sub(proc, expr):
+    return is_op(proc, expr, "-")
+
+
+def is_mul(proc, expr):
+    return is_op(proc, expr, "*")
+
+
+def is_div(proc, expr):
+    return is_op(proc, expr, "/")
+
+
+def is_mod(proc, expr):
+    return is_op(proc, expr, "%")

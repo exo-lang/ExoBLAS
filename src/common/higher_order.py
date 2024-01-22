@@ -34,4 +34,13 @@ def make_pass(op):
     return rewrite
 
 
-__all__ = ["apply", "attempt", "make_pass"]
+def lift_rc(op, attr):
+    def rewrite(*args, **kwargs):
+        proc, cursors = op(*args, **kwargs, rc=True)
+        c = getattr(cursors, attr)
+        return proc, c
+
+    return rewrite
+
+
+__all__ = ["apply", "attempt", "make_pass", "lift_rc"]
