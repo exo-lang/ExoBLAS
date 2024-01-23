@@ -60,7 +60,7 @@ def schedule_asum_stride_1(asum, params):
     asum = parallelize_reduction(
         asum, asum.find("var0[_] += _"), params.mem_type, 3, True
     )
-    asum = replace_all(asum, params.instructions)
+    asum = replace_all_stmts(asum, params.instructions)
     asum = interleave_loop(asum, asum.find_loop("ioi"))
     asum = interleave_loop(
         asum,

@@ -188,8 +188,11 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
 
+    for c in gemm.find("C_reg[_] += _", many=True):
+        gemm = unfold_reduce(gemm, c)
+
     # Instructions...
-    gemm = replace_all(gemm, params.instructions)
+    gemm = replace_all_stmts(gemm, params.instructions)
     gemm = simplify(gemm)
 
     # TODO: This was found by experimentation, there should be a better way to find why 4
@@ -220,7 +223,7 @@ def schedule_outer_product_gemm_as_tiles(gemm, k_loop, k_tile, i_tile, j_tile, p
 
     tiled_gemm = tile_loops_bottom_up(gemm, k_loop, [k_tile, i_tile, j_tile])
 
-    tiled_gemm = replace_all(tiled_gemm, [inner_gemm_base])
+    tiled_gemm = replace_all_stmts(tiled_gemm, [inner_gemm_base])
     for i in range(0, 8):
         tiled_gemm = call_eqv(
             tiled_gemm,

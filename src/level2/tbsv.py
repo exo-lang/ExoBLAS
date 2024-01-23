@@ -211,7 +211,7 @@ f32_instructions = [
     C.Machine.load_instr_f32,
     C.Machine.store_instr_f32,
     C.Machine.mul_instr_f32,
-    C.Machine.fmadd_instr_f32,
+    C.Machine.fmadd_reduce_instr_f32,
     C.Machine.broadcast_instr_f32,
     C.Machine.broadcast_scalar_instr_f32,
 ]
@@ -274,7 +274,7 @@ f64_instructions = [
     C.Machine.load_instr_f64,
     C.Machine.store_instr_f64,
     C.Machine.mul_instr_f64,
-    C.Machine.fmadd_instr_f64,
+    C.Machine.fmadd_reduce_instr_f64,
     C.Machine.broadcast_instr_f64,
     C.Machine.broadcast_scalar_instr_f64,
 ]

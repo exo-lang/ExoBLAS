@@ -48,14 +48,14 @@ def optimize_level_1(proc, loop, params):
     proc = interleave_loop(proc, inner_loop)
 
     # Instructions Selection
-    proc = replace_all(proc, instructions)
-
+    proc = replace_all_stmts(proc, instructions)
     proc = simplify(proc)
     return proc
 
 
 def optimize_level_2(proc, params, reuse):
     proc = generate_stride_1_proc(proc, params.precision)
+    return proc
 
     # Taking a subspace of the 2D iteration dimension
     proc, _ = auto_divide_loop(
@@ -68,6 +68,7 @@ def optimize_level_2(proc, params, reuse):
 
     proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width, tail=tail)
     proc = parallelize_all_reductions(proc, proc.find_loop("jo"), params.mem_type, 2)
+    proc = unfold_reduce(proc, proc.find("_ += _"))
     proc = unroll_and_jam_parent(
         proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)
     )
@@ -95,7 +96,7 @@ def optimize_level_2(proc, params, reuse):
         proc = dce(proc, loop)
 
     # Instruction Selection
-    proc = replace_all(proc, params.instructions)
+    proc = replace_all_stmts(proc, params.instructions)
     return simplify(proc)
 
 

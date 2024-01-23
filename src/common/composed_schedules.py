@@ -645,6 +645,42 @@ def cut_tail_and_unguard(proc, loop):
     return proc
 
 
+def parallelize_allocs(proc, cursor):
+    if not isinstance(cursor, (ForCursor, IfCursor)):
+        raise BLAS_SchedulingError(
+            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
+        )
+
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, cursor))
+    func = lambda proc, alloc: parallelize_and_lift_alloc(
+        proc, alloc, get_distance(proc, alloc, cursor)
+    )
+    return apply(func)(proc, allocs)
+
+
+def fission_into_singles(proc, cursor):
+    if not isinstance(cursor, (ForCursor, IfCursor)):
+        raise BLAS_SchedulingError(
+            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
+        )
+
+    cursor = proc.forward(cursor)
+
+    def dfs(proc, cursor, n_lifts=0):
+        if (
+            n_lifts
+            and not is_end_of_body(proc, cursor)
+            and not isinstance(cursor, (ForCursor, IfCursor))
+        ):
+            proc = fission(proc, cursor.after(), n_lifts)
+        children = get_children(proc, cursor)
+        children = filter(lambda s: isinstance(s, StmtCursor), children)
+        return apply(dfs)(proc, children, n_lifts + 1)
+
+    proc = parallelize_allocs(proc, cursor)
+    return dfs(proc, cursor)
+
+
 def vectorize(
     proc,
     loop,
@@ -667,12 +703,19 @@ def vectorize(
     outer_loop = proc.forward(outer_loop)
     inner_loop = outer_loop.body()[0]
 
-    proc = scalar_to_simd(proc, inner_loop, vec_width, mem_type, precision)
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner_loop))
+    proc = apply(set_memory)(proc, allocs, mem_type)
+
+    bind_op = stage_expr_into_memory
+    children_ops = [fma_rule]
+    proc = stage_compute(proc, inner_loop, precision, mem_type, bind_op, children_ops)
+
+    proc = fission_into_singles(proc, inner_loop)
 
     if tail == "cut_and_predicate":
         proc = cut_tail_and_unguard(proc, outer_loop)
 
-    proc = replace_all(proc, instructions)
+    proc = replace_all_stmts(proc, instructions)
 
     return proc
 
@@ -988,3 +1031,22 @@ def stage_compute(
     assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
     exprs = [assign.rhs() for assign in assigns]
     return apply(stage)(proc, exprs)
+
+
+def replace_all_stmts(proc, instructions):
+    if not isinstance(instructions, list):
+        instructions = [instructions]
+
+    for stmt in nlr_stmts(proc):
+        try:
+            stmt = proc.forward(stmt)
+        except InvalidCursorError:
+            continue
+
+        for instr in instructions:
+            try:
+                proc = call_site_mem_aware_replace(proc, stmt, instr, quiet=True)
+                break
+            except:
+                pass
+    return proc

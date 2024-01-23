@@ -16,6 +16,7 @@ from kernels.gemm_kernels import GEBP_kernel, GEPP_kernel, Microkernel
 from format_options import *
 
 import exo_blas_config as C
+from composed_schedules import *
 
 
 class SYMM:
@@ -94,7 +95,7 @@ class SYMM:
             "B_strip",
         )
 
-        symm = replace_all(symm, self.gepp.gepp_base)
+        symm = replace_all_stmts(symm, self.gepp.gepp_base)
         call_c = symm.find(f"gepp_base_{self.gepp.this_id}(_)")
         symm = call_eqv(
             symm, f"gepp_base_{self.gepp.this_id}(_)", self.gepp.gepp_scheduled

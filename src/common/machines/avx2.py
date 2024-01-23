@@ -4,6 +4,8 @@ from exo.platforms.x86 import *
 
 from .machine import MachineParameters
 
+from composed_schedules import *
+
 
 @instr("{dst_data} = _mm256_maskz_loadu_ps(((1 << {N}) - 1), &{src_data});")
 def mm256_maskz_loadu_ps(N: size, dst: [f32][8] @ AVX2, src: [f32][N] @ DRAM):
@@ -568,6 +570,95 @@ def mm256_prefix_setzero_pd(dst: [f64][4] @ AVX2, bound: size):
             dst[i] = 0.0
 
 
+def generate_unfolded_instr(instr):
+    instr = unfold_reduce(instr, instr.find("_ += _"))
+    instr = rename(instr, f"{instr.name()}_reduce")
+    return instr
+
+
+def generate_commuted_instr(instr, op):
+    instr = commute_expr(instr, [instr.find(f"_ {op} _")])
+    instr = rename(instr, f"{instr.name()}_commute")
+    return instr
+
+
+mm256_fmadd_reduce_ps = generate_unfolded_instr(mm256_fmadd_ps)
+mm256_fmadd_reduce_pd = generate_unfolded_instr(mm256_fmadd_pd)
+mm256_prefix_fmadd_reduce_ps = generate_unfolded_instr(mm256_prefix_fmadd_ps)
+mm256_prefix_fmadd_reduce_pd = generate_unfolded_instr(mm256_prefix_fmadd_pd)
+
+
+@instr("{dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});")
+def mm256_fmadd_ps(
+    dst: [f32][8] @ AVX2,
+    src1: [f32][8] @ AVX2,
+    src2: [f32][8] @ AVX2,
+    src3: [f32][8] @ AVX2,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 8):
+        dst[i] = src1[i] * src2[i] + src3[i]
+
+
+@instr("{dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {src3_data});")
+def mm256_fmadd_pd(
+    dst: [f64][4] @ AVX2,
+    src1: [f64][4] @ AVX2,
+    src2: [f64][4] @ AVX2,
+    src3: [f64][4] @ AVX2,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 4):
+        dst[i] = src1[i] * src2[i] + src3[i]
+
+
+@instr("{dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});")
+def mm256_prefix_fmadd_ps(
+    dst: [f32][8] @ AVX2,
+    src1: [f32][8] @ AVX2,
+    src2: [f32][8] @ AVX2,
+    src3: [f32][8] @ AVX2,
+    bound: size,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+    assert bound < 8
+
+    for i in seq(0, 8):
+        if i < bound:
+            dst[i] = src1[i] * src2[i] + src3[i]
+
+
+@instr("{dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {src3_data});")
+def mm256_prefix_fmadd_pd(
+    dst: [f64][4] @ AVX2,
+    src1: [f64][4] @ AVX2,
+    src2: [f64][4] @ AVX2,
+    src3: [f64][4] @ AVX2,
+    bound: size,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+    assert bound < 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = src1[i] * src2[i] + src3[i]
+
+
+mm256_fmadd_ps_commute = generate_commuted_instr(mm256_fmadd_ps, "+")
+mm256_fmadd_pd_commute = generate_commuted_instr(mm256_fmadd_pd, "+")
+mm256_prefix_fmadd_ps_commute = generate_commuted_instr(mm256_prefix_fmadd_ps, "+")
+mm256_prefix_fmadd_pd_commute = generate_commuted_instr(mm256_prefix_fmadd_pd, "+")
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -589,6 +680,10 @@ Machine = MachineParameters(
     prefix_broadcast_scalar_instr_f32=mm256_prefix_broadcast_ss_scalar,
     fmadd_instr_f32=mm256_fmadd_ps,
     prefix_fmadd_instr_f32=mm256_prefix_fmadd_ps,
+    fmadd_instr_commute_f32=mm256_fmadd_ps_commute,
+    prefix_fmadd_instr_commute_f32=mm256_prefix_fmadd_ps_commute,
+    fmadd_reduce_instr_f32=mm256_fmadd_reduce_ps,
+    prefix_fmadd_reduce_instr_f32=mm256_prefix_fmadd_reduce_ps,
     set_zero_instr_f32=mm256_setzero_ps,
     prefix_set_zero_instr_f32=mm256_prefix_setzero_ps,
     assoc_reduce_add_instr_f32=avx2_assoc_reduce_add_ps,
@@ -617,6 +712,10 @@ Machine = MachineParameters(
     prefix_broadcast_scalar_instr_f64=mm256_prefix_broadcast_sd_scalar,
     fmadd_instr_f64=mm256_fmadd_pd,
     prefix_fmadd_instr_f64=mm256_prefix_fmadd_pd,
+    fmadd_instr_commute_f64=mm256_fmadd_pd_commute,
+    prefix_fmadd_instr_commute_f64=mm256_prefix_fmadd_pd_commute,
+    fmadd_reduce_instr_f64=mm256_fmadd_reduce_pd,
+    prefix_fmadd_reduce_instr_f64=mm256_prefix_fmadd_reduce_pd,
     set_zero_instr_f64=mm256_setzero_pd,
     prefix_set_zero_instr_f64=mm256_prefix_setzero_pd,
     assoc_reduce_add_instr_f64=avx2_assoc_reduce_add_pd,

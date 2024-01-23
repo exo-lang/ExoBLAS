@@ -7,7 +7,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-
+from composed_schedules import *
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -70,7 +70,7 @@ def schedule_nrm2_stride_1(VEC_W, memory, instructions, precision):
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
         simple_stride_1 = set_precision(simple_stride_1, buffer, "f32")
 
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
+    simple_stride_1 = replace_all_stmts(simple_stride_1, instructions)
 
     return simplify(simple_stride_1)
 
@@ -131,7 +131,8 @@ def schedule_nrm2_stride_1_interleaved(
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
         simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
 
-    simple_stride_1 = replace_all(simple_stride_1, instructions)
+    simple_stride_1 = unfold_reduce(simple_stride_1, simple_stride_1.find("_ += _"))
+    simple_stride_1 = replace_all_stmts(simple_stride_1, instructions)
 
     simple_stride_1 = expand_dim(simple_stride_1, "xReg", INTERLEAVE_FACTOR, "im")
     simple_stride_1 = lift_alloc(simple_stride_1, "xReg : _")
@@ -168,7 +169,7 @@ f32_instructions = [
     C.Machine.load_instr_f32,
     C.Machine.store_instr_f32,
     C.Machine.set_zero_instr_f32,
-    C.Machine.fmadd_instr_f32,
+    C.Machine.fmadd_reduce_instr_f32,
     C.Machine.reg_copy_instr_f32,
     C.Machine.assoc_reduce_add_instr_f32,
 ]
@@ -200,7 +201,7 @@ f64_instructions = [
     C.Machine.load_instr_f64,
     C.Machine.store_instr_f64,
     C.Machine.set_zero_instr_f64,
-    C.Machine.fmadd_instr_f64,
+    C.Machine.fmadd_reduce_instr_f64,
     C.Machine.reg_copy_instr_f64,
     C.Machine.assoc_reduce_add_instr_f64,
 ]

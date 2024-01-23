@@ -13,12 +13,7 @@ from exo.stdlib.scheduling import *
 
 from kernels.gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
-from composed_schedules import (
-    scalar_to_simd,
-    interleave_outer_loop_with_inner_loop,
-    hoist_stmt,
-    stage_expr,
-)
+from composed_schedules import *
 
 import exo_blas_config as C
 
@@ -1084,17 +1079,17 @@ class SYRK:
             )
             # print(k_microkernel_scheduled)
 
-            k_microkernel_scheduled = replace_all(
+            k_microkernel_scheduled = replace_all_stmts(
                 k_microkernel_scheduled, self.machine.load_instr_f32
             )
-            k_microkernel_scheduled = replace_all(
+            k_microkernel_scheduled = replace_all_stmts(
                 k_microkernel_scheduled, self.machine.broadcast_instr_f32
             )
-            k_microkernel_scheduled = replace_all(
+            k_microkernel_scheduled = replace_all_stmts(
                 k_microkernel_scheduled, self.machine.store_instr_f32
             )
-            k_microkernel_scheduled = replace_all(
-                k_microkernel_scheduled, self.machine.fmadd_instr_f32
+            k_microkernel_scheduled = replace_all_stmts(
+                k_microkernel_scheduled, self.machine.fmadd_reduce_instr_f32
             )
             k_microkernel_scheduled = simplify(k_microkernel_scheduled)
 
@@ -1189,8 +1184,7 @@ class SYRK:
             proc = set_precision(proc, "P_vec2", self.precision)
 
         for instr in instr_lst:
-            proc = replace_all(proc, instr)
-
+            proc = replace_all_stmts(proc, instr)
         # if self.main:
         #    proc = rename(proc, proc.name() + "_main")
 

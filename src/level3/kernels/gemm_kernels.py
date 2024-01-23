@@ -167,8 +167,11 @@ class Microkernel:
                 sched_mk, loop, machine.vec_width, machine.mem_type, self.precision
             )
             sched_mk = interleave_loop(sched_mk, loop, min(N_r // machine.vec_width, 2))
+        sched_mk = simplify(sched_mk)
+        for c in sched_mk.find("C_reg[_] += _", many=True):
+            sched_mk = unfold_reduce(sched_mk, c)
 
-        sched_mk = replace_all(
+        sched_mk = replace_all_stmts(
             simplify(sched_mk), machine.get_instructions(self.precision)
         )
         for loop_iter in ("i1oo", "i0", "joo", "i1oo", "i0"):
@@ -312,31 +315,31 @@ class Microkernel:
 
         # Replace
         if self.precision == "f32":
-            scheduled_microkernel = replace_all(
+            scheduled_microkernel = replace_all_stmts(
                 scheduled_microkernel, machine.load_instr_f32
             )
-            scheduled_microkernel = replace_all(
+            scheduled_microkernel = replace_all_stmts(
                 scheduled_microkernel, machine.broadcast_instr_f32
             )
-            scheduled_microkernel = replace_all(
+            scheduled_microkernel = replace_all_stmts(
                 scheduled_microkernel, machine.store_instr_f32
             )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.fmadd_instr_f32
+            scheduled_microkernel = replace_all_stmts(
+                scheduled_microkernel, machine.fmadd_reduce_instr_f32
             )
             scheduled_microkernel = simplify(scheduled_microkernel)
         else:
-            scheduled_microkernel = replace_all(
+            scheduled_microkernel = replace_all_stmts(
                 scheduled_microkernel, machine.load_instr_f64
             )
-            scheduled_microkernel = replace_all(
+            scheduled_microkernel = replace_all_stmts(
                 scheduled_microkernel, machine.broadcast_instr_f64
             )
-            scheduled_microkernel = replace_all(
+            scheduled_microkernel = replace_all_stmts(
                 scheduled_microkernel, machine.store_instr_f64
             )
-            scheduled_microkernel = replace_all(
-                scheduled_microkernel, machine.fmadd_instr_f64
+            scheduled_microkernel = replace_all_stmts(
+                scheduled_microkernel, machine.fmadd_reduce_instr_f64
             )
             scheduled_microkernel = simplify(scheduled_microkernel)
 
