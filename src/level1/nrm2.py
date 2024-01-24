@@ -131,7 +131,6 @@ def schedule_nrm2_stride_1_interleaved(
         simple_stride_1 = set_memory(simple_stride_1, buffer, memory)
         simple_stride_1 = set_precision(simple_stride_1, buffer, precision)
 
-    simple_stride_1 = unfold_reduce(simple_stride_1, simple_stride_1.find("_ += _"))
     simple_stride_1 = replace_all_stmts(simple_stride_1, instructions)
 
     simple_stride_1 = expand_dim(simple_stride_1, "xReg", INTERLEAVE_FACTOR, "im")

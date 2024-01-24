@@ -285,7 +285,7 @@ d_result += (double)(*sb);
 
 
 /* relying on the following instruction..."
-mm256_fmadd_pd(dst,src1,src2)
+mm256_fmadd_reduce_pd(dst,src1,src2)
 {dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {dst_data});
 */
 

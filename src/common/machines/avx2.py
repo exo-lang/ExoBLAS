@@ -582,10 +582,14 @@ def generate_commuted_instr(instr, op):
     return instr
 
 
-mm256_fmadd_reduce_ps = generate_unfolded_instr(mm256_fmadd_ps)
-mm256_fmadd_reduce_pd = generate_unfolded_instr(mm256_fmadd_pd)
-mm256_prefix_fmadd_reduce_ps = generate_unfolded_instr(mm256_prefix_fmadd_ps)
-mm256_prefix_fmadd_reduce_pd = generate_unfolded_instr(mm256_prefix_fmadd_pd)
+mm256_fmadd_reduce_ps = rename(mm256_fmadd_ps, "mm256_fmadd_reduce_ps")
+mm256_fmadd_reduce_pd = rename(mm256_fmadd_pd, "mm256_fmadd_reduce_pd")
+mm256_prefix_fmadd_reduce_ps = rename(
+    mm256_prefix_fmadd_ps, "mm256_prefix_fmadd_reduce_ps"
+)
+mm256_prefix_fmadd_reduce_pd = rename(
+    mm256_prefix_fmadd_pd, "mm256_prefix_fmadd_reduce_pd"
+)
 
 
 @instr("{dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});")

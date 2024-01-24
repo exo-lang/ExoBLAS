@@ -188,9 +188,6 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
 
-    for c in gemm.find("C_reg[_] += _", many=True):
-        gemm = unfold_reduce(gemm, c)
-
     # Instructions...
     gemm = replace_all_stmts(gemm, params.instructions)
     gemm = simplify(gemm)

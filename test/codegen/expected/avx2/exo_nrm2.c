@@ -205,12 +205,12 @@ for (int_fast32_t i = 0; i < n; i++) {
 
 
 /* relying on the following instruction..."
-mm256_fmadd_pd(dst,src1,src2)
+mm256_fmadd_reduce_pd(dst,src1,src2)
 {dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {dst_data});
 */
 
 /* relying on the following instruction..."
-mm256_fmadd_ps(dst,src1,src2)
+mm256_fmadd_reduce_ps(dst,src1,src2)
 {dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {dst_data});
 */
 

@@ -959,6 +959,21 @@ def unfold_reduce(proc, reduce):
     return proc
 
 
+def fold_reduce(proc, assign):
+    if not isinstance(assign, AssignCursor):
+        raise BLAS_SchedulingError("Expected an assign cursor")
+    proc = auto_stage_mem(proc, assign, n_lifts=0, accum=True)
+    assign = proc.forward(assign)
+    alloc = assign.prev().prev()
+    zero = assign.prev()
+    proc = merge_writes(proc, assign.as_block().expand(delta_lo=1, delta_hi=0))
+    # reduce = proc.forward(zero).next()
+    proc = inline_assign(proc, zero)
+    proc = simplify(proc)
+    proc = delete_buffer(proc, alloc)
+    return proc
+
+
 def fma_rule(proc, expr):
     expr = proc.forward(expr)
 
@@ -1030,7 +1045,9 @@ def stage_compute(
     proc = make_pass(attempt(unfold_reduce))(proc, block)
     assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
     exprs = [assign.rhs() for assign in assigns]
-    return apply(stage)(proc, exprs)
+    proc = apply(stage)(proc, exprs)
+    proc = make_pass(attempt(fold_into_reduce))(proc, block)
+    return proc
 
 
 def replace_all_stmts(proc, instructions):

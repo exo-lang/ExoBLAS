@@ -58,9 +58,7 @@ def schedule_interleave_syr_row_major_stride_1(
     j_loop = stride_1.find_loop("j")
     stride_1 = scalar_to_simd(stride_1, j_loop, VEC_W, memory, precision)
     stride_1 = hoist_from_loop(stride_1, j_loop)
-    stride_1 = unfold_reduce(stride_1, stride_1.find("_ += _"))
     stride_1 = replace_all_stmts(stride_1, instructions)
-    print(stride_1)
     return simplify(stride_1)
 
 

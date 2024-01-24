@@ -89,10 +89,6 @@ def schedule_dsdot_stride_1(proc, params, name):
         C.Machine.assoc_reduce_add_instr_f64,
     ]
 
-    proc = unfold_reduce(proc, proc.find("var1[_] += _ * _"))
-    proc = unfold_reduce(proc, proc.find("var1[_] += _ * _"))
-    proc = unfold_reduce(proc, proc.find("var0[_] += _ * _"))
-    proc = unfold_reduce(proc, proc.find("var0[_] += _ * _"))
     proc = replace_all_stmts(proc, instructions)
     for i in range(0, 4):
         proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_lower_to_f64)
