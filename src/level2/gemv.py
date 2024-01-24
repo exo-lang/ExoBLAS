@@ -55,7 +55,7 @@ def gemv_row_major_Trans(
 
 template_sched_list = [
     (optimize_level_2, gemv_row_major_NonTrans, "x[_]"),
-    (optimize_level_2, gemv_row_major_Trans, "y[_] #1"),
+    (optimize_level_2, gemv_row_major_Trans, "y[_] += _"),
 ]
 
 for precision in ("f32", "f64"):
