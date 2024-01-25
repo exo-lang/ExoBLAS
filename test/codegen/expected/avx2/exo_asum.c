@@ -122,87 +122,87 @@ double result_;
 result_ = 0.0;
 __m256d var0;
 var0 = _mm256_setzero_pd();
-__m256d var1[7];
-var1[0] = _mm256_setzero_pd();
-var1[1] = _mm256_setzero_pd();
-var1[2] = _mm256_setzero_pd();
-var1[3] = _mm256_setzero_pd();
-var1[4] = _mm256_setzero_pd();
-var1[5] = _mm256_setzero_pd();
-var1[6] = _mm256_setzero_pd();
-for (int_fast32_t iooo = 0; iooo < ((((3 + n) / (4)) - 1) / (7)); iooo++) {
-  __m256d xReg[1][7];
-  __m256d selectReg[1][7];
-  xReg[0][0] = _mm256_loadu_pd(&x.data[28 * iooo]);
-  xReg[0][1] = _mm256_loadu_pd(&x.data[4 + 28 * iooo]);
-  xReg[0][2] = _mm256_loadu_pd(&x.data[8 + 28 * iooo]);
-  xReg[0][3] = _mm256_loadu_pd(&x.data[12 + 28 * iooo]);
-  xReg[0][4] = _mm256_loadu_pd(&x.data[16 + 28 * iooo]);
-  xReg[0][5] = _mm256_loadu_pd(&x.data[20 + 28 * iooo]);
-  xReg[0][6] = _mm256_loadu_pd(&x.data[24 + 28 * iooo]);
+__m256d var3[7];
+var3[0] = _mm256_setzero_pd();
+var3[1] = _mm256_setzero_pd();
+var3[2] = _mm256_setzero_pd();
+var3[3] = _mm256_setzero_pd();
+var3[4] = _mm256_setzero_pd();
+var3[5] = _mm256_setzero_pd();
+var3[6] = _mm256_setzero_pd();
+for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (7)); ioo++) {
+  __m256d var1[7];
+  __m256d var2[7];
+  var2[0] = _mm256_loadu_pd(&x.data[28 * ioo]);
+  var2[1] = _mm256_loadu_pd(&x.data[4 + 28 * ioo]);
+  var2[2] = _mm256_loadu_pd(&x.data[8 + 28 * ioo]);
+  var2[3] = _mm256_loadu_pd(&x.data[12 + 28 * ioo]);
+  var2[4] = _mm256_loadu_pd(&x.data[16 + 28 * ioo]);
+  var2[5] = _mm256_loadu_pd(&x.data[20 + 28 * ioo]);
+  var2[6] = _mm256_loadu_pd(&x.data[24 + 28 * ioo]);
   
-selectReg[0][0] = _mm256_and_pd(xReg[0][0], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1[0] = _mm256_and_pd(var2[0], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
   
-selectReg[0][1] = _mm256_and_pd(xReg[0][1], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1[1] = _mm256_and_pd(var2[1], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
   
-selectReg[0][2] = _mm256_and_pd(xReg[0][2], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1[2] = _mm256_and_pd(var2[2], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
   
-selectReg[0][3] = _mm256_and_pd(xReg[0][3], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1[3] = _mm256_and_pd(var2[3], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
   
-selectReg[0][4] = _mm256_and_pd(xReg[0][4], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1[4] = _mm256_and_pd(var2[4], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
   
-selectReg[0][5] = _mm256_and_pd(xReg[0][5], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1[5] = _mm256_and_pd(var2[5], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
   
-selectReg[0][6] = _mm256_and_pd(xReg[0][6], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1[6] = _mm256_and_pd(var2[6], _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
-  var1[0] = _mm256_add_pd(selectReg[0][0], var1[0]);
-  var1[1] = _mm256_add_pd(selectReg[0][1], var1[1]);
-  var1[2] = _mm256_add_pd(selectReg[0][2], var1[2]);
-  var1[3] = _mm256_add_pd(selectReg[0][3], var1[3]);
-  var1[4] = _mm256_add_pd(selectReg[0][4], var1[4]);
-  var1[5] = _mm256_add_pd(selectReg[0][5], var1[5]);
-  var1[6] = _mm256_add_pd(selectReg[0][6], var1[6]);
+  var3[0] = _mm256_add_pd(var1[0], var3[0]);
+  var3[1] = _mm256_add_pd(var1[1], var3[1]);
+  var3[2] = _mm256_add_pd(var1[2], var3[2]);
+  var3[3] = _mm256_add_pd(var1[3], var3[3]);
+  var3[4] = _mm256_add_pd(var1[4], var3[4]);
+  var3[5] = _mm256_add_pd(var1[5], var3[5]);
+  var3[6] = _mm256_add_pd(var1[6], var3[6]);
 }
-var0 = _mm256_add_pd(var1[0], var0);
-var0 = _mm256_add_pd(var1[1], var0);
-var0 = _mm256_add_pd(var1[2], var0);
-var0 = _mm256_add_pd(var1[3], var0);
-var0 = _mm256_add_pd(var1[4], var0);
-var0 = _mm256_add_pd(var1[5], var0);
-var0 = _mm256_add_pd(var1[6], var0);
+var0 = _mm256_add_pd(var3[0], var0);
+var0 = _mm256_add_pd(var3[1], var0);
+var0 = _mm256_add_pd(var3[2], var0);
+var0 = _mm256_add_pd(var3[3], var0);
+var0 = _mm256_add_pd(var3[4], var0);
+var0 = _mm256_add_pd(var3[5], var0);
+var0 = _mm256_add_pd(var3[6], var0);
 for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 7; ioi++) {
-  __m256d xReg;
-  xReg = _mm256_loadu_pd(&x.data[28 * ((((3 + n) / 4) - 1) / 7) + 4 * ioi]);
-  __m256d selectReg;
+  __m256d var1;
+  __m256d var2;
+  var2 = _mm256_loadu_pd(&x.data[28 * ((((3 + n) / 4) - 1) / 7) + 4 * ioi]);
   
-selectReg = _mm256_and_pd(xReg, _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1 = _mm256_and_pd(var2, _mm256_castsi256_pd (_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
 
-  var0 = _mm256_add_pd(selectReg, var0);
+  var0 = _mm256_add_pd(var1, var0);
 }
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
-  __m256d xRegTail;
+  __m256d var1;
+  __m256d var2;
   
        {
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
             __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
             __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-            xRegTail = _mm256_maskload_pd(&x.data[4 * io], cmp);
+            var2 = _mm256_maskload_pd(&x.data[4 * io], cmp);
        }
        
-  __m256d selectRegTail;
   
 {
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d src_abs = _mm256_and_pd(xRegTail, _mm256_castsi256_pd(_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
-selectRegTail = _mm256_blendv_pd (selectRegTail, src_abs, _mm256_castsi256_pd(cmp));
+__m256d src_abs = _mm256_and_pd(var2, _mm256_castsi256_pd(_mm256_set1_epi64x(0x7FFFFFFFFFFFFFFFLL)));
+var1 = _mm256_blendv_pd (var1, src_abs, _mm256_castsi256_pd(cmp));
 }
 
   
@@ -210,7 +210,7 @@ selectRegTail = _mm256_blendv_pd (selectRegTail, src_abs, _mm256_castsi256_pd(cm
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    __m256d prefixed_src = _mm256_blendv_pd (_mm256_setzero_pd(), selectRegTail, _mm256_castsi256_pd(cmp));
+    __m256d prefixed_src = _mm256_blendv_pd (_mm256_setzero_pd(), var1, _mm256_castsi256_pd(cmp));
     var0 = _mm256_add_pd(prefixed_src, var0);
     }
     
@@ -259,71 +259,71 @@ float result_;
 result_ = 0.0;
 __m256 var0;
 var0 = _mm256_setzero_ps();
-__m256 var1[7];
-var1[0] = _mm256_setzero_ps();
-var1[1] = _mm256_setzero_ps();
-var1[2] = _mm256_setzero_ps();
-var1[3] = _mm256_setzero_ps();
-var1[4] = _mm256_setzero_ps();
-var1[5] = _mm256_setzero_ps();
-var1[6] = _mm256_setzero_ps();
-for (int_fast32_t iooo = 0; iooo < ((((7 + n) / (8)) - 1) / (7)); iooo++) {
-  __m256 xReg[1][7];
-  __m256 selectReg[1][7];
-  xReg[0][0] = _mm256_loadu_ps(&x.data[56 * iooo]);
-  xReg[0][1] = _mm256_loadu_ps(&x.data[8 + 56 * iooo]);
-  xReg[0][2] = _mm256_loadu_ps(&x.data[16 + 56 * iooo]);
-  xReg[0][3] = _mm256_loadu_ps(&x.data[24 + 56 * iooo]);
-  xReg[0][4] = _mm256_loadu_ps(&x.data[32 + 56 * iooo]);
-  xReg[0][5] = _mm256_loadu_ps(&x.data[40 + 56 * iooo]);
-  xReg[0][6] = _mm256_loadu_ps(&x.data[48 + 56 * iooo]);
-  selectReg[0][0] = _mm256_and_ps(xReg[0][0], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  selectReg[0][1] = _mm256_and_ps(xReg[0][1], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  selectReg[0][2] = _mm256_and_ps(xReg[0][2], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  selectReg[0][3] = _mm256_and_ps(xReg[0][3], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  selectReg[0][4] = _mm256_and_ps(xReg[0][4], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  selectReg[0][5] = _mm256_and_ps(xReg[0][5], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  selectReg[0][6] = _mm256_and_ps(xReg[0][6], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  var1[0] = _mm256_add_ps(selectReg[0][0], var1[0]);
-  var1[1] = _mm256_add_ps(selectReg[0][1], var1[1]);
-  var1[2] = _mm256_add_ps(selectReg[0][2], var1[2]);
-  var1[3] = _mm256_add_ps(selectReg[0][3], var1[3]);
-  var1[4] = _mm256_add_ps(selectReg[0][4], var1[4]);
-  var1[5] = _mm256_add_ps(selectReg[0][5], var1[5]);
-  var1[6] = _mm256_add_ps(selectReg[0][6], var1[6]);
+__m256 var3[7];
+var3[0] = _mm256_setzero_ps();
+var3[1] = _mm256_setzero_ps();
+var3[2] = _mm256_setzero_ps();
+var3[3] = _mm256_setzero_ps();
+var3[4] = _mm256_setzero_ps();
+var3[5] = _mm256_setzero_ps();
+var3[6] = _mm256_setzero_ps();
+for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (7)); ioo++) {
+  __m256 var1[7];
+  __m256 var2[7];
+  var2[0] = _mm256_loadu_ps(&x.data[56 * ioo]);
+  var2[1] = _mm256_loadu_ps(&x.data[8 + 56 * ioo]);
+  var2[2] = _mm256_loadu_ps(&x.data[16 + 56 * ioo]);
+  var2[3] = _mm256_loadu_ps(&x.data[24 + 56 * ioo]);
+  var2[4] = _mm256_loadu_ps(&x.data[32 + 56 * ioo]);
+  var2[5] = _mm256_loadu_ps(&x.data[40 + 56 * ioo]);
+  var2[6] = _mm256_loadu_ps(&x.data[48 + 56 * ioo]);
+  var1[0] = _mm256_and_ps(var2[0], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var1[1] = _mm256_and_ps(var2[1], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var1[2] = _mm256_and_ps(var2[2], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var1[3] = _mm256_and_ps(var2[3], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var1[4] = _mm256_and_ps(var2[4], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var1[5] = _mm256_and_ps(var2[5], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var1[6] = _mm256_and_ps(var2[6], _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var3[0] = _mm256_add_ps(var1[0], var3[0]);
+  var3[1] = _mm256_add_ps(var1[1], var3[1]);
+  var3[2] = _mm256_add_ps(var1[2], var3[2]);
+  var3[3] = _mm256_add_ps(var1[3], var3[3]);
+  var3[4] = _mm256_add_ps(var1[4], var3[4]);
+  var3[5] = _mm256_add_ps(var1[5], var3[5]);
+  var3[6] = _mm256_add_ps(var1[6], var3[6]);
 }
-var0 = _mm256_add_ps(var1[0], var0);
-var0 = _mm256_add_ps(var1[1], var0);
-var0 = _mm256_add_ps(var1[2], var0);
-var0 = _mm256_add_ps(var1[3], var0);
-var0 = _mm256_add_ps(var1[4], var0);
-var0 = _mm256_add_ps(var1[5], var0);
-var0 = _mm256_add_ps(var1[6], var0);
+var0 = _mm256_add_ps(var3[0], var0);
+var0 = _mm256_add_ps(var3[1], var0);
+var0 = _mm256_add_ps(var3[2], var0);
+var0 = _mm256_add_ps(var3[3], var0);
+var0 = _mm256_add_ps(var3[4], var0);
+var0 = _mm256_add_ps(var3[5], var0);
+var0 = _mm256_add_ps(var3[6], var0);
 for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 7; ioi++) {
-  __m256 xReg;
-  xReg = _mm256_loadu_ps(&x.data[56 * ((((7 + n) / 8) - 1) / 7) + 8 * ioi]);
-  __m256 selectReg;
-  selectReg = _mm256_and_ps(xReg, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-  var0 = _mm256_add_ps(selectReg, var0);
+  __m256 var1;
+  __m256 var2;
+  var2 = _mm256_loadu_ps(&x.data[56 * ((((7 + n) / 8) - 1) / 7) + 8 * ioi]);
+  var1 = _mm256_and_ps(var2, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+  var0 = _mm256_add_ps(var1, var0);
 }
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
-  __m256 xRegTail;
+  __m256 var1;
+  __m256 var2;
   
 {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    xRegTail = _mm256_maskload_ps(&x.data[8 * io], cmp);
+    var2 = _mm256_maskload_ps(&x.data[8 * io], cmp);
 }
 
-  __m256 selectRegTail;
   
 {
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 src_abs = _mm256_and_ps(xRegTail, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
-selectRegTail = _mm256_blendv_ps (selectRegTail, src_abs, _mm256_castsi256_ps(cmp));
+__m256 src_abs = _mm256_and_ps(var2, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));
+var1 = _mm256_blendv_ps (var1, src_abs, _mm256_castsi256_ps(cmp));
 }
 
   
@@ -331,7 +331,7 @@ selectRegTail = _mm256_blendv_ps (selectRegTail, src_abs, _mm256_castsi256_ps(cm
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    __m256 prefixed_src = _mm256_blendv_ps (_mm256_setzero_ps(), selectRegTail, _mm256_castsi256_ps(cmp));
+    __m256 prefixed_src = _mm256_blendv_ps (_mm256_setzero_ps(), var1, _mm256_castsi256_ps(cmp));
     var0 = _mm256_add_ps(prefixed_src, var0);
     }
     
