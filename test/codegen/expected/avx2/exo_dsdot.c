@@ -22,13 +22,20 @@ avx2_assoc_reduce_add_pd(x,result)
 */
 
 /* relying on the following instruction..."
-avx2_convert_f32_lower_to_f64(dst,src)
-{dst_data} = _mm256_cvtps_pd(_mm256_extractf128_ps({src_data}, 0));
+avx2_fused_load_cvtps_pd(dst,src)
+{dst_data} = _mm256_cvtps_pd(_mm_loadu_ps(&{src_data}));
 */
 
 /* relying on the following instruction..."
-avx2_convert_f32_upper_to_f64(dst,src)
-{dst_data} = _mm256_cvtps_pd(_mm256_extractf128_ps({src_data}, 1));
+avx2_prefix_fused_load_cvtps_pd(dst,src,bound)
+
+{{
+    __m128i indices = _mm_set_epi32(3, 2, 1, 0);
+    __m128i prefix = _mm_set1_epi32({bound});
+    __m128i cmp = _mm_cmpgt_epi32(prefix, indices);
+    {dst_data} = _mm256_cvtps_pd(_mm_maskload_ps(&{src_data}, cmp));
+}}
+
 */
 
 /* relying on the following instruction..."
@@ -53,61 +60,61 @@ var1[0] = _mm256_setzero_pd();
 var1[1] = _mm256_setzero_pd();
 var1[2] = _mm256_setzero_pd();
 var1[3] = _mm256_setzero_pd();
-for (int_fast32_t iooo = 0; iooo < ((n) / (32)); iooo++) {
-  __m256 xReg[4];
-  __m256 yReg[4];
-  __m256d d_x[4][2];
-  __m256d d_y[4][2];
-  xReg[0] = _mm256_loadu_ps(&x.data[32 * iooo]);
-  xReg[1] = _mm256_loadu_ps(&x.data[8 + 32 * iooo]);
-  xReg[2] = _mm256_loadu_ps(&x.data[16 + 32 * iooo]);
-  xReg[3] = _mm256_loadu_ps(&x.data[24 + 32 * iooo]);
-  yReg[0] = _mm256_loadu_ps(&y.data[32 * iooo]);
-  yReg[1] = _mm256_loadu_ps(&y.data[8 + 32 * iooo]);
-  yReg[2] = _mm256_loadu_ps(&y.data[16 + 32 * iooo]);
-  yReg[3] = _mm256_loadu_ps(&y.data[24 + 32 * iooo]);
-  d_x[0][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[0], 0));
-  d_x[1][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[1], 0));
-  d_x[2][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[2], 0));
-  d_x[3][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[3], 0));
-  d_x[0][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[0], 1));
-  d_x[1][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[1], 1));
-  d_x[2][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[2], 1));
-  d_x[3][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[3], 1));
-  d_y[0][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[0], 0));
-  d_y[1][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[1], 0));
-  d_y[2][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[2], 0));
-  d_y[3][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[3], 0));
-  d_y[0][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[0], 1));
-  d_y[1][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[1], 1));
-  d_y[2][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[2], 1));
-  d_y[3][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[3], 1));
-  var1[0] = _mm256_fmadd_pd(d_x[0][0], d_y[0][0], var1[0]);
-  var1[1] = _mm256_fmadd_pd(d_x[1][0], d_y[1][0], var1[1]);
-  var1[2] = _mm256_fmadd_pd(d_x[2][0], d_y[2][0], var1[2]);
-  var1[3] = _mm256_fmadd_pd(d_x[3][0], d_y[3][0], var1[3]);
-  var1[0] = _mm256_fmadd_pd(d_x[0][1], d_y[0][1], var1[0]);
-  var1[1] = _mm256_fmadd_pd(d_x[1][1], d_y[1][1], var1[1]);
-  var1[2] = _mm256_fmadd_pd(d_x[2][1], d_y[2][1], var1[2]);
-  var1[3] = _mm256_fmadd_pd(d_x[3][1], d_y[3][1], var1[3]);
+for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
+  __m256d d_x[4];
+  __m256d d_y[4];
+  d_x[0] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[16 * ioo]));
+  d_x[1] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[4 + 16 * ioo]));
+  d_x[2] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[8 + 16 * ioo]));
+  d_x[3] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[12 + 16 * ioo]));
+  d_y[0] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[16 * ioo]));
+  d_y[1] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[4 + 16 * ioo]));
+  d_y[2] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[8 + 16 * ioo]));
+  d_y[3] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[12 + 16 * ioo]));
+  var1[0] = _mm256_fmadd_pd(d_x[0], d_y[0], var1[0]);
+  var1[1] = _mm256_fmadd_pd(d_x[1], d_y[1], var1[1]);
+  var1[2] = _mm256_fmadd_pd(d_x[2], d_y[2], var1[2]);
+  var1[3] = _mm256_fmadd_pd(d_x[3], d_y[3], var1[3]);
 }
 var0 = _mm256_add_pd(var1[0], var0);
 var0 = _mm256_add_pd(var1[1], var0);
 var0 = _mm256_add_pd(var1[2], var0);
 var0 = _mm256_add_pd(var1[3], var0);
-for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
-  __m256 xReg;
-  xReg = _mm256_loadu_ps(&x.data[32 * (n / 32) + 8 * iooi]);
-  __m256 yReg;
-  yReg = _mm256_loadu_ps(&y.data[32 * (n / 32) + 8 * iooi]);
-  __m256d d_x[2];
-  __m256d d_y[2];
-  d_x[0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg, 0));
-  d_x[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg, 1));
-  d_y[0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 0));
-  d_y[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 1));
-  var0 = _mm256_fmadd_pd(d_x[0], d_y[0], var0);
-  var0 = _mm256_fmadd_pd(d_x[1], d_y[1], var0);
+for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
+  __m256d d_x;
+  __m256d d_y;
+  d_x = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]));
+  d_y = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]));
+  var0 = _mm256_fmadd_pd(d_x, d_y, var0);
+}
+for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
+  __m256d d_x;
+  __m256d d_y;
+  
+{
+    __m128i indices = _mm_set_epi32(3, 2, 1, 0);
+    __m128i prefix = _mm_set1_epi32((-(4 * io) + n));
+    __m128i cmp = _mm_cmpgt_epi32(prefix, indices);
+    d_x = _mm256_cvtps_pd(_mm_maskload_ps(&x.data[4 * io], cmp));
+}
+
+  
+{
+    __m128i indices = _mm_set_epi32(3, 2, 1, 0);
+    __m128i prefix = _mm_set1_epi32((-(4 * io) + n));
+    __m128i cmp = _mm_cmpgt_epi32(prefix, indices);
+    d_y = _mm256_cvtps_pd(_mm_maskload_ps(&y.data[4 * io], cmp));
+}
+
+  
+{
+    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), d_x, _mm256_castsi256_pd(cmp));
+    var0 = _mm256_fmadd_pd(prefixed_src1, d_y, var0);
+}
+
 }
 
     {
@@ -117,22 +124,6 @@ for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
         *(&d_dot) += _mm256_cvtsd_f64(tmp);
     }
     
-for (int_fast32_t ioi = 0; ioi < ((n) / (4)) % 2; ioi++) {
-  for (int_fast32_t ii = 0; ii < 4; ii++) {
-    double d_x;
-    d_x = (double)(x.data[4 * (ioi + (n / 8) * 2) + ii]);
-    double d_y;
-    d_y = (double)(y.data[4 * (ioi + (n / 8) * 2) + ii]);
-    d_dot += d_x * d_y;
-  }
-}
-for (int_fast32_t ii = 0; ii < n % 4; ii++) {
-  double d_x;
-  d_x = (double)(x.data[ii + (n / 4) * 4]);
-  double d_y;
-  d_y = (double)(y.data[ii + (n / 4) * 4]);
-  d_dot += d_x * d_y;
-}
 *result = d_dot;
 }
 
@@ -175,61 +166,61 @@ var1[0] = _mm256_setzero_pd();
 var1[1] = _mm256_setzero_pd();
 var1[2] = _mm256_setzero_pd();
 var1[3] = _mm256_setzero_pd();
-for (int_fast32_t iooo = 0; iooo < ((n) / (32)); iooo++) {
-  __m256 xReg[4];
-  __m256 yReg[4];
-  __m256d d_x[4][2];
-  __m256d d_y[4][2];
-  xReg[0] = _mm256_loadu_ps(&x.data[32 * iooo]);
-  xReg[1] = _mm256_loadu_ps(&x.data[8 + 32 * iooo]);
-  xReg[2] = _mm256_loadu_ps(&x.data[16 + 32 * iooo]);
-  xReg[3] = _mm256_loadu_ps(&x.data[24 + 32 * iooo]);
-  yReg[0] = _mm256_loadu_ps(&y.data[32 * iooo]);
-  yReg[1] = _mm256_loadu_ps(&y.data[8 + 32 * iooo]);
-  yReg[2] = _mm256_loadu_ps(&y.data[16 + 32 * iooo]);
-  yReg[3] = _mm256_loadu_ps(&y.data[24 + 32 * iooo]);
-  d_x[0][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[0], 0));
-  d_x[1][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[1], 0));
-  d_x[2][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[2], 0));
-  d_x[3][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[3], 0));
-  d_x[0][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[0], 1));
-  d_x[1][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[1], 1));
-  d_x[2][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[2], 1));
-  d_x[3][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg[3], 1));
-  d_y[0][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[0], 0));
-  d_y[1][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[1], 0));
-  d_y[2][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[2], 0));
-  d_y[3][0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[3], 0));
-  d_y[0][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[0], 1));
-  d_y[1][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[1], 1));
-  d_y[2][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[2], 1));
-  d_y[3][1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg[3], 1));
-  var1[0] = _mm256_fmadd_pd(d_x[0][0], d_y[0][0], var1[0]);
-  var1[1] = _mm256_fmadd_pd(d_x[1][0], d_y[1][0], var1[1]);
-  var1[2] = _mm256_fmadd_pd(d_x[2][0], d_y[2][0], var1[2]);
-  var1[3] = _mm256_fmadd_pd(d_x[3][0], d_y[3][0], var1[3]);
-  var1[0] = _mm256_fmadd_pd(d_x[0][1], d_y[0][1], var1[0]);
-  var1[1] = _mm256_fmadd_pd(d_x[1][1], d_y[1][1], var1[1]);
-  var1[2] = _mm256_fmadd_pd(d_x[2][1], d_y[2][1], var1[2]);
-  var1[3] = _mm256_fmadd_pd(d_x[3][1], d_y[3][1], var1[3]);
+for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
+  __m256d d_x[4];
+  __m256d d_y[4];
+  d_x[0] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[16 * ioo]));
+  d_x[1] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[4 + 16 * ioo]));
+  d_x[2] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[8 + 16 * ioo]));
+  d_x[3] = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[12 + 16 * ioo]));
+  d_y[0] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[16 * ioo]));
+  d_y[1] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[4 + 16 * ioo]));
+  d_y[2] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[8 + 16 * ioo]));
+  d_y[3] = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[12 + 16 * ioo]));
+  var1[0] = _mm256_fmadd_pd(d_x[0], d_y[0], var1[0]);
+  var1[1] = _mm256_fmadd_pd(d_x[1], d_y[1], var1[1]);
+  var1[2] = _mm256_fmadd_pd(d_x[2], d_y[2], var1[2]);
+  var1[3] = _mm256_fmadd_pd(d_x[3], d_y[3], var1[3]);
 }
 var0 = _mm256_add_pd(var1[0], var0);
 var0 = _mm256_add_pd(var1[1], var0);
 var0 = _mm256_add_pd(var1[2], var0);
 var0 = _mm256_add_pd(var1[3], var0);
-for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
-  __m256 xReg;
-  xReg = _mm256_loadu_ps(&x.data[32 * (n / 32) + 8 * iooi]);
-  __m256 yReg;
-  yReg = _mm256_loadu_ps(&y.data[32 * (n / 32) + 8 * iooi]);
-  __m256d d_x[2];
-  __m256d d_y[2];
-  d_x[0] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg, 0));
-  d_x[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(xReg, 1));
-  d_y[0] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 0));
-  d_y[1] = _mm256_cvtps_pd(_mm256_extractf128_ps(yReg, 1));
-  var0 = _mm256_fmadd_pd(d_x[0], d_y[0], var0);
-  var0 = _mm256_fmadd_pd(d_x[1], d_y[1], var0);
+for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
+  __m256d d_x;
+  __m256d d_y;
+  d_x = _mm256_cvtps_pd(_mm_loadu_ps(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]));
+  d_y = _mm256_cvtps_pd(_mm_loadu_ps(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]));
+  var0 = _mm256_fmadd_pd(d_x, d_y, var0);
+}
+for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
+  __m256d d_x;
+  __m256d d_y;
+  
+{
+    __m128i indices = _mm_set_epi32(3, 2, 1, 0);
+    __m128i prefix = _mm_set1_epi32((-(4 * io) + n));
+    __m128i cmp = _mm_cmpgt_epi32(prefix, indices);
+    d_x = _mm256_cvtps_pd(_mm_maskload_ps(&x.data[4 * io], cmp));
+}
+
+  
+{
+    __m128i indices = _mm_set_epi32(3, 2, 1, 0);
+    __m128i prefix = _mm_set1_epi32((-(4 * io) + n));
+    __m128i cmp = _mm_cmpgt_epi32(prefix, indices);
+    d_y = _mm256_cvtps_pd(_mm_maskload_ps(&y.data[4 * io], cmp));
+}
+
+  
+{
+    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), d_x, _mm256_castsi256_pd(cmp));
+    var0 = _mm256_fmadd_pd(prefixed_src1, d_y, var0);
+}
+
 }
 
     {
@@ -239,22 +230,6 @@ for (int_fast32_t iooi = 0; iooi < ((n) / (8)) % 4; iooi++) {
         *(&d_dot) += _mm256_cvtsd_f64(tmp);
     }
     
-for (int_fast32_t ioi = 0; ioi < ((n) / (4)) % 2; ioi++) {
-  for (int_fast32_t ii = 0; ii < 4; ii++) {
-    double d_x;
-    d_x = (double)(x.data[4 * (ioi + (n / 8) * 2) + ii]);
-    double d_y;
-    d_y = (double)(y.data[4 * (ioi + (n / 8) * 2) + ii]);
-    d_dot += d_x * d_y;
-  }
-}
-for (int_fast32_t ii = 0; ii < n % 4; ii++) {
-  double d_x;
-  d_x = (double)(x.data[ii + (n / 4) * 4]);
-  double d_y;
-  d_y = (double)(y.data[ii + (n / 4) * 4]);
-  d_dot += d_x * d_y;
-}
 d_result = d_dot;
 d_result += (double)(*sb);
 *result = (float)(d_result);
@@ -290,8 +265,16 @@ mm256_fmadd_reduce_pd(dst,src1,src2)
 */
 
 /* relying on the following instruction..."
-mm256_loadu_ps(dst,src)
-{dst_data} = _mm256_loadu_ps(&{src_data});
+mm256_prefix_fmadd_reduce_pd(dst,src1,src2,bound)
+
+{{
+    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi64x({bound});
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), {src1_data}, _mm256_castsi256_pd(cmp));
+    {dst_data} = _mm256_fmadd_pd(prefixed_src1, {src2_data}, {dst_data});
+}}
+
 */
 
 /* relying on the following instruction..."
