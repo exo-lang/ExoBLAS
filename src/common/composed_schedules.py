@@ -950,9 +950,7 @@ def unfold_reduce(proc, reduce):
     alloc = reduce.prev().prev()
     proc = merge_writes(proc, reduce.as_block().expand(delta_lo=1, delta_hi=0))
     assign = proc.forward(alloc).next()
-    last_assign = assign.next()
     proc = inline_assign(proc, assign)
-    proc = commute_expr(proc, [proc.forward(last_assign).rhs()])
     proc = delete_buffer(proc, alloc)
 
     return proc
