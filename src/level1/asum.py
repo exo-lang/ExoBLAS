@@ -25,6 +25,8 @@ def asum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
 ### EXO_LOC SCHEDULE START ###
 def schedule_asum_stride_1(asum, params):
     asum = generate_stride_1_proc(asum, params.precision)
+    if params.mem_type is not AVX2:
+        return asum
     asum = optimize_level_1(asum, asum.find_loop("i"), params)
     return asum
 
