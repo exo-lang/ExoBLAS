@@ -666,6 +666,37 @@ def mm256_prefix_fmadd_pd(
             dst[i] = src1[i] * src2[i] + src3[i]
 
 
+@instr("{dst_data} = _mm256_cvtps_pd(_mm_loadu_ps(&{src_data}));")
+def avx2_fused_load_cvtps_pd(dst: [f64][4] @ AVX2, src: [f32][4] @ DRAM):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+
+    for i in seq(0, 4):
+        dst[i] = src[i]
+
+
+@instr(
+    """
+{{
+    __m128i indices = _mm_set_epi32(3, 2, 1, 0);
+    __m128i prefix = _mm_set1_epi32({bound});
+    __m128i cmp = _mm_cmpgt_epi32(prefix, indices);
+    {dst_data} = _mm256_cvtps_pd(_mm_maskload_ps(&{src_data}, cmp));
+}}
+"""
+)
+def avx2_prefix_fused_load_cvtps_pd(
+    dst: [f64][4] @ AVX2, src: [f32][4] @ DRAM, bound: size
+):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound < 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = src[i]
+
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -737,4 +768,6 @@ Machine = MachineParameters(
     prefix_abs_instr_f64=avx2_prefix_abs_pd,
     convert_f32_lower_to_f64=avx2_convert_f32_lower_to_f64,
     convert_f32_upper_to_f64=avx2_convert_f32_upper_to_f64,
+    fused_load_cvt_f32_f64=avx2_fused_load_cvtps_pd,
+    prefix_fused_load_cvt_f32_f64=avx2_prefix_fused_load_cvtps_pd,
 )

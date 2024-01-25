@@ -30,10 +30,6 @@ extern "C" {
 #endif
 
 
-struct exo_win_1f32{
-    float * const data;
-    const int_fast32_t strides[1];
-};
 struct exo_win_1f32c{
     const float * const data;
     const int_fast32_t strides[1];

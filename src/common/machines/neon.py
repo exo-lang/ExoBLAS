@@ -189,4 +189,6 @@ Machine = MachineParameters(
     prefix_abs_instr_f64=None,
     convert_f32_lower_to_f64=neon_convert_f32_lower_to_f64,
     convert_f32_upper_to_f64=neon_convert_f32_upper_to_f64,
+    fused_load_cvt_f32_f64=None,
+    prefix_fused_load_cvt_f32_f64=None,
 )
