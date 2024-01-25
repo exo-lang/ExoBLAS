@@ -706,9 +706,8 @@ def vectorize(
     allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner_loop))
     proc = apply(set_memory)(proc, allocs, mem_type)
 
-    bind_op = stage_expr_into_memory
     children_ops = [fma_rule]
-    proc = stage_compute(proc, inner_loop, precision, mem_type, bind_op, children_ops)
+    proc = stage_compute(proc, inner_loop, precision, mem_type, children_ops)
 
     proc = fission_into_singles(proc, inner_loop)
 
@@ -1019,15 +1018,11 @@ def stage_compute(
     block=InvalidCursor(),
     precision="R",
     memory=DRAM,
-    bind_op=None,
     children_ops=[],
 ):
 
     if not isinstance(children_ops, list):
         raise BLAS_SchedulingError("Expected children_ops to be a list")
-
-    if bind_op is None:
-        bind_op = lift_rc(bind_and_set_expr, "bound_expr")
 
     def get_numeric_children(proc, cursor=InvalidCursor()):
         check = lambda c: hasattr(c, "type") and c.type().is_numeric()
@@ -1036,7 +1031,7 @@ def stage_compute(
     children_ops.append(get_numeric_children)
 
     def stage(proc, exprs):
-        proc, expr = bind_op(proc, exprs, precision, memory)
+        proc, expr = stage_expr_into_memory(proc, exprs, precision, memory)
         for children_op in children_ops:
             if children := children_op(proc, expr):
                 break
