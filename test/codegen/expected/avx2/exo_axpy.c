@@ -20,14 +20,14 @@ for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
   __m256d var0[4];
   __m256d var1[4];
   __m256d var2[4];
-  var1[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
-  var1[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
-  var1[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
-  var1[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
-  var2[0] = _mm256_loadu_pd(&y.data[16 * ioo]);
-  var2[1] = _mm256_loadu_pd(&y.data[4 + 16 * ioo]);
-  var2[2] = _mm256_loadu_pd(&y.data[8 + 16 * ioo]);
-  var2[3] = _mm256_loadu_pd(&y.data[12 + 16 * ioo]);
+  var1[0] = _mm256_loadu_pd(&y.data[16 * ioo]);
+  var1[1] = _mm256_loadu_pd(&y.data[4 + 16 * ioo]);
+  var1[2] = _mm256_loadu_pd(&y.data[8 + 16 * ioo]);
+  var1[3] = _mm256_loadu_pd(&y.data[12 + 16 * ioo]);
+  var2[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
+  var2[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
+  var2[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
+  var2[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
   var0[0] = _mm256_add_pd(var1[0], var2[0]);
   var0[1] = _mm256_add_pd(var1[1], var2[1]);
   var0[2] = _mm256_add_pd(var1[2], var2[2]);
@@ -41,8 +41,8 @@ for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
   __m256d var0;
   __m256d var1;
   __m256d var2;
-  var1 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
-  var2 = _mm256_loadu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
+  var1 = _mm256_loadu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
+  var2 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
   var0 = _mm256_add_pd(var1, var2);
   _mm256_storeu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var0);
 }
@@ -55,7 +55,7 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
             __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
             __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-            var1 = _mm256_maskload_pd(&x.data[4 * io], cmp);
+            var1 = _mm256_maskload_pd(&y.data[4 * io], cmp);
        }
        
   
@@ -63,7 +63,7 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
             __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
             __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-            var2 = _mm256_maskload_pd(&y.data[4 * io], cmp);
+            var2 = _mm256_maskload_pd(&x.data[4 * io], cmp);
        }
        
   
@@ -108,26 +108,26 @@ void exo_daxpy_stride_1( void *ctxt, int_fast32_t n, const double* alpha, struct
 // assert stride(y, 0) == 1
 double alpha_;
 alpha_ = *alpha;
-__m256d var1;
+__m256d var2;
 if (((3 + n) / (4)) - 1 > 0) {
-  var1 = _mm256_broadcast_sd((&alpha_));
+  var2 = _mm256_broadcast_sd((&alpha_));
 }
 for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
   __m256d var0[4];
-  __m256d var2[4];
+  __m256d var1[4];
   __m256d var3[4];
-  var2[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
-  var2[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
-  var2[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
-  var2[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
-  var3[0] = _mm256_loadu_pd(&y.data[16 * ioo]);
-  var3[1] = _mm256_loadu_pd(&y.data[4 + 16 * ioo]);
-  var3[2] = _mm256_loadu_pd(&y.data[8 + 16 * ioo]);
-  var3[3] = _mm256_loadu_pd(&y.data[12 + 16 * ioo]);
-  var0[0] = _mm256_fmadd_pd(var1, var2[0], var3[0]);
-  var0[1] = _mm256_fmadd_pd(var1, var2[1], var3[1]);
-  var0[2] = _mm256_fmadd_pd(var1, var2[2], var3[2]);
-  var0[3] = _mm256_fmadd_pd(var1, var2[3], var3[3]);
+  var1[0] = _mm256_loadu_pd(&y.data[16 * ioo]);
+  var1[1] = _mm256_loadu_pd(&y.data[4 + 16 * ioo]);
+  var1[2] = _mm256_loadu_pd(&y.data[8 + 16 * ioo]);
+  var1[3] = _mm256_loadu_pd(&y.data[12 + 16 * ioo]);
+  var3[0] = _mm256_loadu_pd(&x.data[16 * ioo]);
+  var3[1] = _mm256_loadu_pd(&x.data[4 + 16 * ioo]);
+  var3[2] = _mm256_loadu_pd(&x.data[8 + 16 * ioo]);
+  var3[3] = _mm256_loadu_pd(&x.data[12 + 16 * ioo]);
+  var0[0] = _mm256_fmadd_pd(var2, var3[0], var1[0]);
+  var0[1] = _mm256_fmadd_pd(var2, var3[1], var1[1]);
+  var0[2] = _mm256_fmadd_pd(var2, var3[2], var1[2]);
+  var0[3] = _mm256_fmadd_pd(var2, var3[3], var1[3]);
   _mm256_storeu_pd(&y.data[16 * ioo], var0[0]);
   _mm256_storeu_pd(&y.data[4 + 16 * ioo], var0[1]);
   _mm256_storeu_pd(&y.data[8 + 16 * ioo], var0[2]);
@@ -135,24 +135,32 @@ for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
 }
 for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
   __m256d var0;
-  __m256d var2;
+  __m256d var1;
   __m256d var3;
-  var2 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
-  var3 = _mm256_loadu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
-  var0 = _mm256_fmadd_pd(var1, var2, var3);
+  var1 = _mm256_loadu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
+  var3 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
+  var0 = _mm256_fmadd_pd(var2, var3, var1);
   _mm256_storeu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi], var0);
 }
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
   __m256d var0;
-  __m256d var1_1;
-  __m256d var2;
+  __m256d var1;
+  __m256d var2_1;
   __m256d var3;
+  
+       {
+            __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+            __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
+            __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+            var1 = _mm256_maskload_pd(&y.data[4 * io], cmp);
+       }
+       
   
     {
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    var1_1 = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&alpha_)), _mm256_castsi256_pd(cmp));
+    var2_1 = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&alpha_)), _mm256_castsi256_pd(cmp));
     }
     
   
@@ -160,18 +168,18 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
             __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
             __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-            var2 = _mm256_maskload_pd(&x.data[4 * io], cmp);
+            var3 = _mm256_maskload_pd(&x.data[4 * io], cmp);
        }
        
   
-       {
-            __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-            __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
-            __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-            var3 = _mm256_maskload_pd(&y.data[4 * io], cmp);
-       }
-       
-  var0 = _mm256_fmadd_pd(var1_1, var2, var3);
+{
+    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), var2_1, _mm256_castsi256_pd(cmp));
+    var0 = _mm256_fmadd_pd(prefixed_src1, var3, var1);
+}
+
   
     {
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
@@ -209,14 +217,14 @@ for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
   __m256 var0[4];
   __m256 var1[4];
   __m256 var2[4];
-  var1[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
-  var1[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
-  var1[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
-  var1[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
-  var2[0] = _mm256_loadu_ps(&y.data[32 * ioo]);
-  var2[1] = _mm256_loadu_ps(&y.data[8 + 32 * ioo]);
-  var2[2] = _mm256_loadu_ps(&y.data[16 + 32 * ioo]);
-  var2[3] = _mm256_loadu_ps(&y.data[24 + 32 * ioo]);
+  var1[0] = _mm256_loadu_ps(&y.data[32 * ioo]);
+  var1[1] = _mm256_loadu_ps(&y.data[8 + 32 * ioo]);
+  var1[2] = _mm256_loadu_ps(&y.data[16 + 32 * ioo]);
+  var1[3] = _mm256_loadu_ps(&y.data[24 + 32 * ioo]);
+  var2[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
+  var2[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
+  var2[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
+  var2[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
   var0[0] = _mm256_add_ps(var1[0], var2[0]);
   var0[1] = _mm256_add_ps(var1[1], var2[1]);
   var0[2] = _mm256_add_ps(var1[2], var2[2]);
@@ -230,8 +238,8 @@ for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
   __m256 var0;
   __m256 var1;
   __m256 var2;
-  var1 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
-  var2 = _mm256_loadu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
+  var1 = _mm256_loadu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
+  var2 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
   var0 = _mm256_add_ps(var1, var2);
   _mm256_storeu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var0);
 }
@@ -244,7 +252,7 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    var1 = _mm256_maskload_ps(&x.data[8 * io], cmp);
+    var1 = _mm256_maskload_ps(&y.data[8 * io], cmp);
 }
 
   
@@ -252,7 +260,7 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    var2 = _mm256_maskload_ps(&y.data[8 * io], cmp);
+    var2 = _mm256_maskload_ps(&x.data[8 * io], cmp);
 }
 
   
@@ -297,26 +305,26 @@ void exo_saxpy_stride_1( void *ctxt, int_fast32_t n, const float* alpha, struct 
 // assert stride(y, 0) == 1
 float alpha_;
 alpha_ = *alpha;
-__m256 var1;
+__m256 var2;
 if (((7 + n) / (8)) - 1 > 0) {
-  var1 = _mm256_broadcast_ss((&alpha_));
+  var2 = _mm256_broadcast_ss((&alpha_));
 }
 for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
   __m256 var0[4];
-  __m256 var2[4];
+  __m256 var1[4];
   __m256 var3[4];
-  var2[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
-  var2[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
-  var2[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
-  var2[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
-  var3[0] = _mm256_loadu_ps(&y.data[32 * ioo]);
-  var3[1] = _mm256_loadu_ps(&y.data[8 + 32 * ioo]);
-  var3[2] = _mm256_loadu_ps(&y.data[16 + 32 * ioo]);
-  var3[3] = _mm256_loadu_ps(&y.data[24 + 32 * ioo]);
-  var0[0] = _mm256_fmadd_ps(var1, var2[0], var3[0]);
-  var0[1] = _mm256_fmadd_ps(var1, var2[1], var3[1]);
-  var0[2] = _mm256_fmadd_ps(var1, var2[2], var3[2]);
-  var0[3] = _mm256_fmadd_ps(var1, var2[3], var3[3]);
+  var1[0] = _mm256_loadu_ps(&y.data[32 * ioo]);
+  var1[1] = _mm256_loadu_ps(&y.data[8 + 32 * ioo]);
+  var1[2] = _mm256_loadu_ps(&y.data[16 + 32 * ioo]);
+  var1[3] = _mm256_loadu_ps(&y.data[24 + 32 * ioo]);
+  var3[0] = _mm256_loadu_ps(&x.data[32 * ioo]);
+  var3[1] = _mm256_loadu_ps(&x.data[8 + 32 * ioo]);
+  var3[2] = _mm256_loadu_ps(&x.data[16 + 32 * ioo]);
+  var3[3] = _mm256_loadu_ps(&x.data[24 + 32 * ioo]);
+  var0[0] = _mm256_fmadd_ps(var2, var3[0], var1[0]);
+  var0[1] = _mm256_fmadd_ps(var2, var3[1], var1[1]);
+  var0[2] = _mm256_fmadd_ps(var2, var3[2], var1[2]);
+  var0[3] = _mm256_fmadd_ps(var2, var3[3], var1[3]);
   _mm256_storeu_ps(&y.data[32 * ioo], var0[0]);
   _mm256_storeu_ps(&y.data[8 + 32 * ioo], var0[1]);
   _mm256_storeu_ps(&y.data[16 + 32 * ioo], var0[2]);
@@ -324,24 +332,32 @@ for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
 }
 for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
   __m256 var0;
-  __m256 var2;
+  __m256 var1;
   __m256 var3;
-  var2 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
-  var3 = _mm256_loadu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
-  var0 = _mm256_fmadd_ps(var1, var2, var3);
+  var1 = _mm256_loadu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
+  var3 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
+  var0 = _mm256_fmadd_ps(var2, var3, var1);
   _mm256_storeu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi], var0);
 }
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
   __m256 var0;
-  __m256 var1_1;
-  __m256 var2;
+  __m256 var1;
+  __m256 var2_1;
   __m256 var3;
+  
+{
+    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
+    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+    var1 = _mm256_maskload_ps(&y.data[8 * io], cmp);
+}
+
   
     {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    var1_1 = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&alpha_)), _mm256_castsi256_ps(cmp));
+    var2_1 = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&alpha_)), _mm256_castsi256_ps(cmp));
     }
     
   
@@ -349,7 +365,7 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    var2 = _mm256_maskload_ps(&x.data[8 * io], cmp);
+    var3 = _mm256_maskload_ps(&x.data[8 * io], cmp);
 }
 
   
@@ -357,10 +373,10 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    var3 = _mm256_maskload_ps(&y.data[8 * io], cmp);
+    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), var2_1, _mm256_castsi256_ps(cmp));
+    var0 = _mm256_fmadd_ps(prefixed_src1, var3, var1);
 }
 
-  var0 = _mm256_fmadd_ps(var1_1, var2, var3);
   
     {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
@@ -408,12 +424,12 @@ mm256_broadcast_ss_scalar(out,val)
 */
 
 /* relying on the following instruction..."
-mm256_fmadd_pd(dst,src1,src2,src3)
+mm256_fmadd_pd_commute(dst,src1,src2,src3)
 {dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {src3_data});
 */
 
 /* relying on the following instruction..."
-mm256_fmadd_ps(dst,src1,src2,src3)
+mm256_fmadd_ps_commute(dst,src1,src2,src3)
 {dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});
 */
 
@@ -478,13 +494,29 @@ mm256_prefix_broadcast_ss_scalar(out,val,bound)
 */
 
 /* relying on the following instruction..."
-mm256_prefix_fmadd_pd(dst,src1,src2,src3,bound)
-{dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {src3_data});
+mm256_prefix_fmadd_pd_commute(dst,src1,src2,src3,bound)
+
+{{
+    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi64x({bound});
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), {src1_data}, _mm256_castsi256_pd(cmp));
+    {dst_data} = _mm256_fmadd_pd(prefixed_src1, {src2_data}, {src3_data});
+}}
+
 */
 
 /* relying on the following instruction..."
-mm256_prefix_fmadd_ps(dst,src1,src2,src3,bound)
-{dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});
+mm256_prefix_fmadd_ps_commute(dst,src1,src2,src3,bound)
+
+{{
+    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi32({bound});
+    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), {src1_data}, _mm256_castsi256_ps(cmp));
+    {dst_data} = _mm256_fmadd_ps(prefixed_src1, {src2_data}, {src3_data});
+}}
+
 */
 
 /* relying on the following instruction..."

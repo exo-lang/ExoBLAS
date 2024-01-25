@@ -610,7 +610,17 @@ def mm256_fmadd_pd(
         dst[i] = src1[i] * src2[i] + src3[i]
 
 
-@instr("{dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});")
+@instr(
+    """
+{{
+    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi32({bound});
+    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), {src1_data}, _mm256_castsi256_ps(cmp));
+    {dst_data} = _mm256_fmadd_ps(prefixed_src1, {src2_data}, {src3_data});
+}}
+"""
+)
 def mm256_prefix_fmadd_ps(
     dst: [f32][8] @ AVX2,
     src1: [f32][8] @ AVX2,
@@ -628,7 +638,17 @@ def mm256_prefix_fmadd_ps(
             dst[i] = src1[i] * src2[i] + src3[i]
 
 
-@instr("{dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {src3_data});")
+@instr(
+    """
+{{
+    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi64x({bound});
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), {src1_data}, _mm256_castsi256_pd(cmp));
+    {dst_data} = _mm256_fmadd_pd(prefixed_src1, {src2_data}, {src3_data});
+}}
+"""
+)
 def mm256_prefix_fmadd_pd(
     dst: [f64][4] @ AVX2,
     src1: [f64][4] @ AVX2,
