@@ -5,6 +5,8 @@ from typing import Any
 
 from exo import *
 
+from composed_schedules import *
+
 
 @dataclass
 class MachineParameters:
@@ -36,8 +38,6 @@ class MachineParameters:
     prefix_broadcast_scalar_instr_f32: Any
     fmadd_instr_f32: Any
     prefix_fmadd_instr_f32: Any
-    fmadd_instr_commute_f32: Any
-    prefix_fmadd_instr_commute_f32: Any
     fmadd_reduce_instr_f32: Any
     prefix_fmadd_reduce_instr_f32: Any
     set_zero_instr_f32: Any
@@ -69,8 +69,6 @@ class MachineParameters:
     prefix_broadcast_scalar_instr_f64: Any
     fmadd_instr_f64: Any
     prefix_fmadd_instr_f64: Any
-    fmadd_instr_commute_f64: Any
-    prefix_fmadd_instr_commute_f64: Any
     fmadd_reduce_instr_f64: Any
     prefix_fmadd_reduce_instr_f64: Any
     set_zero_instr_f64: Any
@@ -96,9 +94,29 @@ class MachineParameters:
     def __getitem__(self, item):
         return getattr(self, item)
 
+    def get_fma_variants(self, precision):
+        attr = f"fma_variants_{precision}"
+        if not hasattr(self, attr):
+            fmas = [
+                i[1]
+                for i in self.__dict__.items()
+                if precision in i[0]
+                and isinstance(i[1], Procedure)
+                and "fmadd_instr" in i[0]
+            ]
+
+            def rewrite(fma):
+                fma = commute_expr(fma, [fma.find(f"_ + _")])
+                return rename(fma, f"{fma.name()}_commute")
+
+            setattr(self, attr, [rewrite(fma) for fma in fmas])
+        return getattr(self, attr)
+
     def get_instructions(self, precision):
-        return [
+        instrs = [
             i[1]
             for i in self.__dict__.items()
             if precision in i[0] and isinstance(i[1], Procedure)
         ]
+        fma_variants = self.get_fma_variants(precision)
+        return instrs + fma_variants

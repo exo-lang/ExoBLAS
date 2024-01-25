@@ -570,18 +570,6 @@ def mm256_prefix_setzero_pd(dst: [f64][4] @ AVX2, bound: size):
             dst[i] = 0.0
 
 
-def generate_unfolded_instr(instr):
-    instr = unfold_reduce(instr, instr.find("_ += _"))
-    instr = rename(instr, f"{instr.name()}_reduce")
-    return instr
-
-
-def generate_commuted_instr(instr, op):
-    instr = commute_expr(instr, [instr.find(f"_ {op} _")])
-    instr = rename(instr, f"{instr.name()}_commute")
-    return instr
-
-
 mm256_fmadd_reduce_ps = rename(mm256_fmadd_ps, "mm256_fmadd_reduce_ps")
 mm256_fmadd_reduce_pd = rename(mm256_fmadd_pd, "mm256_fmadd_reduce_pd")
 mm256_prefix_fmadd_reduce_ps = rename(
@@ -658,11 +646,6 @@ def mm256_prefix_fmadd_pd(
             dst[i] = src1[i] * src2[i] + src3[i]
 
 
-mm256_fmadd_ps_commute = generate_commuted_instr(mm256_fmadd_ps, "+")
-mm256_fmadd_pd_commute = generate_commuted_instr(mm256_fmadd_pd, "+")
-mm256_prefix_fmadd_ps_commute = generate_commuted_instr(mm256_prefix_fmadd_ps, "+")
-mm256_prefix_fmadd_pd_commute = generate_commuted_instr(mm256_prefix_fmadd_pd, "+")
-
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -684,8 +667,6 @@ Machine = MachineParameters(
     prefix_broadcast_scalar_instr_f32=mm256_prefix_broadcast_ss_scalar,
     fmadd_instr_f32=mm256_fmadd_ps,
     prefix_fmadd_instr_f32=mm256_prefix_fmadd_ps,
-    fmadd_instr_commute_f32=mm256_fmadd_ps_commute,
-    prefix_fmadd_instr_commute_f32=mm256_prefix_fmadd_ps_commute,
     fmadd_reduce_instr_f32=mm256_fmadd_reduce_ps,
     prefix_fmadd_reduce_instr_f32=mm256_prefix_fmadd_reduce_ps,
     set_zero_instr_f32=mm256_setzero_ps,
@@ -716,8 +697,6 @@ Machine = MachineParameters(
     prefix_broadcast_scalar_instr_f64=mm256_prefix_broadcast_sd_scalar,
     fmadd_instr_f64=mm256_fmadd_pd,
     prefix_fmadd_instr_f64=mm256_prefix_fmadd_pd,
-    fmadd_instr_commute_f64=mm256_fmadd_pd_commute,
-    prefix_fmadd_instr_commute_f64=mm256_prefix_fmadd_pd_commute,
     fmadd_reduce_instr_f64=mm256_fmadd_reduce_pd,
     prefix_fmadd_reduce_instr_f64=mm256_prefix_fmadd_reduce_pd,
     set_zero_instr_f64=mm256_setzero_pd,
