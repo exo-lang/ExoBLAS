@@ -706,7 +706,7 @@ def vectorize(
     allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner_loop))
     proc = apply(set_memory)(proc, allocs, mem_type)
 
-    children_ops = [fma_rule]
+    children_ops = [fma_rule, abs_rule]
     proc = stage_compute(proc, inner_loop, precision, mem_type, children_ops)
 
     proc = fission_into_singles(proc, inner_loop)
@@ -956,21 +956,6 @@ def unfold_reduce(proc, reduce):
     return proc
 
 
-def fold_reduce(proc, assign):
-    if not isinstance(assign, AssignCursor):
-        raise BLAS_SchedulingError("Expected an assign cursor")
-    proc = auto_stage_mem(proc, assign, n_lifts=0, accum=True)
-    assign = proc.forward(assign)
-    alloc = assign.prev().prev()
-    zero = assign.prev()
-    proc = merge_writes(proc, assign.as_block().expand(delta_lo=1, delta_hi=0))
-    # reduce = proc.forward(zero).next()
-    proc = inline_assign(proc, zero)
-    proc = simplify(proc)
-    proc = delete_buffer(proc, alloc)
-    return proc
-
-
 def fma_rule(proc, expr):
     expr = proc.forward(expr)
 
@@ -982,6 +967,20 @@ def fma_rule(proc, expr):
             # a + (b * c)
             return [expr.lhs(), expr.rhs().lhs(), expr.rhs().rhs()]
 
+    return None
+
+
+def abs_rule(proc, expr):
+    expr = proc.forward(expr)
+    if is_select(proc, expr):
+        args = expr.args()
+        if (
+            is_literal(proc, args[0], 0.0)
+            and is_unary_minus(proc, args[3])
+            and are_exprs_equal(proc, args[1], args[2])
+            and are_exprs_equal(proc, args[1], args[3].arg())
+        ):
+            return [[args[1], args[2], args[3].arg()]]
     return None
 
 

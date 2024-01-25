@@ -286,6 +286,33 @@ def is_mod(proc, expr):
     return is_op(proc, expr, "%")
 
 
+def is_builtin(proc, expr, name):
+    expr = proc.forward(expr)
+    return isinstance(expr, BuiltInFunctionCursor) and expr.name() == name
+
+
+def is_select(proc, expr):
+    return is_builtin(proc, expr, "select")
+
+
+def is_relu(proc, expr):
+    return is_builtin(proc, expr, "relu")
+
+
+def is_sin(proc, expr):
+    return is_builtin(proc, expr, "sin")
+
+
+def is_literal(proc, expr, value):
+    expr = proc.forward(expr)
+    return isinstance(expr, LiteralCursor) and expr.value() == value
+
+
+def is_unary_minus(proc, expr):
+    expr = proc.forward(expr)
+    return isinstance(expr, UnaryMinusCursor)
+
+
 def is_start_of_body(proc, stmt):
     stmt = proc.forward(stmt)
     return isinstance(stmt.prev(), InvalidCursor)
@@ -333,3 +360,31 @@ def get_distance(proc, cursor1, cursor2):
     return (
         get_depth(proc, cursor1) + get_depth(proc, cursor2) - 2 * get_depth(proc, lca)
     )
+
+
+def are_exprs_equal(proc, expr1, expr2):
+    expr1 = proc.forward(expr1)
+    expr2 = proc.forward(expr2)
+
+    def check(expr1, expr2):
+        if type(expr1) != type(expr2):
+            return False
+
+        attrs = ["name", "value", "op", "config", "field"]
+        for attr in attrs:
+            if (
+                hasattr(expr1, attr)
+                and getattr(expr1, attr)() != getattr(expr2, attr)()
+            ):
+                return False
+
+        expr1_children = list(get_children(proc, expr1))
+        expr2_children = list(get_children(proc, expr2))
+        if len(expr1_children) != len(expr2_children):
+            return False
+        for c1, c2 in zip(expr1_children, expr2_children):
+            if not check(c1, c2):
+                return False
+        return True
+
+    return check(expr1, expr2)
