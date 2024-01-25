@@ -79,6 +79,44 @@ def neon_vst_2xf64_backwards(dst: [f64][2] @ DRAM, src: [f64][2] @ Neon):
         dst[1 - i] = src[i]
 
 
+neon_vfmadd_reduce_4xf32_4xf32 = rename(
+    neon_vfmadd_4xf32_4xf32, "neon_vfmadd_reduce_4xf32_4xf32"
+)
+neon_vfmadd_reduce_2xf64_2xf64 = rename(
+    neon_vfmadd_2xf64_2xf64, "neon_vfmadd_reduce_2xf64_2xf64"
+)
+
+
+@instr("{dst_data} = vmlaq_f32({acc_data}, {lhs_data}, {rhs_data});")
+def neon_vfmadd_4xf32_4xf32(
+    dst: [f32][4] @ Neon,
+    acc: [f32][4] @ Neon,
+    lhs: [f32][4] @ Neon,
+    rhs: [f32][4] @ Neon,
+):
+    assert stride(dst, 0) == 1
+    assert stride(lhs, 0) == 1
+    assert stride(rhs, 0) == 1
+
+    for i in seq(0, 4):
+        dst[i] = acc[i] + lhs[i] * rhs[i]
+
+
+@instr("{dst_data} = vmlaq_f64({acc_data}, {lhs_data}, {rhs_data});")
+def neon_vfmadd_2xf64_2xf64(
+    dst: [f64][2] @ Neon,
+    acc: [f64][2] @ Neon,
+    lhs: [f64][2] @ Neon,
+    rhs: [f64][2] @ Neon,
+):
+    assert stride(dst, 0) == 1
+    assert stride(lhs, 0) == 1
+    assert stride(rhs, 0) == 1
+
+    for i in seq(0, 2):
+        dst[i] = acc[i] + lhs[i] * rhs[i]
+
+
 Machine = MachineParameters(
     name="neon",
     mem_type=Neon,
@@ -98,7 +136,9 @@ Machine = MachineParameters(
     broadcast_scalar_instr_f32=neon_broadcast_4xf32_scalar,
     prefix_broadcast_instr_f32=None,
     prefix_broadcast_scalar_instr_f32=None,
-    fmadd_reduce_instr_f32=neon_vfmadd_4xf32_4xf32,
+    fmadd_instr_f32=neon_vfmadd_4xf32_4xf32,
+    prefix_fmadd_instr_f32=None,
+    fmadd_reduce_instr_f32=neon_vfmadd_reduce_4xf32_4xf32,
     prefix_fmadd_reduce_instr_f32=None,
     set_zero_instr_f32=neon_zero_4xf32,
     prefix_set_zero_instr_f32=None,
@@ -126,7 +166,9 @@ Machine = MachineParameters(
     broadcast_scalar_instr_f64=neon_broadcast_2xf64_scalar,
     prefix_broadcast_instr_f64=None,
     prefix_broadcast_scalar_instr_f64=None,
-    fmadd_reduce_instr_f64=neon_vfmadd_2xf64_2xf64,
+    fmadd_instr_f64=neon_vfmadd_2xf64_2xf64,
+    prefix_fmadd_instr_f64=None,
+    fmadd_reduce_instr_f64=neon_vfmadd_reduce_2xf64_2xf64,
     prefix_fmadd_reduce_instr_f64=None,
     set_zero_instr_f64=neon_zero_2xf64,
     prefix_set_zero_instr_f64=None,
