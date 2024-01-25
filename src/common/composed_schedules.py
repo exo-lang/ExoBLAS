@@ -645,6 +645,42 @@ def cut_tail_and_unguard(proc, loop):
     return proc
 
 
+def parallelize_allocs(proc, cursor):
+    if not isinstance(cursor, (ForCursor, IfCursor)):
+        raise BLAS_SchedulingError(
+            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
+        )
+
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, cursor))
+    func = lambda proc, alloc: parallelize_and_lift_alloc(
+        proc, alloc, get_distance(proc, alloc, cursor)
+    )
+    return apply(func)(proc, allocs)
+
+
+def fission_into_singles(proc, cursor):
+    if not isinstance(cursor, (ForCursor, IfCursor)):
+        raise BLAS_SchedulingError(
+            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
+        )
+
+    cursor = proc.forward(cursor)
+
+    def dfs(proc, cursor, n_lifts=0):
+        if (
+            n_lifts
+            and not is_end_of_body(proc, cursor)
+            and not isinstance(cursor, (ForCursor, IfCursor))
+        ):
+            proc = fission(proc, cursor.after(), n_lifts)
+        children = get_children(proc, cursor)
+        children = filter(lambda s: isinstance(s, StmtCursor), children)
+        return apply(dfs)(proc, children, n_lifts + 1)
+
+    proc = parallelize_allocs(proc, cursor)
+    return dfs(proc, cursor)
+
+
 def vectorize(
     proc,
     loop,
@@ -667,12 +703,18 @@ def vectorize(
     outer_loop = proc.forward(outer_loop)
     inner_loop = outer_loop.body()[0]
 
-    proc = scalar_to_simd(proc, inner_loop, vec_width, mem_type, precision)
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner_loop))
+    proc = apply(set_memory)(proc, allocs, mem_type)
+
+    children_ops = [fma_rule]
+    proc = stage_compute(proc, inner_loop, precision, mem_type, children_ops)
+
+    proc = fission_into_singles(proc, inner_loop)
 
     if tail == "cut_and_predicate":
         proc = cut_tail_and_unguard(proc, outer_loop)
 
-    proc = replace_all(proc, instructions)
+    proc = replace_all_stmts(proc, instructions)
 
     return proc
 
@@ -908,11 +950,24 @@ def unfold_reduce(proc, reduce):
     alloc = reduce.prev().prev()
     proc = merge_writes(proc, reduce.as_block().expand(delta_lo=1, delta_hi=0))
     assign = proc.forward(alloc).next()
-    last_assign = assign.next()
     proc = inline_assign(proc, assign)
-    proc = commute_expr(proc, [proc.forward(last_assign).rhs()])
     proc = delete_buffer(proc, alloc)
 
+    return proc
+
+
+def fold_reduce(proc, assign):
+    if not isinstance(assign, AssignCursor):
+        raise BLAS_SchedulingError("Expected an assign cursor")
+    proc = auto_stage_mem(proc, assign, n_lifts=0, accum=True)
+    assign = proc.forward(assign)
+    alloc = assign.prev().prev()
+    zero = assign.prev()
+    proc = merge_writes(proc, assign.as_block().expand(delta_lo=1, delta_hi=0))
+    # reduce = proc.forward(zero).next()
+    proc = inline_assign(proc, zero)
+    proc = simplify(proc)
+    proc = delete_buffer(proc, alloc)
     return proc
 
 
@@ -961,15 +1016,11 @@ def stage_compute(
     block=InvalidCursor(),
     precision="R",
     memory=DRAM,
-    bind_op=None,
     children_ops=[],
 ):
 
     if not isinstance(children_ops, list):
         raise BLAS_SchedulingError("Expected children_ops to be a list")
-
-    if bind_op is None:
-        bind_op = lift_rc(bind_and_set_expr, "bound_expr")
 
     def get_numeric_children(proc, cursor=InvalidCursor()):
         check = lambda c: hasattr(c, "type") and c.type().is_numeric()
@@ -978,7 +1029,7 @@ def stage_compute(
     children_ops.append(get_numeric_children)
 
     def stage(proc, exprs):
-        proc, expr = bind_op(proc, exprs, precision, memory)
+        proc, expr = stage_expr_into_memory(proc, exprs, precision, memory)
         for children_op in children_ops:
             if children := children_op(proc, expr):
                 break
@@ -987,4 +1038,25 @@ def stage_compute(
     proc = make_pass(attempt(unfold_reduce))(proc, block)
     assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
     exprs = [assign.rhs() for assign in assigns]
-    return apply(stage)(proc, exprs)
+    proc = apply(stage)(proc, exprs)
+    proc = make_pass(attempt(fold_into_reduce))(proc, block)
+    return proc
+
+
+def replace_all_stmts(proc, instructions):
+    if not isinstance(instructions, list):
+        instructions = [instructions]
+
+    for stmt in nlr_stmts(proc):
+        try:
+            stmt = proc.forward(stmt)
+        except InvalidCursorError:
+            continue
+
+        for instr in instructions:
+            try:
+                proc = call_site_mem_aware_replace(proc, stmt, instr, quiet=True)
+                break
+            except:
+                pass
+    return proc

@@ -4,6 +4,8 @@ from exo.platforms.x86 import *
 
 from .machine import MachineParameters
 
+from composed_schedules import *
+
 
 @instr("{dst_data} = _mm256_maskz_loadu_ps(((1 << {N}) - 1), &{src_data});")
 def mm256_maskz_loadu_ps(N: size, dst: [f32][8] @ AVX2, src: [f32][N] @ DRAM):
@@ -568,6 +570,102 @@ def mm256_prefix_setzero_pd(dst: [f64][4] @ AVX2, bound: size):
             dst[i] = 0.0
 
 
+mm256_fmadd_reduce_ps = rename(mm256_fmadd_ps, "mm256_fmadd_reduce_ps")
+mm256_fmadd_reduce_pd = rename(mm256_fmadd_pd, "mm256_fmadd_reduce_pd")
+mm256_prefix_fmadd_reduce_ps = rename(
+    mm256_prefix_fmadd_ps, "mm256_prefix_fmadd_reduce_ps"
+)
+mm256_prefix_fmadd_reduce_pd = rename(
+    mm256_prefix_fmadd_pd, "mm256_prefix_fmadd_reduce_pd"
+)
+
+
+@instr("{dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});")
+def mm256_fmadd_ps(
+    dst: [f32][8] @ AVX2,
+    src1: [f32][8] @ AVX2,
+    src2: [f32][8] @ AVX2,
+    src3: [f32][8] @ AVX2,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 8):
+        dst[i] = src1[i] * src2[i] + src3[i]
+
+
+@instr("{dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {src3_data});")
+def mm256_fmadd_pd(
+    dst: [f64][4] @ AVX2,
+    src1: [f64][4] @ AVX2,
+    src2: [f64][4] @ AVX2,
+    src3: [f64][4] @ AVX2,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 4):
+        dst[i] = src1[i] * src2[i] + src3[i]
+
+
+@instr(
+    """
+{{
+    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi32({bound});
+    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), {src1_data}, _mm256_castsi256_ps(cmp));
+    {dst_data} = _mm256_fmadd_ps(prefixed_src1, {src2_data}, {src3_data});
+}}
+"""
+)
+def mm256_prefix_fmadd_ps(
+    dst: [f32][8] @ AVX2,
+    src1: [f32][8] @ AVX2,
+    src2: [f32][8] @ AVX2,
+    src3: [f32][8] @ AVX2,
+    bound: size,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+    assert bound < 8
+
+    for i in seq(0, 8):
+        if i < bound:
+            dst[i] = src1[i] * src2[i] + src3[i]
+
+
+@instr(
+    """
+{{
+    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
+    __m256i prefix = _mm256_set1_epi64x({bound});
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), {src1_data}, _mm256_castsi256_pd(cmp));
+    {dst_data} = _mm256_fmadd_pd(prefixed_src1, {src2_data}, {src3_data});
+}}
+"""
+)
+def mm256_prefix_fmadd_pd(
+    dst: [f64][4] @ AVX2,
+    src1: [f64][4] @ AVX2,
+    src2: [f64][4] @ AVX2,
+    src3: [f64][4] @ AVX2,
+    bound: size,
+):
+    assert stride(src1, 0) == 1
+    assert stride(src2, 0) == 1
+    assert stride(dst, 0) == 1
+    assert bound < 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = src1[i] * src2[i] + src3[i]
+
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -589,6 +687,8 @@ Machine = MachineParameters(
     prefix_broadcast_scalar_instr_f32=mm256_prefix_broadcast_ss_scalar,
     fmadd_instr_f32=mm256_fmadd_ps,
     prefix_fmadd_instr_f32=mm256_prefix_fmadd_ps,
+    fmadd_reduce_instr_f32=mm256_fmadd_reduce_ps,
+    prefix_fmadd_reduce_instr_f32=mm256_prefix_fmadd_reduce_ps,
     set_zero_instr_f32=mm256_setzero_ps,
     prefix_set_zero_instr_f32=mm256_prefix_setzero_ps,
     assoc_reduce_add_instr_f32=avx2_assoc_reduce_add_ps,
@@ -617,6 +717,8 @@ Machine = MachineParameters(
     prefix_broadcast_scalar_instr_f64=mm256_prefix_broadcast_sd_scalar,
     fmadd_instr_f64=mm256_fmadd_pd,
     prefix_fmadd_instr_f64=mm256_prefix_fmadd_pd,
+    fmadd_reduce_instr_f64=mm256_fmadd_reduce_pd,
+    prefix_fmadd_reduce_instr_f64=mm256_prefix_fmadd_reduce_pd,
     set_zero_instr_f64=mm256_setzero_pd,
     prefix_set_zero_instr_f64=mm256_prefix_setzero_pd,
     assoc_reduce_add_instr_f64=avx2_assoc_reduce_add_pd,

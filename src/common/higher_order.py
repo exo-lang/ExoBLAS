@@ -2,15 +2,15 @@ from exceptions import *
 from introspection import *
 
 
-def attempt(op, errs=exo_exceptions, rc=False):
+def attempt(op, errs=exo_exceptions):
     errs = tuple(errs)
 
-    def rewrite(p, *args, **kwargs):
+    def rewrite(p, *args, rs=False, **kwargs):
         try:
             res = op(p, *args, **kwargs), True
         except errs:
             res = p, False
-        if not rc:
+        if not rs:
             res = res[0]
         return res
 

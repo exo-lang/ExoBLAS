@@ -83,13 +83,14 @@ var0 = _mm256_add_pd(var3[2], var0);
 var0 = _mm256_add_pd(var3[3], var0);
 for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
   __m256d var1;
-  var1 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
   __m256d var2;
+  var1 = _mm256_loadu_pd(&x.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
   var2 = _mm256_loadu_pd(&y.data[16 * ((((3 + n) / 4) - 1) / 4) + 4 * ioi]);
   var0 = _mm256_fmadd_pd(var1, var2, var0);
 }
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
   __m256d var1;
+  __m256d var2;
   
        {
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
@@ -98,7 +99,6 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
             var1 = _mm256_maskload_pd(&x.data[4 * io], cmp);
        }
        
-  __m256d var2;
   
        {
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
@@ -183,13 +183,14 @@ var0 = _mm256_add_ps(var3[2], var0);
 var0 = _mm256_add_ps(var3[3], var0);
 for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
   __m256 var1;
-  var1 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
   __m256 var2;
+  var1 = _mm256_loadu_ps(&x.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
   var2 = _mm256_loadu_ps(&y.data[32 * ((((7 + n) / 8) - 1) / 4) + 8 * ioi]);
   var0 = _mm256_fmadd_ps(var1, var2, var0);
 }
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
   __m256 var1;
+  __m256 var2;
   
 {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
@@ -198,7 +199,6 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     var1 = _mm256_maskload_ps(&x.data[8 * io], cmp);
 }
 
-  __m256 var2;
   
 {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
@@ -246,12 +246,12 @@ for (int_fast32_t i = 0; i < n; i++) {
 
 
 /* relying on the following instruction..."
-mm256_fmadd_pd(dst,src1,src2)
+mm256_fmadd_reduce_pd(dst,src1,src2)
 {dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {dst_data});
 */
 
 /* relying on the following instruction..."
-mm256_fmadd_ps(dst,src1,src2)
+mm256_fmadd_reduce_ps(dst,src1,src2)
 {dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {dst_data});
 */
 
@@ -266,7 +266,7 @@ mm256_loadu_ps(dst,src)
 */
 
 /* relying on the following instruction..."
-mm256_prefix_fmadd_pd(dst,src1,src2,bound)
+mm256_prefix_fmadd_reduce_pd(dst,src1,src2,bound)
 
 {{
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
@@ -279,7 +279,7 @@ mm256_prefix_fmadd_pd(dst,src1,src2,bound)
 */
 
 /* relying on the following instruction..."
-mm256_prefix_fmadd_ps(dst,src1,src2,bound)
+mm256_prefix_fmadd_reduce_ps(dst,src1,src2,bound)
 
 {{
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);

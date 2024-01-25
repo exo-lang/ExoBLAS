@@ -849,12 +849,12 @@ mm256_broadcast_ss(out,val)
 */
 
 /* relying on the following instruction..."
-mm256_fmadd_pd(dst,src1,src2)
+mm256_fmadd_reduce_pd(dst,src1,src2)
 {dst_data} = _mm256_fmadd_pd({src1_data}, {src2_data}, {dst_data});
 */
 
 /* relying on the following instruction..."
-mm256_fmadd_ps(dst,src1,src2)
+mm256_fmadd_reduce_ps(dst,src1,src2)
 {dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {dst_data});
 */
 
@@ -893,7 +893,7 @@ mm256_prefix_broadcast_ss(out,val,bound)
 */
 
 /* relying on the following instruction..."
-mm256_prefix_fmadd_pd(dst,src1,src2,bound)
+mm256_prefix_fmadd_reduce_pd(dst,src1,src2,bound)
 
 {{
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
@@ -906,7 +906,7 @@ mm256_prefix_fmadd_pd(dst,src1,src2,bound)
 */
 
 /* relying on the following instruction..."
-mm256_prefix_fmadd_ps(dst,src1,src2,bound)
+mm256_prefix_fmadd_reduce_ps(dst,src1,src2,bound)
 
 {{
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);

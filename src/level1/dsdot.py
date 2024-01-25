@@ -8,16 +8,8 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
-from composed_schedules import (
-    parallelize_reduction,
-    auto_divide_loop,
-    auto_stage_mem,
-    scalar_to_simd,
-    interleave_loop,
-)
-from codegen_helpers import (
-    export_exo_proc,
-)
+from composed_schedules import *
+from codegen_helpers import *
 from parameters import Level_1_Params
 
 ### EXO_LOC ALGORITHM START ###
@@ -92,12 +84,12 @@ def schedule_dsdot_stride_1(proc, params, name):
         C.Machine.load_instr_f64,
         C.Machine.store_instr_f64,
         C.Machine.set_zero_instr_f64,
-        C.Machine.fmadd_instr_f64,
+        C.Machine.fmadd_reduce_instr_f64,
         C.Machine.reduce_add_wide_instr_f64,
         C.Machine.assoc_reduce_add_instr_f64,
     ]
 
-    proc = replace_all(proc, instructions)
+    proc = replace_all_stmts(proc, instructions)
     for i in range(0, 4):
         proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_lower_to_f64)
         proc = replace(proc, proc.find_loop("ii"), C.Machine.convert_f32_upper_to_f64)

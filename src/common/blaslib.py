@@ -48,8 +48,7 @@ def optimize_level_1(proc, loop, params):
     proc = interleave_loop(proc, inner_loop)
 
     # Instructions Selection
-    proc = replace_all(proc, instructions)
-
+    proc = replace_all_stmts(proc, instructions)
     proc = simplify(proc)
     return proc
 
@@ -95,7 +94,7 @@ def optimize_level_2(proc, params, reuse):
         proc = dce(proc, loop)
 
     # Instruction Selection
-    proc = replace_all(proc, params.instructions)
+    proc = replace_all_stmts(proc, params.instructions)
     return simplify(proc)
 
 

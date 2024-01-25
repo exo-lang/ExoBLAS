@@ -46,12 +46,12 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         elif isinstance(stmt, ForCursor):
             yield stmt.lo()
             yield stmt.hi()
-            yield stmt.body()
+            yield from stmt.body()
         elif isinstance(stmt, IfCursor):
             yield stmt.cond()
-            yield stmt.body()
+            yield from stmt.body()
             if not isinstance(stmt.orelse(), InvalidCursor):
-                yield stmt.orelse()
+                yield from stmt.orelse()
         elif isinstance(stmt, CallCursor):
             yield from stmt.args()
         elif isinstance(stmts, WindowStmtCursor):
@@ -284,3 +284,52 @@ def is_div(proc, expr):
 
 def is_mod(proc, expr):
     return is_op(proc, expr, "%")
+
+
+def is_start_of_body(proc, stmt):
+    stmt = proc.forward(stmt)
+    return isinstance(stmt.prev(), InvalidCursor)
+
+
+def is_end_of_body(proc, stmt):
+    stmt = proc.forward(stmt)
+    return isinstance(stmt.next(), InvalidCursor)
+
+
+def get_depth(proc, cursor):
+    cursor = proc.forward(cursor)
+
+    depth = 1
+    while not isinstance(cursor, InvalidCursor):
+        cursor = cursor.parent()
+        depth += 1
+    return depth
+
+
+def get_lca(proc, cursor1, cursro2):
+    cursor1 = proc.forward(cursor1)
+    cursro2 = proc.forward(cursro2)
+
+    depth1 = get_depth(proc, cursor1)
+    depth2 = get_depth(proc, cursro2)
+
+    if depth1 < depth2:
+        cursor1, cursor2 = cursor2, cursor1
+        depth1, depth2 = depth2, depth1
+
+    while depth1 > depth2:
+        cursor1 = cursor1.parent()
+        depth1 -= 1
+
+    while cursor1 != cursro2:
+        cursor1 = cursor1.parent()
+        cursro2 = cursro2.parent()
+
+    return cursor1
+
+
+def get_distance(proc, cursor1, cursor2):
+    lca = get_lca(proc, cursor1, cursor2)
+    return (
+        get_depth(proc, cursor1) + get_depth(proc, cursor2) - 2 * get_depth(proc, lca)
+    )
