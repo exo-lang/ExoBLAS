@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from exo.platforms.neon import *
 from exo import instr
+from exo.stdlib.scheduling import *
 
 from .machine import MachineParameters
 
