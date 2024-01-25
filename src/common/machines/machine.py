@@ -91,6 +91,9 @@ class MachineParameters:
     convert_f32_lower_to_f64: Any
     convert_f32_upper_to_f64: Any
 
+    fused_load_cvt_f32_f64: Any
+    prefix_fused_load_cvt_f32_f64: Any
+
     def __getitem__(self, item):
         return getattr(self, item)
 
