@@ -99,7 +99,9 @@ def is_already_divided(loop_cursor, div_factor):
     )
 
 
-def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts=1):
+def stage_expr(
+    proc, expr_cursors, new_name=None, precision="R", memory=DRAM, n_lifts=1
+):
     """
     for i in seq(0, hi):
         s (e(i));
@@ -112,6 +114,8 @@ def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts
     for i in seq(0, hi):
         s (new_name[i]);
     """
+    if new_name is None:
+        new_name = next(get_unique_names(proc))
 
     if not isinstance(expr_cursors, list):
         expr_cursors = [expr_cursors]

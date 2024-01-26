@@ -34,6 +34,7 @@ def optimize_level_1(proc, loop, params):
     loop = get_parent(proc, loop).body()[index_from_end]
 
     if interleave_factor == 1:
+        proc = replace_all_stmts(proc, instructions)
         return simplify(proc)
 
     # Tile to exploit ILP
