@@ -9,6 +9,7 @@ from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
 from introspection import *
+from composed_schedules import *
 
 
 def specialize_precision(template_proc, precision):
@@ -53,13 +54,10 @@ def export_exo_proc(globals, proc):
 
 def bind_builtins_args(proc, block, precision):
     stmt = InvalidCursor()
-    for c in nlr(proc, block):
+    for c in lrn(proc, block):
         if isinstance(c, BuiltInFunctionCursor):
             for arg in c.args():
-                proc = bind_expr(proc, arg, "arg")
-                stmt = proc.forward(stmt)
-                alloc = stmt.prev().prev()
-                proc = set_precision(proc, alloc, precision)
+                proc = bind_and_set_expr(proc, arg, precision, DRAM)
         elif isinstance(c, StmtCursor):
             stmt = c
     return proc

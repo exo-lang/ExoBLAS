@@ -31,6 +31,9 @@ def bind_and_set_expr(proc, exprs, precision, memory, new_name=None, rc=False):
     proc = set_precision(proc, new_name, precision)
     proc = set_memory(proc, new_name, memory)
 
+    if not rc:
+        return proc
+
     alloc = get_declaration(proc, stmt, new_name)
     bound_expr = alloc.next().rhs()
     # Disabled since forwarding after replace is not supported now
