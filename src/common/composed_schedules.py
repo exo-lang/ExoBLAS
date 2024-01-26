@@ -15,6 +15,33 @@ from higher_order import *
 
 
 @dataclass
+class fission_cursors:
+    scope1: ForCursor | IfCursor
+    scope2: ForCursor | IfCursor
+
+    def __iter__(self):
+        yield self.scope1
+        yield self.scope2
+
+
+def fission_(proc, gap, rc=False):
+    gap = proc.forward(gap)
+    stmt = gap.anchor()
+    is_after = stmt.after() is gap
+    proc = fission(proc, gap)
+
+    scope1 = proc.forward(stmt).parent()
+    scope2 = scope1.next()
+
+    if is_after:
+        scope1, scope2 = scope2, scope1
+
+    if rc:
+        return proc, fission_cursors(scope1, scope2)
+    return proc
+
+
+@dataclass
 class bind_and_set_expr_cursors:
     alloc: AllocCursor
     bound_expr: ExprCursor
@@ -420,7 +447,19 @@ def interleave_loop(proc, loop, divide=None, tail="cut"):
     return proc
 
 
-def hoist_stmt(proc, stmt):
+@dataclass
+class hoist_stmt_cursors:
+    allocs: list[AllocCursor]
+    stmt: StmtCursor
+    loop: ForCursor
+
+    def __iter__(self):
+        yield self.allocs
+        yield self.stmt
+        yield self.loop
+
+
+def hoist_stmt(proc, stmt, rc=False):
     """
     for i in seq(0, hi):
         B1;
@@ -455,38 +494,82 @@ def hoist_stmt(proc, stmt):
 
     # Alloc is a special case
     if isinstance(stmt, AllocCursor):
-        return lift_alloc(proc, stmt)
+        proc = lift_alloc(proc, stmt)
+        if not rc:
+            return proc
+        loop = proc.forward(loop)
+        stmt = proc.forward(stmt)
+        return proc, hoist_stmt_cursors([stmt], stmt, loop)
+
+    allocs = []
 
     # Reorder the statement to the top of the loop
     while not isinstance(stmt.prev(), InvalidCursor):
         prev_stmt = stmt.prev()
         if isinstance(prev_stmt, AllocCursor) and prev_stmt.name() in deps:
             proc = lift_alloc(proc, prev_stmt)
+            allocs.append(prev_stmt)
         else:
             proc = reorder_stmts(proc, stmt.expand(1, 0))
         stmt = proc.forward(stmt)
 
     # Pull the statement on its own outside the loop
     if len(loop.body()) > 1:
-        proc = fission(proc, stmt.after())
+        proc, (_, loop) = fission_(proc, stmt.after(), rc=True)
         stmt = proc.forward(stmt)
     proc = remove_loop(proc, stmt.parent())
-    return proc
+
+    if not rc:
+        return proc
+
+    allocs = [proc.forward(a) for a in allocs]
+    stmt = proc.forward(stmt)
+    loop = proc.forward(loop)
+    return proc, hoist_stmt_cursors(allocs, stmt, loop)
 
 
-def hoist_from_loop(proc, loop):
+@dataclass
+class hoist_from_loop_cursors:
+    allocs: list[AllocCursor]
+    stmts: list[StmtCursor]
+    loop: ForCursor
+
+    def __iter__(self):
+        yield self.allocs
+        yield self.stmts
+        yield self.loop
+
+
+def hoist_from_loop(proc, loop, rc=False):
     loop = proc.forward(loop)
 
     if not is_loop(proc, loop):
         raise BLAS_SchedulingError(f"loop must of type {ForCursor} not {type(loop)}")
 
+    rcs = []
+
     def hoist_non_alloc(proc, stmt):
         stmt = proc.forward(stmt)
         if isinstance(stmt, AllocCursor):
             return proc
-        return hoist_stmt(proc, stmt)
+        proc, cursors = hoist_stmt(proc, stmt, rc=True)
+        rcs.append(cursors)
+        return proc
 
-    return apply(attempt(hoist_non_alloc))(proc, loop.body())
+    proc = apply(attempt(hoist_non_alloc))(proc, loop.body())
+
+    if not rc:
+        return proc
+
+    if not rcs:
+        return proc, hoist_from_loop_cursors([], [], loop)
+
+    loop = rcs[-1].loop
+    allocs = [alloc for c in rcs for alloc in c.allocs]
+    stmts = [c.stmt for c in rcs]
+    allocs = [proc.forward(i) for i in allocs]
+    stmts = [proc.forward(i) for i in stmts]
+    return proc, hoist_from_loop_cursors(allocs, stmts, loop)
 
 
 def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=None, unroll=False):
