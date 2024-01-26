@@ -235,15 +235,15 @@ void exo_dasum_stride_any( void *ctxt, int_fast32_t n, struct exo_win_1f64c x, d
 double result_;
 result_ = 0.0;
 for (int_fast32_t i = 0; i < n; i++) {
-  double arg;
-  arg = 0.0;
-  double arg_1;
-  arg_1 = x.data[i * x.strides[0]];
-  double arg_2;
-  arg_2 = x.data[i * x.strides[0]];
-  double arg_3;
-  arg_3 = -x.data[i * x.strides[0]];
-  result_ += (double)(_select_((double)*&arg, (double)*&arg_1, (double)*&arg_2, (double)*&arg_3));
+  double var0;
+  var0 = 0.0;
+  double var1;
+  var1 = x.data[i * x.strides[0]];
+  double var2;
+  var2 = x.data[i * x.strides[0]];
+  double var3;
+  var3 = -x.data[i * x.strides[0]];
+  result_ += (double)(_select_((double)*&var0, (double)*&var1, (double)*&var2, (double)*&var3));
 }
 *result = result_;
 }
@@ -357,15 +357,15 @@ void exo_sasum_stride_any( void *ctxt, int_fast32_t n, struct exo_win_1f32c x, f
 float result_;
 result_ = 0.0;
 for (int_fast32_t i = 0; i < n; i++) {
-  float arg;
-  arg = 0.0;
-  float arg_1;
-  arg_1 = x.data[i * x.strides[0]];
-  float arg_2;
-  arg_2 = x.data[i * x.strides[0]];
-  float arg_3;
-  arg_3 = -x.data[i * x.strides[0]];
-  result_ += _select_((double)*&arg, (double)*&arg_1, (double)*&arg_2, (double)*&arg_3);
+  float var0;
+  var0 = 0.0;
+  float var1;
+  var1 = x.data[i * x.strides[0]];
+  float var2;
+  var2 = x.data[i * x.strides[0]];
+  float var3;
+  var3 = -x.data[i * x.strides[0]];
+  result_ += _select_((double)*&var0, (double)*&var1, (double)*&var2, (double)*&var3);
 }
 *result = result_;
 }
