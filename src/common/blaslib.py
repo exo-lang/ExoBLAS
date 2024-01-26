@@ -29,9 +29,7 @@ def optimize_level_1(proc, loop, params):
     proc = vectorize(proc, loop, vec_width, precision, mem_type, tail=tail)
 
     # Hoist any stmt
-    index_from_end = get_index_in_body(proc, loop, False)
-    proc = hoist_from_loop(proc, loop)
-    loop = get_parent(proc, loop).body()[index_from_end]
+    proc, (_, _, loop) = hoist_from_loop(proc, loop, rc=True)
 
     if interleave_factor == 1:
         return simplify(proc)

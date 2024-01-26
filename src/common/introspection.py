@@ -241,6 +241,7 @@ def get_index_in_body(proc, stmt, from_top=True):
 
 
 def get_parent(proc, stmt):
+    stmt = proc.forward(stmt)
     parent = stmt.parent()
     if isinstance(parent, InvalidCursor):
         parent = proc
