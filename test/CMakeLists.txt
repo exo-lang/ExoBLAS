@@ -12,7 +12,7 @@ target_include_directories(
 ##
 # Google Benchmark
 
-find_package(benchmark REQUIRED)
+find_package(benchmark QUIET)
 
 ## Python
 find_package(Python 3 REQUIRED Interpreter)
