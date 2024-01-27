@@ -228,20 +228,16 @@ class Microkernel:
             scheduled_microkernel,
             "C_reg",
             machine.vec_width,
-            "ji",
-            unsafe_disable_checks=True,
+            "ji"
         )
         scheduled_microkernel = expand_dim(
             scheduled_microkernel,
             "C_reg",
             M_blk // machine.vec_width,
-            f"jo",
-            unsafe_disable_checks=True,
+            f"jo"
         )
 
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel, "C_reg", M_r, "i", unsafe_disable_checks=True
-        )
+        scheduled_microkernel = expand_dim(scheduled_microkernel, "C_reg", M_r, "i")
         scheduled_microkernel = lift_alloc(scheduled_microkernel, "C_reg", n_lifts=4)
         scheduled_microkernel = autofission(
             scheduled_microkernel,
@@ -263,12 +259,9 @@ class Microkernel:
             scheduled_microkernel,
             "A_vec",
             machine.vec_width,
-            "ji",
-            unsafe_disable_checks=True,
+            "ji"
         )
-        scheduled_microkernel = expand_dim(
-            scheduled_microkernel, "A_vec", M_r, "i", unsafe_disable_checks=True
-        )
+        scheduled_microkernel = expand_dim(scheduled_microkernel, "A_vec", M_r, "i")
         scheduled_microkernel = set_precision(
             scheduled_microkernel, "A_vec", self.precision
         )
@@ -283,15 +276,13 @@ class Microkernel:
             scheduled_microkernel,
             "B_vec",
             machine.vec_width,
-            f"ji",
-            unsafe_disable_checks=True,
+            f"ji"
         )
         scheduled_microkernel = expand_dim(
             scheduled_microkernel,
             "B_vec",
             (M_blk // machine.vec_width),
-            f"jo",
-            unsafe_disable_checks=True,
+            f"jo"
         )
         scheduled_microkernel = set_precision(
             scheduled_microkernel, "B_vec", self.precision

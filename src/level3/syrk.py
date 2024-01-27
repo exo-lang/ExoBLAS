@@ -984,8 +984,7 @@ class SYRK:
                 k_microkernel_scheduled,
                 "C_reg",
                 self.machine.vec_width,
-                "ii",
-                unsafe_disable_checks=True,
+                "ii"
             )
             k_microkernel_scheduled = lift_alloc(
                 k_microkernel_scheduled, "C_reg", n_lifts=4
@@ -1017,15 +1016,13 @@ class SYRK:
                 k_microkernel_scheduled,
                 "A_vec",
                 self.machine.vec_width,
-                "ii",
-                unsafe_disable_checks=True,
+                "ii"
             )
             k_microkernel_scheduled = expand_dim(
                 k_microkernel_scheduled,
                 "A_vec",
                 self.K_blk,
-                "k",
-                unsafe_disable_checks=True,
+                "k"
             )
             k_microkernel_scheduled = set_precision(
                 k_microkernel_scheduled, "A_vec", self.precision
@@ -1045,15 +1042,13 @@ class SYRK:
                 k_microkernel_scheduled,
                 "B_vec",
                 self.machine.vec_width,
-                f"ii",
-                unsafe_disable_checks=True,
+                f"ii"
             )
             k_microkernel_scheduled = expand_dim(
                 k_microkernel_scheduled,
                 "B_vec",
                 1,
-                f"j",
-                unsafe_disable_checks=True,
+                f"j"
             )
             k_microkernel_scheduled = set_precision(
                 k_microkernel_scheduled, "B_vec", self.precision
