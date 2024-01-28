@@ -44,9 +44,7 @@ def optimize_level_1(proc, loop, params):
         proc, loop, interleave_factor, tail="cut"
     )
 
-    proc = parallelize_all_reductions(
-        proc, inner_loop, memory=mem_type, nth_loop=3, unroll=True
-    )
+    proc = parallelize_all_reductions(proc, loop, memory=mem_type, unroll=True)
 
     # Intereleave to increase ILP
     inner_loop = proc.forward(loop).body()[0]
@@ -72,7 +70,7 @@ def optimize_level_2(proc, params, reuse):
 
     proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width, tail=tail)
     proc = parallelize_all_reductions(
-        proc, proc.find_loop("jo"), memory=params.mem_type, nth_loop=2
+        proc, proc.find_loop("jo"), memory=params.mem_type
     )
     proc = unroll_and_jam_parent(
         proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)

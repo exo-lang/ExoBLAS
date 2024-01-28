@@ -248,6 +248,14 @@ def get_parent(proc, stmt):
     return parent
 
 
+def get_parents(proc, stmt):
+    stmt = proc.forward(stmt)
+    stmt = stmt.parent()
+    while not isinstance(stmt, InvalidCursor):
+        yield stmt
+        stmt = stmt.parent()
+
+
 def get_nth_inner_loop(proc, loop, n):
     loop = proc.forward(loop)
     inner_loops = list(filter(lambda s: is_loop(proc, s), loop.body()))
@@ -339,12 +347,12 @@ def get_depth(proc, cursor):
     return depth
 
 
-def get_lca(proc, cursor1, cursro2):
+def get_lca(proc, cursor1, cursor2):
     cursor1 = proc.forward(cursor1)
-    cursro2 = proc.forward(cursro2)
+    cursor2 = proc.forward(cursor2)
 
     depth1 = get_depth(proc, cursor1)
-    depth2 = get_depth(proc, cursro2)
+    depth2 = get_depth(proc, cursor2)
 
     if depth1 < depth2:
         cursor1, cursor2 = cursor2, cursor1
@@ -354,9 +362,9 @@ def get_lca(proc, cursor1, cursro2):
         cursor1 = cursor1.parent()
         depth1 -= 1
 
-    while cursor1 != cursro2:
+    while cursor1 != cursor2:
         cursor1 = cursor1.parent()
-        cursro2 = cursro2.parent()
+        cursor2 = cursor2.parent()
 
     return cursor1
 

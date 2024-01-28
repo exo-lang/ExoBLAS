@@ -669,7 +669,20 @@ def parallelize_reduction(
     return proc
 
 
-parallelize_all_reductions = make_pass(attempt(parallelize_reduction))
+def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=False):
+    loop = proc.forward(loop)
+
+    def rewrite(proc, s):
+        s = proc.forward(s)
+        nth_loop = 0
+        for parent in get_parents(proc, s):
+            if is_loop(proc, parent):
+                nth_loop += 1
+            if parent == loop:
+                break
+        return parallelize_reduction(proc, s, factor, memory, nth_loop, unroll)
+
+    return make_pass(attempt(rewrite))(proc, loop)
 
 
 def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
@@ -840,9 +853,7 @@ def vectorize_predicate_tail(
     rc=False,
 ):
 
-    proc = parallelize_all_reductions(
-        proc, loop, factor=vec_width, memory=mem_type, nth_loop=1
-    )
+    proc = parallelize_all_reductions(proc, loop, factor=vec_width, memory=mem_type)
 
     allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, loop))
     proc = apply(set_memory)(proc, allocs, mem_type)
@@ -883,7 +894,7 @@ def vectorize(
     # Tile to exploit vectorization
     proc, (outer, inner, _) = auto_divide_loop(proc, loop, vec_width, tail=tail)
 
-    proc = parallelize_all_reductions(proc, inner, memory=mem_type, nth_loop=2)
+    proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
     # Previous step calls fission which would change what
     # inner loop we are pointing at
