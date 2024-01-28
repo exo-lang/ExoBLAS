@@ -160,12 +160,14 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     )
     B_repacked_access_order = gemm.find("B_repacked_access_order : _")
     gemm = set_memory(gemm, B_repacked_access_order, DRAM_STATIC)
-    gemm = bound_alloc(
+    gemm = resize_dim(
         gemm,
         B_repacked_access_order,
-        [math.ceil(max_N / (best_n * params.vec_width)), max_K, None, None],
-        unsafe_disable_checks=True,
+        0,
+        math.ceil(max_N / (best_n * params.vec_width)),
+        0,
     )
+    gemm = resize_dim(gemm, B_repacked_access_order, 1, max_K, 0)
 
     # TODO: we don't want any template pattern matching here
     gemm = scalar_to_simd(
@@ -179,12 +181,8 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     )
     A_repacked_access_order = gemm.find("A_repacked_access_order : _")
     gemm = set_memory(gemm, A_repacked_access_order, DRAM_STATIC)
-    gemm = bound_alloc(
-        gemm,
-        A_repacked_access_order,
-        [math.ceil(max_M / best_m), max_K, None],
-        unsafe_disable_checks=True,
-    )
+    gemm = resize_dim(gemm, A_repacked_access_order, 0, math.ceil(max_M / best_m), 0)
+    gemm = resize_dim(gemm, A_repacked_access_order, 1, max_K, 0)
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
     gemm = unroll_loop(gemm, gemm.find_loop("ii"))
 
