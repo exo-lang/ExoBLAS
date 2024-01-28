@@ -25,11 +25,16 @@ def optimize_level_1(proc, loop, params):
 
     # Vectorization
     vectorize_tail = mem_type in {AVX2}
-    tail = "cut_and_predicate" if vectorize_tail else "cut"
-    proc = vectorize(proc, loop, vec_width, precision, mem_type, tail=tail)
+    tail = "predicate" if vectorize_tail else "cut"
+    proc, (loop,) = vectorize(
+        proc, loop, vec_width, precision, mem_type, tail=tail, rc=True
+    )
 
     # Hoist any stmt
-    proc, (_, _, loop) = hoist_from_loop(proc, loop, rc=True)
+    proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
+
+    if vectorize_tail:
+        proc = cut_tail_and_unguard(proc, loop)
 
     if interleave_factor == 1:
         return simplify(proc)
@@ -39,7 +44,9 @@ def optimize_level_1(proc, loop, params):
         proc, loop, interleave_factor, tail="cut"
     )
 
-    proc = parallelize_all_reductions(proc, inner_loop, mem_type, unroll=True)
+    proc = parallelize_all_reductions(
+        proc, inner_loop, memory=mem_type, nth_loop=3, unroll=True
+    )
 
     # Intereleave to increase ILP
     inner_loop = proc.forward(loop).body()[0]
@@ -47,7 +54,7 @@ def optimize_level_1(proc, loop, params):
 
     # Instructions Selection
     proc = replace_all_stmts(proc, instructions)
-    proc = simplify(proc)
+    proc = cleanup(proc)
     return proc
 
 
@@ -64,7 +71,9 @@ def optimize_level_2(proc, params, reuse):
     tail = "guard" if vectorize_tail else "cut"
 
     proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width, tail=tail)
-    proc = parallelize_all_reductions(proc, proc.find_loop("jo"), params.mem_type, 2)
+    proc = parallelize_all_reductions(
+        proc, proc.find_loop("jo"), memory=params.mem_type, nth_loop=2
+    )
     proc = unroll_and_jam_parent(
         proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)
     )

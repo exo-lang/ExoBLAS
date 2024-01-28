@@ -10,32 +10,6 @@
 
 
 /* relying on the following instruction..."
-avx2_prefix_sign_pd(dst,src,bound)
-
-{{
-__m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-__m256i prefix = _mm256_set1_epi64x({bound});
-__m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d src_sign = _mm256_mul_pd({src_data}, _mm256_set1_pd(-1.0f));
-{dst_data} = _mm256_blendv_pd ({dst_data}, src_sign, _mm256_castsi256_pd(cmp));
-}}
-
-*/
-
-/* relying on the following instruction..."
-avx2_prefix_sign_ps(dst,src,bound)
-
-{{
-__m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-__m256i prefix = _mm256_set1_epi32({bound});
-__m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 src_sign = _mm256_mul_ps({src_data}, _mm256_set1_ps(-1.0f));;
-{dst_data} = _mm256_blendv_ps ({dst_data}, src_sign, _mm256_castsi256_ps(cmp));
-}}
-
-*/
-
-/* relying on the following instruction..."
 avx2_sign_pd(dst,src)
 {dst_data} = _mm256_mul_pd({src_data}, _mm256_set1_pd(-1.0f));
 */
@@ -59,17 +33,11 @@ s_ = *s;
 double c_;
 c_ = *c;
 __m256d sReg;
-if (((3 + n) / (4)) - 1 > 0) {
-  sReg = _mm256_broadcast_sd((&s_));
-}
+sReg = _mm256_broadcast_sd((&s_));
 __m256d cReg;
-if (((3 + n) / (4)) - 1 > 0) {
-  cReg = _mm256_broadcast_sd((&c_));
-}
+cReg = _mm256_broadcast_sd((&c_));
 __m256d var3;
-if (((3 + n) / (4)) - 1 > 0) {
-  var3 = _mm256_mul_pd(sReg, _mm256_set1_pd(-1.0f));
-}
+var3 = _mm256_mul_pd(sReg, _mm256_set1_pd(-1.0f));
 for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
   __m256d xReg[4];
   __m256d yReg[4];
@@ -129,12 +97,9 @@ for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
   __m256d xReg;
   __m256d yReg;
-  __m256d sReg_1;
-  __m256d cReg_1;
   __m256d var0;
   __m256d var1;
   __m256d var2;
-  __m256d var3_1;
   __m256d var4;
   
        {
@@ -153,27 +118,11 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
        }
        
   
-    {
-    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
-    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    sReg_1 = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&s_)), _mm256_castsi256_pd(cmp));
-    }
-    
-  
-    {
-    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
-    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    cReg_1 = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&c_)), _mm256_castsi256_pd(cmp));
-    }
-    
-  
 {
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d mul = _mm256_mul_pd(sReg_1, yReg);
+__m256d mul = _mm256_mul_pd(sReg, yReg);
 var1 = _mm256_blendv_pd (var1, mul, _mm256_castsi256_pd(cmp));
 }
 
@@ -182,7 +131,7 @@ var1 = _mm256_blendv_pd (var1, mul, _mm256_castsi256_pd(cmp));
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), cReg_1, _mm256_castsi256_pd(cmp));
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), cReg, _mm256_castsi256_pd(cmp));
     var0 = _mm256_fmadd_pd(prefixed_src1, xReg, var1);
 }
 
@@ -199,16 +148,7 @@ var1 = _mm256_blendv_pd (var1, mul, _mm256_castsi256_pd(cmp));
 __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d src_sign = _mm256_mul_pd(sReg_1, _mm256_set1_pd(-1.0f));
-var3_1 = _mm256_blendv_pd (var3_1, src_sign, _mm256_castsi256_pd(cmp));
-}
-
-  
-{
-__m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-__m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
-__m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-__m256d mul = _mm256_mul_pd(cReg_1, yReg);
+__m256d mul = _mm256_mul_pd(cReg, yReg);
 var4 = _mm256_blendv_pd (var4, mul, _mm256_castsi256_pd(cmp));
 }
 
@@ -217,7 +157,7 @@ var4 = _mm256_blendv_pd (var4, mul, _mm256_castsi256_pd(cmp));
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), var3_1, _mm256_castsi256_pd(cmp));
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), var3, _mm256_castsi256_pd(cmp));
     var2 = _mm256_fmadd_pd(prefixed_src1, xReg, var4);
 }
 
@@ -267,17 +207,11 @@ s_ = *s;
 float c_;
 c_ = *c;
 __m256 sReg;
-if (((7 + n) / (8)) - 1 > 0) {
-  sReg = _mm256_broadcast_ss((&s_));
-}
+sReg = _mm256_broadcast_ss((&s_));
 __m256 cReg;
-if (((7 + n) / (8)) - 1 > 0) {
-  cReg = _mm256_broadcast_ss((&c_));
-}
+cReg = _mm256_broadcast_ss((&c_));
 __m256 var3;
-if (((7 + n) / (8)) - 1 > 0) {
-  var3 = _mm256_mul_ps(sReg, _mm256_set1_ps(-1.0f));
-}
+var3 = _mm256_mul_ps(sReg, _mm256_set1_ps(-1.0f));
 for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
   __m256 xReg[4];
   __m256 yReg[4];
@@ -337,12 +271,9 @@ for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
   __m256 xReg;
   __m256 yReg;
-  __m256 sReg_1;
-  __m256 cReg_1;
   __m256 var0;
   __m256 var1;
   __m256 var2;
-  __m256 var3_1;
   __m256 var4;
   
 {
@@ -361,27 +292,11 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
 }
 
   
-    {
-    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
-    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    sReg_1 = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&s_)), _mm256_castsi256_ps(cmp));
-    }
-    
-  
-    {
-    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
-    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    cReg_1 = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&c_)), _mm256_castsi256_ps(cmp));
-    }
-    
-  
 {
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 mul = _mm256_mul_ps(sReg_1, yReg);
+__m256 mul = _mm256_mul_ps(sReg, yReg);
 var1 = _mm256_blendv_ps (var1, mul, _mm256_castsi256_ps(cmp));
 }
 
@@ -390,7 +305,7 @@ var1 = _mm256_blendv_ps (var1, mul, _mm256_castsi256_ps(cmp));
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), cReg_1, _mm256_castsi256_ps(cmp));
+    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), cReg, _mm256_castsi256_ps(cmp));
     var0 = _mm256_fmadd_ps(prefixed_src1, xReg, var1);
 }
 
@@ -407,16 +322,7 @@ var1 = _mm256_blendv_ps (var1, mul, _mm256_castsi256_ps(cmp));
 __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
 __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
 __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 src_sign = _mm256_mul_ps(sReg_1, _mm256_set1_ps(-1.0f));;
-var3_1 = _mm256_blendv_ps (var3_1, src_sign, _mm256_castsi256_ps(cmp));
-}
-
-  
-{
-__m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-__m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
-__m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-__m256 mul = _mm256_mul_ps(cReg_1, yReg);
+__m256 mul = _mm256_mul_ps(cReg, yReg);
 var4 = _mm256_blendv_ps (var4, mul, _mm256_castsi256_ps(cmp));
 }
 
@@ -425,7 +331,7 @@ var4 = _mm256_blendv_ps (var4, mul, _mm256_castsi256_ps(cmp));
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), var3_1, _mm256_castsi256_ps(cmp));
+    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), var3, _mm256_castsi256_ps(cmp));
     var2 = _mm256_fmadd_ps(prefixed_src1, xReg, var4);
 }
 
@@ -499,30 +405,6 @@ mm256_mul_pd(out,x,y)
 /* relying on the following instruction..."
 mm256_mul_ps(out,x,y)
 {out_data} = _mm256_mul_ps({x_data}, {y_data});
-*/
-
-/* relying on the following instruction..."
-mm256_prefix_broadcast_sd_scalar(out,val,bound)
-
-    {{
-    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi64x({bound});
-    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    {out_data} = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd({val_data}), _mm256_castsi256_pd(cmp));
-    }}
-    
-*/
-
-/* relying on the following instruction..."
-mm256_prefix_broadcast_ss_scalar(out,val,bound)
-
-    {{
-    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi32({bound});
-    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    {out_data} = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss({val_data}), _mm256_castsi256_ps(cmp));
-    }}
-    
 */
 
 /* relying on the following instruction..."
