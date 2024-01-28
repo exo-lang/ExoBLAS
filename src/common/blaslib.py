@@ -39,20 +39,12 @@ def optimize_level_1(proc, loop, params):
     if interleave_factor == 1:
         return simplify(proc)
 
-    # Tile to exploit ILP
-    proc, (loop, inner_loop, _) = auto_divide_loop(
-        proc, loop, interleave_factor, tail="cut"
+    proc = interleave_loop(
+        proc, loop, interleave_factor, par_reduce=True, memory=mem_type
     )
 
-    proc = parallelize_all_reductions(proc, loop, memory=mem_type, unroll=True)
-
-    # Intereleave to increase ILP
-    inner_loop = proc.forward(loop).body()[0]
-    proc = interleave_loop(proc, inner_loop)
-
-    # Instructions Selection
-    proc = replace_all_stmts(proc, instructions)
     proc = cleanup(proc)
+    proc = replace_all_stmts(proc, instructions)
     return proc
 
 

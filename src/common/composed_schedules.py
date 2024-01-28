@@ -424,7 +424,7 @@ def scalar_to_simd(proc, loop_cursor, vec_width, memory_type, precision):
     return proc
 
 
-def interleave_loop(proc, loop, divide=None, tail="cut"):
+def interleave_loop(proc, loop, divide=None, par_reduce=False, memory=DRAM, tail="cut"):
     """
     for i in seq(0, c):
         S1
@@ -440,7 +440,13 @@ def interleave_loop(proc, loop, divide=None, tail="cut"):
     loop = proc.forward(loop)
 
     if divide is not None:
-        proc, (_, loop, _) = auto_divide_loop(proc, loop, divide, tail=tail)
+        proc, (outer, loop, _) = auto_divide_loop(proc, loop, divide, tail=tail)
+        if par_reduce:
+            proc = parallelize_all_reductions(proc, outer, memory=memory, unroll=True)
+            loop = proc.forward(outer).body()[0]
+    else:
+        if par_reduce:
+            proc = parallelize_all_reductions(proc, loop, memory=memory, unroll=True)
 
     allocs = filter(lambda s: isinstance(s, AllocCursor), loop.body())
     proc = apply(parallelize_and_lift_alloc)(proc, allocs)
