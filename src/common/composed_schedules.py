@@ -888,7 +888,7 @@ def vectorize(
     # Previous step calls fission which would change what
     # inner loop we are pointing at
     outer = proc.forward(outer)
-    inner = outer_loop.body()[0]
+    inner = outer.body()[0]
 
     allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner))
     proc = apply(set_memory)(proc, allocs, mem_type)
