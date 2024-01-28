@@ -43,4 +43,16 @@ def lift_rc(op, attr):
     return rewrite
 
 
-__all__ = ["apply", "attempt", "make_pass", "lift_rc"]
+def repeate(op):
+    op_attempt = attempt(op)
+
+    def rewrite(p, *args, **kwargs):
+        success = True
+        while success:
+            p, success = op_attempt(p, *args, **kwargs, rs=True)
+        return p
+
+    return rewrite
+
+
+__all__ = ["apply", "attempt", "make_pass", "lift_rc", "repeate"]

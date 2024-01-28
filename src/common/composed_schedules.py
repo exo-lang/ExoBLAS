@@ -534,13 +534,11 @@ def hoist_stmt(proc, stmt, rc=False):
 
 @dataclass
 class hoist_from_loop_cursors:
-    allocs: list[AllocCursor]
-    stmts: list[StmtCursor]
+    hoisted: list
     loop: ForCursor
 
     def __iter__(self):
-        yield self.allocs
-        yield self.stmts
+        yield self.hoisted
         yield self.loop
 
 
@@ -566,14 +564,48 @@ def hoist_from_loop(proc, loop, rc=False):
         return proc
 
     if not rcs:
-        return proc, hoist_from_loop_cursors([], [], loop)
+        return proc, hoist_from_loop_cursors([], loop)
 
     loop = rcs[-1].loop
-    allocs = [alloc for c in rcs for alloc in c.allocs]
-    stmts = [c.stmt for c in rcs]
-    allocs = [proc.forward(i) for i in allocs]
-    stmts = [proc.forward(i) for i in stmts]
-    return proc, hoist_from_loop_cursors(allocs, stmts, loop)
+    stmt_allocs = []
+    for cursors in rcs:
+        stmt = proc.forward(cursors.stmt)
+        allocs = tuple(proc.forward(alloc) for alloc in cursors.allocs)
+        stmt_allocs.append((stmt, allocs))
+    return proc, hoist_from_loop_cursors(stmt_allocs, loop)
+
+
+@dataclass
+class jam_stmt_cursors:
+    loop: ForCursor
+    stmt: StmtCursor
+
+    def __iter__(self):
+        yield self.loop
+        yield self.stmt
+
+
+def jam_stmt(proc, stmt, unsafe_disable_check=False, rc=False):
+    stmt = proc.forward(stmt)
+    loop = stmt.next()
+    if not is_loop(proc, loop):
+        raise BLAS_SchedulingError("Next statement must be a loop.")
+
+    proc = add_loop(
+        proc, stmt, loop.name(), FormattedExprStr("_ - _", loop.hi(), loop.lo())
+    )
+    stmt = proc.forward(stmt)
+    stmt_loop = proc.forward(stmt).parent()
+    proc = shift_loop(proc, stmt_loop, FormattedExprStr("_", loop.lo()))
+    proc = simplify(proc)
+    proc = fuse(proc, stmt_loop, loop, unsafe_disable_check=unsafe_disable_check)
+    proc = repeate(reorder_stmt_forward)(proc, stmt)
+
+    if not rc:
+        return proc
+    stmt = proc.forward(stmt)
+    stmt_loop = proc.forward(stmt_loop)
+    return proc, jam_stmt_cursors(stmt_loop, stmt)
 
 
 def parallelize_reduction(
@@ -752,11 +784,7 @@ def fission_into_singles(proc, cursor):
     cursor = proc.forward(cursor)
 
     def dfs(proc, cursor, n_lifts=0):
-        if (
-            n_lifts
-            and not is_end_of_body(proc, cursor)
-            and not isinstance(cursor, (ForCursor, IfCursor))
-        ):
+        if n_lifts and not is_end_of_body(proc, cursor):
             proc = fission(proc, cursor.after(), n_lifts)
         children = get_children(proc, cursor)
         children = filter(lambda s: isinstance(s, StmtCursor), children)
@@ -766,7 +794,42 @@ def fission_into_singles(proc, cursor):
     return dfs(proc, cursor)
 
 
-def vectorize_guard_tail(
+@dataclass
+class divide_and_predicate_stmts_cursors:
+    outer_loop: ForCursor
+    inner_loop: ForCursor
+
+    def __iter__(self):
+        yield self.outer_loop
+        yield self.inner_loop
+
+
+def divide_and_predicate_stmts(proc, loop, factor, rc=True):
+    proc, (hoisted, loop) = hoist_from_loop(proc, loop, rc=True)
+    proc, (outer, inner, _) = auto_divide_loop(proc, loop, factor, tail="guard")
+    proc = simplify(proc)
+    proc = fission_into_singles(proc, inner.body()[0])
+    for (stmt, allocs) in hoisted[::-1]:
+        proc, (outer, _) = jam_stmt(proc, stmt, unsafe_disable_check=True, rc=True)
+        proc, (inner, _) = jam_stmt(proc, stmt, unsafe_disable_check=True, rc=True)
+        proc = apply(sink_alloc)(proc, allocs)
+        proc = apply(sink_alloc)(proc, allocs)
+    if not rc:
+        return proc
+    outer = proc.forward(outer)
+    inner = proc.forward(inner)
+    return proc, divide_and_predicate_stmts_cursors(outer, inner)
+
+
+@dataclass
+class vectorize_cursors:
+    loop: ForCursor
+
+    def __iter__(self):
+        yield self.loop
+
+
+def vectorize_predicate_tail(
     proc,
     loop,
     vec_width,
@@ -774,37 +837,32 @@ def vectorize_guard_tail(
     mem_type,
     instructions=[],
     tail="cut_and_predicate",
+    rc=False,
 ):
 
     proc = parallelize_all_reductions(
         proc, loop, factor=vec_width, memory=mem_type, nth_loop=1
     )
 
-    # Tile to exploit vectorization
-    divide_tail = "guard" if tail in {"predicate", "cut_and_predicate"} else tail
-    proc, (outer_loop, inner_loop, _) = auto_divide_loop(
-        proc, loop, vec_width, tail=divide_tail
-    )
-    proc = simplify(proc)
-
-    # Previous step calls fission which would change what
-    # inner loop we are pointing at
-    outer_loop = proc.forward(outer_loop)
-    inner_loop = outer_loop.body()[0]
-
-    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner_loop))
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, loop))
     proc = apply(set_memory)(proc, allocs, mem_type)
 
     children_ops = [fma_rule, abs_rule]
-    proc = stage_compute(proc, inner_loop, precision, mem_type, children_ops)
-    proc = fission_into_singles(proc, inner_loop)
+    proc = stage_compute(proc, loop, precision, mem_type, children_ops)
+
+    proc, (outer, inner) = divide_and_predicate_stmts(proc, loop, vec_width, rc=True)
+    proc = simplify(proc)
+    proc = fission_into_singles(proc, inner)
 
     if tail == "cut_and_predicate":
-        proc = cut_tail_and_unguard(proc, outer_loop)
+        proc = cut_tail_and_unguard(proc, outer)
 
     proc = replace_all_stmts(proc, instructions)
 
-    return proc
+    if not rc:
+        return proc
+    outer = proc.forward(outer)
+    return proc, vectorize_cursors(outer)
 
 
 def vectorize(
@@ -815,34 +873,35 @@ def vectorize(
     mem_type,
     instructions=[],
     tail="cut_and_predicate",
+    rc=True,
 ):
     if tail in {"predicate", "cut_and_predicate"}:
-        return vectorize_guard_tail(
-            proc, loop, vec_width, precision, mem_type, instructions, tail
+        return vectorize_predicate_tail(
+            proc, loop, vec_width, precision, mem_type, instructions, tail, rc
         )
 
     # Tile to exploit vectorization
-    proc, (outer_loop, inner_loop, _) = auto_divide_loop(
-        proc, loop, vec_width, tail=tail
-    )
+    proc, (outer, inner, _) = auto_divide_loop(proc, loop, vec_width, tail=tail)
 
-    proc = parallelize_all_reductions(proc, inner_loop, mem_type, 2)
+    proc = parallelize_all_reductions(proc, inner, mem_type, 2)
 
     # Previous step calls fission which would change what
     # inner loop we are pointing at
-    outer_loop = proc.forward(outer_loop)
-    inner_loop = outer_loop.body()[0]
+    outer = proc.forward(outer)
+    inner = outer_loop.body()[0]
 
-    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner_loop))
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner))
     proc = apply(set_memory)(proc, allocs, mem_type)
 
     children_ops = [fma_rule, abs_rule]
-    proc = stage_compute(proc, inner_loop, precision, mem_type, children_ops)
-    proc = fission_into_singles(proc, inner_loop)
+    proc = stage_compute(proc, inner, precision, mem_type, children_ops)
+    proc = fission_into_singles(proc, inner)
 
     proc = replace_all_stmts(proc, instructions)
-
-    return proc
+    if not rc:
+        return proc
+    outer = proc.forward(outer)
+    return proc, vectorize_cursors(outer)
 
 
 def tile_loops_top_down(proc, loop_tile_pairs):
@@ -1231,3 +1290,15 @@ def cleanup(proc):
     except SchedulingError:
         pass
     return proc
+
+
+def reorder_stmt_forward(proc, stmt):
+    stmt = proc.forward(stmt)
+    block = stmt.as_block().expand(0, 1)
+    return reorder_stmts(proc, block)
+
+
+def reorder_stmt_backwards(proc, stmt):
+    stmt = proc.forward(stmt)
+    block = stmt.as_block().expand(-1, 0)
+    return reorder_stmts(proc, block)

@@ -109,9 +109,7 @@ void exo_daxpy_stride_1( void *ctxt, int_fast32_t n, const double* alpha, struct
 double alpha_;
 alpha_ = *alpha;
 __m256d var2;
-if (((3 + n) / (4)) - 1 > 0) {
-  var2 = _mm256_broadcast_sd((&alpha_));
-}
+var2 = _mm256_broadcast_sd((&alpha_));
 for (int_fast32_t ioo = 0; ioo < ((((3 + n) / (4)) - 1) / (4)); ioo++) {
   __m256d var0[4];
   __m256d var1[4];
@@ -145,7 +143,6 @@ for (int_fast32_t ioi = 0; ioi < (((3 + n) / (4)) - 1) % 4; ioi++) {
 for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
   __m256d var0;
   __m256d var1;
-  __m256d var2_1;
   __m256d var3;
   
        {
@@ -155,14 +152,6 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
             var1 = _mm256_maskload_pd(&y.data[4 * io], cmp);
        }
        
-  
-    {
-    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
-    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    var2_1 = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd((&alpha_)), _mm256_castsi256_pd(cmp));
-    }
-    
   
        {
             __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
@@ -176,7 +165,7 @@ for (int_fast32_t io = ((3 + n) / (4)) - 1; io < ((3 + n) / (4)); io++) {
     __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi64x((-(4 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), var2_1, _mm256_castsi256_pd(cmp));
+    __m256d prefixed_src1 = _mm256_blendv_pd(_mm256_setzero_pd(), var2, _mm256_castsi256_pd(cmp));
     var0 = _mm256_fmadd_pd(prefixed_src1, var3, var1);
 }
 
@@ -306,9 +295,7 @@ void exo_saxpy_stride_1( void *ctxt, int_fast32_t n, const float* alpha, struct 
 float alpha_;
 alpha_ = *alpha;
 __m256 var2;
-if (((7 + n) / (8)) - 1 > 0) {
-  var2 = _mm256_broadcast_ss((&alpha_));
-}
+var2 = _mm256_broadcast_ss((&alpha_));
 for (int_fast32_t ioo = 0; ioo < ((((7 + n) / (8)) - 1) / (4)); ioo++) {
   __m256 var0[4];
   __m256 var1[4];
@@ -342,7 +329,6 @@ for (int_fast32_t ioi = 0; ioi < (((7 + n) / (8)) - 1) % 4; ioi++) {
 for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
   __m256 var0;
   __m256 var1;
-  __m256 var2_1;
   __m256 var3;
   
 {
@@ -352,14 +338,6 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     var1 = _mm256_maskload_ps(&y.data[8 * io], cmp);
 }
 
-  
-    {
-    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
-    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    var2_1 = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss((&alpha_)), _mm256_castsi256_ps(cmp));
-    }
-    
   
 {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
@@ -373,7 +351,7 @@ for (int_fast32_t io = ((7 + n) / (8)) - 1; io < ((7 + n) / (8)); io++) {
     __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
     __m256i prefix = _mm256_set1_epi32((-(8 * io) + n));
     __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), var2_1, _mm256_castsi256_ps(cmp));
+    __m256 prefixed_src1 = _mm256_blendv_ps (_mm256_setzero_ps(), var2, _mm256_castsi256_ps(cmp));
     var0 = _mm256_fmadd_ps(prefixed_src1, var3, var1);
 }
 
@@ -467,30 +445,6 @@ __m256 add = _mm256_add_ps({x_data}, {y_data});
 {out_data} = _mm256_blendv_ps ({out_data}, add, _mm256_castsi256_ps(cmp));
 }}
 
-*/
-
-/* relying on the following instruction..."
-mm256_prefix_broadcast_sd_scalar(out,val,bound)
-
-    {{
-    __m256i indices = _mm256_set_epi64x(3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi64x({bound});
-    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    {out_data} = _mm256_blendv_pd (_mm256_setzero_pd(), _mm256_broadcast_sd({val_data}), _mm256_castsi256_pd(cmp));
-    }}
-    
-*/
-
-/* relying on the following instruction..."
-mm256_prefix_broadcast_ss_scalar(out,val,bound)
-
-    {{
-    __m256i indices = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-    __m256i prefix = _mm256_set1_epi32({bound});
-    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
-    {out_data} = _mm256_blendv_ps (_mm256_setzero_ps(), _mm256_broadcast_ss({val_data}), _mm256_castsi256_ps(cmp));
-    }}
-    
 */
 
 /* relying on the following instruction..."

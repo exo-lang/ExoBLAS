@@ -25,11 +25,16 @@ def optimize_level_1(proc, loop, params):
 
     # Vectorization
     vectorize_tail = mem_type in {AVX2}
-    tail = "cut_and_predicate" if vectorize_tail else "cut"
-    proc = vectorize(proc, loop, vec_width, precision, mem_type, tail=tail)
+    tail = "predicate" if vectorize_tail else "cut"
+    proc, (loop,) = vectorize(
+        proc, loop, vec_width, precision, mem_type, tail=tail, rc=True
+    )
 
     # Hoist any stmt
-    proc, (_, _, loop) = hoist_from_loop(proc, loop, rc=True)
+    proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
+
+    if vectorize_tail:
+        proc = cut_tail_and_unguard(proc, loop)
 
     if interleave_factor == 1:
         return simplify(proc)
