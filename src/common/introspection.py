@@ -54,7 +54,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
                 yield from stmt.orelse()
         elif isinstance(stmt, CallCursor):
             yield from stmt.args()
-        elif isinstance(stmts, WindowStmtCursor):
+        elif isinstance(stmt, WindowStmtCursor):
             yield stmt.idx()
         elif isinstance(stmt, AssignConfigCursor):
             yield stmt.rhs()
@@ -93,7 +93,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
 
 def _get_cursors(proc, cursor=InvalidCursor(), node_first=False, lr=True):
 
-    if not isinstance(cursor, InvalidCursor):
+    if not isinstance(cursor, (InvalidCursor, ExprListCursor, BlockCursor)):
         cursor = proc.forward(cursor)
 
     def dfs(cursor):
@@ -307,6 +307,11 @@ def is_sin(proc, expr):
 def is_literal(proc, expr, value):
     expr = proc.forward(expr)
     return isinstance(expr, LiteralCursor) and expr.value() == value
+
+
+def is_reduce(proc, reduce):
+    reduce = proc.forward(reduce)
+    return isinstance(reduce, ReduceCursor)
 
 
 def is_unary_minus(proc, expr):

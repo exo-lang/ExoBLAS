@@ -217,6 +217,10 @@ def auto_divide_loop(proc, loop_cursor, div_const, tail="guard", perfect=False):
     else:
         tail_loop = outer_loop.next()
 
+    outer_loop = proc.forward(outer_loop)
+    inner_loop = proc.forward(inner_loop)
+    if not isinstance(tail_loop, InvalidCursor):
+        tail_loop = proc.forward(tail_loop)
     return proc, auto_divide_loop_cursors(outer_loop, inner_loop, tail_loop)
 
 
@@ -572,67 +576,65 @@ def hoist_from_loop(proc, loop, rc=False):
     return proc, hoist_from_loop_cursors(allocs, stmts, loop)
 
 
-def parallelize_reduction(proc, reduc_stmt, memory=DRAM, nth_loop=None, unroll=False):
+def parallelize_reduction(
+    proc, reduce_stmt, factor=None, memory=DRAM, nth_loop=1, unroll=False
+):
     # Auto-coersion
     if isinstance(unroll, bool):
         unroll = (unroll, unroll)
 
-    reduc_stmt = proc.forward(reduc_stmt)
+    reduce_stmt = proc.forward(reduce_stmt)
 
-    def rewrite(proc, reduc_stmt, memory, nth_loop, unroll):
-        reduc_loop = get_enclosing_loop(proc, reduc_stmt, nth_loop)
+    if not is_reduce(proc, reduce_stmt):
+        raise TypeError(f"reduce_stmt must of type {ReduceCursor}")
 
-        # Stage reduction around the loop we are reducing over
-        proc = reorder_loops(proc, reduc_loop)
-        # This will effectively check that the lhs is actually a reduction over the loop
-        proc = auto_stage_mem(
-            proc,
-            reduc_stmt,
-            next(get_unique_names(proc)),
-            n_lifts=nth_loop - 1,
-            accum=True,
+    reduce_loop = get_enclosing_loop(proc, reduce_stmt, nth_loop)
+
+    if factor is not None:
+        proc, (reduce_loop, _, _) = auto_divide_loop(
+            proc, reduce_loop, factor, tail="guard"
         )
         proc = simplify(proc)
+        nth_loop += 1
 
-        # Set the memory of the newly created buffer
-        reduc_loop = proc.forward(reduc_loop)
-        alloc = reduc_loop.prev().prev()
-        proc = set_memory(proc, alloc, memory)
+    # Stage reduction around the loop we are reducing over
+    proc = reorder_loops(proc, reduce_loop)
+    proc = auto_stage_mem(
+        proc,
+        reduce_stmt,
+        next(get_unique_names(proc)),
+        n_lifts=nth_loop - 1,
+        accum=True,
+    )
+    proc = simplify(proc)
 
-        # Parallelize the reduction
-        reduc_loop = proc.forward(reduc_loop)
-        proc = parallelize_and_lift_alloc(proc, reduc_loop.prev().prev())
+    # Set the memory of the newly created buffer
+    reduce_loop = proc.forward(reduce_loop)
+    alloc = reduce_loop.prev().prev()
+    proc = set_memory(proc, alloc, memory)
 
-        # Fission the zero and store-back stages
-        proc = fission(proc, reduc_loop.before())
-        proc = fission(proc, reduc_loop.after())
+    # Parallelize the reduction
+    reduce_loop = proc.forward(reduce_loop)
+    proc = parallelize_and_lift_alloc(proc, reduce_loop.prev().prev())
 
-        # Reorder the loop nest back
-        reduc_loop = proc.forward(reduc_loop)
-        proc = reorder_loops(proc, reduc_loop.parent())
+    # Fission the zero and store-back stages
+    proc = fission(proc, reduce_loop.before())
+    proc = fission(proc, reduce_loop.after())
 
-        # Unroll any loops
-        reduc_loop = proc.forward(reduc_loop)
-        if unroll[0]:
-            proc = unroll_loop(proc, reduc_loop.prev())
-        if unroll[1]:
-            proc = unroll_loop(proc, reduc_loop.next())
+    # Reorder the loop nest back
+    reduce_loop = proc.forward(reduce_loop)
+    proc = reorder_loops(proc, reduce_loop.parent())
 
-        return proc
+    # Unroll any loops
+    reduce_loop = proc.forward(reduce_loop)
+    if unroll[0]:
+        proc = unroll_loop(proc, reduce_loop.prev())
+    if unroll[1]:
+        proc = unroll_loop(proc, reduce_loop.next())
 
-    if nth_loop is None:
-        nth_loop = 2
-        while True:
-            try:
-                get_enclosing_loop(proc, reduc_stmt, nth_loop)
-            except BLAS_SchedulingError:
-                raise BLAS_SchedulingError("Could not find a candidate loop")
-            try:
-                return rewrite(proc, reduc_stmt, memory, nth_loop, unroll)
-            except (ValueError, SchedulingError, BLAS_SchedulingError):
-                nth_loop += 1
-    else:
-        return rewrite(proc, reduc_stmt, memory, nth_loop, unroll)
+    if factor is not None:
+        proc = undo_divide_and_guard_loop(proc, reduce_loop)
+    return proc
 
 
 parallelize_all_reductions = make_pass(attempt(parallelize_reduction))
@@ -764,6 +766,47 @@ def fission_into_singles(proc, cursor):
     return dfs(proc, cursor)
 
 
+def vectorize_guard_tail(
+    proc,
+    loop,
+    vec_width,
+    precision,
+    mem_type,
+    instructions=[],
+    tail="cut_and_predicate",
+):
+
+    proc = parallelize_all_reductions(
+        proc, loop, factor=vec_width, memory=mem_type, nth_loop=1
+    )
+
+    # Tile to exploit vectorization
+    divide_tail = "guard" if tail in {"predicate", "cut_and_predicate"} else tail
+    proc, (outer_loop, inner_loop, _) = auto_divide_loop(
+        proc, loop, vec_width, tail=divide_tail
+    )
+    proc = simplify(proc)
+
+    # Previous step calls fission which would change what
+    # inner loop we are pointing at
+    outer_loop = proc.forward(outer_loop)
+    inner_loop = outer_loop.body()[0]
+
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner_loop))
+    proc = apply(set_memory)(proc, allocs, mem_type)
+
+    children_ops = [fma_rule, abs_rule]
+    proc = stage_compute(proc, inner_loop, precision, mem_type, children_ops)
+    proc = fission_into_singles(proc, inner_loop)
+
+    if tail == "cut_and_predicate":
+        proc = cut_tail_and_unguard(proc, outer_loop)
+
+    proc = replace_all_stmts(proc, instructions)
+
+    return proc
+
+
 def vectorize(
     proc,
     loop,
@@ -773,10 +816,14 @@ def vectorize(
     instructions=[],
     tail="cut_and_predicate",
 ):
+    if tail in {"predicate", "cut_and_predicate"}:
+        return vectorize_guard_tail(
+            proc, loop, vec_width, precision, mem_type, instructions, tail
+        )
+
     # Tile to exploit vectorization
-    divide_tail = "guard" if tail in {"predicate", "cut_and_predicate"} else tail
     proc, (outer_loop, inner_loop, _) = auto_divide_loop(
-        proc, loop, vec_width, tail=divide_tail
+        proc, loop, vec_width, tail=tail
     )
 
     proc = parallelize_all_reductions(proc, inner_loop, mem_type, 2)
@@ -791,11 +838,7 @@ def vectorize(
 
     children_ops = [fma_rule, abs_rule]
     proc = stage_compute(proc, inner_loop, precision, mem_type, children_ops)
-
     proc = fission_into_singles(proc, inner_loop)
-
-    if tail == "cut_and_predicate":
-        proc = cut_tail_and_unguard(proc, outer_loop)
 
     proc = replace_all_stmts(proc, instructions)
 
@@ -1141,4 +1184,50 @@ def replace_all_stmts(proc, instructions):
                 break
             except:
                 pass
+    return proc
+
+
+def bound_loop_by_if(proc, loop):
+    loop = proc.forward(loop)
+    err = "Expected loop to be of the following structure:\nfor iter in seq(lo, hi):\n\t if iter < e:"
+    if len(loop.body()) != 1 or not isinstance(loop.body()[0], IfCursor):
+        raise BLAS_SchedulingError(err)
+
+    if_c = loop.body()[0]
+    if not isinstance(if_c.orelse(), InvalidCursor):
+        raise BLAS_SchedulingError(err)
+
+    if (
+        not isinstance(if_c.cond().lhs(), ReadCursor)
+        or if_c.cond().lhs().name() != loop.name()
+        or if_c.cond().op() != "<"
+    ):
+        raise BLAS_SchedulingError(err)
+
+    if_c = loop.body()[0]
+    proc = cut_loop(proc, loop, FormattedExprStr("_ + _", loop.lo(), if_c.cond().rhs()))
+    loop1 = proc.forward(loop)
+    loop2 = loop1.next()
+    proc = eliminate_dead_code(proc, loop1.body()[0])
+    proc = eliminate_dead_code(proc, loop2.body()[0])
+    # proc = delete_pass(proc, loop2), but it doesn't forward it
+    return proc
+
+
+def undo_divide_and_guard_loop(proc, loop):
+    loop = proc.forward(loop)
+    proc = mult_loops(proc, loop, loop.name()[:-1])
+    proc = simplify(proc)
+    proc = bound_loop_by_if(proc, loop)
+    return proc
+
+
+def cleanup(proc):
+    proc = simplify(proc)
+    proc = dce(proc)
+    try:
+        proc.find("pass")
+        proc = delete_pass(proc)
+    except SchedulingError:
+        pass
     return proc
