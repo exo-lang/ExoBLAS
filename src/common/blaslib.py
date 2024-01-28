@@ -48,50 +48,15 @@ def optimize_level_1(proc, loop, params):
     return proc
 
 
-def optimize_level_2(proc, params, reuse):
-    proc = generate_stride_1_proc(proc, params.precision)
-
-    # Taking a subspace of the 2D iteration dimension
-    proc, _ = auto_divide_loop(
-        proc, proc.find_loop("i"), params.rows_interleave_factor, tail="cut"
+def optimize_level_2(proc, outer_loop, params, reuse):
+    rows_factor = params.interleave_factor
+    inner_loop = get_inner_loop(proc, outer_loop)
+    proc, (outer_loop_o, outer_loop_i, _) = auto_divide_loop(
+        proc, outer_loop, rows_factor, tail="cut"
     )
-
-    # Determine the tail strategy
-    vectorize_tail = params.mem_type in {AVX2}
-    tail = "guard" if vectorize_tail else "cut"
-
-    proc, _ = auto_divide_loop(proc, proc.find_loop("j"), params.vec_width, tail=tail)
-    proc = parallelize_all_reductions(
-        proc, proc.find_loop("jo"), memory=params.mem_type
-    )
-    proc = unroll_and_jam_parent(
-        proc, proc.find_loop("jo"), params.rows_interleave_factor, (True, False, True)
-    )
-
-    # Data reuse across rows
-    proc = simplify(auto_stage_mem(proc, proc.find(reuse), "shared", n_lifts=2))
-    proc = set_memory(proc, "shared", params.mem_type)  # Simply to avoid a vector copy
-
-    # Generate SIMD
-    proc = scalar_to_simd(
-        proc,
-        proc.find_loop("ii").body()[0],
-        params.vec_width,
-        params.mem_type,
-        params.precision,
-    )
-
-    # Interleave multiple rows dots
-    proc = interleave_loop(proc, proc.find_loop("ii"))
-
-    # Separate the tail case
-    if vectorize_tail:
-        loop = proc.find_loop("jo")
-        proc = cut_loop(proc, loop, FormattedExprStr("_ - 1", loop.hi()))
-        proc = dce(proc, loop)
-
-    # Instruction Selection
-    proc = replace_all_stmts(proc, params.instructions)
+    proc = unroll_and_jam(proc, outer_loop_i, rows_factor)
+    proc = stage_mem(proc, proc.forward(inner_loop).body(), reuse, "tmp")
+    proc = optimize_level_1(proc, inner_loop, params)
     return simplify(proc)
 
 
