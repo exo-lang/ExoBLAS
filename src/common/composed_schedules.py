@@ -883,7 +883,7 @@ def vectorize(
     # Tile to exploit vectorization
     proc, (outer, inner, _) = auto_divide_loop(proc, loop, vec_width, tail=tail)
 
-    proc = parallelize_all_reductions(proc, inner, mem_type, 2)
+    proc = parallelize_all_reductions(proc, inner, memory=mem_type, nth_loop=2)
 
     # Previous step calls fission which would change what
     # inner loop we are pointing at
