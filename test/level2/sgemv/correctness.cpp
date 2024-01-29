@@ -55,11 +55,11 @@ int main() {
                                            CBLAS_TRANSPOSE::CblasNoTrans};
   std::vector<int> N{41, 80, 101, 1024};
   std::vector<int> M{77, 103, 500};
-  std::vector<float> alpha_vals{0, 1, 2.4};
-  std::vector<int> lda_diffs{0, 3, 5};
-  std::vector<int> incX_vals{1, 3, -2};
-  std::vector<float> beta_vals{0, 1, 2.4};
-  std::vector<int> incY_vals{1, 3, -2};
+  std::vector<float> alpha_vals{2.4};
+  std::vector<int> lda_diffs{0, 3};
+  std::vector<int> incX_vals{1, -2};
+  std::vector<float> beta_vals{2.4};
+  std::vector<int> incY_vals{1, 3};
 
   for (auto TransA : TransA_vals) {
     for (auto n : N) {

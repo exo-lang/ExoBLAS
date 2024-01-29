@@ -54,8 +54,8 @@ def gemv_row_major_Trans(
 ### EXO_LOC SCHEDULE START ###
 
 template_sched_list = [
-    (optimize_level_2, gemv_row_major_NonTrans, "x[_]"),
-    (optimize_level_2, gemv_row_major_Trans, "y[_] += _"),
+    (optimize_level_2, gemv_row_major_NonTrans, "x[j]"),
+    (optimize_level_2, gemv_row_major_Trans, "y[j]"),
 ]
 
 for precision in ("f32", "f64"):
@@ -64,12 +64,12 @@ for precision in ("f32", "f64"):
         params = Level_2_Params(
             precision=precision,
             rows_interleave_factor=4,
-            cols_interleave_factor=1,
-            accumulators_count=1,
         )
         export_exo_proc(globals(), proc_stride_any)
+        proc_stride_1 = generate_stride_1_proc(template, precision)
         proc_stride_1 = sched(
-            template,
+            proc_stride_1,
+            proc_stride_1.find_loop("i"),
             params,
             reuse,
         )

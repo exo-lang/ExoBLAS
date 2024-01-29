@@ -712,15 +712,16 @@ def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=Fals
 
     def rewrite(proc, s):
         s = proc.forward(s)
+        reduc_loop = proc.forward(loop)
         nth_loop = 0
         for parent in get_parents(proc, s):
             if is_loop(proc, parent):
                 nth_loop += 1
-            if parent == loop:
+            if parent == reduc_loop:
                 break
         return parallelize_reduction(proc, s, factor, memory, nth_loop, unroll)
 
-    return make_pass(attempt(rewrite))(proc, loop)
+    return make_pass(attempt(rewrite))(proc, loop.body())
 
 
 def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
@@ -890,9 +891,7 @@ def vectorize_predicate_tail(
     tail="cut_and_predicate",
     rc=False,
 ):
-
     proc = parallelize_all_reductions(proc, loop, factor=vec_width, memory=mem_type)
-
     allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, loop))
     proc = apply(set_memory)(proc, allocs, mem_type)
 
