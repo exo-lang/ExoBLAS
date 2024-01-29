@@ -55,6 +55,7 @@ def optimize_level_2(proc, outer_loop, params, reuse):
         proc, outer_loop, rows_factor, tail="cut"
     )
     proc = unroll_and_jam(proc, outer_loop_i, rows_factor)
+    proc = unroll_buffers(proc, outer_loop_o)
     proc = stage_mem(proc, proc.forward(inner_loop).body(), reuse, "tmp")
     proc = optimize_level_1(proc, inner_loop, params)
     return simplify(proc)
