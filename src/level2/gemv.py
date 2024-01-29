@@ -20,33 +20,25 @@ from parameters import Level_1_Params, Level_2_Params
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def gemv_row_major_NonTrans(
-    m: size, n: size, alpha: R, beta: R, A: [R][m, n], x: [R][n], y: [R][m]
-):
+def gemv_rm_nt(m: size, n: size, alpha: R, beta: R, A: [R][m, n], x: [R][n], y: [R][m]):
     assert stride(A, 1) == 1
 
     for i in seq(0, m):
-        result: R
-        result = 0.0
+        y[i] = y[i] * beta
         for j in seq(0, n):
-            result += x[j] * A[i, j]
-        y[i] = beta * y[i] + alpha * result
+            y[i] += alpha * (x[j] * A[i, j])
 
 
-@proc
-def gemv_row_major_Trans(
-    m: size, n: size, alpha: R, beta: R, A: [R][m, n], x: [R][m], y: [R][n]
-):
-    assert stride(A, 1) == 1
+gemv_rm_t = gemv_rm_nt.transpose(gemv_rm_nt.args()[4])
+gemv_rm_t = rename(gemv_rm_t, "gemv_rm_t")
 
-    for k in seq(0, n):
-        y[k] = beta * y[k]
-    for i in seq(0, m):
-        alphaXi: R
-        alphaXi = alpha * x[i]
-        for j in seq(0, n):
-            y[j] += alphaXi * A[i, j]
+gemv_rm_nt = stage_mem(
+    gemv_rm_nt, gemv_rm_nt.find_loop("j"), "y[i]", "result", accum=True
+)
+gemv_rm_nt = lift_reduce_constant(gemv_rm_nt, gemv_rm_nt.find_loop("j").expand(1, 0))
 
+gemv_rm_t = fission(gemv_rm_t, gemv_rm_t.find_loop("j").before())
+gemv_rm_t = reorder_loops(gemv_rm_t, gemv_rm_t.find_loop("i #1"))
 
 ### EXO_LOC ALGORITHM END ###
 
@@ -54,22 +46,24 @@ def gemv_row_major_Trans(
 ### EXO_LOC SCHEDULE START ###
 
 template_sched_list = [
-    (optimize_level_2, gemv_row_major_NonTrans, "x[j]"),
-    (optimize_level_2, gemv_row_major_Trans, "y[j]"),
+    (optimize_level_2, gemv_rm_nt, "i", "x[j]"),
+    (optimize_level_2, gemv_rm_t, "j", "y[i]"),
 ]
 
 for precision in ("f32", "f64"):
-    for sched, template, reuse in template_sched_list:
+    for sched, template, it, reuse in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         params = Level_2_Params(
             precision=precision,
             rows_interleave_factor=4,
+            interleave_factor=2,
+            accumulators_count=2,
         )
         export_exo_proc(globals(), proc_stride_any)
         proc_stride_1 = generate_stride_1_proc(template, precision)
         proc_stride_1 = sched(
             proc_stride_1,
-            proc_stride_1.find_loop("i"),
+            proc_stride_1.find_loop(it),
             params,
             reuse,
         )
