@@ -39,6 +39,7 @@ gemv_rm_nt = lift_reduce_constant(gemv_rm_nt, gemv_rm_nt.find_loop("j").expand(1
 
 gemv_rm_t = fission(gemv_rm_t, gemv_rm_t.find_loop("j").before())
 gemv_rm_t = reorder_loops(gemv_rm_t, gemv_rm_t.find_loop("i #1"))
+gemv_rm_t = left_reassociate_expr(gemv_rm_t, gemv_rm_t.find("alpha * _"))
 
 ### EXO_LOC ALGORITHM END ###
 

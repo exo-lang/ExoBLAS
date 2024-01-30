@@ -49,7 +49,7 @@ def optimize_level_1(proc, loop, params):
 
 
 def optimize_level_2(proc, outer_loop, params, reuse):
-    rows_factor = params.interleave_factor
+    rows_factor = params.rows_interleave_factor
     inner_loop = get_inner_loop(proc, outer_loop)
     proc, (outer_loop_o, outer_loop_i, _) = auto_divide_loop(
         proc, outer_loop, rows_factor, tail="cut"
