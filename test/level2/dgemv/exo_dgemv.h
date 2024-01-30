@@ -32,7 +32,7 @@ void exo_dgemv(const enum CBLAS_ORDER order, const enum CBLAS_TRANSPOSE TransA,
     }
   } else {
     if (incX == 1 && incY == 1) {
-      exo_dgemv_rm_t_stride_1(nullptr, M, N, &alpha, &beta,
+      exo_dgemv_rm_t_stride_1(nullptr, N, M, &alpha, &beta,
                               exo_win_2f64c{.data = A, .strides = {lda, 1}},
                               exo_win_1f64c{.data = X, .strides = {incX}},
                               exo_win_1f64{.data = Y, .strides = {incY}});
@@ -43,7 +43,7 @@ void exo_dgemv(const enum CBLAS_ORDER order, const enum CBLAS_TRANSPOSE TransA,
       if (incY < 0) {
         Y = Y + (1 - N) * incY;
       }
-      exo_dgemv_rm_t_stride_any(nullptr, M, N, &alpha, &beta,
+      exo_dgemv_rm_t_stride_any(nullptr, N, M, &alpha, &beta,
                                 exo_win_2f64c{.data = A, .strides = {lda, 1}},
                                 exo_win_1f64c{.data = X, .strides = {incX}},
                                 exo_win_1f64{.data = Y, .strides = {incY}});
