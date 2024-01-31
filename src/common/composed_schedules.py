@@ -659,6 +659,11 @@ def parallelize_reduction(
         raise TypeError(f"reduce_stmt must of type {ReduceCursor}")
 
     reduce_loop = get_enclosing_loop(proc, reduce_stmt, nth_loop)
+    control_vars = get_symbols(proc, reduce_stmt.idx())
+    if reduce_loop.name() in control_vars:
+        raise BLAS_SchedulingError(
+            "Statement isn't a reduction over the specified loop."
+        )
 
     if factor is not None:
         proc, (reduce_loop, _, _) = auto_divide_loop(
@@ -671,9 +676,8 @@ def parallelize_reduction(
     proc = reorder_loops(proc, reduce_loop)
     proc = auto_stage_mem(
         proc,
-        reduce_stmt,
-        next(get_unique_names(proc)),
-        n_lifts=nth_loop - 1,
+        reduce_loop,
+        reduce_stmt.name(),
         accum=True,
     )
     proc = simplify(proc)
@@ -1026,47 +1030,105 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
     return proc
 
 
-def auto_stage_mem(proc, cursor, new_buff_name=None, n_lifts=1, accum=False):
-    if not isinstance(cursor, (ReadCursor, ReduceCursor, AssignCursor)):
-        raise BLAS_SchedulingError("auto_stage_mem expects a read a cursor")
-
+def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False):
     if new_buff_name is None:
         new_buff_name = next(get_unique_names(proc))
 
-    cursor = proc.forward(cursor)
+    if not isinstance(block, BlockCursor):
+        block = proc.forward(block)
+        block = block.as_block()
 
-    lo = []
-    hi = []
-    loops = []
-    for n in range(1, n_lifts + 1):
-        loop = get_enclosing_loop(proc, cursor, n)
-        loops.append(loop)
+    block_nodes = list(lrn(proc, block))
+    block_loops = list(filter(lambda s: is_loop(proc, s), block_nodes))
+    block_accesses = filter(
+        lambda s: is_access(proc, s) and s.name() == buff, block_nodes
+    )
 
-    subst = {}
-    for i in range(len(loops) - 1, -1, -1):
-        loop = loops[i]
-        subst[loop.name()] = f"(({expr_to_string(loop.hi(), subst)})-1)"
-
-    for idx in cursor.idx():
-        hi.append(expr_to_string(idx, subst))
-
-    for key in subst:
-        subst[key] = 0
-
-    for idx in cursor.idx():
-        lo.append(expr_to_string(idx, subst))
-
-    def ith_idx(i):
-        if lo[i] == hi[i]:
-            return lo[i]
+    def eval_rng(expr, env):
+        expr = proc.forward(expr)
+        if is_binop(proc, expr):
+            lhs_rng = eval_rng(expr.lhs(), env)
+            rhs_rng = eval_rng(expr.rhs(), env)
+            join = lambda l, op, r: f"({l}) {op} ({r})"
+            rng_l = join(lhs_rng[0], expr.op(), rhs_rng[0])
+            rng_r = join(lhs_rng[1], expr.op(), rhs_rng[1])
+            if is_add(proc, expr) or is_sub(proc, expr):
+                return (rng_l, rng_r)
+            else:
+                rng = (rng_l, rng_r)
+                if is_literal(proc, expr.rhs()):
+                    if expr.rhs().value() < 0:
+                        rng = rng[::-1]
+                elif is_literal(proc, expr.lhs()):
+                    if expr.lhs().value() < 0:
+                        rng = rng[::-1]
+                else:
+                    assert False, "Unreachable case"
+                return rng
+        elif is_unary_minus(proc, expr):
+            rng = eval_rng(expr.arg(), env)
+            return (f"-({rng[1]})", f"-({rng[0]})")
+        elif is_read(proc, expr):
+            if expr.name() in env:
+                return env[expr.name()]
+            else:
+                read = f"{expr.name()}"
+                return (read, read)
+        elif is_literal(proc, expr):
+            val = f"{expr.value()}"
+            return (val, val)
         else:
-            return f"{lo[i]}:(({hi[i]})+1)"
+            assert False, "Unreachable case"
 
-    window = ",".join([ith_idx(i) for i in range(len(cursor.idx()))])
-    window = f"{cursor.name()}[{window}]" if window else cursor.name()
-    block = cursor if n_lifts == 0 else loops[-1]
-    block = block if isinstance(block, StmtCursor) else get_enclosing_stmt(proc, block)
-    return stage_mem(proc, block, window, new_buff_name, accum=accum)
+    def get_window(cursor):
+        parents = get_parents(proc, cursor)
+        my_loops = list(filter(lambda s: s in block_loops, parents))
+        my_loops = my_loops[::-1]
+        env = {}
+        for loop in my_loops:
+            lo_rng = eval_rng(loop.lo(), env)
+            hi_rng = eval_rng(loop.hi(), env)
+            env[loop.name()] = (lo_rng[0], hi_rng[1])
+        window = tuple(eval_rng(idx, env) for idx in cursor.idx())
+        return window
+
+    def my_stage_mem(proc, window):
+        def get_dim_win(dim):
+            if dim[0] == dim[1]:
+                return dim[0]
+            return f"{dim[0]}:{dim[1]}"
+
+        dims = [get_dim_win(i) for i in window]
+        window = ",".join(dims)
+        window = f"{buff}[{window}]" if window else buff
+        return attempt(stage_mem, errs=tuple())(
+            proc, block, window, new_buff_name, accum, rs=True
+        )
+
+    declaration = get_declaration(proc, block[0], buff)
+    if not declaration.is_tensor():
+        return stage_mem(proc, block, buff, new_buff_name, accum)
+
+    # Start with the window as the entire buffer
+    buff_window = [["0", eval_rng(dim, {})[0]] for dim in declaration.shape()]
+    final_proc, success = my_stage_mem(proc, buff_window)
+    assert success
+
+    # Get the window per access
+    accessess_windows = [get_window(access) for access in block_accesses]
+
+    # Tighten each dimension and side of the buffer window
+    for i, dim in enumerate(buff_window):
+        for access_window in accessess_windows:
+            for side in range(0, 2):
+                old_side = dim[side]
+                dim[side] = access_window[i][side]
+                new_proc, success = my_stage_mem(proc, buff_window)
+                if success:
+                    final_proc = new_proc
+                else:
+                    dim[side] = old_side
+    return final_proc
 
 
 def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
@@ -1178,7 +1240,7 @@ def unfold_reduce(proc, reduce):
     if not isinstance(reduce, ReduceCursor):
         raise BLAS_SchedulingError("Expected a reduce cursor")
 
-    proc = auto_stage_mem(proc, reduce, n_lifts=0)
+    proc = auto_stage_mem(proc, reduce, reduce.name())
     reduce = proc.forward(reduce)
     alloc = reduce.prev().prev()
     proc = merge_writes(proc, reduce.as_block().expand(delta_lo=1, delta_hi=0))

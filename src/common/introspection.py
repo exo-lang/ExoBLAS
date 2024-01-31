@@ -21,7 +21,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
 
     def expr_children(expr):
         if isinstance(expr, (ReadCursor, WindowExprCursor)):
-            yield expr.idx()
+            yield from expr.idx()
         elif isinstance(expr, UnaryMinusCursor):
             yield expr.arg()
         elif isinstance(expr, BinaryOpCursor):
@@ -39,9 +39,9 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
     def stmt_children(stmt):
         if isinstance(stmt, AllocCursor):
             if stmt.is_tensor():
-                yield stmt.shape()
+                yield from stmt.shape()
         elif isinstance(stmt, (AssignCursor, ReduceCursor)):
-            yield stmt.idx()
+            yield from stmt.idx()
             yield stmt.rhs()
         elif isinstance(stmt, ForCursor):
             yield stmt.lo()
@@ -55,7 +55,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         elif isinstance(stmt, CallCursor):
             yield from stmt.args()
         elif isinstance(stmt, WindowStmtCursor):
-            yield stmt.idx()
+            yield from stmt.idx()
         elif isinstance(stmt, AssignConfigCursor):
             yield stmt.rhs()
         elif isinstance(stmt, PassCursor):
@@ -153,7 +153,7 @@ def get_declaration(proc, ctxt, name):
     for arg in proc.args():
         if arg.name() == name:
             return arg
-    return None
+    raise BLAS_SchedulingError("Declaration not found!")
 
 
 def get_unique_names(proc):
@@ -270,29 +270,29 @@ def get_inner_loop(proc, loop):
     return get_nth_inner_loop(proc, loop, 0)
 
 
-def is_op(proc, expr, op):
+def is_binop(proc, expr, op=None):
     expr = proc.forward(expr)
-    return isinstance(expr, BinaryOpCursor) and expr.op() == op
+    return isinstance(expr, BinaryOpCursor) and (op is None or expr.op() == op)
 
 
 def is_add(proc, expr):
-    return is_op(proc, expr, "+")
+    return is_binop(proc, expr, "+")
 
 
 def is_sub(proc, expr):
-    return is_op(proc, expr, "-")
+    return is_binop(proc, expr, "-")
 
 
 def is_mul(proc, expr):
-    return is_op(proc, expr, "*")
+    return is_binop(proc, expr, "*")
 
 
 def is_div(proc, expr):
-    return is_op(proc, expr, "/")
+    return is_binop(proc, expr, "/")
 
 
 def is_mod(proc, expr):
-    return is_op(proc, expr, "%")
+    return is_binop(proc, expr, "%")
 
 
 def is_builtin(proc, expr, name):
@@ -312,14 +312,28 @@ def is_sin(proc, expr):
     return is_builtin(proc, expr, "sin")
 
 
-def is_literal(proc, expr, value):
+def is_literal(proc, expr, value=None):
     expr = proc.forward(expr)
-    return isinstance(expr, LiteralCursor) and expr.value() == value
+    return isinstance(expr, LiteralCursor) and (value is None or expr.value() == value)
 
 
 def is_reduce(proc, reduce):
     reduce = proc.forward(reduce)
     return isinstance(reduce, ReduceCursor)
+
+
+def is_assign(proc, assign):
+    assign = proc.forward(assign)
+    return isinstance(assign, AssignCursor)
+
+
+def is_read(proc, read):
+    read = proc.forward(read)
+    return isinstance(read, ReadCursor)
+
+
+def is_access(proc, access):
+    return is_read(proc, access) or is_reduce(proc, access) or is_assign(proc, access)
 
 
 def is_unary_minus(proc, expr):

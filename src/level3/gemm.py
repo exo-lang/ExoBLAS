@@ -80,9 +80,8 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = reorder_loops(gemm, k_loop)
 
     fma_stmt = inner_j_loop.body()[0]
-
     # Stage C tile outside the outer product and into accelerator memory
-    gemm = simplify(auto_stage_mem(gemm, fma_stmt, "C_reg", n_lifts=3, accum=True))
+    gemm = simplify(auto_stage_mem(gemm, gemm.find_loop("k"), "C", "C_reg", accum=True))
 
     k_loop = gemm.forward(k_loop)
     C_reg_alloc = k_loop.prev().prev()
@@ -98,7 +97,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     B_read = fma_stmt.rhs().rhs()  # We are assuming B is the rhs
 
     # Stage B vector to load once across rows
-    gemm = simplify(auto_stage_mem(gemm, B_read, "B_reg", n_lifts=2))
+    gemm = simplify(auto_stage_mem(gemm, gemm.find_loop("ii"), "B", "B_reg"))
 
     inner_i_loop = gemm.forward(inner_i_loop)
     B_reg_alloc = inner_i_loop.prev().prev()

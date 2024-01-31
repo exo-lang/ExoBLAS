@@ -59,8 +59,8 @@ sad = simplify(sad)
 sad = stage_expr(sad, sad.find("tmp_reg"), "tmp_reg1", memory=AVX2)
 
 # binding x and y
-sad = auto_stage_mem(sad, sad.find("x[_]"), "xReg", n_lifts=2)
-sad = auto_stage_mem(sad, sad.find("y[_]"), "yReg", n_lifts=2)
+sad = auto_stage_mem(sad, sad.find_loop("ioi"), "x", "xReg")
+sad = auto_stage_mem(sad, sad.find_loop("ioi"), "y", "yReg")
 sad = simplify(sad)
 sad = set_memory(sad, "xReg:_", AVX2)
 sad = set_memory(sad, "yReg:_", AVX2)
