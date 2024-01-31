@@ -20,7 +20,6 @@ from exo.stdlib.scheduling import *
 from exo import proc, instr, DRAM, config, ExoType
 from composed_schedules import (
     tile_loops,
-    auto_stage_mem,
     get_enclosing_loop,
     auto_divide_loop,
 )
