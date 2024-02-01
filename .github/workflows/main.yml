@@ -13,7 +13,7 @@ jobs:
         include:
           - runner: ubuntu-latest
             CC: gcc
-            CXX: g++3
+            CXX: g++
             PRESET: avx2
           - runner: macos-14
             CC: clang # This will be system AppleClang
@@ -60,6 +60,8 @@ jobs:
           path: BLAS-repo
 
       - name: Configure CMake
+        env:
+          CMAKE_PREFIX_PATH: ${{github.workspace}}/benchmark/build
         run: cmake ${{github.workspace}}/BLAS-repo -B ${{github.workspace}}/BLAS-repo/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} --preset ${{matrix.PRESET}}
 
       - name: Build
