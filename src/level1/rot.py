@@ -10,11 +10,7 @@ import exo.API_cursors as pc
 import exo_blas_config as C
 from composed_schedules import *
 from blaslib import *
-from codegen_helpers import (
-    generate_stride_any_proc,
-    export_exo_proc,
-    generate_stride_1_proc,
-)
+from codegen_helpers import *
 from parameters import Level_1_Params
 
 ### EXO_LOC ALGORITHM START ###
@@ -34,12 +30,6 @@ def rot_template(n: size, x: [R][n], y: [R][n], c: R, s: R):
 def schedule_rot_stride_1(rot, params):
     rot = generate_stride_1_proc(rot, params.precision)
     loop_cursor = rot.find_loop("i")
-    rot = bind_expr(rot, rot.find("y[_]", many=True), "yReg")
-    rot = set_precision(rot, "yReg", params.precision)
-    rot = bind_expr(rot, rot.find("s_", many=True), "sReg")
-    rot = set_precision(rot, "sReg", params.precision)
-    rot = bind_expr(rot, rot.find("c_", many=True), "cReg")
-    rot = set_precision(rot, "cReg", params.precision)
     rot = optimize_level_1(rot, loop_cursor, params)
     return rot
 

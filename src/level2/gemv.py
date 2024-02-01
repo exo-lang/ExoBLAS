@@ -47,12 +47,12 @@ gemv_rm_t = left_reassociate_expr(gemv_rm_t, gemv_rm_t.find("alpha * _"))
 ### EXO_LOC SCHEDULE START ###
 
 template_sched_list = [
-    (optimize_level_2, gemv_rm_nt, "i", "x[j]"),
-    (optimize_level_2, gemv_rm_t, "j", "y[i]"),
+    (optimize_level_2, gemv_rm_nt, "i"),
+    (optimize_level_2, gemv_rm_t, "j"),
 ]
 
 for precision in ("f32", "f64"):
-    for sched, template, it, reuse in template_sched_list:
+    for sched, template, it in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         params = Level_2_Params(
             precision=precision,
@@ -66,7 +66,6 @@ for precision in ("f32", "f64"):
             proc_stride_1,
             proc_stride_1.find_loop(it),
             params,
-            reuse,
         )
         export_exo_proc(globals(), proc_stride_1)
 

@@ -167,6 +167,16 @@ def get_unique_names(proc):
         yield name
 
 
+def is_stmt(proc, stmt):
+    stmt = proc.forward(stmt)
+    return isinstance(stmt, StmtCursor)
+
+
+def is_if(proc, if_c):
+    if_c = proc.forward(if_c)
+    return isinstance(if_c, IfCursor)
+
+
 def is_loop(proc, loop):
     loop = proc.forward(loop)
     return isinstance(loop, ForCursor)
@@ -226,6 +236,13 @@ def get_enclosing_stmt(proc, cursor, n=1):
     for i in range(n):
         cursor = get_enclosing_scope(proc, cursor, StmtCursor)
     return cursor
+
+
+def get_my_stmt(proc, cursor):
+    cursor = proc.forward(cursor)
+    if isinstance(cursor, StmtCursor):
+        return cursor
+    return get_enclosing_stmt(proc, cursor)
 
 
 def get_index_in_body(proc, stmt, from_top=True):
@@ -416,3 +433,14 @@ def are_exprs_equal(proc, expr1, expr2):
         return True
 
     return check(expr1, expr2)
+
+
+def is_copy(proc, assign):
+    assign = proc.forward(assign)
+    if not is_assign(proc, assign):
+        return False
+    if not is_read(proc, assign.rhs()):
+        return False
+    lhs_decl = get_declaration(proc, assign, assign.name())
+    rhs_decl = get_declaration(proc, assign, assign.rhs().name())
+    return lhs_decl.mem() is rhs_decl.mem()

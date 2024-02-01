@@ -23,6 +23,8 @@ def optimize_level_1(proc, loop, params):
 
     loop = proc.forward(loop)
 
+    proc = cse(proc, loop.body())
+
     # Vectorization
     vectorize_tail = mem_type in {AVX2}
     tail = "predicate" if vectorize_tail else "cut"
@@ -48,7 +50,7 @@ def optimize_level_1(proc, loop, params):
     return proc
 
 
-def optimize_level_2(proc, outer_loop, params, reuse):
+def optimize_level_2(proc, outer_loop, params):
     rows_factor = params.rows_interleave_factor
     inner_loop = get_inner_loop(proc, outer_loop)
     proc, (outer_loop_o, outer_loop_i, _) = auto_divide_loop(
@@ -56,7 +58,6 @@ def optimize_level_2(proc, outer_loop, params, reuse):
     )
     proc = unroll_and_jam(proc, outer_loop_i, rows_factor)
     proc = unroll_buffers(proc, outer_loop_o)
-    proc = stage_mem(proc, proc.forward(inner_loop).body(), reuse, "tmp")
     proc = optimize_level_1(proc, inner_loop, params)
     return simplify(proc)
 

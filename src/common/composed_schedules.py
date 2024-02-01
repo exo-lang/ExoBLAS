@@ -60,6 +60,9 @@ def bind_and_set_expr(proc, exprs, precision, memory, new_name=None, rc=False):
 
     alloc = get_declaration(proc, stmt, new_name)
     bound_expr = alloc.next().rhs()
+
+    if not rc:
+        return proc
     # Disabled since forwarding after replace is not supported now
     # exprs = [proc.forward(e) for e in exprs]
     return proc, bind_and_set_expr_cursors(alloc, bound_expr, exprs)
@@ -104,6 +107,14 @@ def expr_to_string(expr_cursor, subst={}):
         raise BLAS_SchedulingError("WindowExprCursor is not supported")
     else:
         assert False, "Undefined Type"
+
+
+def type_to_str(typ):
+    if typ is ExoType.F32:
+        return "f32"
+    elif typ is ExoType.F64:
+        return "f64"
+    raise BLAS_SchedulingError(f"Unsupported type {typ}")
 
 
 def get_statement(cursor):
@@ -1030,7 +1041,34 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
     return proc
 
 
-def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False):
+@dataclass
+class stage_mem_cursors:
+    alloc: AllocCursor
+    load_stage: Cursor
+    block: BlockCursor
+    store_stage: Cursor
+
+
+def stage_mem_(proc, block, buff, new_buff_name, accum=False, rc=False):
+    if not isinstance(block, BlockCursor):
+        block = proc.forward(block)
+        block = block.as_block()
+
+    block_first = block[0]
+    block_last = block[-1]
+    proc = stage_mem(proc, block, buff, new_buff_name, accum)
+    block_first = proc.forward(block_first)
+    block_last = proc.forward(block_last)
+    alloc = block_first.prev().prev()
+    load_stage = block_first.prev()
+    block = block_first.as_block().expand(0, len(block) - 1)
+    store_stage = block_last.next()
+    if not rc:
+        return proc
+    return proc, stage_mem_cursors(alloc, load_stage, block, store_stage)
+
+
+def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False):
     if new_buff_name is None:
         new_buff_name = next(get_unique_names(proc))
 
@@ -1092,7 +1130,7 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False):
         window = tuple(eval_rng(idx, env) for idx in cursor.idx())
         return window
 
-    def my_stage_mem(proc, window):
+    def window_to_str(window):
         def get_dim_win(dim):
             if dim[0] == dim[1]:
                 return dim[0]
@@ -1101,6 +1139,10 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False):
         dims = [get_dim_win(i) for i in window]
         window = ",".join(dims)
         window = f"{buff}[{window}]" if window else buff
+        return window
+
+    def my_stage_mem(proc, window):
+        window = window_to_str(window)
         return attempt(stage_mem, errs=tuple())(
             proc, block, window, new_buff_name, accum, rs=True
         )
@@ -1111,7 +1153,7 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False):
 
     # Start with the window as the entire buffer
     buff_window = [["0", eval_rng(dim, {})[0]] for dim in declaration.shape()]
-    final_proc, success = my_stage_mem(proc, buff_window)
+    _, success = my_stage_mem(proc, buff_window)
     assert success
 
     # Get the window per access
@@ -1124,11 +1166,10 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False):
                 old_side = dim[side]
                 dim[side] = access_window[i][side]
                 new_proc, success = my_stage_mem(proc, buff_window)
-                if success:
-                    final_proc = new_proc
-                else:
+                if not success:
                     dim[side] = old_side
-    return final_proc
+    window = window_to_str(buff_window)
+    return stage_mem_(proc, block, window, new_buff_name, accum, rc=rc)
 
 
 def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
@@ -1333,7 +1374,10 @@ def stage_compute(
     assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
     exprs = [assign.rhs() for assign in assigns]
     proc = apply(stage)(proc, exprs)
+    # TODO: uncomment once bug in Exo is fixed
+    # proc = inline_copies(proc, block)
     proc = make_pass(attempt(fold_into_reduce))(proc, block)
+    proc = dealiasing_pass(proc, block)
     return proc
 
 
@@ -1530,3 +1574,72 @@ def binary_specialize(proc, stmt, expr, values, rc=False):
         except InvalidCursorError:
             pass
     return proc, binary_specialize_cursors(filtered_stmts)
+
+
+def cse(proc, block):
+    if not isinstance(block, BlockCursor):
+        block = proc.forward(block).as_block()
+
+    nodes = list(lrn(proc, block))
+
+    if any(is_loop(proc, c) or is_if(proc, c) for c in block):
+        raise BLAS_SchedulingError("Block cannot have inner scopes within it")
+
+    # First do CSE on the buffer accesses
+    accesses = filter(lambda c: is_access(proc, c), nodes)
+    accesses = filter(lambda c: is_stmt(proc, c) or c.type().is_numeric(), accesses)
+
+    buff_map = {}
+
+    for access in accesses:
+        idx_ac = buff_map.setdefault(access.name(), {})
+        idx_str = expr_to_string(access.idx())
+        idx_ac.setdefault(idx_str, []).append(access)
+
+    for buff, idx_map in buff_map.items():
+        for idx, access_list in idx_map.items():
+            if len(access_list) > 1:
+                indexed_access_list = []
+                for access in access_list:
+                    stmt = get_my_stmt(proc, access)
+                    idnex = get_index_in_body(proc, stmt)
+                    indexed_access_list.append((stmt, idnex))
+                indexed_access_list = sorted(indexed_access_list, key=lambda k: k[1])
+                diff = indexed_access_list[-1][1] - indexed_access_list[0][1]
+                staging_block = indexed_access_list[0][0].as_block().expand(0, diff)
+                proc = auto_stage_mem(proc, staging_block, buff)
+                break
+    return proc
+
+
+inline_copies = make_pass(predicate(attempt(inline_assign), is_copy))
+
+
+def dealias(proc, stmt):
+    stmt = proc.forward(stmt)
+
+    if not is_assign(proc, stmt) and not is_reduce(proc, stmt):
+        raise TypeError("stmt must be an assign or reduce")
+
+    nodes = list(lrn(proc, stmt.rhs()))
+
+    accesses = filter(lambda c: is_access(proc, c), nodes)
+    accesses = filter(lambda c: is_stmt(proc, c) or c.type().is_numeric(), accesses)
+
+    buff_map = {}
+    for access in accesses:
+        buff_map.setdefault(access.name(), []).append(access)
+
+    for buff, buff_accesses in buff_map.items():
+        for access in buff_accesses[:-1]:
+            decl = get_declaration(proc, stmt, access.name())
+            proc = bind_and_set_expr(proc, access, type_to_str(decl.type()), decl.mem())
+
+    if stmt.name() in buff_map:
+        decl = get_declaration(proc, stmt, stmt.name())
+        proc = bind_and_set_expr(proc, stmt.rhs(), type_to_str(decl.type()), decl.mem())
+
+    return proc
+
+
+dealiasing_pass = make_pass(attempt(dealias, errs=(TypeError,)))
