@@ -26,6 +26,15 @@ def apply(op):
     return rewrite
 
 
+def predicate(op, pred):
+    def rewrite(proc, *args, **kwargs):
+        if pred(proc, *args, **kwargs):
+            proc = op(proc, *args, **kwargs)
+        return proc
+
+    return rewrite
+
+
 def make_pass(op):
     def rewrite(proc, block=InvalidCursor(), *args, **kwargs):
         stmts = nlr_stmts(proc, block)
@@ -55,4 +64,4 @@ def repeate(op):
     return rewrite
 
 
-__all__ = ["apply", "attempt", "make_pass", "lift_rc", "repeate"]
+__all__ = ["apply", "attempt", "make_pass", "lift_rc", "repeate", "predicate"]

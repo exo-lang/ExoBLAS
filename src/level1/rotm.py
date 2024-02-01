@@ -52,10 +52,7 @@ def rotm_template_flag_one(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
 
 def schedule_rotm_stride_1(rotm, params):
     rotm = generate_stride_1_proc(rotm, params.precision)
-
     loop_cursor = rotm.find_loop("i")
-    rotm = bind_expr(rotm, rotm.find("y[_]", many=True), "yReg")
-    rotm = set_precision(rotm, "yReg", params.precision)
     rotm = optimize_level_1(rotm, loop_cursor, params)
     return rotm
 

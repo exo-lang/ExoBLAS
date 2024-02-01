@@ -697,6 +697,28 @@ def avx2_prefix_fused_load_cvtps_pd(
             dst[i] = src[i]
 
 
+@instr("{dst_data} = {src_data};")
+def avx2_prefix_reg_copy_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound < 8
+
+    for i in seq(0, 8):
+        if i < bound:
+            dst[i] = src[i]
+
+
+@instr("{dst_data} = {src_data};")
+def avx2_prefix_reg_copy_pd(dst: [f64][4] @ AVX2, src: [f64][4] @ AVX2, bound: size):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound < 4
+
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = src[i]
+
+
 Machine = MachineParameters(
     name="avx2",
     mem_type=AVX2,
@@ -731,6 +753,7 @@ Machine = MachineParameters(
     reduce_add_wide_instr_f32=avx2_reduce_add_wide_ps,
     prefix_reduce_add_wide_instr_f32=avx2_prefix_reduce_add_wide_ps,
     reg_copy_instr_f32=avx2_reg_copy_ps,
+    prefix_reg_copy_instr_f32=avx2_prefix_reg_copy_ps,
     sign_instr_f32=avx2_sign_ps,
     prefix_sign_instr_f32=avx2_prefix_sign_ps,
     select_instr_f32=avx2_select_ps,
@@ -761,6 +784,7 @@ Machine = MachineParameters(
     prefix_reduce_add_wide_instr_f64=avx2_prefix_reduce_add_wide_pd,
     assoc_reduce_add_f64_buffer=avx2_assoc_reduce_add_pd_buffer,
     reg_copy_instr_f64=avx2_reg_copy_pd,
+    prefix_reg_copy_instr_f64=avx2_prefix_reg_copy_pd,
     sign_instr_f64=avx2_sign_pd,
     prefix_sign_instr_f64=avx2_prefix_sign_pd,
     select_instr_f64=avx2_select_pd,

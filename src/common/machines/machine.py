@@ -50,6 +50,7 @@ class MachineParameters:
     reduce_add_wide_instr_f32: Any
     prefix_reduce_add_wide_instr_f32: Any
     reg_copy_instr_f32: Any
+    prefix_reg_copy_instr_f32: Any
     sign_instr_f32: Any
     prefix_sign_instr_f32: Any
     select_instr_f32: Any
@@ -82,6 +83,7 @@ class MachineParameters:
     prefix_reduce_add_wide_instr_f64: Any
     assoc_reduce_add_f64_buffer: Any
     reg_copy_instr_f64: Any
+    prefix_reg_copy_instr_f64: Any
     sign_instr_f64: Any
     prefix_sign_instr_f64: Any
     select_instr_f64: Any
