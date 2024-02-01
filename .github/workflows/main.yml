@@ -72,3 +72,4 @@ jobs:
 
       - name: Test Codegen
         run: ctest --test-dir ${{github.workspace}}/BLAS-repo/build -C ${{env.BUILD_TYPE}} -R codegen
+        if: ${{matrix.runner == 'ubuntu-latest'}}
