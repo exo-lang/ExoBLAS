@@ -60,7 +60,7 @@ def get_reference_source_filename(target_arch, kernel):
 
 
 def get_reference_hash_filename(target_arch):
-    return REF_HASH_DIR / f"{target_arch}.pkl"
+    return REF_HASH_DIR / f"{target_arch}.json"
 
 
 def get_reference_hash(target_arch, kernel):
