@@ -82,7 +82,10 @@ function(add_exo_blas_test level kernel precision)
 
   # Add codgen test
   add_test(NAME ${precision_kernel}_codegen
-          COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/codegen/check_diff.py" ${TARGET_ARCH} ${level} exo_${kernel})
+          COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/codegen/hash.py" check ${TARGET_ARCH} ${level} exo_${kernel})
+
+  add_test(NAME ${precision_kernel}_update_reference
+  COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/codegen/hash.py" update ${TARGET_ARCH} ${level} exo_${kernel})
 
   add_test(
     NAME ${precision_kernel}_graph
