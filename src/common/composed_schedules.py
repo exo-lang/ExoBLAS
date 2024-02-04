@@ -881,6 +881,7 @@ def divide_and_predicate_stmts(proc, loop, factor, rc=True):
         proc, (inner, _) = jam_stmt(proc, stmt, unsafe_disable_check=True, rc=True)
         proc = apply(sink_alloc)(proc, allocs)
         proc = apply(sink_alloc)(proc, allocs)
+    proc = dce(proc, inner)
     if not rc:
         return proc
     outer = proc.forward(outer)
@@ -1143,7 +1144,7 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False)
 
     def my_stage_mem(proc, window):
         window = window_to_str(window)
-        return attempt(stage_mem, errs=tuple())(
+        return attempt(stage_mem, errs=(SchedulingError,))(
             proc, block, window, new_buff_name, accum, rs=True
         )
 
@@ -1269,12 +1270,17 @@ def unroll_buffers(proc, block=InvalidCursor(), mem=None):
         if not alloc.is_tensor():
             return proc
         diff = int(alloc.mem() is mem)
-        for i in range(0, len(alloc.shape()) - diff):
-            if isinstance(alloc.shape()[i], LiteralCursor):
-                return unroll_buffer(proc, alloc, i)
+        if len(alloc.shape()) - diff:
+            if isinstance(alloc.shape()[0], LiteralCursor):
+                return unroll_buffer(proc, alloc, 0)
         return proc
 
-    return make_pass(rewrite)(proc, block)
+    while True:
+        new_proc = make_pass(rewrite)(proc, block)
+        if new_proc == proc:
+            break
+        proc = new_proc
+    return new_proc
 
 
 def unfold_reduce(proc, reduce):
@@ -1422,6 +1428,12 @@ def bound_loop_by_if(proc, loop):
     loop1 = proc.forward(loop)
     loop2 = loop1.next()
     proc = eliminate_dead_code(proc, loop1.body()[0])
+    # This should step can be skipped in general, but there is a problem in
+    # Exo where the check of the inner if would fail if the loop bounds
+    # are equal or dead in general.
+    proc, success = attempt(eliminate_dead_code)(proc, loop2, rs=True)
+    if success:
+        return proc
     proc = eliminate_dead_code(proc, loop2.body()[0])
     # proc = delete_pass(proc, loop2), but it doesn't forward it
     return proc
@@ -1582,9 +1594,6 @@ def cse(proc, block):
 
     nodes = list(lrn(proc, block))
 
-    if any(is_loop(proc, c) or is_if(proc, c) for c in block):
-        raise BLAS_SchedulingError("Block cannot have inner scopes within it")
-
     # First do CSE on the buffer accesses
     accesses = filter(lambda c: is_access(proc, c), nodes)
     accesses = filter(lambda c: is_stmt(proc, c) or c.type().is_numeric(), accesses)
@@ -1599,14 +1608,7 @@ def cse(proc, block):
     for buff, idx_map in buff_map.items():
         for idx, access_list in idx_map.items():
             if len(access_list) > 1:
-                indexed_access_list = []
-                for access in access_list:
-                    stmt = get_my_stmt(proc, access)
-                    idnex = get_index_in_body(proc, stmt)
-                    indexed_access_list.append((stmt, idnex))
-                indexed_access_list = sorted(indexed_access_list, key=lambda k: k[1])
-                diff = indexed_access_list[-1][1] - indexed_access_list[0][1]
-                staging_block = indexed_access_list[0][0].as_block().expand(0, diff)
+                staging_block = get_bounding_block(proc, access_list)
                 proc = auto_stage_mem(proc, staging_block, buff)
                 break
     return proc
@@ -1643,3 +1645,9 @@ def dealias(proc, stmt):
 
 
 dealiasing_pass = make_pass(attempt(dealias, errs=(TypeError,)))
+
+
+def round_up_loop(proc, loop, factor):
+    proc, (loop, _, _) = auto_divide_loop(proc, loop, factor)
+    proc = mult_loops(proc, loop, loop.name()[:-1])
+    return proc

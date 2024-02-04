@@ -53,9 +53,13 @@ def optimize_level_1(proc, loop, params):
 def optimize_level_2(proc, outer_loop, params):
     rows_factor = params.rows_interleave_factor
     inner_loop = get_inner_loop(proc, outer_loop)
+    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
     proc, (outer_loop_o, outer_loop_i, _) = auto_divide_loop(
         proc, outer_loop, rows_factor, tail="cut"
     )
+
+    proc = round_up_loop(proc, inner_loop, params.vec_width)
+    proc = simplify(proc)
     proc = unroll_and_jam(proc, outer_loop_i, rows_factor)
     proc = unroll_buffers(proc, outer_loop_o)
     proc = optimize_level_1(proc, inner_loop, params)

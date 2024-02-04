@@ -444,3 +444,25 @@ def is_copy(proc, assign):
     lhs_decl = get_declaration(proc, assign, assign.name())
     rhs_decl = get_declaration(proc, assign, assign.rhs().name())
     return lhs_decl.mem() is rhs_decl.mem()
+
+
+def get_bounding_block(proc, cursors):
+    cursors = map(lambda c: proc.forward(c), cursors)
+    cursors = list(map(lambda c: get_my_stmt(proc, c), cursors))
+    depth = list(map(lambda c: get_depth(proc, c), cursors))
+
+    def has_same_parent(cursors):
+        parent = cursors[0].parent()
+        return all(parent == c.parent() for c in cursors)
+
+    while not has_same_parent(cursors):
+        mx = max(depth)
+        for i, c in enumerate(cursors):
+            if depth[i] == mx:
+                cursors[i] = c.parent()
+                depth[i] -= 1
+    cursors = list(map(lambda c: (c, get_index_in_body(proc, c)), cursors))
+    cursors = sorted(cursors, key=lambda k: k[1])
+    diff = cursors[-1][1] - cursors[0][1]
+    block = cursors[0][0].as_block().expand(0, diff)
+    return block
