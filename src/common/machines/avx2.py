@@ -148,8 +148,8 @@ def avx2_storeu_ps_backwards(dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2):
 @instr(
     """
 {{
-__m256 tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
-tmp= _mm256_permute_pd(tmp, 1 + 4);
+__m256d tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
+tmp = _mm256_permute_pd(tmp, 1 + 4);
 _mm256_storeu_pd(&{dst_data}, tmp);
 }}
 """
@@ -190,7 +190,7 @@ def avx2_prefix_store_ps_backwards(
     __m256i indices = _mm256_set_epi64x(0, 1, 2, 3);
     __m256i prefix = _mm256_set1_epi64x({bound});
     __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
-    __m256 tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
+    __m256d tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
     tmp = _mm256_permute_pd(tmp, 1 + 4);
     _mm256_maskstore_pd(&{dst_data}, cmp, tmp);
     }}
