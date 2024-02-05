@@ -798,7 +798,6 @@ def interleave_outer_loop_with_inner_loop(
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
     if not isinstance(inner_loop_cursor.prev(), InvalidCursor):
-        print(proc)
         proc = fission(proc, inner_loop_cursor.before())
         inner_loop_cursor = proc.forward(inner_loop_cursor)
         if unroll[0]:
