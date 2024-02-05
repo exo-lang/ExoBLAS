@@ -344,9 +344,9 @@ def is_assign(proc, assign):
     return isinstance(assign, AssignCursor)
 
 
-def is_read(proc, read):
+def is_read(proc, read, name=None):
     read = proc.forward(read)
-    return isinstance(read, ReadCursor)
+    return isinstance(read, ReadCursor) and (name is None or read.name() == name)
 
 
 def is_access(proc, access):

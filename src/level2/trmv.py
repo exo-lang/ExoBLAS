@@ -15,7 +15,7 @@ from parameters import Level_1_Params, Level_2_Params
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def trmv_rm_un_template(Diag: size, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_un_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -34,7 +34,7 @@ def trmv_rm_un_template(Diag: size, n: size, x: [R][n], A: [R][n, n]):
 
 
 @proc
-def trmv_rm_ln_template(Diag: size, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_ln_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -53,7 +53,7 @@ def trmv_rm_ln_template(Diag: size, n: size, x: [R][n], A: [R][n, n]):
 
 
 @proc
-def trmv_rm_ut_template(Diag: size, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_ut_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -73,7 +73,7 @@ def trmv_rm_ut_template(Diag: size, n: size, x: [R][n], A: [R][n, n]):
 
 
 @proc
-def trmv_rm_lt_template(Diag: size, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_lt_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -115,14 +115,11 @@ for precision in ("f32", "f64"):
             interleave_factor=2,
             accumulators_count=2,
         )
-        proc_stride_1 = cut_loop(proc_stride_1, "i", 1)
-        proc_stride_1 = unroll_loop(proc_stride_1, "i")
-        proc_stride_1 = shift_loop(proc_stride_1, "i", 0)
-        # proc_stride_1 = optimize_level_2(
-        #     proc_stride_1,
-        #     proc_stride_1.find_loop("i"),
-        #     level_2_params,
-        # )
+        proc_stride_1 = optimize_level_2(
+            proc_stride_1,
+            proc_stride_1.find_loop("i"),
+            level_2_params,
+        )
         export_exo_proc(globals(), proc_stride_1)
 
 ### EXO_LOC SCHEDULE END ###

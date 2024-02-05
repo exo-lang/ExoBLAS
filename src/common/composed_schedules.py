@@ -740,6 +740,7 @@ def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=Fals
 
 
 def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
+    loop = proc.forward(loop)
     inner_loops = [i for i in loop.body() if isinstance(i, ForCursor)]
     if len(inner_loops) > 1:
         raise BLAS_SchedulingError("Multiple loops found, decision is ambigious")
@@ -752,6 +753,7 @@ def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
 
 
 def unroll_and_jam_parent(proc, loop, factor, unroll=(True, True, True)):
+    loop = proc.forward(loop)
     outer_loop = loop.parent()
     if not isinstance(outer_loop, ForCursor):
         raise BLAS_SchedulingError("parent is not a loop")
@@ -796,6 +798,7 @@ def interleave_outer_loop_with_inner_loop(
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
     if not isinstance(inner_loop_cursor.prev(), InvalidCursor):
+        print(proc)
         proc = fission(proc, inner_loop_cursor.before())
         inner_loop_cursor = proc.forward(inner_loop_cursor)
         if unroll[0]:
@@ -1647,7 +1650,29 @@ def dealias(proc, stmt):
 dealiasing_pass = make_pass(attempt(dealias, errs=(TypeError,)))
 
 
-def round_up_loop(proc, loop, factor):
-    proc, (loop, _, _) = auto_divide_loop(proc, loop, factor)
+def round_loop(proc, loop, factor, up=True):
+    tail = "guard" if up else "cut"
+    proc, (loop, _, _) = auto_divide_loop(proc, loop, factor, tail=tail)
     proc = mult_loops(proc, loop, loop.name()[:-1])
     return proc
+
+
+@dataclass
+class cut_loop_cursors:
+    loop1: ForCursor
+    loop2: ForCursor
+
+    def __iter__(self):
+        yield self.loop1
+        yield self.loop2
+
+
+def cut_loop_(proc, loop, expr, rc=False):
+    proc = cut_loop(proc, loop, expr)
+
+    if not rc:
+        return proc
+
+    loop1 = proc.forward(loop)
+    loop2 = loop1.next()
+    return proc, cut_loop_cursors(loop1, loop2)
