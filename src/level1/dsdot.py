@@ -11,7 +11,6 @@ import exo_blas_config as C
 from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
-from parameters import Level_1_Params
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -47,21 +46,14 @@ def sdsdot_template(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
 
 
 ### EXO_LOC SCHEDULE START ###
-def schedule_dsdot_stride_1(proc, params, name):
+def schedule_dsdot_stride_1(proc, name):
     proc = rename(proc, name)
     proc = proc.add_assertion("stride(x, 0) == 1")
     proc = proc.add_assertion("stride(y, 0) == 1")
 
-    if params.mem_type is not AVX2:
+    if C.Machine.mem_type is not AVX2:
         return proc
-    instrs = params.instructions
-    params.instructions = []
-    proc = optimize_level_1(proc, proc.find_loop("i"), params)
-    proc = replace_all_stmts(
-        proc,
-        [C.Machine.fused_load_cvt_f32_f64, C.Machine.prefix_fused_load_cvt_f32_f64],
-    )
-    proc = replace_all_stmts(proc, instrs)
+    proc = optimize_level_1(proc, proc.find_loop("i"), "f64", C.Machine, 4)
     return proc
 
 
@@ -69,15 +61,11 @@ export_exo_proc(globals(), rename(dsdot_template, "exo_dsdot_stride_any"))
 export_exo_proc(globals(), rename(sdsdot_template, "exo_sdsdot_stride_any"))
 export_exo_proc(
     globals(),
-    schedule_dsdot_stride_1(
-        dsdot_template, Level_1_Params(precision="f64"), "exo_dsdot_stride_1"
-    ),
+    schedule_dsdot_stride_1(dsdot_template, "exo_dsdot_stride_1"),
 )
 export_exo_proc(
     globals(),
-    schedule_dsdot_stride_1(
-        sdsdot_template, Level_1_Params(precision="f64"), "exo_sdsdot_stride_1"
-    ),
+    schedule_dsdot_stride_1(sdsdot_template, "exo_sdsdot_stride_1"),
 )
 
 ### EXO_LOC SCHEDULE END ###

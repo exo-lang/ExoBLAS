@@ -1,7 +1,4 @@
 from __future__ import annotations
-import os
-import sys
-from pathlib import Path
 
 from exo import *
 from exo.libs.memories import DRAM_STATIC
@@ -16,7 +13,6 @@ import exo_blas_config as C
 from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
-from parameters import Level_1_Params, Level_2_Params
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -47,25 +43,17 @@ gemv_rm_t = left_reassociate_expr(gemv_rm_t, gemv_rm_t.find("alpha * _"))
 ### EXO_LOC SCHEDULE START ###
 
 template_sched_list = [
-    (optimize_level_2, gemv_rm_nt, "i"),
-    (optimize_level_2, gemv_rm_t, "j"),
+    (gemv_rm_nt, "i"),
+    (gemv_rm_t, "j"),
 ]
 
 for precision in ("f32", "f64"):
-    for sched, template, it in template_sched_list:
+    for template, it in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
-        params = Level_2_Params(
-            precision=precision,
-            rows_interleave_factor=4,
-            interleave_factor=2,
-            accumulators_count=2,
-        )
         export_exo_proc(globals(), proc_stride_any)
         proc_stride_1 = generate_stride_1_proc(template, precision)
-        proc_stride_1 = sched(
-            proc_stride_1,
-            proc_stride_1.find_loop(it),
-            params,
+        proc_stride_1 = optimize_level_2(
+            proc_stride_1, proc_stride_1.find_loop(it), precision, C.Machine, 4, 2
         )
         export_exo_proc(globals(), proc_stride_1)
 

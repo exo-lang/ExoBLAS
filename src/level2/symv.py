@@ -125,7 +125,7 @@ f32_instructions = [
 
 exo_ssymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1(
     symv_row_major_Upper_template,
-    C.Machine.vec_width,
+    C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
     f32_instructions,
@@ -133,14 +133,14 @@ exo_ssymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1
 )
 exo_ssymv_row_major_Lower_stride_1 = schedule_interleave_symv_row_major_stride_1(
     symv_row_major_Lower_template,
-    C.Machine.vec_width,
+    C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
     f32_instructions,
     "f32",
 )
 exo_ssymv_scal_y_stride_1 = schedule_interleave_symv_scal_y(
-    C.Machine.vec_width, 1, C.Machine.mem_type, f32_instructions, "f32"
+    C.Machine.f32_vec_width, 1, C.Machine.mem_type, f32_instructions, "f32"
 )
 
 #################################################
@@ -177,7 +177,7 @@ f64_instructions = [
 
 exo_dsymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1(
     symv_row_major_Upper_template,
-    C.Machine.vec_width // 2,
+    C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,
     f64_instructions,
@@ -185,14 +185,14 @@ exo_dsymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1
 )
 exo_dsymv_row_major_Lower_stride_1 = schedule_interleave_symv_row_major_stride_1(
     symv_row_major_Lower_template,
-    C.Machine.vec_width // 2,
+    C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,
     f64_instructions,
     "f64",
 )
 exo_dsymv_scal_y_stride_1 = schedule_interleave_symv_scal_y(
-    C.Machine.vec_width // 2, 1, C.Machine.mem_type, f64_instructions, "f64"
+    C.Machine.f32_vec_width // 2, 1, C.Machine.mem_type, f64_instructions, "f64"
 )
 
 entry_points = [
