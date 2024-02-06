@@ -18,7 +18,7 @@ class MachineParameters:
 
     mem_type: Any
     n_vec_registers: int
-    vec_width: int
+    f32_vec_width: int
     vec_units: int
 
     # These are not currently used for anything
@@ -129,3 +129,9 @@ class MachineParameters:
         ]
         fma_variants = self.get_fma_variants(precision)
         return instrs + fma_variants
+
+    def vec_width(self, precision):
+        vec_width_map = {"f32": self.f32_vec_width, "f64": self.f32_vec_width // 2}
+        if precision not in vec_width_map:
+            raise TypeError(f"Unsupported precision {precision}")
+        return vec_width_map[precision]

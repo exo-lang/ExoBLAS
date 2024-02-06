@@ -10,7 +10,6 @@ import exo_blas_config as C
 from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
-from parameters import Level_1_Params
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -23,11 +22,11 @@ def asum(n: size, x: [f32][n] @ DRAM, result: f32 @ DRAM):
 ### EXO_LOC ALGORITHM END ###
 
 ### EXO_LOC SCHEDULE START ###
-def schedule_asum_stride_1(asum, params):
-    asum = generate_stride_1_proc(asum, params.precision)
-    if params.mem_type is not AVX2:
+def schedule_asum_stride_1(asum, precision):
+    asum = generate_stride_1_proc(asum, precision)
+    if C.Machine.mem_type is not AVX2:
         return asum
-    asum = optimize_level_1(asum, asum.find_loop("i"), params)
+    asum = optimize_level_1(asum, asum.find_loop("i"), precision, C.Machine, 7)
     return asum
 
 
@@ -44,18 +43,11 @@ for precision in ("f32", "f64"):
         export_exo_proc(globals(), proc_stride_any)
         proc_stride_1 = sched(
             template,
-            Level_1_Params(
-                precision=precision, interleave_factor=7, accumulators_count=7
-            ),
+            precision,
         )
         proc_stride_1 = bind_builtins_args(
             proc_stride_1, proc_stride_1.body(), precision
         )
         export_exo_proc(globals(), proc_stride_1)
-
-# TODO: A better schedule for AVX2 on skylake results in main loop that issues 8 loads,
-# then accumulates into 4 buffers: 0, 1, 2, 3, 0, 1, 2, 3.
-# Right now we can easily get to 0, 0, 1, 1, 2, 2, 3, 3.
-# However, this results in a dependency between consecutive FMAs
 
 ### EXO_LOC SCHEDULE END ###

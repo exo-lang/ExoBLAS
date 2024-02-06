@@ -870,7 +870,7 @@ class SYRK:
                 gebp_unsafe.scheduled_gebp,
             )
 
-            # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j #0', self.machine.vec_width, ['jo', 'ji'], perfect=True)
+            # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j #0', self.machine.f32_vec_width, ['jo', 'ji'], perfect=True)
 
             # unsafe_microkernel_scheduled = replace(
             #    unsafe_microkernel_scheduled,
@@ -878,7 +878,7 @@ class SYRK:
             #    self.machine.set_zero_instr_f32,
             # )
 
-            # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j #0', self.machine.vec_width, ['jo', 'ji'], tail='cut')
+            # unsafe_microkernel_scheduled = divide_loop(unsafe_microkernel_scheduled, 'j #0', self.machine.f32_vec_width, ['jo', 'ji'], tail='cut')
             # unsafe_microkernel_scheduled = replace(
             #    unsafe_microkernel_scheduled,
             #    "for k in _:_ #1",
@@ -967,13 +967,13 @@ class SYRK:
             k_microkernel_scheduled = divide_loop(
                 k_microkernel_scheduled,
                 "i",
-                self.machine.vec_width,
+                self.machine.f32_vec_width,
                 ["io", "ii"],
                 perfect=True,
             )
             # print(k_microkernel_scheduled)
 
-            c_reg_str = f"C[{self.machine.vec_width}*io+ii, j]"
+            c_reg_str = f"C[{self.machine.f32_vec_width}*io+ii, j]"
             k_microkernel_scheduled = stage_mem(
                 k_microkernel_scheduled, "C[_] += _", c_reg_str, "C_reg"
             )
@@ -981,10 +981,7 @@ class SYRK:
                 k_microkernel_scheduled, "C_reg", self.machine.mem_type
             )
             k_microkernel_scheduled = expand_dim(
-                k_microkernel_scheduled,
-                "C_reg",
-                self.machine.vec_width,
-                "ii"
+                k_microkernel_scheduled, "C_reg", self.machine.f32_vec_width, "ii"
             )
             k_microkernel_scheduled = lift_alloc(
                 k_microkernel_scheduled, "C_reg", n_lifts=4
@@ -1013,16 +1010,10 @@ class SYRK:
                 k_microkernel_scheduled, "A_vec", self.machine.mem_type
             )
             k_microkernel_scheduled = expand_dim(
-                k_microkernel_scheduled,
-                "A_vec",
-                self.machine.vec_width,
-                "ii"
+                k_microkernel_scheduled, "A_vec", self.machine.f32_vec_width, "ii"
             )
             k_microkernel_scheduled = expand_dim(
-                k_microkernel_scheduled,
-                "A_vec",
-                self.K_blk,
-                "k"
+                k_microkernel_scheduled, "A_vec", self.K_blk, "k"
             )
             k_microkernel_scheduled = set_precision(
                 k_microkernel_scheduled, "A_vec", self.precision
@@ -1039,16 +1030,10 @@ class SYRK:
             )
 
             k_microkernel_scheduled = expand_dim(
-                k_microkernel_scheduled,
-                "B_vec",
-                self.machine.vec_width,
-                f"ii"
+                k_microkernel_scheduled, "B_vec", self.machine.f32_vec_width, f"ii"
             )
             k_microkernel_scheduled = expand_dim(
-                k_microkernel_scheduled,
-                "B_vec",
-                1,
-                f"j"
+                k_microkernel_scheduled, "B_vec", 1, f"j"
             )
             k_microkernel_scheduled = set_precision(
                 k_microkernel_scheduled, "B_vec", self.precision
@@ -1110,16 +1095,19 @@ class SYRK:
 
     def bind(self, proc, buffer, reg, machine):
         proc = bind_expr(proc, buffer, reg)
-        proc = expand_dim(proc, reg, machine.vec_width, "ji")
+        proc = expand_dim(proc, reg, machine.f32_vec_width, "ji")
         proc = lift_alloc(proc, f"{reg} : _", n_lifts=2)
         proc = fission(proc, proc.find(f"{reg} = _").after())
         return simplify(proc)
 
     def stage(self, proc, buffer, reg, machine):
         proc = stage_mem(
-            proc, f"{buffer}[_] = _", f"{buffer}[i, ji + {machine.vec_width}*jo]", reg
+            proc,
+            f"{buffer}[_] = _",
+            f"{buffer}[i, ji + {machine.f32_vec_width}*jo]",
+            reg,
         )
-        proc = expand_dim(proc, reg, machine.vec_width, f"ji")
+        proc = expand_dim(proc, reg, machine.f32_vec_width, f"ji")
         proc = lift_alloc(proc, f"{reg} : _", n_lifts=2)
         proc = fission(proc, proc.find(f"{reg}[_] = _").after())
         return simplify(proc)
@@ -1138,7 +1126,7 @@ class SYRK:
             proc = set_precision(proc, buffer, self.precision)
 
         proc = divide_loop(
-            proc, "j", machine.vec_width, ["jo", "ji"], tail="cut_and_guard"
+            proc, "j", machine.f32_vec_width, ["jo", "ji"], tail="cut_and_guard"
         )
         proc = self.bind(proc, "scalar[_]", "scalar_vec", machine)
         if len(buffer_names) > 1:
@@ -1222,9 +1210,9 @@ exo_ssyrk_upper_transpose_alpha_beta = ssyrk.entry_points[11]
 exo_ssyrk_lower_alphazero_beta = ssyrk.entry_points[12]
 exo_ssyrk_upper_alphazero_beta = ssyrk.entry_points[13]
 
-C.Machine.vec_width //= 2
+C.Machine.f32_vec_width //= 2
 dsyrk = SYRK(C.Machine, "f64", k_blk, m_blk, m_blk_small, m_reg, n_reg // 2, e_reg)
-C.Machine.vec_width *= 2
+C.Machine.f32_vec_width *= 2
 
 for i in range(13):
     dsyrk.entry_points[i] = simplify(dsyrk.entry_points[i])

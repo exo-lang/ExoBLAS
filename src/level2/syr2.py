@@ -94,7 +94,7 @@ f32_instructions = [
 
 exo_ssyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1(
     syr2_row_major_Upper_template,
-    C.Machine.vec_width,
+    C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
     f32_instructions,
@@ -102,7 +102,7 @@ exo_ssyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1
 )
 exo_ssyr2_row_major_Lower_stride_1 = schedule_interleave_syr2_row_major_stride_1(
     syr2_row_major_Lower_template,
-    C.Machine.vec_width,
+    C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
     f32_instructions,
@@ -139,7 +139,7 @@ f64_instructions = [
 
 exo_dsyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1(
     syr2_row_major_Upper_template,
-    C.Machine.vec_width // 2,
+    C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,
     f64_instructions,
@@ -147,7 +147,7 @@ exo_dsyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1
 )
 exo_dsyr2_row_major_Lower_stride_1 = schedule_interleave_syr2_row_major_stride_1(
     syr2_row_major_Lower_template,
-    C.Machine.vec_width // 2,
+    C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,
     f64_instructions,

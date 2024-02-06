@@ -1389,6 +1389,76 @@ def stage_compute(
     return proc
 
 
+def check_call_site(proc, call_cursor):
+    if not isinstance(call_cursor, CallCursor):
+        raise TypeError("call_cursor must be a CallCursor")
+
+    ###################################################################
+    # build an env of symbols this call statement observes.
+    # e.g. {x: (DRAM, "f32"), y: (Neon, "f64")}
+    ###################################################################
+    env = {}
+    caller = call_cursor.proc()
+
+    stmts = nlr(proc)
+    stmts = filter(lambda s: isinstance(s, (AllocCursor, ArgCursor)), stmts)
+
+    for s in stmts:
+        if s.type().is_numeric():
+            mem = s.mem() if s.mem() else DRAM
+            env[s.name()] = (mem, s.type())
+    ###################################################################
+    # Check consistency at call site
+    ###################################################################
+    call_args = call_cursor.args()
+    callee_parameters = call_cursor.subproc().args()
+    for arg, par in zip(call_args, callee_parameters):
+        par_type = par.type()
+        if par_type.is_numeric():
+            par_mem = par.mem() if par.mem() else DRAM
+            arg_mem, arg_type = env[arg.name()]
+            if not issubclass(arg_mem, par_mem) or arg_type is not par_type:
+                return False
+    return True
+
+
+@dataclass
+class replace_cursors:
+    call: CallCursor
+
+    def __iter__(self):
+        yield self.call
+
+
+def checked_replace(proc, stmt, subproc, quiet=False):
+    stmt = proc.forward(stmt)
+    parent = stmt.parent()
+    index = get_index_in_body(proc, stmt)
+
+    try:
+        proc = replace(proc, stmt, subproc, quiet=quiet)
+    except:
+        raise BLAS_SchedulingError("failed to replace")
+
+    is_else = False
+    if (
+        isinstance(parent, IfCursor)
+        and not isinstance(parent.orelse(), InvalidCursor)
+        and index < len(parent.orelse())
+        and parent.orelse()[index] == stmt
+    ):
+        is_else = True
+    if not isinstance(parent, InvalidCursor):
+        parent = proc.forward(parent)
+    else:
+        parent = proc
+
+    call = parent.body()[index] if not is_else else parent.orelse()[index]
+    if not check_call_site(proc, call):
+        raise BLAS_SchedulingError("Call site inconsistency")
+    return proc
+
+
 def replace_all_stmts(proc, instructions):
     if not isinstance(instructions, list):
         instructions = [instructions]
@@ -1401,9 +1471,9 @@ def replace_all_stmts(proc, instructions):
 
         for instr in instructions:
             try:
-                proc = call_site_mem_aware_replace(proc, stmt, instr, quiet=True)
+                proc = checked_replace(proc, stmt, instr, quiet=True)
                 break
-            except:
+            except BLAS_SchedulingError:
                 pass
     return proc
 

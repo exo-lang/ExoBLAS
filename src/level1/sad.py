@@ -21,7 +21,6 @@ from codegen_helpers import (
     generate_stride_1_proc,
     bind_builtins_args,
 )
-from parameters import Level_1_Params
 
 
 @instr("{dst_data} = _mm256_sad_epu8(&{src1_data}, &{src2_data});")

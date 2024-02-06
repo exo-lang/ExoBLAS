@@ -175,7 +175,7 @@ f32_instructions = [
 
 if None not in f32_instructions:
     exo_snrm2_stride_1 = schedule_nrm2_stride_1_interleaved(
-        C.Machine.vec_width,
+        C.Machine.f32_vec_width,
         C.Machine.vec_units * 2,
         C.Machine.mem_type,
         f32_instructions,
@@ -207,7 +207,7 @@ f64_instructions = [
 
 if None not in f64_instructions:
     exo_dnrm2_stride_1 = schedule_nrm2_stride_1_interleaved(
-        C.Machine.vec_width // 2,
+        C.Machine.f32_vec_width // 2,
         C.Machine.vec_units * 2,
         C.Machine.mem_type,
         f64_instructions,

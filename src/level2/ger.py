@@ -90,7 +90,7 @@ f32_instructions = [
 ]
 
 exo_sger_row_major_stride_1 = schedule_ger_row_major_stride_1(
-    C.Machine.vec_width,
+    C.Machine.f32_vec_width,
     ROW_INTERLEAVE_FACTOR,
     C.Machine.mem_type,
     f32_instructions,
@@ -98,7 +98,7 @@ exo_sger_row_major_stride_1 = schedule_ger_row_major_stride_1(
     None,
 )
 exo_sger_row_major_alpha_1_stride_1 = schedule_ger_row_major_stride_1(
-    C.Machine.vec_width,
+    C.Machine.f32_vec_width,
     ROW_INTERLEAVE_FACTOR,
     C.Machine.mem_type,
     f32_instructions,
@@ -125,7 +125,7 @@ f64_instructions = [
 ]
 
 exo_dger_row_major_stride_1 = schedule_ger_row_major_stride_1(
-    C.Machine.vec_width // 2,
+    C.Machine.f32_vec_width // 2,
     ROW_INTERLEAVE_FACTOR,
     C.Machine.mem_type,
     f64_instructions,

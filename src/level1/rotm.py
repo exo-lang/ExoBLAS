@@ -9,12 +9,7 @@ from exo.stdlib.scheduling import *
 import exo_blas_config as C
 from composed_schedules import *
 from blaslib import *
-from codegen_helpers import (
-    generate_stride_any_proc,
-    export_exo_proc,
-    generate_stride_1_proc,
-)
-from parameters import Level_1_Params
+from codegen_helpers import *
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -50,10 +45,10 @@ def rotm_template_flag_one(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
 ### EXO_LOC SCHEDULE START ###
 
 
-def schedule_rotm_stride_1(rotm, params):
-    rotm = generate_stride_1_proc(rotm, params.precision)
+def schedule_rotm_stride_1(rotm, precision):
+    rotm = generate_stride_1_proc(rotm, precision)
     loop_cursor = rotm.find_loop("i")
-    rotm = optimize_level_1(rotm, loop_cursor, params)
+    rotm = optimize_level_1(rotm, loop_cursor, precision, C.Machine, 4)
     return rotm
 
 
@@ -67,7 +62,7 @@ for precision in ("f32", "f64"):
     for template, sched in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)
-        proc_stride_1 = sched(template, Level_1_Params(precision=precision))
+        proc_stride_1 = sched(template, precision)
         export_exo_proc(globals(), proc_stride_1)
 
 ### EXO_LOC SCHEDULE END ###
