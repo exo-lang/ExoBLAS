@@ -1398,12 +1398,9 @@ def check_call_site(proc, call_cursor):
     # e.g. {x: (DRAM, "f32"), y: (Neon, "f64")}
     ###################################################################
     env = {}
-    caller = call_cursor.proc()
-
-    stmts = nlr(proc)
-    stmts = filter(lambda s: isinstance(s, (AllocCursor, ArgCursor)), stmts)
-
-    for s in stmts:
+    obs_stmts = get_observed_stmts(call_cursor)
+    allocs = filter(lambda s: isinstance(s, AllocCursor), obs_stmts)
+    for s in list(proc.args()) + list(allocs):
         if s.type().is_numeric():
             mem = s.mem() if s.mem() else DRAM
             env[s.name()] = (mem, s.type())
