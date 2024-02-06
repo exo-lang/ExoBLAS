@@ -68,7 +68,7 @@ jobs:
         run: cmake --build ${{github.workspace}}/BLAS-repo/build/${{matrix.PRESET}} --config ${{env.BUILD_TYPE}}
 
       - name: Test Codegen
-        run: ctest --test-dir ${{github.workspace}}/BLAS-repo/build/${{matrix.PRESET}} -C ${{env.BUILD_TYPE}} -R codegen
+        run: ctest --test-dir ${{github.workspace}}/BLAS-repo/build/${{matrix.PRESET}} -C ${{env.BUILD_TYPE}} -R codegen_verbose
         if: ${{matrix.runner == 'ubuntu-latest'}}
 
       - name: Test Correctness

@@ -13,6 +13,7 @@ REF_DIR = CODEGEN_DIR / "reference"
 REF_HASH_DIR = REF_DIR / "sha256"
 REF_SRC_DIR = REF_DIR / "sources"
 BLD_DIR = REPO_ROOT / "build"
+VERBOSE = False
 
 
 def get_diff(file1, file2):
@@ -101,7 +102,13 @@ def check_sha256(target_arch, level, kernel):
     if reference_hash == build_hash:
         return
 
-    err = f"Hash mismatch for kernel {kernel} and arch {target_arch}!\n"
+    err = f"Hash mismatch for kernel {kernel} and arch {target_arch}!\n Expected {reference_hash}, got {build_hash}\n"
+
+    if VERBOSE:
+        build_file = get_build_filename(target_arch, level, kernel)
+        with open(build_file, "r") as f:
+            build_result = f.read()
+        err += f"Build hash was computed on the following file:\n### Beginning of file ###\n{build_result}\n### End of file ###\n"
 
     reference_source = get_reference_source_filename(target_arch, kernel)
 
@@ -144,14 +151,30 @@ def update(target_arch, level, kernel):
     update_reference_hash(target_arch, kernel, build_source_hash)
 
 
+def help():
+    return """
+    Usage: python3 hash.py [check | update] [target_arch] [level] [kernel] [Optional: -V]
+    """
+
+
 if __name__ == "__main__":
+
+    if len(sys.argv) < 5 or len(sys.argv) > 6:
+        help()
 
     command = sys.argv[1]
     target_arch = sys.argv[2]
     level = sys.argv[3]
     kernel = sys.argv[4]
 
+    if len(sys.argv) == 6:
+        if sys.argv[5] != "-V":
+            help()
+        VERBOSE = True
+
     if command == "check":
         check_sha256(target_arch, level, kernel)
     elif command == "update":
         update(target_arch, level, kernel)
+    else:
+        help()

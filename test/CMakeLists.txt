@@ -81,8 +81,11 @@ function(add_exo_blas_test level kernel precision)
   )
 
   # Add codgen test
-  add_test(NAME ${precision_kernel}_codegen
+  add_test(NAME ${precision_kernel}_codegen_nonverbose
           COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/codegen/hash.py" check ${TARGET_ARCH} ${level} exo_${kernel})
+  # For the CI
+  add_test(NAME ${precision_kernel}_codegen_verbose
+          COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/codegen/hash.py" check ${TARGET_ARCH} ${level} exo_${kernel} -V)
 
   add_test(NAME ${precision_kernel}_update_reference
   COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/codegen/hash.py" update ${TARGET_ARCH} ${level} exo_${kernel})
