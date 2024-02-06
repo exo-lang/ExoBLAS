@@ -219,7 +219,7 @@ f32_instructions = [
 exo_stbsv_row_major_Upper_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
         tbsv_row_major_Upper_NonTrans_template,
-        C.Machine.vec_width,
+        C.Machine.f32_vec_width,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f32_instructions,
@@ -229,7 +229,7 @@ exo_stbsv_row_major_Upper_NonTrans_stride_1 = (
 exo_stbsv_row_major_Lower_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
         tbsv_row_major_Lower_NonTrans_template,
-        C.Machine.vec_width,
+        C.Machine.f32_vec_width,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f32_instructions,
@@ -282,7 +282,7 @@ f64_instructions = [
 exo_dtbsv_row_major_Upper_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
         tbsv_row_major_Upper_NonTrans_template,
-        C.Machine.vec_width // 2,
+        C.Machine.f32_vec_width // 2,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f64_instructions,
@@ -292,7 +292,7 @@ exo_dtbsv_row_major_Upper_NonTrans_stride_1 = (
 exo_dtbsv_row_major_Lower_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
         tbsv_row_major_Lower_NonTrans_template,
-        C.Machine.vec_width // 2,
+        C.Machine.f32_vec_width // 2,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
         f64_instructions,

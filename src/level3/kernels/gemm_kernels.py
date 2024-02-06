@@ -158,15 +158,17 @@ class Microkernel:
             sched_mk,
             sched_mk.find("C_reg : _"),
             1,
-            machine.vec_width,
+            machine.f32_vec_width,
         )
         sched_mk = set_memory(sched_mk, "C_reg", machine.mem_type)
         for loop_iter in ("i1", "j", "i1"):
             loop = sched_mk.find_loop(loop_iter)
             sched_mk = scalar_to_simd(
-                sched_mk, loop, machine.vec_width, machine.mem_type, self.precision
+                sched_mk, loop, machine.f32_vec_width, machine.mem_type, self.precision
             )
-            sched_mk = interleave_loop(sched_mk, loop, min(N_r // machine.vec_width, 2))
+            sched_mk = interleave_loop(
+                sched_mk, loop, min(N_r // machine.f32_vec_width, 2)
+            )
         sched_mk = simplify(sched_mk)
 
         sched_mk = replace_all_stmts(
@@ -207,7 +209,7 @@ class Microkernel:
         scheduled_microkernel = reorder_loops(scheduled_microkernel, "j k")
         scheduled_microkernel = reorder_loops(scheduled_microkernel, "i k")
         scheduled_microkernel = divide_loop(
-            scheduled_microkernel, "j", machine.vec_width, ["jo", "ji"], tail="cut"
+            scheduled_microkernel, "j", machine.f32_vec_width, ["jo", "ji"], tail="cut"
         )
 
         scheduled_microkernel = autofission(
@@ -217,7 +219,7 @@ class Microkernel:
         )
 
         # Create C buffer in vector mem
-        c_reg_str = f"C[i, {machine.vec_width} * jo + ji]"
+        c_reg_str = f"C[i, {machine.f32_vec_width} * jo + ji]"
         scheduled_microkernel = stage_mem(
             scheduled_microkernel, "C[_] += _ #0", c_reg_str, "C_reg"
         )
@@ -225,16 +227,10 @@ class Microkernel:
             scheduled_microkernel, "C_reg", machine.mem_type
         )
         scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "C_reg",
-            machine.vec_width,
-            "ji"
+            scheduled_microkernel, "C_reg", machine.f32_vec_width, "ji"
         )
         scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "C_reg",
-            M_blk // machine.vec_width,
-            f"jo"
+            scheduled_microkernel, "C_reg", M_blk // machine.f32_vec_width, f"jo"
         )
 
         scheduled_microkernel = expand_dim(scheduled_microkernel, "C_reg", M_r, "i")
@@ -256,10 +252,7 @@ class Microkernel:
             scheduled_microkernel, "A_vec", machine.mem_type
         )
         scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "A_vec",
-            machine.vec_width,
-            "ji"
+            scheduled_microkernel, "A_vec", machine.f32_vec_width, "ji"
         )
         scheduled_microkernel = expand_dim(scheduled_microkernel, "A_vec", M_r, "i")
         scheduled_microkernel = set_precision(
@@ -273,16 +266,10 @@ class Microkernel:
             scheduled_microkernel, "B_vec", machine.mem_type
         )
         scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "B_vec",
-            machine.vec_width,
-            f"ji"
+            scheduled_microkernel, "B_vec", machine.f32_vec_width, f"ji"
         )
         scheduled_microkernel = expand_dim(
-            scheduled_microkernel,
-            "B_vec",
-            (M_blk // machine.vec_width),
-            f"jo"
+            scheduled_microkernel, "B_vec", (M_blk // machine.f32_vec_width), f"jo"
         )
         scheduled_microkernel = set_precision(
             scheduled_microkernel, "B_vec", self.precision

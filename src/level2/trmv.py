@@ -10,7 +10,6 @@ import exo_blas_config as C
 from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
-from parameters import Level_1_Params, Level_2_Params
 
 
 ### EXO_LOC ALGORITHM START ###
@@ -109,16 +108,8 @@ for precision in ("f32", "f64"):
         proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)
         proc_stride_1 = generate_stride_1_proc(template, precision)
-        level_2_params = Level_2_Params(
-            precision=precision,
-            rows_interleave_factor=4,
-            interleave_factor=2,
-            accumulators_count=2,
-        )
         proc_stride_1 = optimize_level_2(
-            proc_stride_1,
-            proc_stride_1.find_loop("i"),
-            level_2_params,
+            proc_stride_1, proc_stride_1.find_loop("i"), precision, C.Machine, 4, 2
         )
         export_exo_proc(globals(), proc_stride_1)
 

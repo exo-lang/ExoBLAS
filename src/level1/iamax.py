@@ -75,7 +75,7 @@ exo_isamax_stride_any = rename(
 f32_instructions = []
 if None not in f32_instructions:
     exo_isamax_stride_1 = schedule_iamax_stride_1(
-        exo_isamax, C.Machine.vec_width, C.Machine.mem_type, f32_instructions, "f32"
+        exo_isamax, C.Machine.f32_vec_width, C.Machine.mem_type, f32_instructions, "f32"
     )
 else:
     exo_isamax_stride_1 = exo_isamax
@@ -97,7 +97,7 @@ f64_instructions = []
 if None not in f64_instructions:
     exo_idamax_stride_1 = schedule_iamax_stride_1(
         exo_idamax,
-        C.Machine.vec_width // 2,
+        C.Machine.f32_vec_width // 2,
         C.Machine.mem_type,
         f64_instructions,
         "f64",

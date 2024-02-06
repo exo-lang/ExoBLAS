@@ -11,7 +11,6 @@ import exo_blas_config as C
 from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
-from parameters import *
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -30,10 +29,10 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 
 
 ### EXO_LOC SCHEDULE START ###
-def schedule_axpy_stride_1(axpy, params):
-    axpy = generate_stride_1_proc(axpy, params.precision)
+def schedule_axpy_stride_1(axpy, precision):
+    axpy = generate_stride_1_proc(axpy, precision)
     main_loop = axpy.find_loop("i")
-    axpy = optimize_level_1(axpy, main_loop, params)
+    axpy = optimize_level_1(axpy, main_loop, precision, C.Machine, 4)
     return simplify(axpy)
 
 
@@ -46,6 +45,6 @@ for precision in ("f32", "f64"):
     for template, sched in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)
-        proc_stride_1 = sched(template, Level_1_Params(precision=precision))
+        proc_stride_1 = sched(template, precision)
         export_exo_proc(globals(), proc_stride_1)
 ### EXO_LOC SCHEDULE END ###

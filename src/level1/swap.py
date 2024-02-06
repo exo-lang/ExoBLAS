@@ -8,12 +8,7 @@ from exo.stdlib.scheduling import *
 
 import exo_blas_config as C
 from blaslib import *
-from codegen_helpers import (
-    generate_stride_any_proc,
-    export_exo_proc,
-    generate_stride_1_proc,
-)
-from parameters import Level_1_Params
+from codegen_helpers import *
 
 ### EXO_LOC ALGORITHM START ###
 @proc
@@ -29,10 +24,10 @@ def swap_template(n: size, x: [R][n], y: [R][n]):
 
 
 ### EXO_LOC SCHEDULE START ###
-def schedule_swap(swap, params):
-    swap = generate_stride_1_proc(swap, params.precision)
+def schedule_swap(swap, precision):
+    swap = generate_stride_1_proc(swap, precision)
     main_loop = swap.find_loop("i")
-    swap = optimize_level_1(swap, main_loop, params)
+    swap = optimize_level_1(swap, main_loop, precision, C.Machine, 4)
     return simplify(swap)
 
 
@@ -44,12 +39,7 @@ for precision in ("f32", "f64"):
     for template, sched in template_sched_list:
         proc_stride_any = generate_stride_any_proc(template, precision)
         export_exo_proc(globals(), proc_stride_any)
-        proc_stride_1 = sched(
-            template,
-            Level_1_Params(
-                precision=precision, accumulators_count=1, interleave_factor=4
-            ),
-        )
+        proc_stride_1 = sched(template, precision)
         export_exo_proc(globals(), proc_stride_1)
 
 ### EXO_LOC SCHEDULE END ###
