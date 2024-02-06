@@ -52,11 +52,29 @@ def optimize_level_1(proc, loop, params):
 
 def optimize_level_2(proc, outer_loop, params):
     rows_factor = params.rows_interleave_factor
+    vec_width = params.vec_width
     inner_loop = get_inner_loop(proc, outer_loop)
-    proc, (outer_loop_o, outer_loop_i, _) = auto_divide_loop(
+
+    is_trianglular = is_literal(proc, inner_loop.lo(), 0) and is_read(
+        proc, inner_loop.hi(), outer_loop.name()
+    )
+    if is_trianglular:
+        rows_factor = min(rows_factor, vec_width)
+        if params.mem_type in {AVX2}:
+            proc, (const_loop, outer_loop) = cut_loop_(proc, outer_loop, 1, rc=True)
+            inner_loop = get_inner_loop(proc, outer_loop)
+            proc = unroll_loop(proc, const_loop)
+            proc = shift_loop(proc, outer_loop, 0)
+            proc = round_loop(proc, inner_loop, params.vec_width, up=True)
+        else:
+            proc = round_loop(proc, inner_loop, params.vec_width, up=False)
+
+    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
+    proc, (outer_loop_o, _, _) = auto_divide_loop(
         proc, outer_loop, rows_factor, tail="cut"
     )
-    proc = unroll_and_jam(proc, outer_loop_i, rows_factor)
+    proc = simplify(proc)
+    proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
     proc = unroll_buffers(proc, outer_loop_o)
     proc = optimize_level_1(proc, inner_loop, params)
     return simplify(proc)

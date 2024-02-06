@@ -29,8 +29,10 @@ class MachineParameters:
     load_instr_f32: Any
     load_backwards_instr_f32: Any
     prefix_load_instr_f32: Any
+    prefix_load_backwards_instr_f32: Any
     store_instr_f32: Any
     store_backwards_instr_f32: Any
+    prefix_store_backwards_instr_f32: Any
     prefix_store_instr_f32: Any
     broadcast_instr_f32: Any
     broadcast_scalar_instr_f32: Any
@@ -61,7 +63,9 @@ class MachineParameters:
     load_instr_f64: Any
     load_backwards_instr_f64: Any
     prefix_load_instr_f64: Any
+    prefix_load_backwards_instr_f64: Any
     prefix_store_instr_f64: Any
+    prefix_store_backwards_instr_f64: Any
     store_instr_f64: Any
     store_backwards_instr_f64: Any
     broadcast_instr_f64: Any

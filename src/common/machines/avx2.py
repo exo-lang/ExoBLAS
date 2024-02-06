@@ -56,7 +56,11 @@ def avx2_assoc_reduce_add_pd_buffer(x: [f64][4] @ AVX2, result: [f64][1]):
         result[0] += x[i]
 
 
-@instr("{dst_data} = _mm256_loadu_ps(&{src_data});")
+@instr(
+    """{dst_data} = _mm256_loadu_ps(&{src_data});
+{dst_data} = _mm256_permutevar8x32_ps({dst_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+"""
+)
 def avx2_loadu_ps_backwards(dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
@@ -65,7 +69,13 @@ def avx2_loadu_ps_backwards(dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM):
         dst[i] = src[7 - i]
 
 
-@instr("{dst_data} = _mm256_loadu_pd(&{src_data});")
+@instr(
+    """
+{dst_data} = _mm256_loadu_pd(&{src_data});
+{dst_data} = _mm256_permute2f128_pd({dst_data}, {dst_data}, 1);
+{dst_data} = _mm256_permute_pd({dst_data}, 1 + 4);
+"""
+)
 def avx2_loadu_pd_backwards(dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
@@ -74,7 +84,59 @@ def avx2_loadu_pd_backwards(dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM):
         dst[i] = src[3 - i]
 
 
-@instr("_mm256_storeu_ps(&{dst_data}, {src_data});")
+@instr(
+    """
+{{
+    __m256i indices = _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+    __m256i prefix = _mm256_set1_epi32({bound});
+    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+    {dst_data} = _mm256_maskload_ps(&{src_data}, cmp);
+    {dst_data} = _mm256_permutevar8x32_ps({dst_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+}}
+"""
+)
+def avx2_prefix_load_ps_backwards(
+    dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM, bound: size
+):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+    assert bound <= 8
+    for i in seq(0, 8):
+        if i < bound:
+            dst[i] = src[7 - i]
+
+
+@instr(
+    """
+{{
+    __m256i indices = _mm256_set_epi64x(0, 1, 2, 3);
+    __m256i prefix = _mm256_set1_epi64x({bound});
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    {dst_data} = _mm256_maskload_pd(&{src_data}, cmp);
+    {dst_data} = _mm256_permute2f128_pd({dst_data}, {dst_data}, 1);
+    {dst_data} = _mm256_permute_pd({dst_data}, 1 + 4);
+}}
+"""
+)
+def avx2_prefix_load_pd_backwards(
+    dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM, bound: size
+):
+    assert stride(src, 0) == 1
+    assert stride(dst, 0) == 1
+    assert bound <= 4
+    for i in seq(0, 4):
+        if i < bound:
+            dst[i] = src[3 - i]
+
+
+@instr(
+    """
+{{
+__m256 tmp = _mm256_permutevar8x32_ps({src_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+_mm256_storeu_ps(&{dst_data}, tmp);
+}}
+"""
+)
 def avx2_storeu_ps_backwards(dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
@@ -83,13 +145,66 @@ def avx2_storeu_ps_backwards(dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2):
         dst[7 - i] = src[i]
 
 
-@instr("_mm256_storeu_pd(&{dst_data}, {src_data});")
+@instr(
+    """
+{{
+__m256d tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
+tmp = _mm256_permute_pd(tmp, 1 + 4);
+_mm256_storeu_pd(&{dst_data}, tmp);
+}}
+"""
+)
 def avx2_storeu_pd_backwards(dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
 
     for i in seq(0, 4):
         dst[3 - i] = src[i]
+
+
+@instr(
+    """
+    {{
+    __m256i indices = _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+    __m256i prefix = _mm256_set1_epi32({bound});
+    __m256i cmp = _mm256_cmpgt_epi32(prefix, indices);
+    __m256 tmp = _mm256_permutevar8x32_ps({src_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+    _mm256_maskstore_ps(&{dst_data}, cmp, tmp);
+    }}
+    """
+)
+def avx2_prefix_store_ps_backwards(
+    dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2, bound: size
+):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound <= 8
+    for i in seq(0, 8):
+        if i < bound:
+            dst[7 - i] = src[i]
+
+
+@instr(
+    """
+    {{
+    __m256i indices = _mm256_set_epi64x(0, 1, 2, 3);
+    __m256i prefix = _mm256_set1_epi64x({bound});
+    __m256i cmp = _mm256_cmpgt_epi64(prefix, indices);
+    __m256d tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
+    tmp = _mm256_permute_pd(tmp, 1 + 4);
+    _mm256_maskstore_pd(&{dst_data}, cmp, tmp);
+    }}
+    """
+)
+def avx2_prefix_store_pd_backwards(
+    dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2, bound: size
+):
+    assert stride(dst, 0) == 1
+    assert stride(src, 0) == 1
+    assert bound <= 4
+    for i in seq(0, 4):
+        if i < bound:
+            dst[3 - i] = src[i]
 
 
 @instr(
@@ -731,9 +846,11 @@ Machine = MachineParameters(
     load_instr_f32=mm256_loadu_ps,
     load_backwards_instr_f32=avx2_loadu_ps_backwards,
     prefix_load_instr_f32=mm256_prefix_load_ps,
+    prefix_load_backwards_instr_f32=avx2_prefix_load_ps_backwards,
     store_instr_f32=mm256_storeu_ps,
     store_backwards_instr_f32=avx2_storeu_ps_backwards,
     prefix_store_instr_f32=mm256_prefix_store_ps,
+    prefix_store_backwards_instr_f32=avx2_prefix_store_ps_backwards,
     broadcast_instr_f32=mm256_broadcast_ss,
     broadcast_scalar_instr_f32=mm256_broadcast_ss_scalar,
     prefix_broadcast_instr_f32=mm256_prefix_broadcast_ss,
@@ -762,9 +879,11 @@ Machine = MachineParameters(
     load_instr_f64=mm256_loadu_pd,
     load_backwards_instr_f64=avx2_loadu_pd_backwards,
     prefix_load_instr_f64=mm256_prefix_load_pd,
+    prefix_load_backwards_instr_f64=avx2_prefix_load_pd_backwards,
     store_instr_f64=mm256_storeu_pd,
     store_backwards_instr_f64=avx2_storeu_pd_backwards,
     prefix_store_instr_f64=mm256_prefix_store_pd,
+    prefix_store_backwards_instr_f64=avx2_prefix_store_pd_backwards,
     broadcast_instr_f64=mm256_broadcast_sd,
     broadcast_scalar_instr_f64=mm256_broadcast_sd_scalar,
     prefix_broadcast_instr_f64=mm256_prefix_broadcast_sd,
