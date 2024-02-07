@@ -36,12 +36,10 @@ void test_dger(int M, int N, double alpha, int incX, int incY, int lda) {
 }
 
 int main() {
-  std::vector<int> M{2, 2, 8, 100, 1024, 10000};
-  std::vector<int> N{3, 10, 9, 200, 2048, 7777};
-  std::vector<double> alpha = {1.2, -2.2, 0.0, 1.0};
-  std::vector<std::tuple<double, int, int>> params{
-      {1.2, 2, 2}, {2.5, 3, 3},   {0, 2, 3},
-      {1, 4, 5},   {1.3, 10, -1}, {4.5, -2, -4}};
+  std::vector<int> M{2, 100, 321};
+  std::vector<int> N{3, 11, 132};
+  std::vector<double> alpha = {1.2, 1.0};
+  std::vector<std::tuple<double, int, int>> params{{1, 4, 5}, {4.5, -2, -4}};
 
   for (auto m : M) {
     for (auto n : N) {

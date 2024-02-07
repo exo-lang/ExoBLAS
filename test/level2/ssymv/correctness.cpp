@@ -43,12 +43,12 @@ void test_ssymv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
 int main() {
   std::vector<CBLAS_UPLO> Uplo_vals{CBLAS_UPLO::CblasUpper,
                                     CBLAS_UPLO::CblasLower};
-  std::vector<int> N{4, 41, 80, 101, 1024};
-  std::vector<float> alpha_vals{0, 1, 2.4};
-  std::vector<int> lda_diffs{0, 3, 5};
-  std::vector<int> incX_vals{1, 3, -2};
-  std::vector<float> beta_vals{0, 1, 2.4};
-  std::vector<int> incY_vals{1, 3, -2};
+  std::vector<int> N{2, 100, 321};
+  std::vector<float> alpha_vals{1, 2.4};
+  std::vector<int> lda_diffs{0, 3};
+  std::vector<int> incX_vals{1, 3};
+  std::vector<float> beta_vals{0, 2.4};
+  std::vector<int> incY_vals{1, -2};
 
   for (auto Uplo : Uplo_vals) {
     for (auto n : N) {

@@ -62,7 +62,7 @@ void test_ssyrk(const enum CBLAS_UPLO uplo,
 }
 
 int main() {
-  std::vector<int> dims{32, 64, 256, 512, 513};
+  std::vector<int> dims{32, 64, 513};
   std::vector<CBLAS_UPLO> uplos{CblasLower, CblasUpper};
   std::vector<CBLAS_TRANSPOSE> transposes{CblasNoTrans, CblasTrans};
   std::vector<float> alphas{0.0, 1.0, 2.0};

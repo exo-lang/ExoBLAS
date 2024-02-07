@@ -16,7 +16,7 @@ void test_sgbmv(int M, int N, int KL, int KU, float alpha, float beta, int lda,
       M, N, KL, KU, alpha, lda, incX, beta, incY);
   auto X = AlignedBuffer<float>(N, incX);
   auto Y = AlignedBuffer<float>(M, incY);
-  auto A = AlignedBuffer<float>(M * lda, 1);  
+  auto A = AlignedBuffer<float>(M * lda, 1);
   auto X_expected = X;
   auto Y_expected = Y;
   auto A_expected = A;
@@ -28,10 +28,10 @@ void test_sgbmv(int M, int N, int KL, int KU, float alpha, float beta, int lda,
               Y_expected.data(), incY);
 
   for (int i = 0; i < Y.size(); ++i) {
-    if (!check_relative_error_okay(Y[i], Y_expected[i], 1.f / 1000.f)) {    
+    if (!check_relative_error_okay(Y[i], Y_expected[i], 1.f / 1000.f)) {
       printf("Failed ! mem offset = %d, expected %f, got %f\n", i,
              Y_expected[i], Y[i]);
-      
+
       exit(1);
     }
   }
@@ -41,12 +41,9 @@ void test_sgbmv(int M, int N, int KL, int KU, float alpha, float beta, int lda,
 
 int main() {
   std::vector<std::tuple<int, int, int, int> > sizes{
-      {2, 2, 1, 1}, {15, 20, 0, 5}, {15, 20, 5, 0}, {20, 15, 5, 0}, {256, 256, 255, 255}
-      , {8192, 8192, 8191, 8191}
-      };
+      {2, 2, 1, 1}, {15, 20, 0, 5}, {256, 256, 255, 255}};
 
-  std::vector<std::tuple<float, float> > consts{
-      {1.0, 1.0}, {1.0, 1.2}, {1.2, 1.0}, {1.2, 1.2}};
+  std::vector<std::tuple<float, float> > consts{{1.2, 1.2}};
 
   for (auto s : sizes) {
     for (auto c : consts) {

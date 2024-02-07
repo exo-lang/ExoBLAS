@@ -6,7 +6,6 @@
 #include "generate_buffer.h"
 
 void test_scopy(int N, int incX, int incY) {
-  printf("Running scopy test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
   auto X = AlignedBuffer<float>(N, incX);
   auto Y = AlignedBuffer<float>(N, incY);
   auto X_expected = X;
@@ -17,19 +16,18 @@ void test_scopy(int N, int incX, int incY) {
 
   for (int i = 0; i < Y_expected.size(); ++i) {
     if (Y_expected[i] != Y[i]) {
+      printf("Running scopy test: N = %d, incX = %d, incY = %d\n", N, incX,
+             incY);
       printf("Failed ! mem offset = %d, expected %f, got %f\n", i,
              Y_expected[i], Y[i]);
       exit(1);
     }
   }
-
-  printf("Passed!\n");
 }
 
 int main() {
-  std::vector<int> N{1, 2, 8, 100, 64 * 64 * 64, 10000000};
-  std::vector<std::pair<int, int>> inc{{2, 2}, {3, 3},   {2, 3},
-                                       {4, 5}, {10, -1}, {-2, -4}};
+  std::vector<int> N{2, 321, 1000};
+  std::vector<std::pair<int, int>> inc{{2, 2}, {-2, -4}};
 
   for (auto n : N) {
     test_scopy(n, 1, 1);

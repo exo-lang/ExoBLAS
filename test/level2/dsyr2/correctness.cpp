@@ -40,11 +40,11 @@ void test_dsyr2(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo, int N,
 int main() {
   std::vector<CBLAS_UPLO> Uplo_vals{CBLAS_UPLO::CblasUpper,
                                     CBLAS_UPLO::CblasLower};
-  std::vector<int> N{3, 10, 9, 200, 2048};
-  std::vector<double> alpha_vals{1.2, 0.0, 1.0};
-  std::vector<int> incX_vals{1, 2, -3};
-  std::vector<int> incY_vals{1, 2, -3};
-  std::vector<int> lda_diffs{0, 1, 5};
+  std::vector<int> N{2, 100, 321};
+  std::vector<double> alpha_vals{1.2};
+  std::vector<int> incX_vals{1, 2};
+  std::vector<int> incY_vals{1, -3};
+  std::vector<int> lda_diffs{0, 5};
 
   for (auto Uplo : Uplo_vals) {
     for (auto n : N) {

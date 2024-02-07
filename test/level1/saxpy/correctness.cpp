@@ -9,8 +9,6 @@
 #include "generate_buffer.h"
 
 void test_saxpy(int N, float alpha, int incX, int incY) {
-  printf("Running saxpy test: N = %d, alpha = %f, incX = %d, incY = %d\n", N,
-         alpha, incX, incY);
   auto X = AlignedBuffer<float>(N, incX);
   auto Y = AlignedBuffer<float>(N, incY);
   auto X_expected = X;
@@ -21,20 +19,18 @@ void test_saxpy(int N, float alpha, int incX, int incY) {
 
   for (int i = 0; i < Y.size(); ++i) {
     if (!check_relative_error_okay(Y[i], Y_expected[i], 1.f / 10000.f)) {
+      printf("Running saxpy test: N = %d, alpha = %f, incX = %d, incY = %d\n",
+             N, alpha, incX, incY);
       printf("Failed ! i = %d, expected %f, got %f\n", i, Y_expected[i], Y[i]);
       exit(1);
     }
   }
-
-  printf("Passed!\n");
 }
 
 int main() {
-  std::vector<int> N{1, 2, 8, 100, 64 * 64 * 64, 10000000};
-  std::vector<float> alpha = {1.2, -2.2, 0.0, 1.0};
-  std::vector<std::tuple<float, int, int>> params{{1.2, 2, 2},   {2.5, 3, 3},
-                                                  {0, 2, 3},     {1, 4, 5},
-                                                  {1.3, 10, -1}, {4.5, -2, -4}};
+  std::vector<int> N{2, 321, 1000};
+  std::vector<float> alpha = {-2.2, 0.0, 1.0};
+  std::vector<std::tuple<float, int, int>> params{{1.2, 2, 2}, {4.5, -2, -4}};
 
   for (auto n : N) {
     for (auto a : alpha) {

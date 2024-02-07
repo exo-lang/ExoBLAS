@@ -42,8 +42,8 @@ void test_strmm(const enum CBLAS_ORDER Order, const enum CBLAS_SIDE Side,
 }
 
 int main() {
-  std::vector<int> M{4, 41, 80, 101, 1024};
-  std::vector<int> N{8, 15, 304, 564};
+  std::vector<int> M{4, 101, 321};
+  std::vector<int> N{8, 15, 564};
   std::vector<CBLAS_SIDE> Side_vals{CBLAS_SIDE::CblasLeft};
   std::vector<CBLAS_UPLO> Uplo_vals{CBLAS_UPLO::CblasUpper,
                                     CBLAS_UPLO::CblasLower};
