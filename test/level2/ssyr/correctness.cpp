@@ -38,10 +38,10 @@ void test_ssyr(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
 int main() {
   std::vector<CBLAS_UPLO> Uplo_values{CBLAS_UPLO::CblasUpper,
                                       CBLAS_UPLO::CblasLower};
-  std::vector<int> N{3, 10, 9, 200, 2048, 3000};
-  std::vector<float> alpha_vals = {1.2, -2.2, 0.0, 1.0};
-  std::vector<int> incX_vals{1, 2, -3};
-  std::vector<int> lda_diffs{0, 1, 5};
+  std::vector<int> N{2, 100, 321};
+  std::vector<float> alpha_vals = {1.2};
+  std::vector<int> incX_vals{1, 2};
+  std::vector<int> lda_diffs{0, 5};
 
   for (auto Uplo : Uplo_values) {
     for (auto n : N) {

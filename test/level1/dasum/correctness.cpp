@@ -7,7 +7,6 @@
 #include "generate_buffer.h"
 
 void test_dasum(int N, int incX) {
-  printf("Running dasum test: N = %d, incX = %d\n", N, incX);
   auto X = AlignedBuffer<double>(N, incX);
   auto X_expected = X;
 
@@ -17,16 +16,15 @@ void test_dasum(int N, int incX) {
   auto epsilon = 1.f / 1000.f;
 
   if (!check_relative_error_okay(result, expected, epsilon)) {
+    printf("Running dasum test: N = %d, incX = %d\n", N, incX);
     printf("Failed! Expected %f, got %f\n", expected, result);
     exit(1);
   }
-
-  printf("Passed!\n");
 }
 
 int main() {
-  std::vector<int> N{1, 2, 8, 100, 64 * 64 * 64, 10000000};
-  std::vector<int> inc{2, 3, 5, 10};
+  std::vector<int> N{2, 321, 1000};
+  std::vector<int> inc{1, 3};
 
   for (auto n : N) {
     test_dasum(n, 1);

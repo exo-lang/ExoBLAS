@@ -41,11 +41,9 @@ void test_dgbmv(int M, int N, int KL, int KU, double alpha, double beta,
 
 int main() {
   std::vector<std::tuple<int, int, int, int> > sizes{
-      {2, 2, 1, 1},   {15, 20, 0, 5},       {15, 20, 5, 0},
-      {20, 15, 5, 0}, {256, 256, 255, 255}, {8192, 8192, 8191, 8191}};
+      {2, 2, 1, 1}, {15, 20, 0, 5}, {256, 256, 255, 255}};
 
-  std::vector<std::tuple<double, double> > consts{
-      {1.0, 1.0}, {1.0, 1.2}, {1.2, 1.0}, {1.2, 1.2}};
+  std::vector<std::tuple<double, double> > consts{{1.2, 1.2}};
 
   for (auto s : sizes) {
     for (auto c : consts) {

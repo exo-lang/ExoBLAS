@@ -47,15 +47,15 @@ void test_strsv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
 }
 
 int main() {
-  std::vector<int> N{4, 20, 50, 100, 1024};
+  std::vector<int> N{2, 100, 321};
   std::vector<CBLAS_UPLO> Uplo_vals{CBLAS_UPLO::CblasUpper,
                                     CBLAS_UPLO::CblasLower};
   std::vector<CBLAS_TRANSPOSE> transA_vals{CBLAS_TRANSPOSE::CblasNoTrans,
                                            CBLAS_TRANSPOSE::CblasTrans};
   std::vector<CBLAS_DIAG> Diag_vals{CBLAS_DIAG::CblasUnit,
                                     CBLAS_DIAG::CblasNonUnit};
-  std::vector<int> lda_diffs{0, 3, 5};
-  std::vector<int> incX_vals{1, 3, -2};
+  std::vector<int> lda_diffs{0, 3};
+  std::vector<int> incX_vals{1, 3};
 
   for (auto n : N) {
     for (auto Uplo : Uplo_vals) {

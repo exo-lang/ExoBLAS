@@ -1156,18 +1156,28 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False)
 
     # Start with the window as the entire buffer
     buff_window = [["0", eval_rng(dim, {})[0]] for dim in declaration.shape()]
-    _, success = my_stage_mem(proc, buff_window)
-    assert success
 
     # Get the window per access
     accessess_windows = [get_window(access) for access in block_accesses]
 
+    # Prune the candidates for each dim x side
+    candidates = [(set(), set()) for i in buff_window]
+    for access_window in accessess_windows:
+        for i, dim in enumerate(access_window):
+            for side in range(2):
+                candidates[i][side].add(dim[side])
+                candidates[i][side].add(dim[side])
+
     # Tighten each dimension and side of the buffer window
     for i, dim in enumerate(buff_window):
-        for access_window in accessess_windows:
-            for side in range(0, 2):
+        for side in range(0, 2):
+            # Prune
+            if len(candidates[i][side]) == 1:
+                dim[side] = next(iter(candidates[i][side]))
+                continue
+            for candidate in candidates[i][side]:
                 old_side = dim[side]
-                dim[side] = access_window[i][side]
+                dim[side] = candidate
                 new_proc, success = my_stage_mem(proc, buff_window)
                 if not success:
                     dim[side] = old_side

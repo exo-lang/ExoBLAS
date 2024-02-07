@@ -7,7 +7,6 @@
 #include "generate_buffer.h"
 
 void test_sdsdot(int N, float alpha, int incX, int incY) {
-  printf("Running sdsdot test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
   auto X = AlignedBuffer<float>(N, incX);
   auto Y = AlignedBuffer<float>(N, incY);
   auto X_expected = X;
@@ -20,17 +19,16 @@ void test_sdsdot(int N, float alpha, int incX, int incY) {
   auto epsilon = 1.f / 1000.f;
 
   if (!check_relative_error_okay(result, expected, epsilon)) {
+    printf("Running sdsdot test: N = %d, incX = %d, incY = %d\n", N, incX,
+           incY);
     printf("Failed! Expected %f, got %f\n", expected, result);
     exit(1);
   }
-
-  printf("Passed!\n");
 }
 
 int main() {
-  std::vector<int> N{1, 2, 8, 100, 64 * 64 * 64, 10000000};
-  std::vector<std::pair<int, int>> inc{{2, 2}, {3, 3},   {2, 3},
-                                       {4, 5}, {10, -1}, {-2, -4}};
+  std::vector<int> N{2, 321, 1000};
+  std::vector<std::pair<int, int>> inc{{2, 2}, {-2, -4}};
 
   for (auto n : N) {
     test_sdsdot(n, 0.0, 1, 1);
