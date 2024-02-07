@@ -187,7 +187,6 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     # Instructions...
     gemm = replace_all_stmts(gemm, instructions)
     gemm = simplify(gemm)
-    print(gemm)
     # TODO: This was found by experimentation, there should be a better way to find why 4
     # is the right answer
     gemm, cursors = auto_divide_loop(gemm, gemm.find_loop("k #2"), 4, tail="cut")
