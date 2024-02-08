@@ -17,9 +17,7 @@ def symv_scal_y(n: size, beta: R, y: [R][n]):
 
 
 @proc
-def symv_row_major_Upper_template(
-    n: size, alpha: R, A: [R][n, n], x: [R][n], y: [R][n]
-):
+def symv_row_major_Upper(n: size, alpha: R, A: [R][n, n], x: [R][n], y: [R][n]):
     assert stride(A, 1) == 1
 
     for i in seq(0, n):
@@ -34,9 +32,7 @@ def symv_row_major_Upper_template(
 
 
 @proc
-def symv_row_major_Lower_template(
-    n: size, alpha: R, A: [R][n, n], x: [R][n], y: [R][n]
-):
+def symv_row_major_Lower(n: size, alpha: R, A: [R][n, n], x: [R][n], y: [R][n]):
     assert stride(A, 1) == 1
 
     for i in seq(0, n):
@@ -53,7 +49,7 @@ def symv_row_major_Lower_template(
 def specialize_symv(symv, precision):
     prefix = "s" if precision == "f32" else "d"
     name = symv.name()
-    name = name.replace("_template", "")
+    name = name.replace("", "")
     specialized = rename(symv, "exo_" + prefix + name)
 
     if "scal" in symv.name():
@@ -100,16 +96,12 @@ exo_ssymv_scal_y_stride_any = specialize_symv(symv_scal_y, "f32")
 exo_ssymv_scal_y_stride_any = rename(
     exo_ssymv_scal_y_stride_any, exo_ssymv_scal_y_stride_any.name() + "_stride_any"
 )
-exo_ssymv_row_major_Upper_stride_any = specialize_symv(
-    symv_row_major_Upper_template, "f32"
-)
+exo_ssymv_row_major_Upper_stride_any = specialize_symv(symv_row_major_Upper, "f32")
 exo_ssymv_row_major_Upper_stride_any = rename(
     exo_ssymv_row_major_Upper_stride_any,
     exo_ssymv_row_major_Upper_stride_any.name() + "_stride_any",
 )
-exo_ssymv_row_major_Lower_stride_any = specialize_symv(
-    symv_row_major_Lower_template, "f32"
-)
+exo_ssymv_row_major_Lower_stride_any = specialize_symv(symv_row_major_Lower, "f32")
 exo_ssymv_row_major_Lower_stride_any = rename(
     exo_ssymv_row_major_Lower_stride_any,
     exo_ssymv_row_major_Lower_stride_any.name() + "_stride_any",
@@ -124,7 +116,7 @@ f32_instructions = [
 ]
 
 exo_ssymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Upper_template,
+    symv_row_major_Upper,
     C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
@@ -132,7 +124,7 @@ exo_ssymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1
     "f32",
 )
 exo_ssymv_row_major_Lower_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Lower_template,
+    symv_row_major_Lower,
     C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
@@ -151,16 +143,12 @@ exo_dsymv_scal_y_stride_any = specialize_symv(symv_scal_y, "f64")
 exo_dsymv_scal_y_stride_any = rename(
     exo_dsymv_scal_y_stride_any, exo_dsymv_scal_y_stride_any.name() + "_stride_any"
 )
-exo_dsymv_row_major_Upper_stride_any = specialize_symv(
-    symv_row_major_Upper_template, "f64"
-)
+exo_dsymv_row_major_Upper_stride_any = specialize_symv(symv_row_major_Upper, "f64")
 exo_dsymv_row_major_Upper_stride_any = rename(
     exo_dsymv_row_major_Upper_stride_any,
     exo_dsymv_row_major_Upper_stride_any.name() + "_stride_any",
 )
-exo_dsymv_row_major_Lower_stride_any = specialize_symv(
-    symv_row_major_Lower_template, "f64"
-)
+exo_dsymv_row_major_Lower_stride_any = specialize_symv(symv_row_major_Lower, "f64")
 exo_dsymv_row_major_Lower_stride_any = rename(
     exo_dsymv_row_major_Lower_stride_any,
     exo_dsymv_row_major_Lower_stride_any.name() + "_stride_any",
@@ -176,7 +164,7 @@ f64_instructions = [
 ]
 
 exo_dsymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Upper_template,
+    symv_row_major_Upper,
     C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,
@@ -184,7 +172,7 @@ exo_dsymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1
     "f64",
 )
 exo_dsymv_row_major_Lower_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Lower_template,
+    symv_row_major_Lower,
     C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,

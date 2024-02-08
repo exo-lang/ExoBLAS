@@ -1,26 +1,19 @@
 from __future__ import annotations
 
 from exo import *
-from exo.libs.memories import DRAM_STATIC
-from exo.platforms.x86 import *
-from exo.syntax import *
-from exo.stdlib.scheduling import *
-from exo.API_cursors import *
 
-import exo_blas_config as C
-from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def axpy_template(n: size, alpha: R, x: [R][n], y: [R][n]):
+def axpy(n: size, alpha: R, x: [R][n], y: [R][n]):
     for i in seq(0, n):
         y[i] += alpha * x[i]
 
 
 @proc
-def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
+def axpy_alpha_1(n: size, x: [R][n], y: [R][n]):
     for i in seq(0, n):
         y[i] += x[i]
 
@@ -29,22 +22,6 @@ def axpy_template_alpha_1(n: size, x: [R][n], y: [R][n]):
 
 
 ### EXO_LOC SCHEDULE START ###
-def schedule_axpy_stride_1(axpy, precision):
-    axpy = generate_stride_1_proc(axpy, precision)
-    main_loop = axpy.find_loop("i")
-    axpy = optimize_level_1(axpy, main_loop, precision, C.Machine, 4)
-    return simplify(axpy)
-
-
-template_sched_list = [
-    (axpy_template, schedule_axpy_stride_1),
-    (axpy_template_alpha_1, schedule_axpy_stride_1),
-]
-
-for precision in ("f32", "f64"):
-    for template, sched in template_sched_list:
-        proc_stride_any = generate_stride_any_proc(template, precision)
-        export_exo_proc(globals(), proc_stride_any)
-        proc_stride_1 = sched(template, precision)
-        export_exo_proc(globals(), proc_stride_1)
+for proc in axpy, axpy_alpha_1:
+    variants_generator(optimize_level_1)(proc, "i", 4, globals=globals())
 ### EXO_LOC SCHEDULE END ###

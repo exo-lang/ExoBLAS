@@ -17,7 +17,7 @@ def sbmv_scal_y(n: size, beta: R, y: [R][n]):
 
 
 @proc
-def sbmv_row_major_Upper_template(
+def sbmv_row_major_Upper(
     n: size, k: size, alpha: R, A: [R][n, k + 1], x: [R][n], y: [R][n]
 ):
     assert stride(A, 1) == 1
@@ -36,7 +36,7 @@ def sbmv_row_major_Upper_template(
 
 
 @proc
-def sbmv_row_major_Lower_template(
+def sbmv_row_major_Lower(
     n: size, k: size, alpha: R, A: [R][n, k + 1], x: [R][n], y: [R][n]
 ):
     assert stride(A, 1) == 1
@@ -57,7 +57,7 @@ def sbmv_row_major_Lower_template(
 def specialize_sbmv(sbmv, precision):
     prefix = "s" if precision == "f32" else "d"
     name = sbmv.name()
-    name = name.replace("_template", "")
+    name = name.replace("", "")
     specialized = rename(sbmv, "exo_" + prefix + name)
 
     if "scal" in sbmv.name():
@@ -104,16 +104,12 @@ exo_ssbmv_scal_y_stride_any = specialize_sbmv(sbmv_scal_y, "f32")
 exo_ssbmv_scal_y_stride_any = rename(
     exo_ssbmv_scal_y_stride_any, exo_ssbmv_scal_y_stride_any.name() + "_stride_any"
 )
-exo_ssbmv_row_major_Upper_stride_any = specialize_sbmv(
-    sbmv_row_major_Upper_template, "f32"
-)
+exo_ssbmv_row_major_Upper_stride_any = specialize_sbmv(sbmv_row_major_Upper, "f32")
 exo_ssbmv_row_major_Upper_stride_any = rename(
     exo_ssbmv_row_major_Upper_stride_any,
     exo_ssbmv_row_major_Upper_stride_any.name() + "_stride_any",
 )
-exo_ssbmv_row_major_Lower_stride_any = specialize_sbmv(
-    sbmv_row_major_Lower_template, "f32"
-)
+exo_ssbmv_row_major_Lower_stride_any = specialize_sbmv(sbmv_row_major_Lower, "f32")
 exo_ssbmv_row_major_Lower_stride_any = rename(
     exo_ssbmv_row_major_Lower_stride_any,
     exo_ssbmv_row_major_Lower_stride_any.name() + "_stride_any",
@@ -128,7 +124,7 @@ f32_instructions = [
 ]
 
 exo_ssbmv_row_major_Upper_stride_1 = schedule_interleave_sbmv_row_major_stride_1(
-    sbmv_row_major_Upper_template,
+    sbmv_row_major_Upper,
     C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
@@ -136,7 +132,7 @@ exo_ssbmv_row_major_Upper_stride_1 = schedule_interleave_sbmv_row_major_stride_1
     "f32",
 )
 exo_ssbmv_row_major_Lower_stride_1 = schedule_interleave_sbmv_row_major_stride_1(
-    sbmv_row_major_Lower_template,
+    sbmv_row_major_Lower,
     C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
@@ -155,16 +151,12 @@ exo_dsbmv_scal_y_stride_any = specialize_sbmv(sbmv_scal_y, "f64")
 exo_dsbmv_scal_y_stride_any = rename(
     exo_dsbmv_scal_y_stride_any, exo_dsbmv_scal_y_stride_any.name() + "_stride_any"
 )
-exo_dsbmv_row_major_Upper_stride_any = specialize_sbmv(
-    sbmv_row_major_Upper_template, "f64"
-)
+exo_dsbmv_row_major_Upper_stride_any = specialize_sbmv(sbmv_row_major_Upper, "f64")
 exo_dsbmv_row_major_Upper_stride_any = rename(
     exo_dsbmv_row_major_Upper_stride_any,
     exo_dsbmv_row_major_Upper_stride_any.name() + "_stride_any",
 )
-exo_dsbmv_row_major_Lower_stride_any = specialize_sbmv(
-    sbmv_row_major_Lower_template, "f64"
-)
+exo_dsbmv_row_major_Lower_stride_any = specialize_sbmv(sbmv_row_major_Lower, "f64")
 exo_dsbmv_row_major_Lower_stride_any = rename(
     exo_dsbmv_row_major_Lower_stride_any,
     exo_dsbmv_row_major_Lower_stride_any.name() + "_stride_any",
@@ -180,7 +172,7 @@ f64_instructions = [
 ]
 
 exo_dsbmv_row_major_Upper_stride_1 = schedule_interleave_sbmv_row_major_stride_1(
-    sbmv_row_major_Upper_template,
+    sbmv_row_major_Upper,
     C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,
@@ -188,7 +180,7 @@ exo_dsbmv_row_major_Upper_stride_1 = schedule_interleave_sbmv_row_major_stride_1
     "f64",
 )
 exo_dsbmv_row_major_Lower_stride_1 = schedule_interleave_sbmv_row_major_stride_1(
-    sbmv_row_major_Lower_template,
+    sbmv_row_major_Lower,
     C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,

@@ -9,44 +9,53 @@ from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
 from introspection import *
+from higher_order import *
+import exo_blas_config as C
 
 
-def specialize_precision(template_proc, precision):
+def specialize_precision(proc, precision, all_buffs=True):
+    assert precision in {"f32", "f64"}
     prefix = "s" if precision == "f32" else "d"
-    template_name = template_proc.name()
-    template_name = template_name.replace("_template", "")
-    specialized_proc = rename(template_proc, "exo_" + prefix + template_name)
+    template_name = proc.name()
+    proc = rename(proc, prefix + template_name)
 
-    for arg in template_proc.args():
-        if arg.type().is_numeric():
-            specialized_proc = set_precision(specialized_proc, arg, precision)
+    def has_type_R(proc, s, *arg):
+        if not isinstance(s, (AllocCursor, ArgCursor)):
+            return False
+        return s.type() == ExoType.R
 
-    for stmt in lrn_stmts(template_proc):
-        if isinstance(stmt, AllocCursor):
-            specialized_proc = set_precision(specialized_proc, stmt, precision)
-    return specialized_proc
+    set_R_type = predicate(set_precision, has_type_R)
 
+    def is_numeric(proc, s, *arg):
+        if not isinstance(s, (AllocCursor, ArgCursor)):
+            return False
+        return s.type().is_numeric()
 
-def generate_stride_any_proc(template_proc, precision):
-    proc = specialize_precision(template_proc, precision)
-    proc = rename(proc, proc.name() + "_stride_any")
-    proc = stage_scalar_args(proc)
+    set_numerics = predicate(set_precision, is_numeric)
+
+    set_type = set_numerics if all_buffs else set_R_type
+    proc = apply(set_type)(proc, proc.args(), precision)
+    proc = make_pass(set_type)(proc, proc.body(), precision)
     return proc
 
 
-def generate_stride_1_proc(template_proc, precision):
-    proc = specialize_precision(template_proc, precision)
+def generate_stride_any_proc(proc):
+    proc = rename(proc, proc.name() + "_stride_any")
+    return proc
+
+
+def generate_stride_1_proc(proc):
     proc = rename(proc, proc.name() + "_stride_1")
     for arg in proc.args():
         if arg.is_tensor():
             proc = proc.add_assertion(
                 f"stride({arg.name()}, {len(arg.shape()) - 1}) == 1"
             )
-    proc = stage_scalar_args(proc)
     return proc
 
 
 def export_exo_proc(globals, proc):
+    proc = rename(proc, f"exo_{proc.name()}")
     globals[proc.name()] = simplify(proc)
     globals.setdefault("__all__", []).append(proc.name())
 
@@ -70,3 +79,23 @@ def stage_scalar_args(proc):
         if arg.type().is_numeric() and not arg.is_tensor():
             proc = stage_mem(proc, proc.body(), arg.name(), f"{arg.name()}_")
     return proc
+
+
+def variants_generator(blas_op):
+    def generate(proc, loop_name, *args, globals=None):
+        for precision in ("f32", "f64"):
+            proc_variant = specialize_precision(proc, precision)
+
+            proc_variant = stage_scalar_args(proc_variant)
+
+            stride_any = generate_stride_any_proc(proc_variant)
+            stride_any = bind_builtins_args(stride_any, stride_any.body(), precision)
+            export_exo_proc(globals, stride_any)
+
+            stride_1 = generate_stride_1_proc(proc_variant)
+            loop = stride_1.find_loop(loop_name)
+            stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args)
+            stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
+            export_exo_proc(globals, stride_1)
+
+    return generate

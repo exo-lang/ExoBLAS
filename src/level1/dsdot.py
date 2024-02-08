@@ -1,20 +1,15 @@
 from __future__ import annotations
 
 from exo import *
-from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
-from exo.platforms.neon import *
-from exo.syntax import *
-from exo.stdlib.scheduling import *
 
-import exo_blas_config as C
-from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
+import exo_blas_config as C
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def dsdot_template(n: size, x: [f32][n], y: [f32][n], result: f64):
+def dsdot(n: size, x: [f32][n], y: [f32][n], result: f64):
     d_dot: f64
     d_dot = 0.0
     for i in seq(0, n):
@@ -27,7 +22,7 @@ def dsdot_template(n: size, x: [f32][n], y: [f32][n], result: f64):
 
 
 @proc
-def sdsdot_template(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
+def sdsdot(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
     d_result: f64
     d_dot: f64
     d_dot = 0.0
@@ -46,26 +41,11 @@ def sdsdot_template(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
 
 
 ### EXO_LOC SCHEDULE START ###
-def schedule_dsdot_stride_1(proc, name):
-    proc = rename(proc, name)
-    proc = proc.add_assertion("stride(x, 0) == 1")
-    proc = proc.add_assertion("stride(y, 0) == 1")
-
-    if C.Machine.mem_type is not AVX2:
-        return proc
-    proc = optimize_level_1(proc, proc.find_loop("i"), "f64", C.Machine, 4)
-    return proc
-
-
-export_exo_proc(globals(), rename(dsdot_template, "exo_dsdot_stride_any"))
-export_exo_proc(globals(), rename(sdsdot_template, "exo_sdsdot_stride_any"))
-export_exo_proc(
-    globals(),
-    schedule_dsdot_stride_1(dsdot_template, "exo_dsdot_stride_1"),
-)
-export_exo_proc(
-    globals(),
-    schedule_dsdot_stride_1(sdsdot_template, "exo_sdsdot_stride_1"),
-)
-
+for proc in dsdot, sdsdot:
+    export_exo_proc(globals(), generate_stride_any_proc(proc))
+    stride_1 = generate_stride_1_proc(proc)
+    if C.Machine.mem_type is AVX2:
+        loop = stride_1.find_loop("i")
+        stride_1 = optimize_level_1(stride_1, loop, "f64", C.Machine, 4)
+    export_exo_proc(globals(), stride_1)
 ### EXO_LOC SCHEDULE END ###

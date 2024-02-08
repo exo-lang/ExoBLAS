@@ -11,9 +11,7 @@ import exo_blas_config as C
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def ger_row_major_template(
-    m: size, n: size, alpha: R, x: [R][m], y: [R][n], A: [R][m, n]
-):
+def ger_row_major(m: size, n: size, alpha: R, x: [R][m], y: [R][n], A: [R][m, n]):
     assert stride(A, 1) == 1
 
     for i in seq(0, m):
@@ -22,7 +20,7 @@ def ger_row_major_template(
 
 
 @proc
-def ger_row_major_template_alpha_1(
+def ger_row_major_alpha_1(
     m: size, n: size, alpha: R, x: [R][m], y: [R][n], A: [R][m, n]
 ):
     assert stride(A, 1) == 1
@@ -38,10 +36,8 @@ def ger_row_major_template_alpha_1(
 ### EXO_LOC SCHEDULE START ###
 def specialize_ger(precision, alpha):
     prefix = "s" if precision == "f32" else "d"
-    specialized = (
-        ger_row_major_template if alpha != 1 else ger_row_major_template_alpha_1
-    )
-    name = specialized.name().replace("_template", "")
+    specialized = ger_row_major if alpha != 1 else ger_row_major_alpha_1
+    name = specialized.name().replace("", "")
     specialized = rename(specialized, "exo_" + prefix + name)
 
     args = ["alpha", "x", "y", "A"]

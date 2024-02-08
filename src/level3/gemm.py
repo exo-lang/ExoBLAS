@@ -11,16 +11,11 @@ from exo.API_cursors import *
 
 import exo_blas_config as C
 from composed_schedules import *
-from codegen_helpers import (
-    generate_stride_any_proc,
-    export_exo_proc,
-)
+from codegen_helpers import *
 
 
 @proc
-def gemm_matmul_template(
-    M: size, N: size, K: size, A: [R][M, K], B: [R][K, N], C: [R][M, N]
-):
+def gemm_matmul(M: size, N: size, K: size, A: [R][M, K], B: [R][K, N], C: [R][M, N]):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     assert stride(C, 1) == 1
@@ -229,7 +224,8 @@ def schedule_outer_product_gemm_as_tiles(
 
 
 def schedule_gemm_matmul(gemm, precision):
-    gemm = generate_stride_any_proc(gemm, precision)
+    gemm = specialize_precision(gemm, precision)
+    gemm = generate_stride_any_proc(gemm)
 
     i_loop = gemm.find_loop("i")
     j_loop = i_loop.body()[0]
@@ -267,7 +263,7 @@ def schedule_gemm_matmul(gemm, precision):
 
 
 template_sched_list = [
-    (gemm_matmul_template, schedule_gemm_matmul),
+    (gemm_matmul, schedule_gemm_matmul),
 ]
 
 for precision in ("f32",):

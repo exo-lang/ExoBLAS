@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 from exo import *
-from exo.libs.memories import DRAM_STATIC
-from exo.platforms.x86 import *
-from exo.syntax import *
-from exo.stdlib.scheduling import *
 
-import exo_blas_config as C
-from composed_schedules import *
 from blaslib import *
 from codegen_helpers import *
 
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def trmv_rm_un_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_un(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -33,7 +27,7 @@ def trmv_rm_un_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
 
 
 @proc
-def trmv_rm_ln_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_ln(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -52,7 +46,7 @@ def trmv_rm_ln_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
 
 
 @proc
-def trmv_rm_ut_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_ut(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -72,7 +66,7 @@ def trmv_rm_ut_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
 
 
 @proc
-def trmv_rm_lt_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
+def trmv_rm_lt(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     xCopy: R[n]
@@ -96,21 +90,7 @@ def trmv_rm_lt_template(Diag: index, n: size, x: [R][n], A: [R][n, n]):
 
 ### EXO_LOC SCHEDULE START ###
 
-template_sched_list = [
-    trmv_rm_un_template,
-    trmv_rm_ln_template,
-    trmv_rm_ut_template,
-    trmv_rm_lt_template,
-]
-
-for precision in ("f32", "f64"):
-    for template in template_sched_list:
-        proc_stride_any = generate_stride_any_proc(template, precision)
-        export_exo_proc(globals(), proc_stride_any)
-        proc_stride_1 = generate_stride_1_proc(template, precision)
-        proc_stride_1 = optimize_level_2(
-            proc_stride_1, proc_stride_1.find_loop("i"), precision, C.Machine, 4, 2
-        )
-        export_exo_proc(globals(), proc_stride_1)
+for proc in trmv_rm_un, trmv_rm_ln, trmv_rm_ut, trmv_rm_lt:
+    variants_generator(optimize_level_2)(proc, "i", 4, 2, globals=globals())
 
 ### EXO_LOC SCHEDULE END ###
