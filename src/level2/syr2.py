@@ -11,9 +11,7 @@ import exo_blas_config as C
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def syr2_row_major_Upper_template(
-    n: size, alpha: R, x: [R][n], y: [R][n], A: [R][n, n]
-):
+def syr2_row_major_Upper(n: size, alpha: R, x: [R][n], y: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     for i in seq(0, n):
@@ -22,9 +20,7 @@ def syr2_row_major_Upper_template(
 
 
 @proc
-def syr2_row_major_Lower_template(
-    n: size, alpha: R, x: [R][n], y: [R][n], A: [R][n, n]
-):
+def syr2_row_major_Lower(n: size, alpha: R, x: [R][n], y: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
     for i in seq(0, n):
@@ -39,7 +35,7 @@ def syr2_row_major_Lower_template(
 def specialize_syr2(syr2, precision):
     prefix = "s" if precision == "f32" else "d"
     name = syr2.name()
-    name = name.replace("_template", "")
+    name = name.replace("", "")
     specialized = rename(syr2, "exo_" + prefix + name)
 
     args = ["alpha", "x", "y", "A"]
@@ -69,16 +65,12 @@ def schedule_interleave_syr2_row_major_stride_1(
 # Generate specialized kernels for f32 precision
 #################################################
 
-exo_ssyr2_row_major_Upper_stride_any = specialize_syr2(
-    syr2_row_major_Upper_template, "f32"
-)
+exo_ssyr2_row_major_Upper_stride_any = specialize_syr2(syr2_row_major_Upper, "f32")
 exo_ssyr2_row_major_Upper_stride_any = rename(
     exo_ssyr2_row_major_Upper_stride_any,
     exo_ssyr2_row_major_Upper_stride_any.name() + "_stride_any",
 )
-exo_ssyr2_row_major_Lower_stride_any = specialize_syr2(
-    syr2_row_major_Lower_template, "f32"
-)
+exo_ssyr2_row_major_Lower_stride_any = specialize_syr2(syr2_row_major_Lower, "f32")
 exo_ssyr2_row_major_Lower_stride_any = rename(
     exo_ssyr2_row_major_Lower_stride_any,
     exo_ssyr2_row_major_Lower_stride_any.name() + "_stride_any",
@@ -93,7 +85,7 @@ f32_instructions = [
 ]
 
 exo_ssyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1(
-    syr2_row_major_Upper_template,
+    syr2_row_major_Upper,
     C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
@@ -101,7 +93,7 @@ exo_ssyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1
     "f32",
 )
 exo_ssyr2_row_major_Lower_stride_1 = schedule_interleave_syr2_row_major_stride_1(
-    syr2_row_major_Lower_template,
+    syr2_row_major_Lower,
     C.Machine.f32_vec_width,
     1,
     C.Machine.mem_type,
@@ -113,16 +105,12 @@ exo_ssyr2_row_major_Lower_stride_1 = schedule_interleave_syr2_row_major_stride_1
 # Generate specialized kernels for f64 precision
 #################################################
 
-exo_dsyr2_row_major_Upper_stride_any = specialize_syr2(
-    syr2_row_major_Upper_template, "f64"
-)
+exo_dsyr2_row_major_Upper_stride_any = specialize_syr2(syr2_row_major_Upper, "f64")
 exo_dsyr2_row_major_Upper_stride_any = rename(
     exo_dsyr2_row_major_Upper_stride_any,
     exo_dsyr2_row_major_Upper_stride_any.name() + "_stride_any",
 )
-exo_dsyr2_row_major_Lower_stride_any = specialize_syr2(
-    syr2_row_major_Lower_template, "f64"
-)
+exo_dsyr2_row_major_Lower_stride_any = specialize_syr2(syr2_row_major_Lower, "f64")
 exo_dsyr2_row_major_Lower_stride_any = rename(
     exo_dsyr2_row_major_Lower_stride_any,
     exo_dsyr2_row_major_Lower_stride_any.name() + "_stride_any",
@@ -138,7 +126,7 @@ f64_instructions = [
 ]
 
 exo_dsyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1(
-    syr2_row_major_Upper_template,
+    syr2_row_major_Upper,
     C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,
@@ -146,7 +134,7 @@ exo_dsyr2_row_major_Upper_stride_1 = schedule_interleave_syr2_row_major_stride_1
     "f64",
 )
 exo_dsyr2_row_major_Lower_stride_1 = schedule_interleave_syr2_row_major_stride_1(
-    syr2_row_major_Lower_template,
+    syr2_row_major_Lower,
     C.Machine.f32_vec_width // 2,
     1,
     C.Machine.mem_type,

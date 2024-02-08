@@ -11,7 +11,7 @@ from composed_schedules import *
 
 ### EXO_LOC ALGORITHM START ###
 @proc
-def nrm2_template(n: size, x: [R][n], result: R):
+def nrm2(n: size, x: [R][n], result: R):
     result = 0.0
     for i in seq(0, n):
         result += x[i] * x[i]
@@ -23,7 +23,7 @@ def nrm2_template(n: size, x: [R][n], result: R):
 ### EXO_LOC SCHEDULE START ###
 def specialize_precision(precision):
     prefix = "s" if precision == "f32" else "d"
-    specialized_copy = rename(nrm2_template, "exo_" + prefix + "nrm2")
+    specialized_copy = rename(nrm2, "exo_" + prefix + "nrm2")
     for arg in ["x", "result"]:
         specialized_copy = set_precision(specialized_copy, arg, precision)
     return specialized_copy

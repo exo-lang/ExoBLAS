@@ -6,7 +6,7 @@ from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 
-from dot import exo_sdot_stride_1, dot_template, exo_ddot_stride_1
+from dot import exo_sdot_stride_1, dot, exo_ddot_stride_1
 import exo_blas_config as C
 from composed_schedules import (
     scalar_to_simd,
@@ -64,7 +64,7 @@ def gbmv_row_major_NonTrans(
 
 ### EXO_LOC SCHEDULE START ###
 def specialize_sdot(precision):
-    specialized = sdot_template
+    specialized = sdot
 
     for arg in ["x", "y", "result"]:
         specialized = set_precision(specialized, arg, precision)
@@ -91,11 +91,11 @@ def schedule_stride_1(precision):
     stride_1 = stride_1.add_assertion("stride(a, 1) == 1")
 
     scheduled_sdot = exo_sdot_stride_1 if precision == "f32" else exo_ddot_stride_1
-    dot_template.unsafe_assert_eq(scheduled_sdot)
+    dot.unsafe_assert_eq(scheduled_sdot)
 
     for i in range(4):
-        stride_1 = replace(stride_1, stride_1.find_loop("j").expand(1, 0), dot_template)
-        stride_1 = call_eqv(stride_1, "dot_template", scheduled_sdot)
+        stride_1 = replace(stride_1, stride_1.find_loop("j").expand(1, 0), dot)
+        stride_1 = call_eqv(stride_1, "dot", scheduled_sdot)
 
     return simplify(stride_1)
 

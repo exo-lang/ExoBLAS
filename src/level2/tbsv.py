@@ -10,7 +10,7 @@ import exo_blas_config as C
 
 
 @proc
-def tbsv_row_major_Upper_NonTrans_template(
+def tbsv_row_major_Upper_NonTrans(
     n: size, k: size, x: [R][n], A: [R][n, n], Diag: size
 ):
     assert stride(A, 1) == 1
@@ -48,7 +48,7 @@ def tbsv_row_major_Upper_NonTrans_template(
 
 
 @proc
-def tbsv_row_major_Lower_NonTrans_template(
+def tbsv_row_major_Lower_NonTrans(
     n: size, k: size, x: [R][n], A: [R][n, n], Diag: size
 ):
     assert stride(A, 1) == 1
@@ -86,9 +86,7 @@ def tbsv_row_major_Lower_NonTrans_template(
 
 
 @proc
-def tbsv_row_major_Upper_Trans_template(
-    n: size, k: size, x: [R][n], A: [R][n, n], Diag: size
-):
+def tbsv_row_major_Upper_Trans(n: size, k: size, x: [R][n], A: [R][n, n], Diag: size):
     assert stride(A, 1) == 1
     assert k <= n - 1
 
@@ -112,9 +110,7 @@ def tbsv_row_major_Upper_Trans_template(
 
 
 @proc
-def tbsv_row_major_Lower_Trans_template(
-    n: size, k: size, x: [R][n], A: [R][n, n], Diag: size
-):
+def tbsv_row_major_Lower_Trans(n: size, k: size, x: [R][n], A: [R][n, n], Diag: size):
     assert stride(A, 1) == 1
     assert k <= n - 1
 
@@ -140,7 +136,7 @@ def tbsv_row_major_Lower_Trans_template(
 def specialize_tbsv(tbsv, precision):
     prefix = "s" if precision == "f32" else "d"
     name = tbsv.name()
-    name = name.replace("_template", "")
+    name = name.replace("", "")
     specialized = rename(tbsv, "exo_" + prefix + name)
 
     args = ["x", "A", "dot", "pivot"]
@@ -179,28 +175,28 @@ ROW_INTERLEAVE_FACTOR = C.Machine.vec_units
 #################################################
 
 exo_stbsv_row_major_Upper_NonTrans_stride_any = specialize_tbsv(
-    tbsv_row_major_Upper_NonTrans_template, "f32"
+    tbsv_row_major_Upper_NonTrans, "f32"
 )
 exo_stbsv_row_major_Upper_NonTrans_stride_any = rename(
     exo_stbsv_row_major_Upper_NonTrans_stride_any,
     exo_stbsv_row_major_Upper_NonTrans_stride_any.name() + "_stride_any",
 )
 exo_stbsv_row_major_Lower_NonTrans_stride_any = specialize_tbsv(
-    tbsv_row_major_Lower_NonTrans_template, "f32"
+    tbsv_row_major_Lower_NonTrans, "f32"
 )
 exo_stbsv_row_major_Lower_NonTrans_stride_any = rename(
     exo_stbsv_row_major_Lower_NonTrans_stride_any,
     exo_stbsv_row_major_Lower_NonTrans_stride_any.name() + "_stride_any",
 )
 exo_stbsv_row_major_Upper_Trans_stride_any = specialize_tbsv(
-    tbsv_row_major_Upper_Trans_template, "f32"
+    tbsv_row_major_Upper_Trans, "f32"
 )
 exo_stbsv_row_major_Upper_Trans_stride_any = rename(
     exo_stbsv_row_major_Upper_Trans_stride_any,
     exo_stbsv_row_major_Upper_Trans_stride_any.name() + "_stride_any",
 )
 exo_stbsv_row_major_Lower_Trans_stride_any = specialize_tbsv(
-    tbsv_row_major_Lower_Trans_template, "f32"
+    tbsv_row_major_Lower_Trans, "f32"
 )
 exo_stbsv_row_major_Lower_Trans_stride_any = rename(
     exo_stbsv_row_major_Lower_Trans_stride_any,
@@ -218,7 +214,7 @@ f32_instructions = [
 
 exo_stbsv_row_major_Upper_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
-        tbsv_row_major_Upper_NonTrans_template,
+        tbsv_row_major_Upper_NonTrans,
         C.Machine.f32_vec_width,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -228,7 +224,7 @@ exo_stbsv_row_major_Upper_NonTrans_stride_1 = (
 )
 exo_stbsv_row_major_Lower_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
-        tbsv_row_major_Lower_NonTrans_template,
+        tbsv_row_major_Lower_NonTrans,
         C.Machine.f32_vec_width,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -242,28 +238,28 @@ exo_stbsv_row_major_Lower_NonTrans_stride_1 = (
 #################################################
 
 exo_dtbsv_row_major_Upper_NonTrans_stride_any = specialize_tbsv(
-    tbsv_row_major_Upper_NonTrans_template, "f64"
+    tbsv_row_major_Upper_NonTrans, "f64"
 )
 exo_dtbsv_row_major_Upper_NonTrans_stride_any = rename(
     exo_dtbsv_row_major_Upper_NonTrans_stride_any,
     exo_dtbsv_row_major_Upper_NonTrans_stride_any.name() + "_stride_any",
 )
 exo_dtbsv_row_major_Lower_NonTrans_stride_any = specialize_tbsv(
-    tbsv_row_major_Lower_NonTrans_template, "f64"
+    tbsv_row_major_Lower_NonTrans, "f64"
 )
 exo_dtbsv_row_major_Lower_NonTrans_stride_any = rename(
     exo_dtbsv_row_major_Lower_NonTrans_stride_any,
     exo_dtbsv_row_major_Lower_NonTrans_stride_any.name() + "_stride_any",
 )
 exo_dtbsv_row_major_Upper_Trans_stride_any = specialize_tbsv(
-    tbsv_row_major_Upper_Trans_template, "f64"
+    tbsv_row_major_Upper_Trans, "f64"
 )
 exo_dtbsv_row_major_Upper_Trans_stride_any = rename(
     exo_dtbsv_row_major_Upper_Trans_stride_any,
     exo_dtbsv_row_major_Upper_Trans_stride_any.name() + "_stride_any",
 )
 exo_dtbsv_row_major_Lower_Trans_stride_any = specialize_tbsv(
-    tbsv_row_major_Lower_Trans_template, "f64"
+    tbsv_row_major_Lower_Trans, "f64"
 )
 exo_dtbsv_row_major_Lower_Trans_stride_any = rename(
     exo_dtbsv_row_major_Lower_Trans_stride_any,
@@ -281,7 +277,7 @@ f64_instructions = [
 
 exo_dtbsv_row_major_Upper_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
-        tbsv_row_major_Upper_NonTrans_template,
+        tbsv_row_major_Upper_NonTrans,
         C.Machine.f32_vec_width // 2,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
@@ -291,7 +287,7 @@ exo_dtbsv_row_major_Upper_NonTrans_stride_1 = (
 )
 exo_dtbsv_row_major_Lower_NonTrans_stride_1 = (
     schedule_interleave_tbsv_row_major_stride_1(
-        tbsv_row_major_Lower_NonTrans_template,
+        tbsv_row_major_Lower_NonTrans,
         C.Machine.f32_vec_width // 2,
         ROW_INTERLEAVE_FACTOR,
         C.Machine.mem_type,
