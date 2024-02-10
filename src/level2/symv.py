@@ -1,205 +1,46 @@
 from __future__ import annotations
 
 from exo import *
-from exo.libs.memories import DRAM_STATIC
-from exo.platforms.x86 import *
-from exo.syntax import *
-from exo.stdlib.scheduling import *
 
-import exo_blas_config as C
+from blaslib import *
+from codegen_helpers import *
 
 
 @proc
-def symv_scal_y(n: size, beta: R, y: [R][n]):
+def symv_rm_u(n: size, alpha: R, A: [R][n, n], x: [R][n], beta: R, y: [R][n]):
+    assert stride(A, 1) == 1
 
     for i in seq(0, n):
         y[i] = beta * y[i]
 
+    for i in seq(0, n):
+        temp: R
+        temp = alpha * x[n - i - 1]
+        dot: R
+        dot = 0.0
+        for j in seq(0, i + 1):
+            y[n - j - 1] += temp * A[n - i - 1, n - j - 1]
+            dot += A[n - i - 1, n - j - 1] * x[n - j - 1]
+        y[n - i - 1] += alpha * (dot - A[n - i - 1, n - i - 1] * x[n - i - 1])
+
 
 @proc
-def symv_row_major_Upper(n: size, alpha: R, A: [R][n, n], x: [R][n], y: [R][n]):
+def symv_rm_l(n: size, alpha: R, A: [R][n, n], x: [R][n], beta: R, y: [R][n]):
     assert stride(A, 1) == 1
+
+    for i in seq(0, n):
+        y[i] = beta * y[i]
 
     for i in seq(0, n):
         temp: R
         temp = alpha * x[i]
         dot: R
         dot = 0.0
-        for j in seq(0, n - i - 1):
-            y[i + j + 1] += temp * A[i, i + j + 1]
-            dot += A[i, i + j + 1] * x[i + j + 1]
-        y[i] += temp * A[i, i] + alpha * dot
-
-
-@proc
-def symv_row_major_Lower(n: size, alpha: R, A: [R][n, n], x: [R][n], y: [R][n]):
-    assert stride(A, 1) == 1
-
-    for i in seq(0, n):
-        temp: R
-        temp = alpha * x[i]
-        dot: R
-        dot = 0.0
-        for j in seq(0, i):
+        for j in seq(0, i + 1):
             y[j] += temp * A[i, j]
             dot += A[i, j] * x[j]
-        y[i] += temp * A[i, i] + alpha * dot
+        y[i] += alpha * (dot - A[i, i] * x[i])
 
 
-def specialize_symv(symv, precision):
-    prefix = "s" if precision == "f32" else "d"
-    name = symv.name()
-    name = name.replace("", "")
-    specialized = rename(symv, "exo_" + prefix + name)
-
-    if "scal" in symv.name():
-        args = ["y", "beta"]
-    else:
-        args = ["x", "A", "alpha", "y", "temp", "dot"]
-
-    for arg in args:
-        specialized = set_precision(specialized, arg, precision)
-
-    return specialized
-
-
-def schedule_interleave_symv_scal_y(
-    VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision
-):
-    stride_1 = specialize_symv(symv_scal_y, precision)
-    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
-    stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
-
-    return stride_1
-
-
-def schedule_interleave_symv_row_major_stride_1(
-    symv, VEC_W, INTERLEAVE_FACTOR, memory, instructions, precision
-):
-    stride_1 = specialize_symv(symv, precision)
-    stride_1 = rename(stride_1, stride_1.name() + "_stride_1")
-    stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
-    stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
-
-    return stride_1
-
-
-#################################################
-# Kernel Parameters
-#################################################
-
-#################################################
-# Generate specialized kernels for f32 precision
-#################################################
-
-exo_ssymv_scal_y_stride_any = specialize_symv(symv_scal_y, "f32")
-exo_ssymv_scal_y_stride_any = rename(
-    exo_ssymv_scal_y_stride_any, exo_ssymv_scal_y_stride_any.name() + "_stride_any"
-)
-exo_ssymv_row_major_Upper_stride_any = specialize_symv(symv_row_major_Upper, "f32")
-exo_ssymv_row_major_Upper_stride_any = rename(
-    exo_ssymv_row_major_Upper_stride_any,
-    exo_ssymv_row_major_Upper_stride_any.name() + "_stride_any",
-)
-exo_ssymv_row_major_Lower_stride_any = specialize_symv(symv_row_major_Lower, "f32")
-exo_ssymv_row_major_Lower_stride_any = rename(
-    exo_ssymv_row_major_Lower_stride_any,
-    exo_ssymv_row_major_Lower_stride_any.name() + "_stride_any",
-)
-f32_instructions = [
-    C.Machine.load_instr_f32,
-    C.Machine.store_instr_f32,
-    C.Machine.mul_instr_f32,
-    C.Machine.fmadd_reduce_instr_f32,
-    C.Machine.broadcast_instr_f32,
-    C.Machine.broadcast_scalar_instr_f32,
-]
-
-exo_ssymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Upper,
-    C.Machine.f32_vec_width,
-    1,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
-)
-exo_ssymv_row_major_Lower_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Lower,
-    C.Machine.f32_vec_width,
-    1,
-    C.Machine.mem_type,
-    f32_instructions,
-    "f32",
-)
-exo_ssymv_scal_y_stride_1 = schedule_interleave_symv_scal_y(
-    C.Machine.f32_vec_width, 1, C.Machine.mem_type, f32_instructions, "f32"
-)
-
-#################################################
-# Generate specialized kernels for f64 precision
-#################################################
-
-exo_dsymv_scal_y_stride_any = specialize_symv(symv_scal_y, "f64")
-exo_dsymv_scal_y_stride_any = rename(
-    exo_dsymv_scal_y_stride_any, exo_dsymv_scal_y_stride_any.name() + "_stride_any"
-)
-exo_dsymv_row_major_Upper_stride_any = specialize_symv(symv_row_major_Upper, "f64")
-exo_dsymv_row_major_Upper_stride_any = rename(
-    exo_dsymv_row_major_Upper_stride_any,
-    exo_dsymv_row_major_Upper_stride_any.name() + "_stride_any",
-)
-exo_dsymv_row_major_Lower_stride_any = specialize_symv(symv_row_major_Lower, "f64")
-exo_dsymv_row_major_Lower_stride_any = rename(
-    exo_dsymv_row_major_Lower_stride_any,
-    exo_dsymv_row_major_Lower_stride_any.name() + "_stride_any",
-)
-
-f64_instructions = [
-    C.Machine.load_instr_f64,
-    C.Machine.store_instr_f64,
-    C.Machine.mul_instr_f64,
-    C.Machine.fmadd_reduce_instr_f64,
-    C.Machine.broadcast_instr_f64,
-    C.Machine.broadcast_scalar_instr_f64,
-]
-
-exo_dsymv_row_major_Upper_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Upper,
-    C.Machine.f32_vec_width // 2,
-    1,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
-)
-exo_dsymv_row_major_Lower_stride_1 = schedule_interleave_symv_row_major_stride_1(
-    symv_row_major_Lower,
-    C.Machine.f32_vec_width // 2,
-    1,
-    C.Machine.mem_type,
-    f64_instructions,
-    "f64",
-)
-exo_dsymv_scal_y_stride_1 = schedule_interleave_symv_scal_y(
-    C.Machine.f32_vec_width // 2, 1, C.Machine.mem_type, f64_instructions, "f64"
-)
-
-entry_points = [
-    exo_ssymv_scal_y_stride_any,
-    exo_ssymv_scal_y_stride_1,
-    exo_ssymv_row_major_Upper_stride_any,
-    exo_ssymv_row_major_Upper_stride_1,
-    exo_dsymv_row_major_Upper_stride_any,
-    exo_dsymv_row_major_Upper_stride_1,
-    exo_ssymv_row_major_Lower_stride_any,
-    exo_ssymv_row_major_Lower_stride_1,
-    exo_dsymv_row_major_Lower_stride_any,
-    exo_dsymv_row_major_Lower_stride_1,
-    exo_dsymv_scal_y_stride_any,
-    exo_dsymv_scal_y_stride_1,
-]
-
-if __name__ == "__main__":
-    for p in entry_points:
-        print(p)
-
-__all__ = [p.name() for p in entry_points]
+variants_generator(optimize_level_2)(symv_rm_u, "i #1", 4, 1, globals=globals())
+variants_generator(optimize_level_2)(symv_rm_l, "i #1", 4, 1, globals=globals())

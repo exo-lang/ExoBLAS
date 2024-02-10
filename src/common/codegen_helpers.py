@@ -81,6 +81,10 @@ def stage_scalar_args(proc):
     return proc
 
 
+def identity_schedule(proc, *args):
+    return proc
+
+
 def variants_generator(blas_op):
     def generate(proc, loop_name, *args, globals=None):
         for precision in ("f32", "f64"):

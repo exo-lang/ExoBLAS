@@ -12,7 +12,7 @@ static void BM_cblas_dsymv(benchmark::State &state) {
                                      ? CBLAS_ORDER::CblasRowMajor
                                      : CBLAS_ORDER::CblasColMajor;
   const enum CBLAS_UPLO Uplo =
-      state.range(2) == 0 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
+      state.range(2) == 1 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
   const double alpha = state.range(3);
   const int lda = state.range(4);
   const int incX = state.range(5);
@@ -60,7 +60,7 @@ static void BM_exo_dsymv(benchmark::State &state) {
 
 static void CustomArgumentsPacked(benchmark::internal::Benchmark *b) {
   for (int order = 0; order < 1; ++order) {
-    for (int Uplo = 0; Uplo <= 0; ++Uplo) {
+    for (int Uplo = 0; Uplo <= 1; ++Uplo) {
       for (int alpha = 3; alpha <= 3; ++alpha) {
         for (int lda_diff = 0; lda_diff <= 0; ++lda_diff) {
           for (int incX = 1; incX <= 1; ++incX) {
@@ -69,7 +69,7 @@ static void CustomArgumentsPacked(benchmark::internal::Benchmark *b) {
                 for (int alignmentA = 64; alignmentA <= 64; ++alignmentA) {
                   for (int alignmentX = 64; alignmentX <= 64; ++alignmentX) {
                     for (int alignmentY = 64; alignmentY <= 64; ++alignmentY) {
-                      for (int N = 1; N <= (1 << 10); N *= 2) {
+                      for (int N = 1; N <= (1 << 13); N *= 2) {
                         int lda = N + lda_diff;
                         b->Args({N, order, Uplo, alpha, lda, incX, beta, incY,
                                  alignmentA, alignmentX, alignmentY});
