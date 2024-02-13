@@ -91,6 +91,8 @@ def trmv_rm_lt(Diag: index, n: size, x: [R][n], A: [R][n, n]):
 ### EXO_LOC SCHEDULE START ###
 
 for proc in trmv_rm_un, trmv_rm_ln, trmv_rm_ut, trmv_rm_lt:
-    variants_generator(optimize_level_2)(proc, "i", 4, 2, globals=globals())
+    variants_generator(optimize_level_2)(
+        proc, "i", 4, 2, round_up=False, globals=globals()
+    )
 
 ### EXO_LOC SCHEDULE END ###

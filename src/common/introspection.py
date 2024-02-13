@@ -349,8 +349,12 @@ def is_read(proc, read, name=None):
     return isinstance(read, ReadCursor) and (name is None or read.name() == name)
 
 
+def is_write(proc, write):
+    return is_reduce(proc, write) or is_assign(proc, write)
+
+
 def is_access(proc, access):
-    return is_read(proc, access) or is_reduce(proc, access) or is_assign(proc, access)
+    return is_read(proc, access) or is_write(proc, access)
 
 
 def is_unary_minus(proc, expr):

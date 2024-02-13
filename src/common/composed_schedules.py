@@ -447,6 +447,8 @@ def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail
     s2 x c
     s3 x c
     """
+    if factor == 1:
+        return proc
 
     loop = proc.forward(loop)
 
@@ -641,7 +643,11 @@ def jam_stmt(proc, stmt, unsafe_disable_check=False, rc=False):
         raise BLAS_SchedulingError("Next statement must be a loop.")
 
     proc = add_loop(
-        proc, stmt, loop.name(), FormattedExprStr("_ - _", loop.hi(), loop.lo())
+        proc,
+        stmt,
+        loop.name(),
+        FormattedExprStr("_ - _", loop.hi(), loop.lo()),
+        unsafe_disable_check=unsafe_disable_check,
     )
     stmt = proc.forward(stmt)
     stmt_loop = proc.forward(stmt).parent()
@@ -822,8 +828,11 @@ def cut_tail_and_unguard(proc, loop):
     loop = proc.forward(loop)
 
     # Cut the tail iterations
-    last_outer_iteration = FormattedExprStr("_ - 1", loop.hi())
-    proc = cut_loop(proc, loop, last_outer_iteration)
+    success = True
+    while success:
+        loop = proc.forward(loop)
+        cut = FormattedExprStr("_ - 1", loop.hi())
+        proc, success = attempt(cut_loop)(proc, loop, cut, rs=True)
 
     # Unguard
     proc = dce(proc, loop)
@@ -879,11 +888,16 @@ def divide_and_predicate_stmts(proc, loop, factor, rc=True):
     proc = simplify(proc)
     proc = fission_into_singles(proc, inner.body()[0])
     for (stmt, allocs) in hoisted[::-1]:
-        proc, (outer, _) = jam_stmt(proc, stmt, unsafe_disable_check=True, rc=True)
-        proc, (inner, _) = jam_stmt(proc, stmt, unsafe_disable_check=True, rc=True)
+        if isinstance(stmt.next(), InvalidCursor):
+            s = stmt.parent()
+        else:
+            s = stmt
+        proc, (outer, _) = jam_stmt(proc, s, unsafe_disable_check=True, rc=True)
+        proc, (inner, _) = jam_stmt(proc, s, unsafe_disable_check=True, rc=True)
         proc = apply(sink_alloc)(proc, allocs)
         proc = apply(sink_alloc)(proc, allocs)
     proc = dce(proc, inner)
+
     if not rc:
         return proc
     outer = proc.forward(outer)
@@ -916,7 +930,7 @@ def vectorize_predicate_tail(
     children_ops = [fma_rule, abs_rule]
     proc = stage_compute(proc, loop, precision, mem_type, children_ops)
 
-    proc, (outer, inner) = divide_and_predicate_stmts(proc, loop, vec_width, rc=True)
+    proc, (outer, inner, _) = auto_divide_loop(proc, loop, vec_width)
     proc = simplify(proc)
     proc = fission_into_singles(proc, inner)
 
@@ -1667,7 +1681,7 @@ def binary_specialize(proc, stmt, expr, values, rc=False):
     return proc, binary_specialize_cursors(filtered_stmts)
 
 
-def cse(proc, block):
+def cse(proc, block, precision):
     if not isinstance(block, BlockCursor):
         block = proc.forward(block).as_block()
 
@@ -1687,8 +1701,11 @@ def cse(proc, block):
     for buff, idx_map in buff_map.items():
         for idx, access_list in idx_map.items():
             if len(access_list) > 1:
-                staging_block = get_bounding_block(proc, access_list)
-                proc = auto_stage_mem(proc, staging_block, buff)
+                if all(is_read(proc, c) for c in access_list):
+                    proc = bind_and_set_expr(proc, access_list, precision, DRAM)
+                else:
+                    staging_block = get_bounding_block(proc, access_list)
+                    proc = auto_stage_mem(proc, staging_block, buff)
     return proc
 
 
@@ -1761,9 +1778,18 @@ class cut_loop_and_unroll_cursors:
         yield self.loop
 
 
-def cut_loop_and_unroll(proc, loop, const, rc=False):
+def cut_loop_and_unroll(proc, loop, const, front=True, rc=False):
     loop = proc.forward(loop)
-    proc, (const_loop, loop) = cut_loop_(proc, loop, const, rc=True)
+    cut = (
+        FormattedExprStr("_ + 1", loop.lo())
+        if front
+        else FormattedExprStr("_ - 1", loop.hi())
+    )
+    proc, (const_loop, loop) = cut_loop_(proc, loop, cut, rc=True)
+    if not front:
+        const_loop, loop = loop, const_loop
+    proc = shift_loop(proc, const_loop, 0)
+    proc = simplify(proc)
     proc = unroll_loop(proc, const_loop)
     proc = shift_loop(proc, loop, 0)
     if not rc:

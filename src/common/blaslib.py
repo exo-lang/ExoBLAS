@@ -19,27 +19,20 @@ def optimize_level_1(proc, loop, precision, machine, interleave_factor):
     instructions = machine.get_instructions(precision)
 
     loop = proc.forward(loop)
-
-    proc = cse(proc, loop.body())
+    proc = cse(proc, loop.body(), precision)
 
     # Vectorization
     vectorize_tail = memory in {AVX2}
-    tail = "predicate" if vectorize_tail else "cut"
+    tail = "cut_and_predicate" if vectorize_tail else "cut"
     proc, (loop,) = vectorize(
         proc, loop, vec_width, precision, memory, tail=tail, rc=True
     )
 
-    # Hoist any stmt
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
 
-    if vectorize_tail:
-        proc = cut_tail_and_unguard(proc, loop)
-        proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
-
-    if interleave_factor > 1:
-        proc = interleave_loop(
-            proc, loop, interleave_factor, par_reduce=True, memory=memory
-        )
+    proc = interleave_loop(
+        proc, loop, interleave_factor, par_reduce=True, memory=memory
+    )
 
     proc = cleanup(proc)
     proc = replace_all_stmts(proc, instructions)
@@ -64,20 +57,24 @@ def get_triangle_type(proc, loop):
     return 0
 
 
-def optimize_level_2(proc, outer_loop, precision, machine, rows_factor, cols_factor):
+def optimize_level_2(
+    proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None
+):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
     inner_loop = get_inner_loop(proc, outer_loop)
 
     if triangle := get_triangle_type(proc, inner_loop):
-        round_up = memory in {AVX2}
+        if round_up is None:
+            round_up = memory in {AVX2}
         rows_factor = min(rows_factor, vec_width)
         if round_up and triangle == 1:
             proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
             inner_loop = get_inner_loop(proc, outer_loop)
         if not round_up and triangle == 2:
-            proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, rc=True)
-
+            proc, (inner_loop,) = cut_loop_and_unroll(
+                proc, inner_loop, 1, front=False, rc=True
+            )
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
 
     proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
