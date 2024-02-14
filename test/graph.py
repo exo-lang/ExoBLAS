@@ -13,6 +13,7 @@ arith_intensity = {
     "syr": 3,
     "syr2": 3,
     "trmv": 2,
+    "trsv": 2,
     "gemv": 2,
     "gbmv": 2,
     "tbmv": 2,
@@ -37,6 +38,7 @@ read_bound_kernels = {
     "tbmv",
     "sdsdot",
     "dsdot",
+    "trsv",
 }
 write_bound_kernels = {
     "copy",
@@ -73,6 +75,7 @@ def mem_footprint(kernel_name, size, wordsize, **kwargs):
         "syr",
         "syr2",
         "trmv",
+        "trsv",
         "tbmv",
         "gemm",
         "syrk",
@@ -116,6 +119,7 @@ def mem_ops(kernel_name, size, wordsize, **kwargs):
             "syr": 1,
             "syr2": 1,
             "trmv": 0.5,
+            "trsv": 0.5,
             "tbmv": 0.5,
             "symv": 1,
         },
