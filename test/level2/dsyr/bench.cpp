@@ -12,7 +12,7 @@ static void BM_cblas_dsyr(benchmark::State &state) {
                                      ? CBLAS_ORDER::CblasRowMajor
                                      : CBLAS_ORDER::CblasColMajor;
   const enum CBLAS_UPLO Uplo =
-      state.range(2) == 0 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
+      state.range(2) == 1 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
   const double alpha = state.range(3);
   const int lda = N + state.range(4);
   const int incX = state.range(5);
@@ -33,7 +33,7 @@ static void BM_exo_dsyr(benchmark::State &state) {
                                      ? CBLAS_ORDER::CblasRowMajor
                                      : CBLAS_ORDER::CblasColMajor;
   const enum CBLAS_UPLO Uplo =
-      state.range(2) == 0 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
+      state.range(2) == 1 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
   const double alpha = state.range(3);
   const int lda = N + state.range(4);
   const int incX = state.range(5);
