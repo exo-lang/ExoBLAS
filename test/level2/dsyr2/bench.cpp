@@ -11,7 +11,7 @@ static void BM_cblas_dsyr2(benchmark::State &state) {
   CBLAS_ORDER order = state.range(1) == 0 ? CBLAS_ORDER::CblasRowMajor
                                           : CBLAS_ORDER::CblasColMajor;
   CBLAS_UPLO Uplo =
-      state.range(2) == 0 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
+      state.range(2) == 1 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
   double alpha = state.range(3);
   int incX = state.range(4);
   int incY = state.range(5);
@@ -35,7 +35,7 @@ static void BM_exo_dsyr2(benchmark::State &state) {
   CBLAS_ORDER order = state.range(1) == 0 ? CBLAS_ORDER::CblasRowMajor
                                           : CBLAS_ORDER::CblasColMajor;
   CBLAS_UPLO Uplo =
-      state.range(2) == 0 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
+      state.range(2) == 1 ? CBLAS_UPLO::CblasUpper : CBLAS_UPLO::CblasLower;
   double alpha = state.range(3);
   int incX = state.range(4);
   int incY = state.range(5);

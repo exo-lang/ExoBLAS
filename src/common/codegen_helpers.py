@@ -81,12 +81,12 @@ def stage_scalar_args(proc):
     return proc
 
 
-def identity_schedule(proc, *args):
+def identity_schedule(proc, *args, **kwargs):
     return proc
 
 
 def variants_generator(blas_op):
-    def generate(proc, loop_name, *args, globals=None):
+    def generate(proc, loop_name, *args, globals=None, **kwargs):
         for precision in ("f32", "f64"):
             proc_variant = specialize_precision(proc, precision)
 
@@ -98,7 +98,7 @@ def variants_generator(blas_op):
 
             stride_1 = generate_stride_1_proc(proc_variant)
             loop = stride_1.find_loop(loop_name)
-            stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args)
+            stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args, **kwargs)
             stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
             export_exo_proc(globals, stride_1)
 
