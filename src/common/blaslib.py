@@ -34,6 +34,7 @@ def optimize_level_1(proc, loop, precision, machine, interleave_factor):
         proc, loop, interleave_factor, par_reduce=True, memory=memory
     )
 
+
     proc = cleanup(proc)
     proc = replace_all_stmts(proc, instructions)
     return proc
