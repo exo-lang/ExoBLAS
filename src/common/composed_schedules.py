@@ -1689,7 +1689,6 @@ def cse(proc, block):
             if len(access_list) > 1:
                 staging_block = get_bounding_block(proc, access_list)
                 proc = auto_stage_mem(proc, staging_block, buff)
-                break
     return proc
 
 
@@ -1752,3 +1751,21 @@ def cut_loop_(proc, loop, expr, rc=False):
     loop1 = proc.forward(loop)
     loop2 = loop1.next()
     return proc, cut_loop_cursors(loop1, loop2)
+
+
+@dataclass
+class cut_loop_and_unroll_cursors:
+    loop: ForCursor
+
+    def __iter__(self):
+        yield self.loop
+
+
+def cut_loop_and_unroll(proc, loop, const, rc=False):
+    loop = proc.forward(loop)
+    proc, (const_loop, loop) = cut_loop_(proc, loop, const, rc=True)
+    proc = unroll_loop(proc, const_loop)
+    proc = shift_loop(proc, loop, 0)
+    if not rc:
+        return proc
+    return proc, cut_loop_and_unroll_cursors(loop)
