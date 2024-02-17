@@ -27,24 +27,20 @@ static void bench(benchmark::State &state) {
 
 template <typename T>
 static void args(benchmark::internal::Benchmark *b) {
+  auto add_args = [&b](auto Ns) {
+    return b->ArgsProduct({Ns,
+                           {15},
+                           {1},
+                           {1},
+                           {64},
+                           {64},
+                           {BENCH_TYPES::level_1},
+                           {type_bits<T>()}});
+  };
   b->ArgNames({"N", "alpha", "incX", "incY", "alignmentX", "alignmentY",
-               "bench_type", "precision"})
-      ->ArgsProduct({level_1_pow_2,
-                     {3},
-                     {1},
-                     {1},
-                     {64},
-                     {64},
-                     {BENCH_TYPES::level_1},
-                     {type_bits<T>()}})
-      ->ArgsProduct({level_1_pow_7,
-                     {3},
-                     {1},
-                     {1},
-                     {64},
-                     {64},
-                     {BENCH_TYPES::level_1},
-                     {type_bits<T>()}});
+               "bench_type", "precision"});
+  add_args(level_1_pow_2);
+  add_args(level_1_pow_7);
 }
 
 call_bench_all(axpy);

@@ -28,28 +28,21 @@ static void bench(benchmark::State &state) {
 
 template <typename T>
 static void args(benchmark::internal::Benchmark *b) {
-  int c = 15;
-  int s = 13;
+  auto add_args = [&b](auto Ns) {
+    return b->ArgsProduct({Ns,
+                           {1},
+                           {1},
+                           {15},
+                           {13},
+                           {64},
+                           {64},
+                           {BENCH_TYPES::level_1},
+                           {type_bits<T>()}});
+  };
   b->ArgNames({"N", "incX", "incY", "c", "s", "alignmentX", "alignmentY",
-               "bench_type", "precision"})
-      ->ArgsProduct({level_1_pow_2,
-                     {1},
-                     {1},
-                     {c},
-                     {s},
-                     {64},
-                     {64},
-                     {BENCH_TYPES::level_1},
-                     {type_bits<T>()}})
-      ->ArgsProduct({level_1_pow_7,
-                     {1},
-                     {1},
-                     {c},
-                     {s},
-                     {64},
-                     {64},
-                     {BENCH_TYPES::level_1},
-                     {type_bits<T>()}});
+               "bench_type", "precision"});
+  add_args(level_1_pow_2);
+  add_args(level_1_pow_7);
 }
 
 call_bench_all(rot);
