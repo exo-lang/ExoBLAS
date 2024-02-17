@@ -30,8 +30,7 @@ def check_args():
 
 
 def init_directories(kernel):
-    kernel_name, _, _ = parse_kernel_name(kernel)
-    kernel_graphs_dir(kernel_name).mkdir(parents=True, exist_ok=True)
+    kernel_graphs_dir(kernel).mkdir(parents=True, exist_ok=True)
     assert BENCHMARK_JSONS_DIR.exists()
 
 
@@ -73,17 +72,21 @@ def get_jsons(kernel):
 
 
 def get_kernel_class(kernel):
-    name, _, _ = parse_kernel_name(kernel)
     kernels_specs = importlib.import_module("kernels_specs")
-    return getattr(kernels_specs, name)
+    return getattr(kernels_specs, kernel)
 
 
 def parse_jsons(kernel, jsons):
     """
     Returns a dictionary of the following form:
     {
-        'bench_type1' : {'lib1' : [runs], 'lib2' : [runs] }
-        'bench_type2' : ...
+
+        'sub_kernel_name1' : {
+            'bench_type1' : {'lib1' : [runs], 'lib2' : [runs] }
+            'bench_type2' : ...
+            ...
+        },
+        'sub_kernel_name2' :  { ... }
         ...
     }
     """
@@ -92,40 +95,44 @@ def parse_jsons(kernel, jsons):
     for libname, json in jsons.items():
         benchmarks = json["benchmarks"]
         for bench in benchmarks:
-            obj = kernel_class(kernel, bench)
-            parsed_jsons.setdefault(obj.type, {}).setdefault(libname, []).append(obj)
+            obj = kernel_class(bench)
+            parsed_jsons.setdefault(obj.sub_kernel_name, {}).setdefault(
+                obj.bench_type, {}
+            ).setdefault(libname, []).append(obj)
     return parsed_jsons
 
 
-def plot_bandwidth_throughput(kernel, parsed_jsons, loads=True):
-    kernel_name, precision, params = parse_kernel_name(kernel)
+def plot_bandwidth_throughput(kernel, data, loads=True):
+    plt.clf()
 
-    def plot(data):
-        plt.clf()
+    for libname, runs in data.items():
+        sorted_runs = sorted(runs)
+        assert len(runs) == len(set(runs))  # No duplicates
+        x = [run.get_size_param() for run in sorted_runs]
+        if loads:
+            y = [run.get_load_gbyte_per_sec() for run in sorted_runs]
+        else:
+            y = [run.get_store_gbyte_per_sec() for run in sorted_runs]
+        plt.plot(x, y, label=libname)
+    plt.legend()
 
-        for libname, runs in data.items():
-            sorted_runs = sorted(runs)
-            x = [run.get_size_param() for run in sorted_runs]
-            if loads:
-                y = [run.get_load_gbyte_per_sec() for run in sorted_runs]
-            else:
-                y = [run.get_store_gbyte_per_sec() for run in sorted_runs]
-            plt.plot(x, y, label=libname)
-        plt.legend()
+    unit = "GBytes / Sec"
+    bandwith_type = "loads" if loads else "stores"
 
-        unit = "GBytes / Sec"
-        bandwith_type = "loads" if loads else "stores"
+    plt.xscale("log")
+    plt.ylabel(f"{bandwith_type} {unit}")
 
-        plt.xscale("log")
-        plt.ylabel(f"{bandwith_type} {unit}")
-        plt.xlabel(next(iter(data.values()))[0].get_graph_description())
-        plt.title(kernel)
+    some_point = next(iter(data.values()))[0]
 
-        filename = GRAPHS_DIR / kernel_name / f"{kernel}_{bandwith_type}_throughput.png"
-        plt.savefig(filename)
+    plt.xlabel(some_point.get_graph_description())
+    plt.title(some_point.sub_kernel_name)
 
-    for data in parsed_jsons.values():
-        plot(data)
+    filename = (
+        GRAPHS_DIR
+        / kernel
+        / f"{some_point.sub_kernel_name}_{bandwith_type}_throughput.png"
+    )
+    plt.savefig(filename)
 
 
 if __name__ == "__main__":
@@ -137,5 +144,7 @@ if __name__ == "__main__":
     jsons = get_jsons(kernel)
     parsed_jsons = parse_jsons(kernel, jsons)
 
-    plot_bandwidth_throughput(kernel, parsed_jsons)
-    plot_bandwidth_throughput(kernel, parsed_jsons, loads=False)
+    for bench_type_dict in parsed_jsons.values():
+        for data in bench_type_dict.values():
+            plot_bandwidth_throughput(kernel, data, loads=True)
+            plot_bandwidth_throughput(kernel, data, loads=False)

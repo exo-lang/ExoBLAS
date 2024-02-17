@@ -1,15 +1,9 @@
-def parse_kernel_name(kernel):
-    params = kernel.split("_")
-    name = params[0][1:]
-    if (
-        kernel.startswith("sdsdot")
-        or kernel.startswith("dsdot")
-        or kernel.startswith("s")
-    ):
-        return (name, "f32", params[1:])
-    if kernel.startswith("d"):
-        return (name, "f64", params[1:])
-    raise NotImplementedError(f"Cannot determine the precision of kernel {kernel}")
+from enum import Enum
+
+
+def get_libfree_subkernel_name(sub_kernel_name):
+    sub_kernel_name = sub_kernel_name.split("_")
+    return "_".join(sub_kernel_name[1:])
 
 
 def get_elem_bytes(precision):
@@ -28,16 +22,23 @@ def ns_to_s(ns):
 
 
 def run_name_to_dict(run_name):
+    run_name = "sub_kernel_name:" + run_name
     tokens = run_name.split("/")
-    tokens = tokens[1:]  # Skip the bench name
     tokens = [token.split(":") for token in tokens]
-    return {token[0]: token[1] for token in tokens}
+    tokens = {token[0]: token[1] for token in tokens}
+    tokens["precision"] = f"f{tokens['precision']}"
+    return tokens
+
+
+class BENCH_TYPE(Enum):
+    level_1 = 0
 
 
 __all__ = [
-    "parse_kernel_name",
+    "get_libfree_subkernel_name",
     "get_elem_bytes",
     "b_to_gb",
     "ns_to_s",
     "run_name_to_dict",
+    "BENCH_TYPE",
 ]

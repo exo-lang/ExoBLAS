@@ -1,8 +1,9 @@
 from misc import *
+from dataclasses import dataclass
 
 
 class kernel:
-    def __init__(self, kernel, bench):
+    def __init__(self, bench):
         raise NotImplementedError(f"{__name__} not implemented")
 
     def get_size_param(self):
@@ -38,19 +39,18 @@ class kernel:
 
 
 class level_1(kernel):
-    def __init__(self, kernel, bench):
-        _, precision, _ = parse_kernel_name(kernel)
-        self.precision = precision
-
+    def __init__(self, bench):
         self.real_time = float(bench["real_time"])
-
         assert bench["name"] == bench["run_name"]
+
         run_name = bench["run_name"]
         run_dict = run_name_to_dict(run_name)
-        # assert run_dict["type"] == "equal"
-        # self.type = run_dict["type"]
-        self.type = "equal"
-        self.N = int(run_dict["n"])
+
+        self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
+        self.bench_type = int(run_dict["bench_type"])
+        assert self.bench_type == BENCH_TYPE.level_1.value
+        self.N = int(run_dict["N"])
+        self.precision = run_dict["precision"]
 
     def get_size_param(self):
         return self.N
@@ -61,13 +61,15 @@ class level_1(kernel):
     def __lt__(self, other):
         return self.N < other.N
 
+    def __hash__(self):
+        return self.N
+
     def get_graph_description(self):
         return "N"
 
 
 class level_2(kernel):
-    def __init__(self, kernel, bench):
-        _, precision, _ = parse_kernel_name(kernel)
+    def __init__(self, bench):
         self.precision = precision
 
         self.real_time = float(bench["real_time"])
@@ -75,10 +77,8 @@ class level_2(kernel):
         assert bench["name"] == bench["run_name"]
         run_name = bench["run_name"]
         run_dict = run_name_to_dict(run_name)
-        # assert run_dict["type"] == "equal"
-        # self.type = run_dict["type"]
-        self.type = "equal"
-        self.N = int(run_dict["n"])
+        self.bench_type = "equal"
+        self.N = int(run_dict["N"])
         self.M = self.N
 
     def get_size_param(self):
@@ -120,6 +120,20 @@ class rot(level_1):
 
     def get_stored_bytes(self):
         return self.N * 2 * get_elem_bytes(self.precision)
+
+
+class asum(level_1):
+    def get_flops(self):
+        return self.N * 2
+
+    def get_input_bytes(self):
+        return self.N * get_elem_bytes(self.precision)
+
+    def get_loaded_bytes(self):
+        return self.N * get_elem_bytes(self.precision)
+
+    def get_stored_bytes(self):
+        return 1 * get_elem_bytes(self.precision)
 
 
 class ger(level_2):
