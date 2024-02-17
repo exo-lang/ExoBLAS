@@ -7,6 +7,8 @@
 #include "generate_buffer.h"
 #include "misc.h"
 
+generate_wrapper_ret(asum);
+
 template <typename T>
 void test_asum(int N, int incX) {
   auto X = AlignedBuffer<T>(N, incX);
@@ -14,24 +16,12 @@ void test_asum(int N, int incX) {
 
   T result;
   T expected;
-#define args N, X.data(), incX
 
-  if constexpr (std::is_same<T, float>::value) {
-    result = exo_sasum(args);
-    expected = cblas_sasum(args);
-  } else {
-    result = exo_dasum(args);
-    expected = cblas_dasum(args);
-  }
+  result = asum<Exo, T>(N, X.data(), incX);
+  expected = asum<Cblas, T>(N, X_expected.data(), incX);
 
   if (!check_relative_error_okay(result, expected)) {
-    std::cout << "Running " << kernel_name<Exo, T>("asum") << " test"
-              << std::endl;
-    std::cout << "Params "
-              << "N = " << N << ", incX = " << incX << std::endl;
-    std::cout << "Failed! Expected " << expected << ", got " << result
-              << std::endl;
-    exit(1);
+    failed("N", N, "incX", incX);
   }
 }
 

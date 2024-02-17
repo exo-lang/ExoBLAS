@@ -7,6 +7,8 @@
 #include <random>
 #include <vector>
 
+#include "correctness_helpers.h"
+
 template <typename T>
 class AlignedBuffer {
  public:
@@ -51,6 +53,19 @@ class AlignedBuffer {
   T *data() { return buffer_; }
 
   T &operator[](std::size_t i) { return buffer_[i]; }
+
+  bool check_buffer_equal(const AlignedBuffer<T> &other) {
+    if (this->size_ != other.size_) {
+      return false;
+    }
+    for (int i = 0; i < this->size_; ++i) {
+      if (!check_relative_error_okay(this->buffer_[i], other.buffer_[i])) {
+        std::cout << "Mismatch at index " << i << std::endl;
+        return false;
+      }
+    }
+    return true;
+  }
 
  private:
   void randomize() {

@@ -6,7 +6,7 @@
 #include "generate_buffer.h"
 #include "misc.h"
 
-generate_wrapper(asum);
+generate_wrapper_ret(asum);
 
 template <typename lib, typename T>
 static void bench(benchmark::State &state) {
@@ -15,17 +15,17 @@ static void bench(benchmark::State &state) {
   size_t alignmentX = state.range(3);
   auto X = AlignedBuffer<T>(N, incX, alignmentX);
   for (auto _ : state) {
-    asum<T, lib>(N, X.data(), incX);
+    asum<lib, T>(N, X.data(), incX);
   }
 }
 
 template <typename T>
 static void args(benchmark::internal::Benchmark *b) {
-  b->ArgNames({"bench_type", "N", "incX", "alignmentX", "precision"})
+  b->ArgNames({"N", "incX", "alignmentX", "bench_type", "precision"})
       ->ArgsProduct(
-          {{BENCH_TYPES::level_1}, level_1_pow_2, {1}, {64}, {type_bits<T>()}})
+          {level_1_pow_2, {1}, {64}, {BENCH_TYPES::level_1}, {type_bits<T>()}})
       ->ArgsProduct(
-          {{BENCH_TYPES::level_1}, level_1_pow_7, {1}, {64}, {type_bits<T>()}});
+          {level_1_pow_7, {1}, {64}, {BENCH_TYPES::level_1}, {type_bits<T>()}});
 }
 
 call_bench_all(asum);

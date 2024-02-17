@@ -48,8 +48,8 @@ std::string kernel_name(std::string kernel) {
   call_bench(Cblas, float, kernel); \
   call_bench(Cblas, double, kernel);
 
-#define generate_wrapper(kernel)                        \
-  template <typename T, typename lib, typename... Args> \
+#define generate_wrapper_ret(kernel)                    \
+  template <typename lib, typename T, typename... Args> \
   T kernel(Args... args) {                              \
     if constexpr (std::is_same<T, float>::value) {      \
       if constexpr (std::is_same<lib, Exo>::value) {    \
@@ -62,6 +62,24 @@ std::string kernel_name(std::string kernel) {
         return exo_d##kernel(args...);                  \
       } else {                                          \
         return cblas_d##kernel(args...);                \
+      }                                                 \
+    }                                                   \
+  }
+
+#define generate_wrapper(kernel)                        \
+  template <typename lib, typename T, typename... Args> \
+  void kernel(Args... args) {                           \
+    if constexpr (std::is_same<T, float>::value) {      \
+      if constexpr (std::is_same<lib, Exo>::value) {    \
+        exo_s##kernel(args...);                         \
+      } else {                                          \
+        cblas_s##kernel(args...);                       \
+      }                                                 \
+    } else {                                            \
+      if constexpr (std::is_same<lib, Exo>::value) {    \
+        exo_d##kernel(args...);                         \
+      } else {                                          \
+        cblas_d##kernel(args...);                       \
       }                                                 \
     }                                                   \
   }\

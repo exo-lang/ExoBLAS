@@ -68,32 +68,6 @@ class level_1(kernel):
         return "N"
 
 
-class level_2(kernel):
-    def __init__(self, bench):
-        self.precision = precision
-
-        self.real_time = float(bench["real_time"])
-
-        assert bench["name"] == bench["run_name"]
-        run_name = bench["run_name"]
-        run_dict = run_name_to_dict(run_name)
-        self.bench_type = "equal"
-        self.N = int(run_dict["N"])
-        self.M = self.N
-
-    def get_size_param(self):
-        return self.N
-
-    def __eq__(self, other):
-        return self.N == other.N
-
-    def __lt__(self, other):
-        return self.N < other.N
-
-    def get_graph_description(self):
-        return "N"
-
-
 class axpy(level_1):
     def get_flops(self):
         return self.N * 2
@@ -134,6 +108,32 @@ class asum(level_1):
 
     def get_stored_bytes(self):
         return 1 * get_elem_bytes(self.precision)
+
+
+class level_2(kernel):
+    def __init__(self, bench):
+        self.precision = precision
+
+        self.real_time = float(bench["real_time"])
+
+        assert bench["name"] == bench["run_name"]
+        run_name = bench["run_name"]
+        run_dict = run_name_to_dict(run_name)
+        self.bench_type = "equal"
+        self.N = int(run_dict["N"])
+        self.M = self.N
+
+    def get_size_param(self):
+        return self.N
+
+    def __eq__(self, other):
+        return self.N == other.N
+
+    def __lt__(self, other):
+        return self.N < other.N
+
+    def get_graph_description(self):
+        return "N"
 
 
 class ger(level_2):
