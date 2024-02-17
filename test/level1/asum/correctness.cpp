@@ -21,18 +21,23 @@ void test_asum(int N, int incX) {
   expected = asum<Cblas, T>(N, X_expected.data(), incX);
 
   if (!check_relative_error_okay(result, expected)) {
-    failed("N", N, "incX", incX);
+    failed<T>("N", N, "incX", incX);
   }
 }
 
-int main() {
+template <typename T>
+void run() {
   std::vector<int> N{2, 321, 1000};
   std::vector<int> inc{1, 3};
 
   for (auto n : N) {
     for (auto i : inc) {
-      test_asum<float>(n, i);
-      test_asum<double>(n, i);
+      test_asum<T>(n, i);
     }
   }
+}
+
+int main() {
+  run<float>();
+  run<double>();
 }

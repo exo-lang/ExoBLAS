@@ -25,22 +25,26 @@ void test_axpy(int N, T alpha, int incX, int incY) {
   }
 }
 
-int main() {
+template <typename T>
+void run() {
   std::vector<int> N{2, 321, 1000};
-  std::vector<double> alpha = {1.2, 0.0, 1.0};
-  std::vector<std::tuple<double, int, int>> params{{1.2, 2, 2}};
+  std::vector<T> alpha = {1.2, 0.0, 1.0};
+  std::vector<std::tuple<T, int, int>> params{{1.2, 2, 2}};
 
   for (auto n : N) {
     for (auto a : alpha) {
-      test_axpy<float>(n, a, 1, 1);
-      test_axpy<double>(n, a, 1, 1);
+      test_axpy<T>(n, a, 1, 1);
     }
   }
 
   for (auto n : N) {
     for (auto i : params) {
-      test_axpy<float>(n, std::get<0>(i), std::get<1>(i), std::get<2>(i));
-      test_axpy<double>(n, std::get<0>(i), std::get<1>(i), std::get<2>(i));
+      test_axpy<T>(n, std::get<0>(i), std::get<1>(i), std::get<2>(i));
     }
   }
+}
+
+int main() {
+  run<float>();
+  run<double>();
 }

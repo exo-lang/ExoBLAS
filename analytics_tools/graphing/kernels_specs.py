@@ -67,44 +67,60 @@ class level_1(kernel):
     def get_graph_description(self):
         return "N"
 
+    def get_input_bytes(self):
+        return self.N * self.num_vec * get_elem_bytes(self.precision)
 
-class axpy(level_1):
+    def get_loaded_bytes(self):
+        return self.get_input_bytes()
+
+
+class level_1_single_vec(level_1):
+    def __init__(self, bench):
+        self.num_vec = 1
+        super().__init__(bench)
+
+
+class level_1_double_vec(level_1):
+    def __init__(self, bench):
+        self.num_vec = 2
+        super().__init__(bench)
+
+
+class axpy(level_1_double_vec):
     def get_flops(self):
         return self.N * 2
 
-    def get_input_bytes(self):
-        return self.N * 2 * get_elem_bytes(self.precision)
-
-    def get_loaded_bytes(self):
-        return self.N * 2 * get_elem_bytes(self.precision)
-
     def get_stored_bytes(self):
-        return self.N * get_elem_bytes(self.precision)
+        return self.get_input_bytes() // 2
 
 
-class rot(level_1):
+class rot(level_1_double_vec):
     def get_flops(self):
         return self.N * 6
 
-    def get_input_bytes(self):
-        return self.N * 2 * get_elem_bytes(self.precision)
-
-    def get_loaded_bytes(self):
-        return self.N * 2 * get_elem_bytes(self.precision)
-
     def get_stored_bytes(self):
-        return self.N * 2 * get_elem_bytes(self.precision)
+        return self.get_input_bytes()
 
 
-class asum(level_1):
+class asum(level_1_single_vec):
     def get_flops(self):
         return self.N * 2
 
-    def get_input_bytes(self):
-        return self.N * get_elem_bytes(self.precision)
+    def get_stored_bytes(self):
+        return 1 * get_elem_bytes(self.precision)
 
-    def get_loaded_bytes(self):
-        return self.N * get_elem_bytes(self.precision)
+
+class copy(level_1_double_vec):
+    def get_flops(self):
+        return 1
+
+    def get_stored_bytes(self):
+        return 1 * get_elem_bytes(self.precision)
+
+
+class dot(level_1_double_vec):
+    def get_flops(self):
+        return self.N * 2
 
     def get_stored_bytes(self):
         return 1 * get_elem_bytes(self.precision)

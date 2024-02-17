@@ -25,19 +25,23 @@ void test_copy(int N, int incX, int incY) {
   }
 }
 
-int main() {
+template <typename T>
+void run() {
   std::vector<int> N{2, 321, 1000};
   std::vector<std::pair<int, int>> inc{{2, 2}};
 
   for (auto n : N) {
-    test_copy<float>(n, 1, 1);
-    test_copy<double>(n, 1, 1);
+    test_copy<T>(n, 1, 1);
   }
 
   for (auto n : N) {
     for (auto i : inc) {
-      test_copy<float>(n, i.first, i.second);
-      test_copy<double>(n, i.first, i.second);
+      test_copy<T>(n, i.first, i.second);
     }
   }
+}
+
+int main() {
+  run<float>();
+  run<double>();
 }
