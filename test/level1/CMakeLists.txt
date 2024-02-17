@@ -1,5 +1,4 @@
-add_exo_blas_test(level1 copy s)
-add_exo_blas_test(level1 copy d)
+add_exo_blas_test(level1 copy "")
 add_exo_blas_test(level1 dot s)
 add_exo_blas_test(level1 dot d)
 add_exo_blas_test(level1 scal s)

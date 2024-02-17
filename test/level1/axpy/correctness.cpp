@@ -1,6 +1,5 @@
 #include <cblas.h>
 
-#include <algorithm>
 #include <tuple>
 #include <vector>
 
