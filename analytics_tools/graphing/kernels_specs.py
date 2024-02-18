@@ -126,6 +126,14 @@ class dot(level_1_double_vec):
         return 1 * get_elem_bytes(self.precision)
 
 
+class scal(level_1_double_vec):
+    def get_flops(self):
+        return self.N
+
+    def get_stored_bytes(self):
+        return self.get_input_bytes()
+
+
 class level_2(kernel):
     def __init__(self, bench):
         self.precision = precision

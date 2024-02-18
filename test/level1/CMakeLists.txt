@@ -1,7 +1,6 @@
 add_exo_blas_test(level1 copy "")
 add_exo_blas_test(level1 dot "")
-add_exo_blas_test(level1 scal s)
-add_exo_blas_test(level1 scal d)
+add_exo_blas_test(level1 scal "")
 add_exo_blas_test(level1 axpy "")
 add_exo_blas_test(level1 rot "")
 add_exo_blas_test(level1 asum "")
