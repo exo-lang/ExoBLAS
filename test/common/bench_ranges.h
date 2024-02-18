@@ -1,6 +1,6 @@
 #include <benchmark/benchmark.h>
 
-constexpr auto level_1_max_N = (1 << 10);
+constexpr auto level_1_max_N = (1 << 28);
 
 template <typename T>
 T round_down(T a, T b) {
