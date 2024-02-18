@@ -141,7 +141,7 @@ class copy(level_1_double_vec):
         return 1
 
     def get_stored_bytes(self):
-        return 1 * get_elem_bytes(self.precision)
+        return self.get_input_bytes()
 
 
 class dot(level_1_double_vec):
@@ -155,6 +155,14 @@ class dot(level_1_double_vec):
 class scal(level_1_single_vec):
     def get_flops(self):
         return self.N
+
+    def get_stored_bytes(self):
+        return self.get_input_bytes()
+
+
+class swap(level_1_double_vec):
+    def get_flops(self):
+        return 1
 
     def get_stored_bytes(self):
         return self.get_input_bytes()
