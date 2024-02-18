@@ -13,19 +13,20 @@ from introspection import *
 from codegen_helpers import *
 
 
-def optimize_level_1(proc, loop, precision, machine, interleave_factor):
+def optimize_level_1(proc, loop, precision, machine, interleave_factor, vec_tail=None):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
     instructions = machine.get_instructions(precision)
 
+    if vec_tail is None:
+        vectorize_tail = memory in {AVX2}
+        vec_tail = "cut_and_predicate" if vectorize_tail else "cut"
+
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
 
-    # Vectorization
-    vectorize_tail = memory in {AVX2}
-    tail = "cut_and_predicate" if vectorize_tail else "cut"
     proc, (loop,) = vectorize(
-        proc, loop, vec_width, precision, memory, tail=tail, rc=True
+        proc, loop, vec_width, precision, memory, tail=vec_tail, rc=True
     )
 
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
@@ -33,7 +34,6 @@ def optimize_level_1(proc, loop, precision, machine, interleave_factor):
     proc = interleave_loop(
         proc, loop, interleave_factor, par_reduce=True, memory=memory
     )
-
 
     proc = cleanup(proc)
     proc = replace_all_stmts(proc, instructions)

@@ -22,7 +22,7 @@ void test_strsv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
 
   // TODO: Figure out how to pass correct inputs
   for (int i = 0; i < N; ++i) {
-    for (int j = 0; j < N; ++j) A[i * lda + j] = 2;
+    for (int j = 0; j < N; ++j) A[i * lda + j] = 2.0;
   }
   for (int i = 0; i < X.size(); ++i) {
     X[i] = i;
