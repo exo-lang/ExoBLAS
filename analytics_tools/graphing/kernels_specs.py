@@ -102,6 +102,32 @@ class rot(level_1_double_vec):
         return self.get_input_bytes()
 
 
+class rotm(level_1_double_vec):
+    def __init__(self, bench):
+        super().__init__(bench)
+
+        run_name = bench["run_name"]
+        run_dict = run_name_to_dict(run_name)
+
+        self.FLAG = int(run_dict["Flag"])
+        self.sub_kernel_name += f", Flag = {self.FLAG}"
+
+    def get_flops(self):
+        if self.FLAG == -2:
+            return 1
+        return self.N * 6
+
+    def get_loaded_bytes(self):
+        if self.FLAG == -2:
+            return 1
+        return self.get_input_bytes()
+
+    def get_stored_bytes(self):
+        if self.FLAG == -2:
+            return 1
+        return self.get_input_bytes()
+
+
 class asum(level_1_single_vec):
     def get_flops(self):
         return self.N * 2
@@ -126,7 +152,7 @@ class dot(level_1_double_vec):
         return 1 * get_elem_bytes(self.precision)
 
 
-class scal(level_1_double_vec):
+class scal(level_1_single_vec):
     def get_flops(self):
         return self.N
 
