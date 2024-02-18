@@ -21,7 +21,7 @@ void test_asum(int N, int incX) {
   expected = asum<Cblas, T>(N, X_expected.data(), incX);
 
   if (!check_relative_error_okay(result, expected)) {
-    failed<T>("N", N, "incX", incX);
+    failed<T>("asum", "N", N, "incX", incX);
   }
 }
 
