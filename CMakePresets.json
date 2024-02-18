@@ -15,6 +15,7 @@
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "arm64",
         "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS": "-std=c++17 -O3",
         "BLA_VENDOR": "Apple",
         "TARGET_ARCH": "apple-silicon"
       }
@@ -38,7 +39,8 @@
       "binaryDir": "${sourceDir}/build/avx2",
       "cacheVariables": {
         "CMAKE_C_FLAGS": "-march=native -fno-tree-vectorize -fno-unroll-loops -O3 -ffast-math -std=c11",
-        "CMAKE_CXX_FLAGS": "-march=native -fno-tree-vectorize -fno-unroll-loops -O3 -ffast-math",
+        "CMAKE_CXX_FLAGS": "-std=c++17 -march=native -fno-tree-vectorize -fno-unroll-loops -O3 -ffast-math",
+        "CXX_STANDARD" : "C++17",
         "CMAKE_BUILD_TYPE": "Release",
         "TARGET_ARCH": "avx2"
       }
