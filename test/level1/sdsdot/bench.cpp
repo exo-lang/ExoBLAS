@@ -1,12 +1,15 @@
 #include <benchmark/benchmark.h>
 #include <cblas.h>
 
-#include <vector>
-
+#include "bench_ranges.h"
 #include "exo_sdsdot.h"
 #include "generate_buffer.h"
+#include "misc.h"
 
-static void BM_cblas_sdsdot(benchmark::State &state) {
+generate_wrapper(dsdot);
+
+template <typename lib>
+static void bench(benchmark::State &state) {
   int N = state.range(0);
   int incX = state.range(1);
   int incY = state.range(2);
@@ -18,60 +21,27 @@ static void BM_cblas_sdsdot(benchmark::State &state) {
   auto Y = AlignedBuffer<float>(N, incY, alignmentY);
 
   for (auto _ : state) {
-    cblas_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
+    dsdot<lib, float>(N, alpha, X.data(), incX, Y.data(), incY);
   }
 }
 
-static void BM_exo_sdsdot(benchmark::State &state) {
-  int N = state.range(0);
-  int incX = state.range(1);
-  int incY = state.range(2);
-  float alpha = state.range(3);
-  size_t alignmentX = state.range(4);
-  size_t alignmentY = state.range(5);
-
-  auto X = AlignedBuffer<float>(N, incX, alignmentX);
-  auto Y = AlignedBuffer<float>(N, incY, alignmentY);
-
-  for (auto _ : state) {
-    exo_sdsdot(N, alpha, X.data(), incX, Y.data(), incY);
-  }
+template <typename T>
+static void args(benchmark::internal::Benchmark *b) {
+  auto add_args = [&b](auto Ns) {
+    return b->ArgsProduct({Ns,
+                           {1},
+                           {1},
+                           {4},
+                           {64},
+                           {64},
+                           {BENCH_TYPES::level_1},
+                           {type_bits<T>()}});
+  };
+  b->ArgNames({"N", "incX", "incY", "alpha", "alignmentX", "alignmentY",
+               "bench_type", "precision"});
+  add_args(level_1_pow_2);
+  add_args(level_1_pow_7);
 }
 
-BENCHMARK(BM_cblas_sdsdot)
-    ->ArgNames({"n", "incX", "incY", "alpha", "alignmentX", "alignmentY"})
-    ->ArgsProduct(
-        {benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}, {64}, {64}})
-    ->ArgsProduct({benchmark::CreateRange(7, (1 << 26) - 1, 7),
-                   {1},
-                   {1},
-                   {1},
-                   {64},
-                   {64}});
-BENCHMARK(BM_exo_sdsdot)
-    ->ArgNames({"n", "incX", "incY", "alpha", "alignmentX", "alignmentY"})
-    ->ArgsProduct(
-        {benchmark::CreateRange(1, (1 << 26), 2), {1}, {1}, {1}, {64}, {64}})
-    ->ArgsProduct({benchmark::CreateRange(7, (1 << 26) - 1, 7),
-                   {1},
-                   {1},
-                   {1},
-                   {64},
-                   {64}});
-
-// BENCHMARK(BM_cblas_sdsdot)->ArgNames({"n", "incX", "incY", "alpha",
-// "alignmentX", "alignmentY"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10},
-//       {-4, 2, 1, 4, 10}, {1}, {64}, {64}
-//     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4,
-//       10}, {-4, 2, 1, 4, 10}, {1}, {64}, {64}
-//     });
-// BENCHMARK(BM_exo_sdsdot)->ArgNames({"n", "incX", "incY", "alpha",
-// "alignmentX", "alignmentY"})->ArgsProduct({
-//       benchmark::CreateRange((1 << 4), (1 << 24), (1 << 4)), {-4, 2, 4, 10},
-//       {-4, 2, 1, 4, 10}, {1}, {64}, {64}
-//     })->ArgsProduct({
-//       benchmark::CreateRange((1 << 4) + 1, (1 << 24) - 1, 13), {-4, 2, 4,
-//       10}, {-4, 2, 1, 4, 10}, {1}, {64}, {64}
-//     });
+BENCHMARK(bench<Exo>)->Name("exo_sdsdot")->Apply(args<float>);
+BENCHMARK(bench<Cblas>)->Name("cblas_sdsdot")->Apply(args<float>);

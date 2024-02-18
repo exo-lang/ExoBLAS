@@ -152,6 +152,18 @@ class dot(level_1_double_vec):
         return 1 * get_elem_bytes(self.precision)
 
 
+class dsdot(level_1_double_vec):
+    def get_flops(self):
+        return self.N * 2
+
+    def get_stored_bytes(self):
+        return 1 * get_elem_bytes(self.precision)
+
+
+class sdsdot(dsdot):
+    pass
+
+
 class scal(level_1_single_vec):
     def get_flops(self):
         return self.N

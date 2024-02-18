@@ -16,13 +16,8 @@ void test_sdsdot(int N, float alpha, int incX, int incY) {
   auto expected =
       cblas_sdsdot(N, alpha, X_expected.data(), incX, Y_expected.data(), incY);
 
-  auto epsilon = 1.f / 1000.f;
-
-  if (!check_relative_error_okay(result, expected, epsilon)) {
-    printf("Running sdsdot test: N = %d, incX = %d, incY = %d\n", N, incX,
-           incY);
-    printf("Failed! Expected %f, got %f\n", expected, result);
-    exit(1);
+  if (!check_relative_error_okay(result, expected)) {
+    failed<float>("dsdot", "N", N, "incX", incX, "incY", incY);
   }
 }
 
