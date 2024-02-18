@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "correctness_helpers.h"
-#include "exo_dsdot_h.h"
+#include "exo_dsdot_wrapper.h"
 #include "generate_buffer.h"
 
 void test_dsdot(int N, int incX, int incY) {
@@ -16,12 +16,8 @@ void test_dsdot(int N, int incX, int incY) {
   auto expected =
       cblas_dsdot(N, X_expected.data(), incX, Y_expected.data(), incY);
 
-  auto epsilon = 1.f / 100.f;
-
-  if (!check_relative_error_okay(result, expected, epsilon)) {
-    printf("Running dsdot test: N = %d, incX = %d, incY = %d\n", N, incX, incY);
-    printf("Failed! Expected %f, got %f\n", expected, result);
-    exit(1);
+  if (!check_relative_error_okay(result, expected)) {
+    failed<double>("sdot", "N", N, "incX", incX, "incY", incY);
   }
 }
 
@@ -31,12 +27,10 @@ int main() {
 
   for (auto n : N) {
     test_dsdot(n, 1, 1);
-    test_dsdot(n, 1, 1);
   }
 
   for (auto n : N) {
     for (auto i : inc) {
-      test_dsdot(n, i.first, i.second);
       test_dsdot(n, i.first, i.second);
     }
   }

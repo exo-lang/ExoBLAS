@@ -2,13 +2,13 @@
 #include <cblas.h>
 
 #include "bench_ranges.h"
-#include "exo_dsdot_wrapper.h"
+#include "exo_copy_wrapper.h"
 #include "generate_buffer.h"
 #include "misc.h"
 
-generate_wrapper(sdot);
+generate_wrapper(copy);
 
-template <typename lib>
+template <typename lib, typename T>
 static void bench(benchmark::State &state) {
   int N = state.range(0);
   int incX = state.range(1);
@@ -16,11 +16,11 @@ static void bench(benchmark::State &state) {
   size_t alignmentX = state.range(3);
   size_t alignmentY = state.range(4);
 
-  auto X = AlignedBuffer<float>(N, incX, alignmentX);
-  auto Y = AlignedBuffer<float>(N, incY, alignmentY);
+  auto X = AlignedBuffer<T>(N, incX, alignmentX);
+  auto Y = AlignedBuffer<T>(N, incY, alignmentY);
 
   for (auto _ : state) {
-    sdot<lib, double>(N, X.data(), incX, Y.data(), incY);
+    copy<lib, T>(N, X.data(), incX, Y.data(), incY);
   }
 }
 
@@ -36,5 +36,4 @@ static void args(benchmark::internal::Benchmark *b) {
   add_args(level_1_pow_7);
 }
 
-BENCHMARK(bench<Exo>)->Name("exo_dsdot")->Apply(args<float>);
-BENCHMARK(bench<Cblas>)->Name("cblas_dsdot")->Apply(args<float>);
+call_bench_all(copy);
