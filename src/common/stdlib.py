@@ -472,22 +472,6 @@ def interleave_outer_loop_with_inner_loop(
     return proc
 
 
-def cut_tail_and_unguard(proc, loop):
-    loop = proc.forward(loop)
-
-    # Cut the tail iterations
-    success = True
-    while success:
-        loop = proc.forward(loop)
-        cut = FormattedExprStr("_ - 1", loop.hi())
-        proc, success = attempt(cut_loop)(proc, loop, cut, rs=True)
-
-    # Unguard
-    proc = dce(proc, loop)
-
-    return proc
-
-
 def fission_into_singles(proc, cursor):
     if not isinstance(cursor, (ForCursor, IfCursor)):
         raise BLAS_SchedulingError(
@@ -528,13 +512,16 @@ def vectorize_predicate_tail(
 ):
     proc = parallelize_all_reductions(proc, loop, factor=vec_width, memory=mem_type)
     proc = stage_compute(proc, loop, precision, mem_type, rules)
-
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, rc=True)
     proc = simplify(proc)
     proc = fission_into_singles(proc, inner)
 
     if tail == "cut_and_predicate":
-        proc = cut_tail_and_unguard(proc, outer)
+        if_c = inner.body()[0]
+        cut = FormattedExprStr("_ - 1", outer.hi())
+        proc = attempt(cut_loop)(proc, outer, cut)
+        inner = proc.forward(inner)
+        proc = dce(proc, inner.body())
 
     proc = replace_all_stmts(proc, instructions)
 
