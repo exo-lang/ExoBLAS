@@ -39,106 +39,6 @@ def bind_and_set_expr(proc, exprs, precision, memory, new_name=None, rc=False):
     return proc, bind_and_set_expr_cursors(alloc, bound_expr, exprs)
 
 
-def expr_to_string(expr_cursor, subst={}):
-    def expr_list_to_string(expr_list, subst):
-        expr_str_list = [expr_to_string(i, subst) for i in expr_list]
-        if not expr_str_list:
-            return ""
-        return "[" + ", ".join(expr_str_list) + "]"
-
-    if isinstance(expr_cursor, ExprListCursor):
-        return expr_list_to_string(expr_cursor, subst)
-
-    if not isinstance(expr_cursor, ExprCursor):
-        raise BLAS_SchedulingError("Cursor must be an ExprCursor")
-    if isinstance(expr_cursor, ReadCursor):
-        name = str(expr_cursor.name())
-        if name in subst:
-            return f"({subst[name]})"
-        idx_str = expr_list_to_string(expr_cursor.idx(), subst)
-        return f"({name}{idx_str})"
-    elif isinstance(expr_cursor, ReadConfigCursor):
-        raise BLAS_SchedulingError("ReadConfigCursor is not supported")
-    elif isinstance(expr_cursor, LiteralCursor):
-        val_str = str(expr_cursor.value())
-        return f"({val_str})"
-    elif isinstance(expr_cursor, UnaryMinusCursor):
-        arg_str = expr_to_string(expr_cursor.arg, subst)
-        return f"(-{arg_str})"
-    elif isinstance(expr_cursor, BinaryOpCursor):
-        binop_str = expr_cursor.op()
-        lhs_str = expr_to_string(expr_cursor.lhs(), subst)
-        rhs_str = expr_to_string(expr_cursor.rhs(), subst)
-        return f"({lhs_str}{binop_str}{rhs_str})"
-    elif isinstance(expr_cursor, BuiltInFunctionCursor):
-        name = expr_cursor.name()
-        args_str = expr_list_to_string(expr_cursor.args(), subst)
-        return f"({name}({args_str[1:-1]}))"
-    elif isinstance(expr_cursor, WindowExprCursor):
-        raise BLAS_SchedulingError("WindowExprCursor is not supported")
-    else:
-        assert False, "Undefined Type"
-
-
-def type_to_str(typ):
-    if typ is ExoType.F32:
-        return "f32"
-    elif typ is ExoType.F64:
-        return "f64"
-    raise BLAS_SchedulingError(f"Unsupported type {typ}")
-
-
-def get_statement(cursor):
-
-    while not isinstance(cursor, StmtCursor):
-        cursor = cursor.parent()
-
-    return cursor
-
-
-def is_already_divided(loop_cursor, div_factor):
-    return (
-        len(loop_cursor.body()) == 1
-        and isinstance(loop_cursor.body()[0], ForCursor)
-        and isinstance(loop_cursor.body()[0].hi(), LiteralCursor)
-        and loop_cursor.body()[0].hi().value() == div_factor
-    )
-
-
-def stage_expr(proc, expr_cursors, new_name, precision="R", memory=DRAM, n_lifts=1):
-    """
-    for i in seq(0, hi):
-        s (e(i));
-
-    ----->
-
-    new_name: R[hi]
-    for i in seq(0, hi):
-        new_name[i] = e(i)
-    for i in seq(0, hi):
-        s (new_name[i]);
-    """
-
-    if not isinstance(expr_cursors, list):
-        expr_cursors = [expr_cursors]
-
-    expr_cursors = [proc.forward(c) for c in expr_cursors]
-    enclosing_loop = get_enclosing_loop(proc, expr_cursors[0])
-    stmt = get_statement(expr_cursors[0])
-    proc = bind_expr(proc, expr_cursors, new_name)
-    stmt = proc.forward(stmt)
-    bind_stmt = stmt.prev()
-    alloc_stmt = bind_stmt.prev()
-    proc = set_precision(proc, alloc_stmt, precision)
-    proc = set_memory(proc, alloc_stmt, memory)
-    proc = expand_dim(
-        proc, alloc_stmt, expr_to_string(enclosing_loop.hi()), enclosing_loop.name()
-    )
-    proc = lift_alloc(proc, alloc_stmt, n_lifts=n_lifts)
-    proc = fission(proc, bind_stmt.after(), n_lifts=n_lifts)
-    return proc
-
-
 def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
     """
     for i in seq(0, hi):
@@ -168,204 +68,17 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
     return proc
 
 
-def scalar_to_simd(proc, loop_cursor, vec_width, memory_type, precision):
-    """
-    for i in seq(0, hi):
-        lhs(i) = (e_0(i), e_1(i), ..., e_n(i));
-
-    ----->
-
-    for io in seq(0, hi / vec_width):
-        reg0: precision[vec_width]
-        for ii in seq(0, vec_width):
-            reg0[ii] = e_0(ii)
-
-        reg1: precision[vec_width]
-        for ii in seq(0, vec_width):
-            reg1[ii] = e_1(ii)
-
-        ....
-
-        regn: precision[vec_width]
-        for ii in seq(0, vec_width):
-            regn[ii] = e_n(ii)
-
-        for ii in seq(0, vec_width):
-            lhs(io * vec_width + ii) = e_n(ii);
-
-    for i in seq(0, hi % vec_width):
-        lhs(i + delta) = (e_0(i + delta), e_1(i + delta), ..., e_n(i + delta));
-    """
-
-    if not isinstance(loop_cursor, ForCursor):
-        raise BLAS_SchedulingError("scalar_to_simd loop_cursor must be a ForCursor")
-
-    loop_cursor = proc.forward(loop_cursor)
-
-    if not (
-        isinstance(loop_cursor.hi(), LiteralCursor)
-        and loop_cursor.hi().value() == vec_width
-    ):
-        proc = divide_loop(
-            proc,
-            loop_cursor,
-            vec_width,
-            (loop_cursor.name() + "o", loop_cursor.name() + "i"),
-            tail="cut",
+def parallelize_allocs(proc, cursor):
+    if not isinstance(cursor, (ForCursor, IfCursor)):
+        raise BLAS_SchedulingError(
+            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
         )
 
-        outer_loop = proc.forward(loop_cursor)
-        inner_loop = outer_loop.body()[0]
-    else:
-        inner_loop = loop_cursor
-
-    inner_loop = proc.forward(inner_loop)
-
-    stmts = []
-
-    def fission_stmts(proc, body, depth=1):
-        body_list = list(body)
-        for stmt in body_list[:-1]:
-            if isinstance(stmt, AllocCursor):
-                proc = parallelize_and_lift_alloc(proc, stmt, n_lifts=depth)
-                proc = set_memory(proc, stmt, memory_type)
-                proc = set_precision(proc, stmt, precision)
-            else:
-                forwarded_stmt = proc.forward(stmt)
-                stmts.append(stmt)
-                proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
-                forwarded_stmt = proc.forward(stmt)
-                if isinstance(forwarded_stmt, IfCursor):
-                    proc = fission_stmts(proc, forwarded_stmt.body(), depth + 1)
-                elif isinstance(forwarded_stmt, ForCursor):
-                    raise BLAS_SchedulingError("This is an inner loop vectorizer")
-        forwarded_stmt = body_list[-1]
-        stmts.append(forwarded_stmt)
-        if isinstance(forwarded_stmt, IfCursor):
-            proc = fission_stmts(proc, forwarded_stmt.body(), depth + 1)
-        return proc
-
-    proc = fission_stmts(proc, inner_loop.body())
-
-    def detect_madd(expr):
-        return (
-            isinstance(expr, BinaryOpCursor)
-            and expr.op() == "*"
-            and isinstance(expr.parent(), ReduceCursor)
-        )
-
-    def get_expr_subtree_cursors(expr, stmt, alias):
-        stmt_lhs_in_mem = False
-        if isinstance(expr.parent(), StmtCursor):
-            stmt_lhs_in_mem = (
-                get_declaration(proc, stmt, stmt.name()).mem() == memory_type
-            )
-
-        if isinstance(expr, ReadCursor):
-            expr_in_mem = get_declaration(proc, stmt, expr.name()).mem() == memory_type
-            if alias or not (stmt_lhs_in_mem or expr_in_mem):
-                return [expr]
-            else:
-                return []
-        elif isinstance(expr, BinaryOpCursor):
-            lhs = expr.lhs()
-            rhs = expr.rhs()
-            children_alias = (
-                isinstance(lhs, ReadCursor)
-                and isinstance(rhs, ReadCursor)
-                and lhs.name() == rhs.name()
-            )
-            lhs_alias_with_stmt_lhs = False
-            rhs_alias_with_stmt_lhs = False
-            if isinstance(expr.parent(), StmtCursor):
-                lhs_alias_with_stmt_lhs = (
-                    isinstance(lhs, ReadCursor) and lhs.name() == expr.parent().name()
-                )
-                rhs_alias_with_stmt_lhs = (
-                    isinstance(rhs, ReadCursor) and rhs.name() == expr.parent().name()
-                )
-
-            lhs_cursors = get_expr_subtree_cursors(
-                lhs, stmt, lhs_alias_with_stmt_lhs or children_alias
-            )
-            rhs_cursors = get_expr_subtree_cursors(rhs, stmt, rhs_alias_with_stmt_lhs)
-
-            if not detect_madd(expr) and not stmt_lhs_in_mem:
-                return lhs_cursors + rhs_cursors + [expr]
-            else:
-                return lhs_cursors + rhs_cursors
-        elif isinstance(expr, UnaryMinusCursor):
-            return get_expr_subtree_cursors(expr.arg(), stmt, False) + [expr]
-        elif isinstance(expr, BuiltInFunctionCursor):
-            exprs = []
-            for arg in expr.args():
-                exprs = exprs + get_expr_subtree_cursors(arg, stmt, False)
-            exprs = exprs + [expr]
-            return exprs
-        else:
-            return [expr]
-
-    is_assign_or_reduce = lambda stmt: isinstance(stmt, (AssignCursor, ReduceCursor))
-    inner_loop = proc.forward(inner_loop)
-
-    def vectorize_rhs(proc, stmt, depth=1):
-        if not is_assign_or_reduce(stmt):
-            return proc
-        flat_rhs = get_expr_subtree_cursors(stmt.rhs(), stmt, False)
-
-        name_gen = get_unique_names(proc)
-
-        for expr in flat_rhs:
-            proc = stage_expr(proc, expr, next(name_gen), precision, memory_type, depth)
-
-        return proc
-
-    def vectorize_stmt(proc, stmt, depth=1):
-        proc = vectorize_rhs(proc, stmt, depth)
-        if isinstance(stmt, ReduceCursor):
-            alloc_stmt = get_declaration(proc, stmt, stmt.name())
-            if alloc_stmt.mem() != memory_type:
-
-                lhs_reg = next(get_unique_names(proc))
-                proc = stage_mem(
-                    proc, stmt, f"{stmt.name()}{expr_to_string(stmt.idx())}", lhs_reg
-                )
-                forwarded_stmt = proc.forward(stmt)
-
-                alloc_cursor = forwarded_stmt.prev().prev()
-                if depth > 1:
-                    proc = lift_alloc(proc, alloc_cursor, n_lifts=depth - 1)
-                proc = parallelize_and_lift_alloc(proc, alloc_cursor)
-
-                forwarded_stmt = proc.forward(stmt)
-                proc = fission(proc, forwarded_stmt.after(), n_lifts=depth)
-                forwarded_stmt = proc.forward(forwarded_stmt)
-                proc = fission(proc, forwarded_stmt.before(), n_lifts=depth)
-
-                proc = set_memory(proc, alloc_cursor, memory_type)
-                proc = set_precision(proc, alloc_cursor, precision)
-        elif isinstance(stmt, IfCursor):
-            assert len(stmt.body()) == 1
-            if not isinstance(stmt.orelse(), InvalidCursor):
-                raise BLAS_SchedulingError("Not implemented yet")
-            proc = vectorize_stmt(proc, stmt.body()[0], depth + 1)
-        elif isinstance(stmt, AssignCursor):
-            # This will be a store
-            pass
-        else:
-            raise BLAS_SchedulingError("Not implemented yet")
-        return proc
-
-    for stmt in stmts:
-        forwarded_stmt = proc.forward(stmt)
-        if isinstance(forwarded_stmt, IfCursor):
-            continue
-        inner_loop = get_enclosing_loop(proc, forwarded_stmt)
-        if isinstance(inner_loop, ForCursor):
-            assert len(inner_loop.body()) == 1
-            proc = vectorize_stmt(proc, inner_loop.body()[0])
-
-    return proc
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, cursor))
+    func = lambda proc, alloc: parallelize_and_lift_alloc(
+        proc, alloc, get_distance(proc, alloc, cursor)
+    )
+    return apply(func)(proc, allocs)
 
 
 def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail="cut"):
@@ -775,19 +488,6 @@ def cut_tail_and_unguard(proc, loop):
     return proc
 
 
-def parallelize_allocs(proc, cursor):
-    if not isinstance(cursor, (ForCursor, IfCursor)):
-        raise BLAS_SchedulingError(
-            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
-        )
-
-    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, cursor))
-    func = lambda proc, alloc: parallelize_and_lift_alloc(
-        proc, alloc, get_distance(proc, alloc, cursor)
-    )
-    return apply(func)(proc, allocs)
-
-
 def fission_into_singles(proc, cursor):
     if not isinstance(cursor, (ForCursor, IfCursor)):
         raise BLAS_SchedulingError(
@@ -805,39 +505,6 @@ def fission_into_singles(proc, cursor):
 
     proc = parallelize_allocs(proc, cursor)
     return dfs(proc, cursor)
-
-
-@dataclass
-class divide_and_predicate_stmts_cursors:
-    outer_loop: ForCursor
-    inner_loop: ForCursor
-
-    def __iter__(self):
-        yield self.outer_loop
-        yield self.inner_loop
-
-
-def divide_and_predicate_stmts(proc, loop, factor, rc=True):
-    proc, (hoisted, loop) = hoist_from_loop(proc, loop, rc=True)
-    proc, (outer, inner, _) = divide_loop_(proc, loop, factor, tail="guard", rc=True)
-    proc = simplify(proc)
-    proc = fission_into_singles(proc, inner.body()[0])
-    for (stmt, allocs) in hoisted[::-1]:
-        if isinstance(stmt.next(), InvalidCursor):
-            s = stmt.parent()
-        else:
-            s = stmt
-        proc, (outer, _) = jam_stmt(proc, s, unsafe_disable_check=True, rc=True)
-        proc, (inner, _) = jam_stmt(proc, s, unsafe_disable_check=True, rc=True)
-        proc = apply(sink_alloc)(proc, allocs)
-        proc = apply(sink_alloc)(proc, allocs)
-    proc = dce(proc, inner)
-
-    if not rc:
-        return proc
-    outer = proc.forward(outer)
-    inner = proc.forward(inner)
-    return proc, divide_and_predicate_stmts_cursors(outer, inner)
 
 
 @dataclass
@@ -886,7 +553,7 @@ def vectorize(
     instructions=[],
     rules=[],
     tail="cut_and_predicate",
-    rc=True,
+    rc=False,
 ):
     if tail in {"predicate", "cut_and_predicate"}:
         return vectorize_predicate_tail(
@@ -1128,7 +795,7 @@ def ordered_stage_expr(proc, expr_cursors, new_buff_name, precision, n_lifts=1):
         raise BLAS_SchedulingError("auto_stage_mem expects a read a cursor")
 
     expr_cursors = [proc.forward(c) for c in expr_cursors]
-    original_stmt = get_statement(expr_cursors[0])
+    original_stmt = get_enclosing_stmt(proc, expr_cursors[0])
 
     proc = bind_expr(proc, expr_cursors, new_buff_name)
     original_stmt = proc.forward(original_stmt)
@@ -1295,7 +962,6 @@ def stage_expr_into_memory(proc, exprs, precision, memory):
         and get_declaration(proc, expr, expr.name()).mem() is memory
     ):
         return proc, expr
-
     return lift_rc(bind_and_set_expr, "bound_expr")(proc, exprs, precision, memory)
 
 
@@ -1622,11 +1288,11 @@ def dealias(proc, stmt):
     for buff, buff_accesses in buff_map.items():
         for access in buff_accesses[:-1]:
             decl = get_declaration(proc, stmt, access.name())
-            proc = bind_and_set_expr(proc, access, type_to_str(decl.type()), decl.mem())
+            proc = bind_and_set_expr(proc, access, decl.type(), decl.mem())
 
     if stmt.name() in buff_map:
         decl = get_declaration(proc, stmt, stmt.name())
-        proc = bind_and_set_expr(proc, stmt.rhs(), type_to_str(decl.type()), decl.mem())
+        proc = bind_and_set_expr(proc, stmt.rhs(), decl.type(), decl.mem())
 
     return proc
 

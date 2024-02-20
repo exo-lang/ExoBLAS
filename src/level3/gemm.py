@@ -105,13 +105,15 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = divide_dim(gemm, B_reg_alloc, 0, vec_width)
 
     # Vectorize loops
-    for inner_loop in (
+    for loop in (
         C_reg_init_inner_loop,
         B_load_loop,
         inner_j_loop,
         C_accum_back_inner_loop,
     ):
-        gemm = scalar_to_simd(gemm, inner_loop, vec_width, memory, precision)
+        gemm = vectorize(
+            gemm, loop, vec_width, precision, memory, rules=[fma_rule], tail="cut"
+        )
 
     # Hoist A broadcast across (vec_width x n) columns of B
     inner_j_loop = gemm.forward(inner_j_loop)
@@ -165,7 +167,9 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = resize_dim(gemm, B_repacked_access_order, 1, max_K, 0)
 
     # TODO: we don't want any template pattern matching here
-    gemm = scalar_to_simd(gemm, gemm.find_loop("i0i"), vec_width, memory, precision)
+    gemm = vectorize(
+        gemm, gemm.find_loop("i0i"), vec_width, precision, memory, tail="cut"
+    )
     gemm = interleave_loop(gemm, gemm.find_loop("i0o"))
     gemm = unroll_loop(gemm, gemm.find_loop("i0o"))
 
