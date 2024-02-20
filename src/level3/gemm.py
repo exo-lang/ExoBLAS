@@ -10,7 +10,7 @@ from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
 import exo_blas_config as C
-from composed_schedules import *
+from stdlib import *
 from codegen_helpers import *
 
 
@@ -105,13 +105,15 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = divide_dim(gemm, B_reg_alloc, 0, vec_width)
 
     # Vectorize loops
-    for inner_loop in (
+    for loop in (
         C_reg_init_inner_loop,
         B_load_loop,
         inner_j_loop,
         C_accum_back_inner_loop,
     ):
-        gemm = scalar_to_simd(gemm, inner_loop, vec_width, memory, precision)
+        gemm = vectorize(
+            gemm, loop, vec_width, precision, memory, rules=[fma_rule], tail="cut"
+        )
 
     # Hoist A broadcast across (vec_width x n) columns of B
     inner_j_loop = gemm.forward(inner_j_loop)
@@ -165,7 +167,9 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = resize_dim(gemm, B_repacked_access_order, 1, max_K, 0)
 
     # TODO: we don't want any template pattern matching here
-    gemm = scalar_to_simd(gemm, gemm.find_loop("i0i"), vec_width, memory, precision)
+    gemm = vectorize(
+        gemm, gemm.find_loop("i0i"), vec_width, precision, memory, tail="cut"
+    )
     gemm = interleave_loop(gemm, gemm.find_loop("i0o"))
     gemm = unroll_loop(gemm, gemm.find_loop("i0o"))
 
@@ -184,7 +188,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = simplify(gemm)
     # TODO: This was found by experimentation, there should be a better way to find why 4
     # is the right answer
-    gemm, cursors = auto_divide_loop(gemm, gemm.find_loop("k #2"), 4, tail="cut")
+    gemm, cursors = divide_loop_(gemm, gemm.find_loop("k #2"), 4, tail="cut", rc=True)
     gemm = unroll_loop(gemm, cursors.inner_loop)
 
     return original_gemm, simplify(gemm), best_m, best_n * vec_width

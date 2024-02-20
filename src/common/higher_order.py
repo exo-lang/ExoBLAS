@@ -1,5 +1,5 @@
 from exceptions import *
-from introspection import *
+from inspection import *
 
 
 def attempt(op, errs=exo_exceptions):

@@ -470,3 +470,44 @@ def get_bounding_block(proc, cursors):
     diff = cursors[-1][1] - cursors[0][1]
     block = cursors[0][0].as_block().expand(0, diff)
     return block
+
+
+def expr_to_string(expr_cursor, subst={}):
+    def expr_list_to_string(expr_list, subst):
+        expr_str_list = [expr_to_string(i, subst) for i in expr_list]
+        if not expr_str_list:
+            return ""
+        return "[" + ", ".join(expr_str_list) + "]"
+
+    if isinstance(expr_cursor, ExprListCursor):
+        return expr_list_to_string(expr_cursor, subst)
+
+    if not isinstance(expr_cursor, ExprCursor):
+        raise BLAS_SchedulingError("Cursor must be an ExprCursor")
+    if isinstance(expr_cursor, ReadCursor):
+        name = str(expr_cursor.name())
+        if name in subst:
+            return f"({subst[name]})"
+        idx_str = expr_list_to_string(expr_cursor.idx(), subst)
+        return f"({name}{idx_str})"
+    elif isinstance(expr_cursor, ReadConfigCursor):
+        raise BLAS_SchedulingError("ReadConfigCursor is not supported")
+    elif isinstance(expr_cursor, LiteralCursor):
+        val_str = str(expr_cursor.value())
+        return f"({val_str})"
+    elif isinstance(expr_cursor, UnaryMinusCursor):
+        arg_str = expr_to_string(expr_cursor.arg, subst)
+        return f"(-{arg_str})"
+    elif isinstance(expr_cursor, BinaryOpCursor):
+        binop_str = expr_cursor.op()
+        lhs_str = expr_to_string(expr_cursor.lhs(), subst)
+        rhs_str = expr_to_string(expr_cursor.rhs(), subst)
+        return f"({lhs_str}{binop_str}{rhs_str})"
+    elif isinstance(expr_cursor, BuiltInFunctionCursor):
+        name = expr_cursor.name()
+        args_str = expr_list_to_string(expr_cursor.args(), subst)
+        return f"({name}({args_str[1:-1]}))"
+    elif isinstance(expr_cursor, WindowExprCursor):
+        raise BLAS_SchedulingError("WindowExprCursor is not supported")
+    else:
+        assert False, "Undefined Type"

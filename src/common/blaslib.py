@@ -8,8 +8,8 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
-from composed_schedules import *
-from introspection import *
+from stdlib import *
+from inspection import *
 from codegen_helpers import *
 
 
@@ -25,8 +25,9 @@ def optimize_level_1(proc, loop, precision, machine, interleave_factor, vec_tail
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
 
+    rules = [fma_rule, abs_rule]
     proc, (loop,) = vectorize(
-        proc, loop, vec_width, precision, memory, tail=vec_tail, rc=True
+        proc, loop, vec_width, precision, memory, rules=rules, tail=vec_tail, rc=True
     )
 
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
@@ -79,8 +80,8 @@ def optimize_level_2(
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
 
     proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
-    proc, (outer_loop_o, _, _) = auto_divide_loop(
-        proc, outer_loop, rows_factor, tail="cut"
+    proc, (outer_loop_o, _, _) = divide_loop_(
+        proc, outer_loop, rows_factor, tail="cut", rc=True
     )
     proc = simplify(proc)
     proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)

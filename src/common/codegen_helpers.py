@@ -8,7 +8,7 @@ from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
-from introspection import *
+from inspection import *
 from higher_order import *
 import exo_blas_config as C
 

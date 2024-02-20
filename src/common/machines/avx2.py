@@ -4,7 +4,7 @@ from exo.platforms.x86 import *
 
 from .machine import MachineParameters
 
-from composed_schedules import *
+from stdlib import *
 
 
 @instr("{dst_data} = _mm256_maskz_loadu_ps(((1 << {N}) - 1), &{src_data});")
