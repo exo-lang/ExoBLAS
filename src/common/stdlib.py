@@ -520,9 +520,8 @@ def vectorize_predicate_tail(
         if_c = inner.body()[0]
         cut = FormattedExprStr("_ - 1", outer.hi())
         proc = attempt(cut_loop)(proc, outer, cut)
-        inner = proc.forward(inner)
-        proc = dce(proc, inner.body())
-
+        outer = proc.forward(outer)
+        proc = dce(proc, outer.body())
     proc = replace_all_stmts(proc, instructions)
 
     if not rc:
