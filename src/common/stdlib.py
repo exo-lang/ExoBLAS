@@ -547,13 +547,9 @@ def vectorize(
             proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc
         )
 
-    # Tile to exploit vectorization
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
-
     proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
-    # Previous step calls fission which would change what
-    # inner loop we are pointing at
     outer = proc.forward(outer)
     inner = outer.body()[0]
 
