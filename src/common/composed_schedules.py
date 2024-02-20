@@ -920,15 +920,12 @@ def vectorize_predicate_tail(
     precision,
     mem_type,
     instructions=[],
+    rules=[],
     tail="cut_and_predicate",
     rc=False,
 ):
     proc = parallelize_all_reductions(proc, loop, factor=vec_width, memory=mem_type)
-    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, loop))
-    proc = apply(set_memory)(proc, allocs, mem_type)
-
-    children_ops = [fma_rule, abs_rule]
-    proc = stage_compute(proc, loop, precision, mem_type, children_ops)
+    proc = stage_compute(proc, loop, precision, mem_type, rules)
 
     proc, (outer, inner, _) = auto_divide_loop(proc, loop, vec_width)
     proc = simplify(proc)
@@ -952,12 +949,13 @@ def vectorize(
     precision,
     mem_type,
     instructions=[],
+    rules=[],
     tail="cut_and_predicate",
     rc=True,
 ):
     if tail in {"predicate", "cut_and_predicate"}:
         return vectorize_predicate_tail(
-            proc, loop, vec_width, precision, mem_type, instructions, tail, rc
+            proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc
         )
 
     # Tile to exploit vectorization
@@ -970,14 +968,11 @@ def vectorize(
     outer = proc.forward(outer)
     inner = outer.body()[0]
 
-    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, inner))
-    proc = apply(set_memory)(proc, allocs, mem_type)
-
-    children_ops = [fma_rule, abs_rule]
-    proc = stage_compute(proc, inner, precision, mem_type, children_ops)
+    proc = stage_compute(proc, inner, precision, mem_type, rules)
     proc = fission_into_singles(proc, inner)
 
     proc = replace_all_stmts(proc, instructions)
+
     if not rc:
         return proc
     outer = proc.forward(outer)
@@ -1013,26 +1008,29 @@ def tile_loops_top_down(proc, loop_tile_pairs):
     return proc, [proc.forward(l) for l in inner_loops]
 
 
-def tile_loops_bottom_up(proc, outer_most_loop, tiles):
-    loop = outer_most_loop
+def tile_loops_bottom_up(proc, loop, tiles):
+
+    cur_loop = loop
     for i in tiles[:-1]:
-        if not len(loop.body()) == 1:
+        if not len(cur_loop.body()) == 1:
             raise BLAS_SchedulingError("All loop must have a body length of 1")
-        if not isinstance(loop.body()[0], ForCursor):
+        if not isinstance(cur_loop.body()[0], ForCursor):
             raise BLAS_SchedulingError("Did not find a nested loop")
+        cur_loop = cur_loop.body()[0]
 
     loops = []
-    loop = outer_most_loop
+    cur_loop = loop
     for i in tiles:
-        loops.append((loop, i))
-        loop = loop.body()[0]
+        loops.append((cur_loop, i))
+        cur_loop = cur_loop.body()[0]
 
     def get_depth(loop):
-        if not isinstance(loop, ForCursor):
+        if not isinstance(loop, (ForCursor, IfCursor)):
             return 0
         return max([get_depth(i) for i in loop.body()]) + 1
 
     def push_loop_in(proc, loop, depth):
+        loop = proc.forward(loop)
         if get_depth(loop) == depth:
             return proc
         count = len(loop.body())
@@ -1046,14 +1044,29 @@ def tile_loops_bottom_up(proc, outer_most_loop, tiles):
         for loop in loops:
             if get_depth(loop) == depth:
                 continue
-            proc = reorder_loops(proc, loop)
-            proc = push_loop_in(proc, proc.forward(loop), depth)
+            loop = proc.forward(loop)
+            child = loop.body()[0]
+            if isinstance(child, ForCursor):
+                proc = reorder_loops(proc, loop)
+                forwarded_loop = proc.forward(loop)
+            elif isinstance(child, IfCursor):
+                proc = lift_scope(proc, child)
+                child = proc.forward(child)
+                forwarded_loop = child.body()[0]
+            else:
+                assert False, "Invalid"
+            proc = push_loop_in(proc, forwarded_loop, depth)
         return proc
 
     for depth, (loop, tile) in enumerate(loops[::-1]):
-        proc, cursors = auto_divide_loop(proc, loop, tile, tail="cut")
-        proc = push_loop_in(proc, cursors.inner_loop, depth + 1)
-        proc = push_loop_in(proc, cursors.tail_loop, depth + 1)
+        if tile is not None:
+            proc, (_, inner, tail) = auto_divide_loop(
+                proc, loop, tile, tail="cut_and_guard"
+            )
+            proc = push_loop_in(proc, inner, depth + 1)
+            proc = push_loop_in(proc, tail.body()[0], depth + 1)
+        else:
+            proc = push_loop_in(proc, loop, depth + 1)
 
     return proc
 
@@ -1402,6 +1415,8 @@ def stage_compute(
                 break
         return apply(stage)(proc, children)
 
+    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, block))
+    proc = apply(set_memory)(proc, allocs, memory)
     proc = make_pass(attempt(unfold_reduce))(proc, block)
     assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
     exprs = [assign.rhs() for assign in assigns]
@@ -1613,6 +1628,7 @@ def specialize_(proc, stmt, cond, rc=False):
     is_else = False
     if (
         isinstance(parent, IfCursor)
+        and not isinstance(parent.orelse(), InvalidCursor)
         and index < len(parent.orelse())
         and parent.orelse()[index] == stmt
     ):

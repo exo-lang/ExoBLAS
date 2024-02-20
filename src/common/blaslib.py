@@ -25,8 +25,9 @@ def optimize_level_1(proc, loop, precision, machine, interleave_factor, vec_tail
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
 
+    rules = [fma_rule, abs_rule]
     proc, (loop,) = vectorize(
-        proc, loop, vec_width, precision, memory, tail=vec_tail, rc=True
+        proc, loop, vec_width, precision, memory, rules=rules, tail=vec_tail, rc=True
     )
 
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
