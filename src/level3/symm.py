@@ -16,7 +16,7 @@ from kernels.gemm_kernels import GEBP_kernel, GEPP_kernel, Microkernel
 from format_options import *
 
 import exo_blas_config as C
-from composed_schedules import *
+from stdlib import *
 
 
 class SYMM:

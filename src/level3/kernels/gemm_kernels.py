@@ -8,7 +8,7 @@ from exo import *
 from exo.syntax import *
 
 from exo.stdlib.scheduling import *
-from composed_schedules import *
+from stdlib import *
 
 
 class Microkernel:

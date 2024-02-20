@@ -5,7 +5,7 @@ from typing import Any
 
 from exo import *
 
-from composed_schedules import *
+from stdlib import *
 
 
 @dataclass

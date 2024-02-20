@@ -8,7 +8,7 @@ from exo.stdlib.scheduling import *
 
 from dot import exo_sdot_stride_1, dot, exo_ddot_stride_1
 import exo_blas_config as C
-from composed_schedules import (
+from stdlib import (
     scalar_to_simd,
     interleave_outer_loop_with_inner_loop,
     hoist_stmt,

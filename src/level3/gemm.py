@@ -10,7 +10,7 @@ from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
 import exo_blas_config as C
-from composed_schedules import *
+from stdlib import *
 from codegen_helpers import *
 
 
@@ -184,7 +184,7 @@ def schedule_op_gemm_matmul_no_mem_sys_tiling(
     gemm = simplify(gemm)
     # TODO: This was found by experimentation, there should be a better way to find why 4
     # is the right answer
-    gemm, cursors = auto_divide_loop(gemm, gemm.find_loop("k #2"), 4, tail="cut")
+    gemm, cursors = divide_loop_(gemm, gemm.find_loop("k #2"), 4, tail="cut", rc=True)
     gemm = unroll_loop(gemm, cursors.inner_loop)
 
     return original_gemm, simplify(gemm), best_m, best_n * vec_width

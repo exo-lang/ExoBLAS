@@ -13,7 +13,7 @@ from exo.stdlib.scheduling import *
 
 from kernels.gemm_kernels import GEBP_kernel, Microkernel
 from format_options import *
-from composed_schedules import *
+from stdlib import *
 
 import exo_blas_config as C
 

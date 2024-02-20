@@ -2,43 +2,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from exo import *
-from exo.libs.memories import DRAM_STATIC
-from exo.platforms.x86 import *
-from exo.platforms.neon import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
-from introspection import *
+from inspection import *
 from exceptions import *
 from higher_order import *
-
-
-@dataclass
-class fission_cursors:
-    scope1: ForCursor | IfCursor
-    scope2: ForCursor | IfCursor
-
-    def __iter__(self):
-        yield self.scope1
-        yield self.scope2
-
-
-def fission_(proc, gap, rc=False):
-    gap = proc.forward(gap)
-    stmt = gap.anchor()
-    is_after = stmt.after() is gap
-    proc = fission(proc, gap)
-
-    scope1 = proc.forward(stmt).parent()
-    scope2 = scope1.next()
-
-    if is_after:
-        scope1, scope2 = scope2, scope1
-
-    if rc:
-        return proc, fission_cursors(scope1, scope2)
-    return proc
+from rc_wrappers import *
 
 
 @dataclass
@@ -195,44 +166,6 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
             )
         proc = lift_alloc(proc, alloc_cursor)
     return proc
-
-
-@dataclass
-class auto_divide_loop_cursors:
-    outer_loop: ForCursor
-    inner_loop: ForCursor
-    tail_loop: ForCursor
-
-    def __iter__(self):
-        yield self.outer_loop
-        yield self.inner_loop
-        yield self.tail_loop
-
-
-def auto_divide_loop(proc, loop_cursor, div_const, tail="guard", perfect=False):
-    loop_cursor = proc.forward(loop_cursor)
-    loop_iter = loop_cursor.name()
-    proc = divide_loop(
-        proc,
-        loop_cursor,
-        div_const,
-        (loop_iter + "o", loop_iter + "i"),
-        tail=tail,
-        perfect=perfect,
-    )
-    outer_loop = proc.forward(loop_cursor)
-    inner_loop = outer_loop.body()[0]
-
-    if perfect == True or tail == "guard":
-        tail_loop = InvalidCursor()
-    else:
-        tail_loop = outer_loop.next()
-
-    outer_loop = proc.forward(outer_loop)
-    inner_loop = proc.forward(inner_loop)
-    if not isinstance(tail_loop, InvalidCursor):
-        tail_loop = proc.forward(tail_loop)
-    return proc, auto_divide_loop_cursors(outer_loop, inner_loop, tail_loop)
 
 
 def scalar_to_simd(proc, loop_cursor, vec_width, memory_type, precision):
@@ -455,7 +388,9 @@ def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail
     def rewrite(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail="cut"):
         loop = proc.forward(loop)
         if factor is not None:
-            proc, (outer, loop, _) = auto_divide_loop(proc, loop, factor, tail=tail)
+            proc, (outer, loop, _) = divide_loop_(
+                proc, loop, factor, tail=tail, rc=True
+            )
             if par_reduce:
                 proc = parallelize_all_reductions(
                     proc, outer, memory=memory, unroll=True
@@ -683,8 +618,8 @@ def parallelize_reduction(
         )
 
     if factor is not None:
-        proc, (reduce_loop, _, _) = auto_divide_loop(
-            proc, reduce_loop, factor, tail="guard"
+        proc, (reduce_loop, _, _) = divide_loop_(
+            proc, reduce_loop, factor, tail="guard", rc=True
         )
         proc = simplify(proc)
         nth_loop += 1
@@ -884,7 +819,7 @@ class divide_and_predicate_stmts_cursors:
 
 def divide_and_predicate_stmts(proc, loop, factor, rc=True):
     proc, (hoisted, loop) = hoist_from_loop(proc, loop, rc=True)
-    proc, (outer, inner, _) = auto_divide_loop(proc, loop, factor, tail="guard")
+    proc, (outer, inner, _) = divide_loop_(proc, loop, factor, tail="guard", rc=True)
     proc = simplify(proc)
     proc = fission_into_singles(proc, inner.body()[0])
     for (stmt, allocs) in hoisted[::-1]:
@@ -927,7 +862,7 @@ def vectorize_predicate_tail(
     proc = parallelize_all_reductions(proc, loop, factor=vec_width, memory=mem_type)
     proc = stage_compute(proc, loop, precision, mem_type, rules)
 
-    proc, (outer, inner, _) = auto_divide_loop(proc, loop, vec_width)
+    proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, rc=True)
     proc = simplify(proc)
     proc = fission_into_singles(proc, inner)
 
@@ -959,7 +894,7 @@ def vectorize(
         )
 
     # Tile to exploit vectorization
-    proc, (outer, inner, _) = auto_divide_loop(proc, loop, vec_width, tail=tail)
+    proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
 
     proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
@@ -1060,8 +995,8 @@ def tile_loops_bottom_up(proc, loop, tiles):
 
     for depth, (loop, tile) in enumerate(loops[::-1]):
         if tile is not None:
-            proc, (_, inner, tail) = auto_divide_loop(
-                proc, loop, tile, tail="cut_and_guard"
+            proc, (_, inner, tail) = divide_loop_(
+                proc, loop, tile, tail="cut_and_guard", rc=True
             )
             proc = push_loop_in(proc, inner, depth + 1)
             proc = push_loop_in(proc, tail.body()[0], depth + 1)
@@ -1069,33 +1004,6 @@ def tile_loops_bottom_up(proc, loop, tiles):
             proc = push_loop_in(proc, loop, depth + 1)
 
     return proc
-
-
-@dataclass
-class stage_mem_cursors:
-    alloc: AllocCursor
-    load_stage: Cursor
-    block: BlockCursor
-    store_stage: Cursor
-
-
-def stage_mem_(proc, block, buff, new_buff_name, accum=False, rc=False):
-    if not isinstance(block, BlockCursor):
-        block = proc.forward(block)
-        block = block.as_block()
-
-    block_first = block[0]
-    block_last = block[-1]
-    proc = stage_mem(proc, block, buff, new_buff_name, accum)
-    block_first = proc.forward(block_first)
-    block_last = proc.forward(block_last)
-    alloc = block_first.prev().prev()
-    load_stage = block_first.prev()
-    block = block_first.as_block().expand(0, len(block) - 1)
-    store_stage = block_last.next()
-    if not rc:
-        return proc
-    return proc, stage_mem_cursors(alloc, load_stage, block, store_stage)
 
 
 def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False):
@@ -1597,8 +1505,8 @@ def divide_loop_recursive(proc, loop, factor, tail="cut", rc=False):
     inner_loops = []
     tail_loop = loop
     while factor > 1:
-        proc, (outer, inner, tail_loop) = auto_divide_loop(
-            proc, tail_loop, factor, tail=tail
+        proc, (outer, inner, tail_loop) = divide_loop_(
+            proc, tail_loop, factor, tail=tail, rc=True
         )
         outer_loops.append(outer)
         inner_loops.append(inner)
@@ -1608,38 +1516,6 @@ def divide_loop_recursive(proc, loop, factor, tail="cut", rc=False):
     outer_loops = [proc.forward(c) for c in outer_loops]
     inner_loops = [proc.forward(c) for c in inner_loops]
     return proc, divide_loop_recursive_cursors(outer_loops, inner_loops, tail_loop)
-
-
-@dataclass
-class specialize_cursors:
-    if_stmt: Cursor
-
-    def __iter__(self):
-        yield self.if_stmt
-
-
-def specialize_(proc, stmt, cond, rc=False):
-    stmt = proc.forward(stmt)
-    parent = stmt.parent()
-    index = get_index_in_body(proc, stmt)
-    proc = specialize(proc, stmt, cond)
-    if not rc:
-        return proc
-    is_else = False
-    if (
-        isinstance(parent, IfCursor)
-        and not isinstance(parent.orelse(), InvalidCursor)
-        and index < len(parent.orelse())
-        and parent.orelse()[index] == stmt
-    ):
-        is_else = True
-    if not isinstance(parent, InvalidCursor):
-        parent = proc.forward(parent)
-    else:
-        parent = proc
-
-    if_stmt = parent.body()[index] if not is_else else parent.orelse()[index]
-    return proc, specialize_cursors(if_stmt)
 
 
 @dataclass
@@ -1760,30 +1636,9 @@ dealiasing_pass = make_pass(attempt(dealias, errs=(TypeError,)))
 
 def round_loop(proc, loop, factor, up=True):
     tail = "guard" if up else "cut"
-    proc, (loop, _, _) = auto_divide_loop(proc, loop, factor, tail=tail)
+    proc, (loop, _, _) = divide_loop_(proc, loop, factor, tail=tail, rc=True)
     proc = mult_loops(proc, loop, loop.name()[:-1])
     return proc
-
-
-@dataclass
-class cut_loop_cursors:
-    loop1: ForCursor
-    loop2: ForCursor
-
-    def __iter__(self):
-        yield self.loop1
-        yield self.loop2
-
-
-def cut_loop_(proc, loop, expr, rc=False):
-    proc = cut_loop(proc, loop, expr)
-
-    if not rc:
-        return proc
-
-    loop1 = proc.forward(loop)
-    loop2 = loop1.next()
-    return proc, cut_loop_cursors(loop1, loop2)
 
 
 @dataclass

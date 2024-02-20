@@ -18,12 +18,8 @@ import exo.API_cursors as pc
 from exo.libs.memories import GEMM_SCRATCH, GEMM_ACCUM
 from exo.stdlib.scheduling import *
 from exo import proc, instr, DRAM, config, ExoType
-from composed_schedules import (
-    tile_loops,
-    get_enclosing_loop,
-    auto_divide_loop,
-)
-from introspection import *
+from stdlib import *
+from inspection import *
 
 ld_i8_block_id1 = reorder_loops(ld_i8_block_id1, "i j")
 ld_i8_block_id2 = reorder_loops(ld_i8_block_id2, "i j")

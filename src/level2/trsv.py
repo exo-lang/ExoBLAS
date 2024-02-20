@@ -4,7 +4,7 @@ from exo import *
 
 from blaslib import *
 from codegen_helpers import *
-from composed_schedules import *
+from stdlib import *
 
 
 @proc
