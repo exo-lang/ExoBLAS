@@ -60,33 +60,50 @@ def get_triangle_type(proc, loop):
 
 
 def optimize_level_2(
-    proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None
+    proc,
+    outer_loop,
+    precision,
+    machine,
+    rows_factor,
+    cols_factor,
+    round_up=None,
+    tail="cut",
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
-    inner_loop = get_inner_loop(proc, outer_loop)
 
-    if triangle := get_triangle_type(proc, inner_loop):
-        if round_up is None:
-            round_up = memory in {AVX2}
-        rows_factor = min(rows_factor, vec_width)
-        if round_up and triangle == 1:
-            proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
-            inner_loop = get_inner_loop(proc, outer_loop)
-        if not round_up and triangle == 2:
-            proc, (inner_loop,) = cut_loop_and_unroll(
-                proc, inner_loop, 1, front=False, rc=True
-            )
-        proc = round_loop(proc, inner_loop, vec_width, up=round_up)
+    def rewrite(proc, outer_loop, rows_factor, cols_factor):
+        kernel_loop = outer_loop.parent()
+        inner_loop = get_inner_loop(proc, outer_loop)
 
-    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
-    proc, (outer_loop_o, _, _) = divide_loop_(
-        proc, outer_loop, rows_factor, tail="cut", rc=True
-    )
-    proc = simplify(proc)
-    proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
-    proc = unroll_buffers(proc, outer_loop_o)
-    proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
+        if triangle := get_triangle_type(proc, inner_loop):
+            if round_up is None:
+                round_up = memory in {AVX2}
+            rows_factor = min(rows_factor, vec_width)
+            if round_up and triangle == 1:
+                proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
+                inner_loop = get_inner_loop(proc, outer_loop)
+            if not round_up and triangle == 2:
+                proc, (inner_loop,) = cut_loop_and_unroll(
+                    proc, inner_loop, 1, front=False, rc=True
+                )
+            proc = round_loop(proc, inner_loop, vec_width, up=round_up)
+
+        proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
+        proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
+        proc = unroll_buffers(proc, kernel_loop)
+        proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
+        return proc
+
+    if tail == "cut":
+        proc, (_, inner, tail_l) = divide_loop_(
+            proc, outer_loop, rows_factor, tail="cut", rc=True
+        )
+        proc = rewrite(proc, inner, rows_factor, cols_factor)
+        print(proc)
+        proc = optimize_level_1(
+            proc, get_inner_loop(proc, proc.body()[-1]), precision, machine, rows_factor
+        )
     return proc
 
 
