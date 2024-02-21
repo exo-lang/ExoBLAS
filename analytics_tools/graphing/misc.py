@@ -32,6 +32,17 @@ def run_name_to_dict(run_name):
 
 class BENCH_TYPE(Enum):
     level_1 = 0
+    level_2_eq = 1
+    level_2_sq = 2
+
+
+level_2_bench_types = {BENCH_TYPE.level_2_eq.value, BENCH_TYPE.level_2_sq.value}
+
+# From netlib `cblas.h`
+class CBLAS_TRANSPOSE(Enum):
+    CblasNoTrans = (111,)
+    CblasTrans = (112,)
+    CblasConjTrans = 113
 
 
 __all__ = [
@@ -41,4 +52,6 @@ __all__ = [
     "ns_to_s",
     "run_name_to_dict",
     "BENCH_TYPE",
+    "level_2_bench_types",
+    "CBLAS_TRANSPOSE",
 ]

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cblas.h>
+
 #include <string>
 
 class BLAS_lib {};
@@ -38,6 +40,14 @@ int type_bits() {
 template <typename lib, typename T>
 std::string kernel_name(std::string kernel) {
   return lib_name<lib>() + "_" + type_prefix<T>() + kernel;
+}
+
+template <typename lib, typename T, int order, int TransA>
+std::string level_2_kernel_name(std::string kernel) {
+  auto name = lib_name<lib>() + "_" + type_prefix<T>() + kernel;
+  name += order == CBLAS_ORDER::CblasRowMajor ? "_rm" : "_col";
+  name += TransA == CBLAS_TRANSPOSE::CblasNoTrans ? "_n" : "_t";
+  return name;
 }
 
 #define call_bench(lib, T, kernel) \

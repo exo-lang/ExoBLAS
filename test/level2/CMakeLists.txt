@@ -1,5 +1,6 @@
-add_exo_blas_test(level2 gemv s)
-add_exo_blas_test(level2 gemv d)
+add_exo_blas_test(level2 gemv "")
+# add_exo_blas_test(level2 gemv s)
+# add_exo_blas_test(level2 gemv d)
 add_exo_blas_test(level2 gbmv s)
 add_exo_blas_test(level2 gbmv d)
 add_exo_blas_test(level2 ger s)
