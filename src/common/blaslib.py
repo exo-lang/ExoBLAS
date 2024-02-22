@@ -103,6 +103,8 @@ def optimize_level_2(
         proc = optimize_level_1(
             proc, get_inner_loop(proc, proc.body()[-1]), precision, machine, rows_factor
         )
+    else:
+        raise BLAS_SchedulingError(f"Unrecognized tail strategy: {tail}")
     return proc
 
 
