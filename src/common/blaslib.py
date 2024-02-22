@@ -100,7 +100,6 @@ def optimize_level_2(
             proc, outer_loop, rows_factor, tail="cut", rc=True
         )
         proc = rewrite(proc, inner, rows_factor, cols_factor)
-        print(proc)
         proc = optimize_level_1(
             proc, get_inner_loop(proc, proc.body()[-1]), precision, machine, rows_factor
         )
