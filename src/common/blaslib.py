@@ -13,14 +13,15 @@ from inspection import *
 from codegen_helpers import *
 
 
-def optimize_level_1(proc, loop, precision, machine, interleave_factor, vec_tail=None):
+def optimize_level_1(
+    proc, loop, precision, machine, interleave_factor, vec_tail=None, inter_tail="cut"
+):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
     instructions = machine.get_instructions(precision)
 
     if vec_tail is None:
-        vectorize_tail = memory in {AVX2}
-        vec_tail = "cut_and_predicate" if vectorize_tail else "cut"
+        vec_tail = "cut_and_predicate" if machine.supports_predication else "cut"
 
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
@@ -33,7 +34,7 @@ def optimize_level_1(proc, loop, precision, machine, interleave_factor, vec_tail
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
 
     proc = interleave_loop(
-        proc, loop, interleave_factor, par_reduce=True, memory=memory
+        proc, loop, interleave_factor, par_reduce=True, memory=memory, tail=inter_tail
     )
 
     proc = cleanup(proc)
@@ -103,8 +104,6 @@ def optimize_level_2(
         proc = optimize_level_1(
             proc, get_inner_loop(proc, proc.body()[-1]), precision, machine, rows_factor
         )
-    else:
-        raise BLAS_SchedulingError(f"Unrecognized tail strategy: {tail}")
     return proc
 
 

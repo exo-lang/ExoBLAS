@@ -840,6 +840,7 @@ Machine = MachineParameters(
     n_vec_registers=16,
     f32_vec_width=8,
     vec_units=2,
+    supports_predication=True,
     l1_cache=None,
     l2_cache=None,
     l3_cache=None,

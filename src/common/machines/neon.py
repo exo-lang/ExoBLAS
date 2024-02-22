@@ -124,6 +124,7 @@ Machine = MachineParameters(
     n_vec_registers=32,
     f32_vec_width=4,
     vec_units=4,
+    supports_predication=True,
     l1_cache=None,
     l2_cache=None,
     l3_cache=None,
