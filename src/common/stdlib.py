@@ -104,17 +104,11 @@ def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail
             proc, (outer, loop, _) = divide_loop_(
                 proc, loop, factor, tail=tail, rc=True
             )
-            if par_reduce:
-                proc = parallelize_all_reductions(
-                    proc, outer, memory=memory, unroll=True
-                )
-                loop = proc.forward(outer).body()[0]
         else:
-            if par_reduce:
-                proc = parallelize_all_reductions(
-                    proc, loop, memory=memory, unroll=True
-                )
-
+            outer = loop.parent()
+        if par_reduce:
+            proc = parallelize_all_reductions(proc, outer, memory=memory, unroll=True)
+            loop = proc.forward(outer).body()[0]
         allocs = filter(lambda s: isinstance(s, AllocCursor), loop.body())
         proc = apply(parallelize_and_lift_alloc)(proc, allocs)
 

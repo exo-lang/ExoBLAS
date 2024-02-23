@@ -14,7 +14,13 @@ from codegen_helpers import *
 
 
 def optimize_level_1(
-    proc, loop, precision, machine, interleave_factor, vec_tail=None, inter_tail="cut"
+    proc,
+    loop,
+    precision,
+    machine,
+    interleave_factor,
+    vec_tail=None,
+    inter_tail="recursive",
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
@@ -68,29 +74,29 @@ def optimize_level_2(
     rows_factor,
     cols_factor,
     round_up=None,
-    rows_tail="level_1",
+    rows_tail="cut",
     **kwargs,
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
 
+    inner_loop = get_inner_loop(proc, outer_loop)
+    if triangle := get_triangle_type(proc, inner_loop):
+        if round_up is None:
+            round_up = memory in {AVX2}
+        rows_factor = min(rows_factor, vec_width)
+        if round_up and triangle == 1:
+            proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
+            inner_loop = get_inner_loop(proc, outer_loop)
+        if not round_up and triangle == 2:
+            proc, (inner_loop,) = cut_loop_and_unroll(
+                proc, inner_loop, 1, front=False, rc=True
+            )
+        proc = round_loop(proc, inner_loop, vec_width, up=round_up)
+
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
         kernel_loop = outer_loop.parent()
         inner_loop = get_inner_loop(proc, outer_loop)
-
-        if triangle := get_triangle_type(proc, inner_loop):
-            if round_up is None:
-                round_up = memory in {AVX2}
-            rows_factor = min(rows_factor, vec_width)
-            if round_up and triangle == 1:
-                proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
-                inner_loop = get_inner_loop(proc, outer_loop)
-            if not round_up and triangle == 2:
-                proc, (inner_loop,) = cut_loop_and_unroll(
-                    proc, inner_loop, 1, front=False, rc=True
-                )
-            proc = round_loop(proc, inner_loop, vec_width, up=round_up)
-
         proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
         proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
         proc = unroll_buffers(proc, kernel_loop)
