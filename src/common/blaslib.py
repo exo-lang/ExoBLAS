@@ -68,7 +68,8 @@ def optimize_level_2(
     rows_factor,
     cols_factor,
     round_up=None,
-    tail="cut",
+    rows_tail="level_1",
+    **kwargs,
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
@@ -93,17 +94,24 @@ def optimize_level_2(
         proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
         proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
         proc = unroll_buffers(proc, kernel_loop)
-        proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
+        proc = optimize_level_1(
+            proc, inner_loop, precision, machine, cols_factor, **kwargs
+        )
         return proc
 
-    if tail == "cut":
+    if rows_tail in {"level_1", "cut"}:
         proc, (_, inner, tail_l) = divide_loop_(
             proc, outer_loop, rows_factor, tail="cut", rc=True
         )
         proc = rewrite(proc, inner, rows_factor, cols_factor)
-        proc = optimize_level_1(
-            proc, get_inner_loop(proc, proc.body()[-1]), precision, machine, rows_factor
-        )
+        if rows_tail == "level_1":
+            proc = optimize_level_1(
+                proc,
+                get_inner_loop(proc, proc.body()[-1]),
+                precision,
+                machine,
+                rows_factor,
+            )
     return proc
 
 

@@ -545,8 +545,10 @@ def vectorize(
         return vectorize_predicate_tail(
             proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc
         )
-
-    proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
+    perfect = tail == "perfect"
+    proc, (outer, inner, _) = divide_loop_(
+        proc, loop, vec_width, tail=tail, perfect=perfect, rc=True
+    )
     proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
     outer = proc.forward(outer)
@@ -1111,8 +1113,19 @@ def undo_divide_and_guard_loop(proc, loop):
     return proc
 
 
+def unroll_loops(proc, block=InvalidCursor(), threshold=None):
+    def pred(proc, s):
+        s = proc.forward(s)
+        if not (is_loop(proc, s) and is_loop_bounds_const(proc, s)):
+            return False
+        return threshold is None or s.hi().value() - s.lo().value() <= threshold
+
+    return make_pass(predicate(unroll_loop, pred), lrn_stmts)(proc, block)
+
+
 def cleanup(proc):
     proc = simplify(proc)
+    proc = unroll_loops(proc, threshold=1)
     proc = dce(proc)
     try:
         proc.find("pass")
