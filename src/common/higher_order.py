@@ -35,9 +35,9 @@ def predicate(op, pred):
     return rewrite
 
 
-def make_pass(op):
+def make_pass(op, trav_start=nlr_stmts):
     def rewrite(proc, block=InvalidCursor(), *args, **kwargs):
-        stmts = nlr_stmts(proc, block)
+        stmts = trav_start(proc, block)
         return apply(op)(proc, stmts, *args, **kwargs)
 
     return rewrite

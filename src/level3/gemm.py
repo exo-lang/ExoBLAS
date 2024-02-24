@@ -12,6 +12,7 @@ from exo.API_cursors import *
 import exo_blas_config as C
 from stdlib import *
 from codegen_helpers import *
+from blaslib import *
 
 
 @proc

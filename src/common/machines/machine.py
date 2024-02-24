@@ -20,6 +20,7 @@ class MachineParameters:
     n_vec_registers: int
     f32_vec_width: int
     vec_units: int
+    supports_predication: bool
 
     # These are not currently used for anything
     l1_cache: int

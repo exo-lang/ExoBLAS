@@ -23,5 +23,5 @@ def schedule_asum(asum, loop, precision, machine, interleave_factor):
     return optimize_level_1(asum, loop, precision, machine, interleave_factor)
 
 
-variants_generator(schedule_asum)(asum, "i", 7, globals=globals())
+variants_generator(schedule_asum)(asum, "i", 8, globals=globals())
 ### EXO_LOC SCHEDULE END ###

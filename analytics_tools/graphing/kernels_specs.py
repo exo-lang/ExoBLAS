@@ -182,28 +182,61 @@ class swap(level_1_double_vec):
 
 class level_2(kernel):
     def __init__(self, bench):
-        self.precision = precision
-
         self.real_time = float(bench["real_time"])
-
         assert bench["name"] == bench["run_name"]
+
         run_name = bench["run_name"]
         run_dict = run_name_to_dict(run_name)
-        self.bench_type = "equal"
+
+        self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
+        self.bench_type = int(run_dict["bench_type"])
+        assert self.bench_type in level_2_bench_types
         self.N = int(run_dict["N"])
-        self.M = self.N
+        if self.bench_type != BENCH_TYPE.level_2_sq:
+            self.M = int(run_dict["M"])
+        self.precision = run_dict["precision"]
+        if "TransA" in run_dict:
+            self.TransA = int(run_dict["TransA"])
 
     def get_size_param(self):
         return self.N
 
+    def get_cmp_tuple_(self):
+        return (self.N, self.M)
+
     def __eq__(self, other):
-        return self.N == other.N
+        return self.get_cmp_tuple_() == other.get_cmp_tuple_()
 
     def __lt__(self, other):
-        return self.N < other.N
+        return self.get_cmp_tuple_() < other.get_cmp_tuple_()
+
+    def __hash__(self):
+        return hash(self.get_cmp_tuple_())
 
     def get_graph_description(self):
-        return "N"
+        if self.bench_type == BENCH_TYPE.level_2_sq.value:
+            return "N"
+        elif self.bench_type == BENCH_TYPE.level_2_eq.value:
+            return "M = N"
+
+
+class gemv(level_2):
+    def get_flops(self):
+        return 2 * self.M * self.N + self.M
+
+    def get_input_bytes(self):
+        return (self.M * self.N + self.M + self.N) * get_elem_bytes(self.precision)
+
+    def get_loaded_bytes(self):
+        return (self.M * self.N + self.M * self.N / 4 + self.M) * get_elem_bytes(
+            self.precision
+        )
+
+    def get_stored_bytes(self):
+        if self.TransA == CBLAS_TRANSPOSE.CblasNoTrans:
+            return self.M * get_elem_bytes(self.precision)
+        else:
+            return ((self.M * self.N) // 4) * get_elem_bytes(self.precision)
 
 
 class ger(level_2):
@@ -236,6 +269,3 @@ class trmv(level_2):
         return ((self.N * (self.N + 1)) / 2 * (1 / 4) + self.N) * get_elem_bytes(
             self.precision
         )
-
-
-__all__ = ["axpy", "rot"]
