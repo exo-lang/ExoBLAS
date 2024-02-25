@@ -71,7 +71,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
                 yield c
         elif isinstance(cursor, Procedure):
             yield from cursor.args()
-            yield cursor.body()
+            yield from cursor.body()
         elif isinstance(cursor, ArgCursor):
             if cursor.is_tensor():
                 yield cursor.shape()
@@ -91,22 +91,31 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         yield from children[::-1]
 
 
-def _get_cursors(proc, cursor=InvalidCursor(), node_first=False, lr=True):
+def _get_cursors(
+    proc, cursor=InvalidCursor(), node_first=False, lr=True, pred=lambda p, c: True
+):
 
     if not isinstance(cursor, (InvalidCursor, ExprListCursor, BlockCursor)):
         cursor = proc.forward(cursor)
+
+    def visist_children(cursor):
+        for child in get_children(proc, cursor, lr):
+            if pred(proc, child):
+                yield from dfs(child)
 
     def dfs(cursor):
         if node_first:
             yield cursor
 
-        for child in get_children(proc, cursor, lr):
-            yield from dfs(child)
+        yield from visist_children(cursor)
 
         if not node_first:
             yield cursor
 
-    return dfs(cursor)
+    if isinstance(cursor, InvalidCursor):
+        return visist_children(cursor)
+    else:
+        return dfs(cursor)
 
 
 def lrn(proc, cursor=InvalidCursor()):
@@ -125,12 +134,24 @@ def nrl(proc, cursor=InvalidCursor()):
     yield from _get_cursors(proc, cursor=cursor, node_first=True, lr=False)
 
 
-def lrn_stmts(proc, block=InvalidCursor()):
-    yield from filter(lambda s: isinstance(s, StmtCursor), lrn(proc, cursor=block))
+def lrn_stmts(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(proc, cursor=cursor, node_first=False, pred=is_stmt)
 
 
-def nlr_stmts(proc, block=InvalidCursor()):
-    yield from filter(lambda s: isinstance(s, StmtCursor), nlr(proc, cursor=block))
+def nlr_stmts(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(proc, cursor=cursor, node_first=True, pred=is_stmt)
+
+
+def rln_stmts(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(
+        proc, cursor=cursor, node_first=False, lr=False, pred=is_stmt
+    )
+
+
+def nrl_stmts(proc, cursor=InvalidCursor()):
+    yield from _get_cursors(
+        proc, cursor=cursor, node_first=True, lr=False, pred=is_stmt
+    )
 
 
 def get_symbols(proc, cursor=InvalidCursor()):

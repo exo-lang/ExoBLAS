@@ -1056,7 +1056,6 @@ def replace_all_stmts(proc, instructions):
             stmt = proc.forward(stmt)
         except InvalidCursorError:
             continue
-
         for instr in instructions:
             try:
                 proc = checked_replace(proc, stmt, instr, quiet=True)
