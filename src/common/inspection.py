@@ -177,15 +177,14 @@ def get_declaration(proc, ctxt, name):
     raise BLAS_SchedulingError("Declaration not found!")
 
 
-def get_unique_names(proc):
+class unique_name:
     cnt = 0
-    syms = set(get_symbols(proc))
-    while cnt < 100:
-        name = f"var{cnt}"
-        cnt += 1
-        if name in syms:
-            continue
-        yield name
+
+    @staticmethod
+    def get():
+        name = f"var{unique_name.cnt}"
+        unique_name.cnt += 1
+        return name
 
 
 def is_stmt(proc, stmt):

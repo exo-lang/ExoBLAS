@@ -21,7 +21,7 @@ class bind_and_set_expr_cursors:
 
 def bind_and_set_expr(proc, exprs, precision, memory, new_name=None, rc=False):
     if new_name is None:
-        new_name = next(get_unique_names(proc))
+        new_name = unique_name.get()
 
     expr = exprs if isinstance(exprs, ExprCursor) else exprs[0]
     stmt = get_enclosing_stmt(proc, expr)
@@ -653,7 +653,7 @@ def tile_loops_bottom_up(proc, loop, tiles):
 
 def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False):
     if new_buff_name is None:
-        new_buff_name = next(get_unique_names(proc))
+        new_buff_name = unique_name.get()
 
     if not isinstance(block, BlockCursor):
         block = proc.forward(block)
