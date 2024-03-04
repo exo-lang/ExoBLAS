@@ -23,5 +23,5 @@ def axpy_alpha_1(n: size, x: [R][n], y: [R][n]):
 
 ### EXO_LOC SCHEDULE START ###
 for proc in axpy, axpy_alpha_1:
-    variants_generator(optimize_level_1)(proc, "i", 4, globals=globals())
+    variants_generator(optimize_level_1)(proc, "i", 8, globals=globals())
 ### EXO_LOC SCHEDULE END ###

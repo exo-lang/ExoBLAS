@@ -74,14 +74,16 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-#define call_gemv_bench(lib, T, order, TransA)                   \
-  BENCHMARK(bench<lib, T>)                                       \
-      ->Name(level_2_kernel_name<lib, T, order, TransA>("gemv")) \
+#define call_gemv_bench(lib, T, order, TransA)                      \
+  BENCHMARK(bench<lib, T>)                                          \
+      ->Name(level_2_kernel_name<lib, T, order, TransA, 0>("gemv")) \
       ->Apply(args<T, order, TransA>);
 
-#define call_gemv_bench_all(order, TransA)    \
-  call_gemv_bench(Exo, float, order, TransA); \
-  call_gemv_bench(Cblas, float, order, TransA);
+#define call_gemv_bench_all(order, TransA)      \
+  call_gemv_bench(Exo, float, order, TransA);   \
+  call_gemv_bench(Cblas, float, order, TransA); \
+  call_gemv_bench(Exo, double, order, TransA);  \
+  call_gemv_bench(Cblas, double, order, TransA);
 
 call_gemv_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_TRANSPOSE::CblasNoTrans);
-// call_gemv_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_TRANSPOSE::CblasTrans);
+call_gemv_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_TRANSPOSE::CblasTrans);
