@@ -42,11 +42,24 @@ std::string kernel_name(std::string kernel) {
   return lib_name<lib>() + "_" + type_prefix<T>() + kernel;
 }
 
-template <typename lib, typename T, int order, int TransA>
+template <typename lib, typename T, int order, int TransA, int Uplo>
 std::string level_2_kernel_name(std::string kernel) {
   auto name = lib_name<lib>() + "_" + type_prefix<T>() + kernel;
   name += order == CBLAS_ORDER::CblasRowMajor ? "_rm" : "_col";
-  name += TransA == CBLAS_TRANSPOSE::CblasNoTrans ? "_n" : "_t";
+  if constexpr (TransA + Uplo) {
+    name += "_";
+  }
+  if constexpr (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {
+    name += "n";
+  } else if constexpr (TransA == CBLAS_TRANSPOSE::CblasTrans) {
+    name += "t";
+  }
+
+  if constexpr (Uplo == CBLAS_UPLO::CblasUpper) {
+    name += "u";
+  } else if constexpr (Uplo == CBLAS_UPLO::CblasLower) {
+    name += "l";
+  }
   return name;
 }
 

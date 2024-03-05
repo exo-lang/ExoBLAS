@@ -1247,11 +1247,8 @@ def cse(proc, block, precision):
     for buff, idx_map in buff_map.items():
         for idx, access_list in idx_map.items():
             if len(access_list) > 1:
-                if all(is_read(proc, c) for c in access_list):
-                    proc = bind_and_set_expr(proc, access_list, precision, DRAM)
-                else:
-                    staging_block = get_bounding_block(proc, access_list)
-                    proc = auto_stage_mem(proc, staging_block, buff)
+                staging_block = get_bounding_block(proc, access_list)
+                proc = auto_stage_mem(proc, staging_block, buff)
     return proc
 
 
