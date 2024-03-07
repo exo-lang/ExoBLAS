@@ -816,9 +816,8 @@ class SYRK:
 
             diag_syrk_scheduled, unsafe_microkernel_base = extract_subproc(
                 diag_syrk_scheduled,
-                "unsafe_microkernel_base",
                 diag_syrk_scheduled.find("for io in _:_ #1"),
-                order={"A1": 0, "A2": 1, "C": 2},
+                "unsafe_microkernel_base",
             )
             microkernel_diag_base = microkernel_diag_handler.base_microkernel
             microkernel_diag_scheduled = microkernel_diag_handler.scheduled_microkernel
