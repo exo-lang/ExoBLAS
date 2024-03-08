@@ -39,36 +39,23 @@ def _lift_idx_to_sympy(e, syms, upper):
         assert False, f"Bad case ({type(e)})"
 
 
-def get_ops(proc, upper=False):
-    def get_numeric_children(proc, cursor=InvalidCursor()):
-        check = lambda c: hasattr(c, "type") and c.type().is_numeric()
-        yield from filter(check, get_children(proc, cursor))
-
+def _count(proc, count_assign, count_reduce, upper=False):
     zero = sp.Integer(0)
     one = sp.Integer(1)
-
-    def get_expr_ops(expr):
-        if isinstance(expr, (BuiltInFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
-            children_ops = sum(
-                [get_expr_ops(c) for c in get_numeric_children(proc, expr)]
-            )
-            return one + children_ops
-        else:
-            return zero
 
     integers = not upper
 
     def get_stmt_ops(cursor, syms):
         if isinstance(cursor, BlockCursor):
-            return sum([get_stmt_ops(s, syms) for s in cursor])
+            return sum(get_stmt_ops(s, syms) for s in cursor)
         elif isinstance(cursor, InvalidCursor):
             return zero
         elif isinstance(cursor, AssignCursor):
-            return get_expr_ops(cursor.rhs())
+            return count_assign(proc, cursor)
         elif isinstance(cursor, ReduceCursor):
-            return one + get_expr_ops(cursor.rhs())
+            return count_reduce(proc, cursor)
         elif isinstance(cursor, CallCursor):
-            return get_ops(cursor.subproc())
+            return _count(cursor.subproc(), count_assign, count_reduce, upper)
         elif isinstance(cursor, ForCursor):
             lo = _lift_idx_to_sympy(cursor.lo(), syms, upper)
             hi = _lift_idx_to_sympy(cursor.hi(), syms, upper)
@@ -94,3 +81,51 @@ def get_ops(proc, upper=False):
     ops = get_stmt_ops(proc.body(), syms)
     ops = sp.simplify(ops)
     return ops
+
+
+def count_flops(proc, upper=False):
+    zero = sp.Integer(0)
+    one = sp.Integer(1)
+
+    def get_expr_ops(proc, expr):
+        expr = proc.forward(expr)
+        if isinstance(expr, (BuiltInFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
+            children_ops = sum(
+                get_expr_ops(proc, c) for c in get_numeric_children(proc, expr)
+            )
+            return one + children_ops
+        return zero
+
+    count_assign = lambda p, a: get_expr_ops(p, a.rhs())
+    count_reduce = lambda p, r: one + get_expr_ops(p, r.rhs())
+    return _count(proc, count_assign, count_reduce, upper)
+
+
+def _traffic_from_DRAM(proc, c):
+    zero = sp.Integer(0)
+    one = sp.Integer(1)
+    c = proc.forward(c)
+    return one if issubclass(get_declaration(proc, c, c.name()).mem(), DRAM) else zero
+
+
+def count_load_mem_traffic(proc, upper=False):
+    zero = sp.Integer(0)
+
+    def get_expr_loads(proc, expr):
+        expr = proc.forward(expr)
+        if isinstance(expr, (BuiltInFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
+            return sum(
+                get_expr_loads(proc, c) for c in get_numeric_children(proc, expr)
+            )
+        elif isinstance(expr, ReadCursor):
+            return _traffic_from_DRAM(proc, expr)
+        return zero
+
+    count_assign = lambda p, a: get_expr_loads(p, a.rhs())
+    count_reduce = lambda p, r: _traffic_from_DRAM(p, r) + get_expr_loads(p, r.rhs())
+    return _count(proc, count_assign, count_reduce, upper)
+
+
+def count_store_mem_traffic(proc, upper=False):
+    count_lhs = lambda p, c: _traffic_from_DRAM(p, c)
+    return _count(proc, count_lhs, count_lhs, upper)

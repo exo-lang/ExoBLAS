@@ -954,10 +954,6 @@ def stage_compute(
     if not isinstance(children_ops, list):
         raise BLAS_SchedulingError("Expected children_ops to be a list")
 
-    def get_numeric_children(proc, cursor=InvalidCursor()):
-        check = lambda c: hasattr(c, "type") and c.type().is_numeric()
-        yield from filter(check, get_children(proc, cursor))
-
     children_ops.append(get_numeric_children)
 
     def stage(proc, exprs):

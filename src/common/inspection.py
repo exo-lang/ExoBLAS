@@ -84,6 +84,11 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         yield from children[::-1]
 
 
+def get_numeric_children(proc, cursor=InvalidCursor()):
+    check = lambda c: hasattr(c, "type") and c.type().is_numeric()
+    yield from filter(check, get_children(proc, cursor))
+
+
 def _get_cursors(
     proc, cursor=InvalidCursor(), node_first=False, lr=True, pred=lambda p, c: True
 ):
