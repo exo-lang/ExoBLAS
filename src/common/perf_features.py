@@ -80,6 +80,7 @@ def _count(proc, count_assign, count_reduce, upper=False):
 
     ops = get_stmt_ops(proc.body(), syms)
     ops = sp.simplify(ops)
+    ops = sp.factor(ops)
     return ops
 
 
@@ -105,11 +106,36 @@ def _traffic_from_DRAM(proc, c):
     zero = sp.Integer(0)
     one = sp.Integer(1)
     c = proc.forward(c)
-    return one if issubclass(get_declaration(proc, c, c.name()).mem(), DRAM) else zero
+    decl = get_declaration(proc, c, c.name())
+    mem = decl.mem()
+    p_bytes = _get_precision_bytes(decl.type())
+    return one if issubclass(mem, DRAM) else zero, p_bytes
 
 
-def count_load_mem_traffic(proc, upper=False):
+def _get_precision_bytes(precision):
+    d = {
+        ExoType.F16: 2,
+        ExoType.F32: 4,
+        ExoType.F64: 8,
+        ExoType.UI8: 1,
+        ExoType.I8: 1,
+        ExoType.UI16: 2,
+        ExoType.I32: 4,
+    }
+    if precision not in d:
+        raise ValueError(f"Unsupported precision {precision}")
+    return d[precision]
+
+
+def _count_mem_traffic(proc, loads, upper=False):
     zero = sp.Integer(0)
+
+    p_bytes_set = set()
+
+    def get_bytes_traffic(p, c):
+        num, p_bytes = _traffic_from_DRAM(p, c)
+        p_bytes_set.add(p_bytes)
+        return num * p_bytes
 
     def get_expr_loads(proc, expr):
         expr = proc.forward(expr)
@@ -118,14 +144,29 @@ def count_load_mem_traffic(proc, upper=False):
                 get_expr_loads(proc, c) for c in get_numeric_children(proc, expr)
             )
         elif isinstance(expr, ReadCursor):
-            return _traffic_from_DRAM(proc, expr)
+            return get_bytes_traffic(proc, expr)
         return zero
 
-    count_assign = lambda p, a: get_expr_loads(p, a.rhs())
-    count_reduce = lambda p, r: _traffic_from_DRAM(p, r) + get_expr_loads(p, r.rhs())
-    return _count(proc, count_assign, count_reduce, upper)
+    if loads:
+        count_assign = lambda p, a: get_expr_loads(p, a.rhs())
+        count_reduce = lambda p, r: get_bytes_traffic(p, r) + get_expr_loads(p, r.rhs())
+        traffic = _count(proc, count_assign, count_reduce, upper)
+    else:
+        count_lhs = lambda p, c: get_bytes_traffic(p, c)
+        traffic = _count(proc, count_lhs, count_lhs, upper)
+
+    if len(p_bytes_set) == 1:
+        p_bytes = list(p_bytes_set)[0]
+        traffic = traffic / p_bytes
+        traffic = sp.simplify(traffic)
+        return sp.Mul(p_bytes, traffic, evaluate=False)
+    else:
+        return traffic
+
+
+def count_load_mem_traffic(proc, upper=False):
+    return _count_mem_traffic(proc, True, upper)
 
 
 def count_store_mem_traffic(proc, upper=False):
-    count_lhs = lambda p, c: _traffic_from_DRAM(p, c)
-    return _count(proc, count_lhs, count_lhs, upper)
+    return _count_mem_traffic(proc, False, upper)
