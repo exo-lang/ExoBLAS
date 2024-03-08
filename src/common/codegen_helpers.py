@@ -1,4 +1,6 @@
 from __future__ import annotations
+from pathlib import Path
+import json
 
 from exo import *
 from exo.libs.memories import *
@@ -11,6 +13,7 @@ from exo.API_cursors import *
 from inspection import *
 from higher_order import *
 import exo_blas_config as C
+from perf_features import *
 
 
 def specialize_precision(proc, precision, all_buffs=True):
@@ -85,8 +88,30 @@ def identity_schedule(proc, *args, **kwargs):
     return proc
 
 
+def get_perf_features(proc):
+    return {
+        "flops": str(count_flops(proc)),
+        "flops_upper_bound": str(count_flops(proc, upper=True)),
+        "load_mem_traffic": str(count_load_mem_traffic(proc)),
+        "load_mem_traffic_upper_bound": str(count_load_mem_traffic(proc, upper=True)),
+        "store_mem_traffic": str(count_store_mem_traffic(proc)),
+        "store_mem_traffic_upper_bound": str(count_store_mem_traffic(proc, upper=True)),
+    }
+
+
+def export_perf_features(kernel_name, perf_features):
+    REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
+    PERF_FEATURES_DIR = REPO_ROOT / "perf_features"
+    kernel_json = PERF_FEATURES_DIR / f"{kernel_name}.json"
+    PERF_FEATURES_DIR.mkdir(exist_ok=True)
+
+    with open(kernel_json, "w") as f:
+        json.dump(perf_features, f, sort_keys=True, indent=4, separators=(",", ": "))
+
+
 def variants_generator(blas_op):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
+        perf_features = {}
         for precision in ("f32", "f64"):
             proc_variant = specialize_precision(proc, precision)
 
@@ -98,8 +123,21 @@ def variants_generator(blas_op):
 
             stride_1 = generate_stride_1_proc(proc_variant)
             loop = stride_1.find_loop(loop_name)
+            algorithm = get_perf_features(stride_1)
+
             stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args, **kwargs)
             stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
+            scheduled = get_perf_features(stride_1)
+
+            perf_features[stride_1.name()] = {
+                feature: {
+                    "algorithm": algorithm[feature],
+                    "scheduled": scheduled[feature],
+                }
+                for feature in algorithm.keys()
+            }
+
             export_exo_proc(globals, stride_1)
+        export_perf_features(proc.name(), perf_features)
 
     return generate
