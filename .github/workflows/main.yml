@@ -7,7 +7,6 @@ on:
 
 jobs:
   build-test:
-    needs: prepare-input
     uses: ./.github/workflows/build-test.yml
     with:
       exo-ref: main
