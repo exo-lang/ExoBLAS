@@ -9,4 +9,4 @@ jobs:
   call_test_ExoBLAS:
     uses: ./.github/workflows/test_ExoBLAS.yml
     with:
-      exo-commit: main
+      exo-ref: main

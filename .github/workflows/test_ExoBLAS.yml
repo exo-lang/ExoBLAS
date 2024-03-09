@@ -1,7 +1,7 @@
 on:
   workflow_call:
     inputs:
-      exo-commit:
+      exo-ref:
         required: true
         type: string
 
@@ -30,7 +30,8 @@ jobs:
       - name: Checkout Exo main sources
         uses: actions/checkout@v4
         with:
-          repository: exo-lang/exo@${{ inputs.exo-commit }}
+          repository: exo-lang/exo
+          ref: ${{ inputs.exo-ref }}
           submodules: recursive
           path: exo-repo
 
