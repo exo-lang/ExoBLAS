@@ -9,7 +9,7 @@ on:
         type: string
 
 jobs:
-  test_ExoBLAS:
+  build-test:
     strategy:
       matrix:
         runner: [ macos-14, ubuntu-latest ]

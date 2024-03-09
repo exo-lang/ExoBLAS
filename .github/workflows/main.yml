@@ -19,9 +19,9 @@ jobs:
             echo "exo-blas-ref=${{ github.event.pull_request.merge_commit_sha }}" >> $GITHUB_ENV
           fi
         shell: bash
-  test-ExoBLAS:
+  build-test:
     needs: prepare-input
-    uses: ./.github/workflows/test_ExoBLAS.yml
+    uses: ./.github/workflows/build-test.yml
     with:
       exo-ref: main
       exo-blas-ref: ${{ needs.prepare-input.outputs.exo-blas-ref }}
