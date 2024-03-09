@@ -6,7 +6,14 @@ on:
   pull_request:
 
 jobs:
-  call_test_ExoBLAS:
-    uses: ./.github/workflows/test_ExoBLAS.yml
-    with:
-      exo-ref: main
+  steps:
+    - uses: ./.github/workflows/test_ExoBLAS.yml
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      with:
+        exo-ref: main
+        exo-blas-ref: main
+    - uses: ./.github/workflows/test_ExoBLAS.yml
+      if: github.event_name == 'pull_request'
+      with:
+        exo-ref: main
+        exo-blas-ref: ${{ github.event.pull_request.merge_commit_sha }}

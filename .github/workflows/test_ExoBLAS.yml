@@ -4,6 +4,9 @@ on:
       exo-ref:
         required: true
         type: string
+      exo-blas-ref:
+        required: true
+        type: string
 
 jobs:
   test_ExoBLAS:
@@ -56,6 +59,8 @@ jobs:
       - name: Checkout ExoBLAS repo
         uses: actions/checkout@v4
         with:
+          repository: exo-lang/ExoBLAS
+          ref: ${{ inputs.exo-blas-ref }}
           submodules: recursive
           path: ExoBLAS
 
