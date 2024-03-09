@@ -6,6 +6,7 @@ on:
   pull_request:
 
 jobs:
-  uses: ./.github/workflows/test_ExoBLAS.yml
-  with:
-    exo-commit: main
+  call_test_ExoBLAS:
+    uses: ./.github/workflows/test_ExoBLAS.yml
+    with:
+      exo-commit: main
