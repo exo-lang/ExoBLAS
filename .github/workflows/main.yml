@@ -6,22 +6,9 @@ on:
   pull_request:
 
 jobs:
-  prepare-input:
-    runs-on: ubuntu-latest
-    outputs:
-      exo-blas-ref: ${{ steps.set-input.outputs.exo-blas-ref }}
-    steps:
-      - id: set-input
-        run: |
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "exo-blas-ref=main" >> $GITHUB_ENV
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "exo-blas-ref=${{ github.event.pull_request.merge_commit_sha }}" >> $GITHUB_ENV
-          fi
-        shell: bash
   build-test:
     needs: prepare-input
     uses: ./.github/workflows/build-test.yml
     with:
       exo-ref: main
-      exo-blas-ref: ${{ needs.prepare-input.outputs.exo-blas-ref }}
+      exo-blas-ref: ${{ github.ref }}
