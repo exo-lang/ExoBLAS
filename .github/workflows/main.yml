@@ -6,15 +6,22 @@ on:
   pull_request:
 
 jobs:
-  test_ExoBLAS_main_push:
+  prepare-input:
+    runs-on: ubuntu-latest
+    outputs:
+      exo-blas-ref: ${{ steps.set-input.outputs.exo-blas-ref }}
+    steps:
+      - id: set-input
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "exo-blas-ref=main" >> $GITHUB_ENV
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "exo-blas-ref=${{ github.event.pull_request.merge_commit_sha }}" >> $GITHUB_ENV
+          fi
+        shell: bash
+  test-ExoBLAS:
+    needs: prepare-input
     uses: ./.github/workflows/test_ExoBLAS.yml
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     with:
       exo-ref: main
-      exo-blas-ref: main
-  test_ExoBLAS_pull_request:
-    uses: ./.github/workflows/test_ExoBLAS.yml
-    if: github.event_name == 'pull_request'
-    with:
-      exo-ref: main
-      exo-blas-ref: ${{ github.event.pull_request.merge_commit_sha }}
+      exo-blas-ref: ${{ needs.prepare-input.outputs.exo-blas-ref }}
