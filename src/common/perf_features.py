@@ -108,7 +108,6 @@ def _traffic_from_DRAM(proc, c):
     c = proc.forward(c)
     decl = get_declaration(proc, c, c.name())
     mem = decl.mem()
-    mem = mem if mem else DRAM
     p_bytes = _get_precision_bytes(decl.type())
     return one if issubclass(mem, DRAM) else zero, p_bytes
 

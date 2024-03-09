@@ -989,8 +989,7 @@ def check_call_site(proc, call_cursor):
     allocs = filter(lambda s: isinstance(s, AllocCursor), obs_stmts)
     for s in list(proc.args()) + list(allocs):
         if s.type().is_numeric():
-            mem = s.mem() if s.mem() else DRAM
-            env[s.name()] = (mem, s.type())
+            env[s.name()] = (s.mem(), s.type())
     ###################################################################
     # Check consistency at call site
     ###################################################################
@@ -999,9 +998,8 @@ def check_call_site(proc, call_cursor):
     for arg, par in zip(call_args, callee_parameters):
         par_type = par.type()
         if par_type.is_numeric():
-            par_mem = par.mem() if par.mem() else DRAM
             arg_mem, arg_type = env[arg.name()]
-            if not issubclass(arg_mem, par_mem) or arg_type is not par_type:
+            if not issubclass(arg_mem, par.mem()) or arg_type is not par_type:
                 return False
     return True
 
