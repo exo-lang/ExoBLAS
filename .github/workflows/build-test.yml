@@ -30,7 +30,7 @@ jobs:
       CTEST_OUTPUT_ON_FAILURE: 1
     runs-on: ${{matrix.runner}}
     steps:
-      - name: Checkout Exo main sources
+      - name: Checkout Exo sources
         uses: actions/checkout@v4
         with:
           repository: exo-lang/exo
