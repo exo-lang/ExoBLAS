@@ -6,3 +6,4 @@ graphs/
 .vscode/*
 benchmark_results/
 Testing/
+perf_features/

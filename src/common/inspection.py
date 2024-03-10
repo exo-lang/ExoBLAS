@@ -1,11 +1,4 @@
-from __future__ import annotations
-
 from exo import *
-from exo.libs.memories import *
-from exo.platforms.x86 import *
-from exo.platforms.neon import *
-from exo.syntax import *
-from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 from exo.stdlib.analysis import *
 
@@ -89,6 +82,11 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
     else:
         children = list(generator())
         yield from children[::-1]
+
+
+def get_numeric_children(proc, cursor=InvalidCursor()):
+    check = lambda c: hasattr(c, "type") and c.type().is_numeric()
+    yield from filter(check, get_children(proc, cursor))
 
 
 def _get_cursors(
