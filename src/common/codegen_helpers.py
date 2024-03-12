@@ -14,6 +14,7 @@ from inspection import *
 from higher_order import *
 import exo_blas_config as C
 from perf_features import *
+from stdlib import *
 
 
 def specialize_precision(proc, precision, all_buffs=True):
@@ -59,7 +60,7 @@ def generate_stride_1_proc(proc):
 
 def export_exo_proc(globals, proc):
     proc = rename(proc, f"exo_{proc.name()}")
-    globals[proc.name()] = simplify(proc)
+    globals[proc.name()] = cleanup(proc)
     globals.setdefault("__all__", []).append(proc.name())
 
 
@@ -109,10 +110,10 @@ def export_perf_features(kernel_name, perf_features):
         json.dump(perf_features, f, sort_keys=True, indent=4, separators=(",", ": "))
 
 
-def variants_generator(blas_op):
+def variants_generator(blas_op, precisions=("f32", "f64")):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
-        for precision in ("f32", "f64"):
+        for precision in precisions:
             proc_variant = specialize_precision(proc, precision)
 
             proc_variant = stage_scalar_args(proc_variant)

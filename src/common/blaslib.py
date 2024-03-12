@@ -43,7 +43,7 @@ def optimize_level_1(
         proc, loop, interleave_factor, par_reduce=True, memory=memory, tail=inter_tail
     )
 
-    proc = cleanup(proc)
+    proc = simplify(dce(proc))
     proc = replace_all_stmts(proc, instructions)
     return proc
 

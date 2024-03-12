@@ -1,3 +1,5 @@
+from exo.stdlib.scheduling import *
+
 from exceptions import *
 from inspection import *
 
@@ -64,4 +66,35 @@ def repeate(op):
     return rewrite
 
 
-__all__ = ["apply", "attempt", "make_pass", "lift_rc", "repeate", "predicate"]
+def repeate_n(op):
+    def rewrite(p, *args, n=1, **kwargs):
+        for i in range(n):
+            p = op(p, *args, **kwargs)
+        return p
+
+    return rewrite
+
+
+def extract_and_schedule(op):
+    def rewrite(proc, block, subproc_name, *args, **kwargs):
+        block = proc.forward(block)
+        block = block.as_block()
+        proc, subproc = extract_subproc(proc, block, subproc_name)
+        subproc = op(subproc, *args, **kwargs)
+        call = proc.forward(block)[0]
+        proc = call_eqv(proc, call, subproc)
+        return proc
+
+    return rewrite
+
+
+__all__ = [
+    "apply",
+    "attempt",
+    "make_pass",
+    "lift_rc",
+    "repeate",
+    "predicate",
+    "extract_and_schedule",
+    "repeate_n",
+]

@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-import math
-
 from exo import *
-from exo.libs.memories import DRAM_STATIC
-from exo.platforms.x86 import *
-from exo.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
@@ -16,7 +11,7 @@ from blaslib import *
 
 
 @proc
-def gemm_matmul(M: size, N: size, K: size, A: [R][M, K], B: [R][K, N], C: [R][M, N]):
+def gemm(M: size, N: size, K: size, alpha: R, A: [R][M, K], B: [R][K, N], C: [R][M, N]):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     assert stride(C, 1) == 1
@@ -24,257 +19,94 @@ def gemm_matmul(M: size, N: size, K: size, A: [R][M, K], B: [R][K, N], C: [R][M,
     for i in seq(0, M):
         for j in seq(0, N):
             for k in seq(0, K):
-                C[i, j] += A[i, k] * B[k, j]
+                C[i, j] += alpha * (A[i, k] * B[k, j])
 
 
-def schedule_op_gemm_matmul_no_mem_sys_tiling(
-    gemm, k_loop, max_K, max_M, max_N, precision
-):
-    vec_width = C.Machine.vec_width(precision)
-    memory = C.Machine.mem_type
-    instructions = C.Machine.get_instructions(precision)
+def specialize_micro(gemm_uk, precision, machine, m_r, n_r_fac):
+    vw = machine.vec_width(precision)
+    _, init, main_k, axpy = gemm_uk.body()
 
-    gemm = gemm.add_assertion(f"K <= {max_K}")
-    gemm = gemm.add_assertion(f"M <= {max_M}")
-    gemm = gemm.add_assertion(f"N <= {max_N}")
-    original_gemm = gemm
+    main_i = get_inner_loop(gemm_uk, main_k)
+    j_loops = [get_inner_loop(gemm_uk, c) for c in (init, main_i, axpy)]
 
-    k_loop = gemm.find_loop("k")
-    i_loop = k_loop.body()[0]
-    j_loop = i_loop.body()[0]
+    gemm_uk = simplify(apply(lambda p, c: round_loop(p, c, vw))(gemm_uk, j_loops))
+    j_loop = gemm_uk.forward(j_loops[0])
 
-    # Cast as a (m x K x (vec_width x n) ) matmul
+    specialize_i = not is_loop_bounds_const(gemm_uk, main_i)
+    specialize_j = not is_loop_bounds_const(gemm_uk, j_loop)
+    make_conds = lambda e, mx: [f"{expr_to_string(e)} == {i + 1}" for i in range(mx)]
 
-    # Solve the constraints for m and n
-    best_m = 1
-    best_n = 1
-    registers_used = lambda m, n: m * n + n + 1
-    best_registers_used = registers_used(best_m, best_n)
-    max_gp_registers = C.Machine.n_vec_registers // 2  # Heuristic
-    for m in range(1, max_gp_registers):
-        for n in range(1, C.Machine.n_vec_registers):
-            guess_registers_used = registers_used(m, n)
-            if guess_registers_used > C.Machine.n_vec_registers:
-                break
-            if guess_registers_used > best_registers_used or (
-                guess_registers_used == best_registers_used and m * n > best_m * best_n
-            ):
-                best_registers_used = guess_registers_used
-                best_m = m
-                best_n = n
-    gemm, _ = tile_loops_top_down(
-        gemm, [(i_loop, best_m), (j_loop, vec_width * best_n)]
-    )
-    outer_i_loop = gemm.forward(i_loop)
-    outer_j_loop = gemm.forward(j_loop)
-    inner_i_loop = outer_j_loop.body()[0]
-    inner_j_loop = inner_i_loop.body()[0]
+    if specialize_i:
+        gemm_uk = specialize(gemm_uk, gemm_uk.body(), make_conds(main_i.hi(), m_r))
+    if specialize_j:
+        for tile in gemm_uk.find("C_tile:_", many=True):
+            gemm_uk = specialize(
+                gemm_uk, tile.expand(), make_conds(j_loop.hi().lhs(), n_r_fac)
+            )
+    gemm_uk = dce(simplify(gemm_uk))
+    return gemm_uk
 
-    # Decompose into 3 gemms
-    gemm = fission(gemm, outer_i_loop.after())
-    gemm = fission(gemm, outer_j_loop.after(), n_lifts=2)
 
-    # Calculate entire C as (m x K x vec_width) using outer product
-    gemm = reorder_loops(gemm, k_loop)
-    gemm = reorder_loops(gemm, k_loop)
+def schedule_micro(gemm_uk, precision, machine, m_r, n_r_fac):
+    vw = machine.vec_width(precision)
+    n_r = vw * n_r_fac
 
-    fma_stmt = inner_j_loop.body()[0]
-    # Stage C tile outside the outer product and into accelerator memory
-    gemm = simplify(auto_stage_mem(gemm, gemm.find_loop("k"), "C", "C_reg", accum=True))
+    gemm_uk = specialize_micro(gemm_uk, precision, machine, m_r, n_r_fac)
 
-    k_loop = gemm.forward(k_loop)
-    C_reg_alloc = k_loop.prev().prev()
-    C_reg_init_outer_loop = k_loop.prev()
-    C_reg_init_inner_loop = C_reg_init_outer_loop.body()[0]
-    C_accum_back_outer_loop = k_loop.next()
-    C_accum_back_inner_loop = C_accum_back_outer_loop.body()[0]
+    def rewrite(gemm_uk):
+        tile, init, main_k, axpy = gemm_uk.body()
+        main_i = get_inner_loop(gemm_uk, main_k)
+        main_j = get_inner_loop(gemm_uk, main_i)
+        m_r = main_i.hi().value()
+        n_r = main_j.hi().value()
 
-    gemm = set_memory(gemm, C_reg_alloc, memory)
-    gemm = divide_dim(gemm, C_reg_alloc, 1, vec_width)
+        gemm_uk = rename(gemm_uk, f"{gemm_uk.name()}_{m_r}x{n_r}")
+        gemm_uk = set_memory(gemm_uk, tile, machine.mem_type)
+        gemm_uk = divide_dim(gemm_uk, tile, 1, vw)
 
-    fma_stmt = gemm.forward(fma_stmt)
-    B_read = fma_stmt.rhs().rhs()  # We are assuming B is the rhs
+        loops = [init, main_i, axpy]
+        gemm_uk = apply(optimize_level_2)(
+            gemm_uk, loops, precision, machine, m_r, n_r // vw, vec_tail="perfect"
+        )
+        return gemm_uk
 
-    # Stage B vector to load once across rows
-    gemm = simplify(auto_stage_mem(gemm, gemm.find_loop("ii"), "B", "B_reg"))
+    blocks = map(lambda c: c.expand(), gemm_uk.find("C_tile:_", many=True))
+    gemm_uk = apply(extract_and_schedule(rewrite))(gemm_uk, blocks, gemm_uk.name())
+    return gemm_uk
 
-    inner_i_loop = gemm.forward(inner_i_loop)
-    B_reg_alloc = inner_i_loop.prev().prev()
-    B_load_loop = inner_i_loop.prev()
 
-    gemm = set_memory(gemm, B_reg_alloc, memory)
-    gemm = divide_dim(gemm, B_reg_alloc, 0, vec_width)
+def schedule_macro(gemm, i_loop, precision, machine, m_r, n_r_fac, do_br=False):
+    n_r = machine.vec_width(precision) * n_r_fac
 
-    # Vectorize loops
-    for loop in (
-        C_reg_init_inner_loop,
-        B_load_loop,
-        inner_j_loop,
-        C_accum_back_inner_loop,
-    ):
-        gemm = vectorize(
-            gemm, loop, vec_width, precision, memory, rules=[fma_rule], tail="cut"
+    j_loop = get_inner_loop(gemm, i_loop)
+    k_loop = get_inner_loop(gemm, j_loop)
+
+    gemm = auto_stage_mem(gemm, k_loop, "C", "C_tile", accum=True)
+    gemm = lift_reduce_constant(gemm, gemm.forward(k_loop).expand(1, 0))
+    gemm = inline_assign(gemm, gemm.find("C_tile = _ * _"))
+
+    gemm = tile_loops_bottom_up(gemm, i_loop, (m_r, n_r, None))
+    gemm = apply(repeate_n(lift_scope))(gemm, gemm.find_loop("k", many=True), n=2)
+
+    tiles = gemm.find("C_tile:_", many=True)
+    names = ["_uk", "_r_uk", "_b_uk", "_br_uk"]
+    names = [gemm.name() + su for su in names]
+    if not do_br:
+        tiles = tiles[:-1]
+        names = names[:-1]
+    for tile, name in zip(tiles, names):
+        gemm = extract_and_schedule(schedule_micro)(
+            gemm, tile.expand(), name, precision, machine, m_r, n_r_fac
         )
 
-    # Hoist A broadcast across (vec_width x n) columns of B
-    inner_j_loop = gemm.forward(inner_j_loop)
-    gemm = hoist_from_loop(gemm, inner_j_loop)
-
-    gemm = simplify(gemm)
-
-    # Hoisting causes `inner_j_loop` to disappear
-    inner_i_loop = gemm.forward(inner_i_loop)
-    inner_j_loop = inner_i_loop.body()[2]
-
-    # Don't dynamically index into register arrays
-    for loop in (
-        C_reg_init_inner_loop,
-        C_reg_init_outer_loop,
-        inner_j_loop,
-    ):
-        gemm = unroll_loop(gemm, loop)
-
-    # Interleave accumulate loop, shouldn't exceed ISA registers since
-    # compilers will fuse the load from C with the reduction
-    gemm = reorder_loops(gemm, C_accum_back_outer_loop)
-    gemm = interleave_loop(gemm, C_accum_back_outer_loop)
-    gemm = interleave_loop(gemm, C_accum_back_inner_loop)
-
-    outer_i_loop = gemm.forward(outer_i_loop)
-    A_times_B_strip_gemm_k_loop = outer_i_loop.next()
-    A_strip_times_B_gemm_k_loop = outer_i_loop.next().next()
-
-    # Turn A times B strip into a 3 loop outer product gemm
-    A_times_B_strip_gemm_outer_i_loop = A_times_B_strip_gemm_k_loop.body()[0]
-    gemm = mult_loops(
-        gemm,
-        A_times_B_strip_gemm_outer_i_loop,
-        A_times_B_strip_gemm_outer_i_loop.name()[:-1],
-    )
-
-    # TODO: Is it always a good idea to copy A and B?
-    gemm = ordered_stage_expr(
-        gemm, gemm.find("B[_]"), "B_repacked_access_order", precision, 5
-    )
-    B_repacked_access_order = gemm.find("B_repacked_access_order : _")
-    gemm = set_memory(gemm, B_repacked_access_order, DRAM_STATIC)
-    gemm = resize_dim(
-        gemm,
-        B_repacked_access_order,
-        0,
-        math.ceil(max_N / (best_n * vec_width)),
-        0,
-    )
-    gemm = resize_dim(gemm, B_repacked_access_order, 1, max_K, 0)
-
-    # TODO: we don't want any template pattern matching here
-    gemm = vectorize(
-        gemm, gemm.find_loop("i0i"), vec_width, precision, memory, tail="cut"
-    )
-    gemm = interleave_loop(gemm, gemm.find_loop("i0o"))
-    gemm = unroll_loop(gemm, gemm.find_loop("i0o"))
-
-    gemm = ordered_stage_expr(
-        gemm, gemm.find("A[_]"), "A_repacked_access_order", precision, 5
-    )
-    A_repacked_access_order = gemm.find("A_repacked_access_order : _")
-    gemm = set_memory(gemm, A_repacked_access_order, DRAM_STATIC)
-    gemm = resize_dim(gemm, A_repacked_access_order, 0, math.ceil(max_M / best_m), 0)
-    gemm = resize_dim(gemm, A_repacked_access_order, 1, max_K, 0)
-    gemm = unroll_loop(gemm, gemm.find_loop("ii"))
-    gemm = unroll_loop(gemm, gemm.find_loop("ii"))
-
-    # Instructions...
-    gemm = replace_all_stmts(gemm, instructions)
-    gemm = simplify(gemm)
-    # TODO: This was found by experimentation, there should be a better way to find why 4
-    # is the right answer
-    gemm, cursors = divide_loop_(gemm, gemm.find_loop("k #2"), 4, tail="cut", rc=True)
-    gemm = unroll_loop(gemm, cursors.inner_loop)
-
-    return original_gemm, simplify(gemm), best_m, best_n * vec_width
+    gemm = cleanup(gemm)
+    print(gemm)
+    return gemm
 
 
-def schedule_outer_product_gemm_as_tiles(
-    gemm, k_loop, k_tile, i_tile, j_tile, precision
-):
-    # Get inner gemm
-    (
-        inner_gemm_base,
-        gemm_no_mem_sys_tiling,
-        m,
-        n,
-    ) = schedule_op_gemm_matmul_no_mem_sys_tiling(
-        gemm, k_loop, k_tile, i_tile, j_tile, precision
-    )
-    gemm_no_mem_sys_tiling = rename(
-        gemm_no_mem_sys_tiling, f"{gemm_no_mem_sys_tiling.name()}_no_mem_sys_tiling"
-    )
-
-    k_loop = gemm.forward(k_loop)
-    i_loop = k_loop.body()[0]
-    j_loop = i_loop.body()[0]
-
-    tiled_gemm = tile_loops_bottom_up(gemm, k_loop, [k_tile, i_tile, j_tile])
-
-    tiled_gemm = replace_all_stmts(tiled_gemm, [inner_gemm_base])
-    for i in range(0, 8):
-        tiled_gemm = call_eqv(
-            tiled_gemm,
-            tiled_gemm.find(f"{inner_gemm_base.name()}(_)"),
-            gemm_no_mem_sys_tiling,
-        )
-
-    return tiled_gemm
+def schedule(gemm, i_loop, precision, machine):
+    macro = schedule_macro(gemm, i_loop, precision, machine, 4, 3)
+    return macro
 
 
-def schedule_gemm_matmul(gemm, precision):
-    gemm = specialize_precision(gemm, precision)
-    gemm = generate_stride_any_proc(gemm)
-
-    i_loop = gemm.find_loop("i")
-    j_loop = i_loop.body()[0]
-    k_loop = j_loop.body()[0]
-
-    # Turn into an outer product
-    gemm = reorder_loops(gemm, j_loop)
-    gemm = reorder_loops(gemm, i_loop)
-
-    # A tile will be a i_tile x k_tile
-    # B tile will be a k_tile x j_tile
-
-    # We iterate down B in the inner gemm
-    # So, we need to always have space for k_tile pages
-
-    # Once we touch k_tiles pages from B, we need to keep
-    # working on the same pages i.e. j_tiles = 4096
-
-    # Not sure if there is a reason for what to choose as
-    # i_tiles. If we set, it as i_tiles=j_tiles=4096, then
-    # it would be simple to think about the problem because
-    # pages will be split evenly between A and B
-
-    CoffeLake_STLB = 1536
-    elem_size = 4 if precision == "f32" else 8
-    k_tile = CoffeLake_STLB // 2 // elem_size
-    i_tile = 4096
-    j_tile = 3072  # should be 4096, using this for now until inner gemm tail cases are implemented.
-
-    tiled_gemm = schedule_outer_product_gemm_as_tiles(
-        gemm, k_loop, k_tile, i_tile, j_tile, precision
-    )
-
-    return tiled_gemm
-
-
-template_sched_list = [
-    (gemm_matmul, schedule_gemm_matmul),
-]
-
-for precision in ("f32",):
-    for template, sched in template_sched_list:
-        proc_stride_1 = sched(
-            template,
-            precision,
-        )
-        export_exo_proc(globals(), proc_stride_1)
+variants_generator(schedule, ("f32",))(gemm, "i", globals=globals())
