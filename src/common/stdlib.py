@@ -586,7 +586,7 @@ def tile_loops_top_down(proc, loop_tile_pairs):
 
 
 def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True):
-
+    loop = proc.forward(loop)
     cur_loop = loop
     for i in tiles[:-1]:
         if not len(cur_loop.body()) == 1:
@@ -1012,33 +1012,19 @@ class replace_cursors:
         yield self.call
 
 
-def checked_replace(proc, stmt, subproc, quiet=False):
+def checked_replace(proc, stmt, subproc, quiet=False, rc=False):
     stmt = proc.forward(stmt)
-    parent = stmt.parent()
-    index = get_index_in_body(proc, stmt)
-
+    block = stmt.as_block()
     try:
         proc = replace(proc, stmt, subproc, quiet=quiet)
     except:
         raise BLAS_SchedulingError("failed to replace")
-
-    is_else = False
-    if (
-        isinstance(parent, IfCursor)
-        and not isinstance(parent.orelse(), InvalidCursor)
-        and index < len(parent.orelse())
-        and parent.orelse()[index] == stmt
-    ):
-        is_else = True
-    if not isinstance(parent, InvalidCursor):
-        parent = proc.forward(parent)
-    else:
-        parent = proc
-
-    call = parent.body()[index] if not is_else else parent.orelse()[index]
+    call = proc.forward(block)[0]
     if not check_call_site(proc, call):
         raise BLAS_SchedulingError("Call site inconsistency")
-    return proc
+    if not rc:
+        return proc
+    return proc, replace_cursors(call)
 
 
 def replace_all_stmts(proc, instructions):
@@ -1050,12 +1036,17 @@ def replace_all_stmts(proc, instructions):
             stmt = proc.forward(stmt)
         except InvalidCursorError:
             continue
-        for instr in instructions:
+        for val in instructions:
+            if isinstance(val, tuple):
+                instr, eqv = val
+            else:
+                instr = val
+                eqv = val
             try:
-                proc = checked_replace(proc, stmt, instr, quiet=True)
-                break
+                proc, (call,) = checked_replace(proc, stmt, instr, quiet=True, rc=True)
             except BLAS_SchedulingError:
-                pass
+                continue
+            proc = call_eqv(proc, call, eqv)
     return proc
 
 
@@ -1190,7 +1181,6 @@ def binary_specialize(proc, block, expr, values, rc=False):
 
     def rewrite(proc, block, values):
         block = proc.forward(block)
-        print(block)
         if len(values) == 1:
             # This should be redundant if the user provided correct inputs!
             # So, it is really a check that the inputs the user provided cover the full range.
@@ -1314,8 +1304,47 @@ def cut_loop_and_unroll(proc, loop, const, front=True, rc=False):
 
 
 def bound_alloc(proc, alloc, bounds):
-    alloc = porc.forward(alloc)
+    alloc = proc.forward(alloc)
     for idx, bound in enumerate(bounds):
         if bound is not None:
             proc = resize_dim(proc, alloc, idx, bound, 0)
+    return proc
+
+
+@dataclass
+class inline_proc_and_wins_cursors:
+    block: BlockCursor
+
+    def __iter__(self):
+        yield self.block
+
+
+def inline_proc_and_wins(proc, call, rc=False):
+    call = proc.forward(call)
+    proc = inline(proc, call)
+    block = proc.forward(call.as_block())
+    windows = filter(lambda s: isinstance(s, WindowStmtCursor), block)
+    proc = apply(inline_window)(proc, windows)
+    if not rc:
+        return proc
+    return proc, inline_proc_and_wins_cursors(proc.forward(block))
+
+
+def squash_buffers(proc, buffers):
+    buffers = [proc.forward(b) for b in buffers]
+    buffer = buffers[0]
+    depths = [get_depth(proc, b) for b in buffers]
+
+    squash = apply(attempt(lambda p, e, b: reuse_buffer(p, b, e)))
+    proc = squash(proc, buffers[1:], buffer)
+    max_d = max(depths)
+    while max_d > 1:
+        for i, (b, d) in enumerate(zip(buffers, depths)):
+            if max_d != d:
+                continue
+            depths[i] -= 1
+            if not is_invalid(proc, b):
+                proc = lift_alloc(proc, b)
+        proc = squash(proc, buffers[1:], buffer)
+        max_d = max(depths)
     return proc

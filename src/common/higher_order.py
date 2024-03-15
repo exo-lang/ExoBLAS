@@ -76,14 +76,16 @@ def repeate_n(op):
 
 
 def extract_and_schedule(op):
-    def rewrite(proc, block, subproc_name, *args, **kwargs):
+    def rewrite(proc, block, subproc_name, *args, rc=False, **kwargs):
         block = proc.forward(block)
         block = block.as_block()
         proc, subproc = extract_subproc(proc, block, subproc_name)
-        subproc = op(subproc, *args, **kwargs)
+        subproc_sched = op(subproc, *args, **kwargs)
         call = proc.forward(block)[0]
         proc = call_eqv(proc, call, subproc)
-        return proc
+        if not rc:
+            return proc
+        return proc, (subproc, subproc_sched)
 
     return rewrite
 

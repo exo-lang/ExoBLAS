@@ -48,7 +48,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         elif isinstance(stmt, CallCursor):
             yield from stmt.args()
         elif isinstance(stmt, WindowStmtCursor):
-            yield from stmt.idx()
+            yield stmt.winexpr()
         elif isinstance(stmt, AssignConfigCursor):
             yield stmt.rhs()
         elif isinstance(stmt, PassCursor):
@@ -380,6 +380,23 @@ def is_unary_minus(proc, expr):
     return isinstance(expr, UnaryMinusCursor)
 
 
+def is_call(proc, call, subproc=None):
+    call = proc.forward(call)
+    return isinstance(call, CallCursor) and (
+        subproc is None or call.subproc() == subproc
+    )
+
+
+def is_invalid(proc, inv):
+    if isinstance(inv, InvalidCursor):
+        return True
+    try:
+        inv = proc.forward(inv)
+        return False
+    except InvalidCursorError:
+        return True
+
+
 def is_start_of_body(proc, stmt):
     stmt = proc.forward(stmt)
     return isinstance(stmt.prev(), InvalidCursor)
@@ -394,7 +411,7 @@ def get_depth(proc, cursor):
     cursor = proc.forward(cursor)
 
     depth = 1
-    while not isinstance(cursor, InvalidCursor):
+    while not isinstance(cursor.parent(), InvalidCursor):
         cursor = cursor.parent()
         depth += 1
     return depth

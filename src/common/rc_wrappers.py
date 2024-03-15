@@ -88,6 +88,12 @@ class stage_mem_cursors:
     block: BlockCursor
     store_stage: Cursor
 
+    def __iter__(self):
+        yield self.alloc
+        yield self.load_stage
+        yield self.block
+        yield self.store_stage
+
 
 def stage_mem_(proc, block, buff, new_buff_name, accum=False, rc=False):
     block = proc.forward(block)
