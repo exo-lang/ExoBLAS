@@ -540,7 +540,7 @@ def vectorize(
             proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc
         )
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
-    # proc = parallelize_all_reductions(proc, outer, memory=mem_type)
+    proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
     outer = proc.forward(outer)
     inner = outer.body()[0]
@@ -1044,7 +1044,7 @@ def replace_all_stmts(proc, instructions):
                 eqv = val
             try:
                 proc, (call,) = checked_replace(proc, stmt, instr, quiet=True, rc=True)
-            except BLAS_SchedulingError:
+            except (BLAS_SchedulingError, InvalidCursorError):
                 continue
             proc = call_eqv(proc, call, eqv)
     return proc

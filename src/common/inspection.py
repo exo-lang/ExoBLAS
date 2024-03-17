@@ -9,7 +9,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
 
     if isinstance(cursor, InvalidCursor):
         cursor = proc
-    elif isinstance(cursor, Cursor):
+    elif isinstance(cursor, (StmtCursor, ExprCursor)):
         cursor = proc.forward(cursor)
 
     def expr_children(expr):
