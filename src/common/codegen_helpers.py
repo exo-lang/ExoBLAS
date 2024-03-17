@@ -110,10 +110,10 @@ def export_perf_features(kernel_name, perf_features):
         json.dump(perf_features, f, sort_keys=True, indent=4, separators=(",", ": "))
 
 
-def variants_generator(blas_op, precisions=("f32", "f64")):
+def variants_generator(blas_op, opt_precisions=("f32", "f64")):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
-        for precision in precisions:
+        for precision in ("f32", "f64"):
             proc_variant = specialize_precision(proc, precision)
 
             proc_variant = stage_scalar_args(proc_variant)
@@ -126,7 +126,10 @@ def variants_generator(blas_op, precisions=("f32", "f64")):
             loop = stride_1.find_loop(loop_name)
             algorithm = get_perf_features(stride_1)
 
-            stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args, **kwargs)
+            if precision in opt_precisions:
+                stride_1 = blas_op(
+                    stride_1, loop, precision, C.Machine, *args, **kwargs
+                )
             stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
             scheduled = get_perf_features(stride_1)
 
