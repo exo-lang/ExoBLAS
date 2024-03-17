@@ -48,9 +48,13 @@ class divide_loop_cursors:
         yield self.tail_loop
 
 
-def divide_loop_(proc, loop_cursor, div_const, tail="guard", perfect=False, rc=False):
+def divide_loop_(proc, loop_cursor, div_const, tail="guard", rc=False):
     loop_cursor = proc.forward(loop_cursor)
     loop_iter = loop_cursor.name()
+    perfect = tail == "perfect"
+    if tail == "perfect":
+        tail = "cut"
+        perfect = True
     proc = divide_loop(
         proc,
         loop_cursor,
@@ -80,15 +84,20 @@ def divide_loop_(proc, loop_cursor, div_const, tail="guard", perfect=False, rc=F
 @dataclass
 class stage_mem_cursors:
     alloc: AllocCursor
-    load_stage: Cursor
+    load: Cursor
     block: BlockCursor
-    store_stage: Cursor
+    store: Cursor
+
+    def __iter__(self):
+        yield self.alloc
+        yield self.load
+        yield self.block
+        yield self.store
 
 
 def stage_mem_(proc, block, buff, new_buff_name, accum=False, rc=False):
-    if not isinstance(block, BlockCursor):
-        block = proc.forward(block)
-        block = block.as_block()
+    block = proc.forward(block)
+    block = block.as_block()
 
     block_first = block[0]
     block_last = block[-1]
@@ -96,12 +105,12 @@ def stage_mem_(proc, block, buff, new_buff_name, accum=False, rc=False):
     block_first = proc.forward(block_first)
     block_last = proc.forward(block_last)
     alloc = block_first.prev().prev()
-    load_stage = block_first.prev()
+    load = block_first.prev()
     block = block_first.as_block().expand(0, len(block) - 1)
-    store_stage = block_last.next()
+    store = block_last.next()
     if not rc:
         return proc
-    return proc, stage_mem_cursors(alloc, load_stage, block, store_stage)
+    return proc, stage_mem_cursors(alloc, load, block, store)
 
 
 @dataclass
@@ -123,35 +132,3 @@ def cut_loop_(proc, loop, expr, rc=False):
     loop1 = proc.forward(loop)
     loop2 = loop1.next()
     return proc, cut_loop_cursors(loop1, loop2)
-
-
-@dataclass
-class specialize_cursors:
-    if_stmt: Cursor
-
-    def __iter__(self):
-        yield self.if_stmt
-
-
-def specialize_(proc, stmt, cond, rc=False):
-    stmt = proc.forward(stmt)
-    parent = stmt.parent()
-    index = get_index_in_body(proc, stmt)
-    proc = specialize(proc, stmt, cond)
-    if not rc:
-        return proc
-    is_else = False
-    if (
-        isinstance(parent, IfCursor)
-        and not isinstance(parent.orelse(), InvalidCursor)
-        and index < len(parent.orelse())
-        and parent.orelse()[index] == stmt
-    ):
-        is_else = True
-    if not isinstance(parent, InvalidCursor):
-        parent = proc.forward(parent)
-    else:
-        parent = proc
-
-    if_stmt = parent.body()[index] if not is_else else parent.orelse()[index]
-    return proc, specialize_cursors(if_stmt)
