@@ -60,7 +60,7 @@ def generate_stride_1_proc(proc):
 
 def export_exo_proc(globals, proc):
     proc = rename(proc, f"exo_{proc.name()}")
-    globals[proc.name()] = cleanup(proc)
+    globals[proc.name()] = proc
     globals.setdefault("__all__", []).append(proc.name())
 
 
