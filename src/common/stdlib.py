@@ -539,10 +539,7 @@ def vectorize(
         return vectorize_predicate_tail(
             proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc
         )
-    perfect = tail == "perfect"
-    proc, (outer, inner, _) = divide_loop_(
-        proc, loop, vec_width, tail=tail, perfect=perfect, rc=True
-    )
+    proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
     proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
     outer = proc.forward(outer)
@@ -588,8 +585,8 @@ def tile_loops_top_down(proc, loop_tile_pairs):
     return proc, [proc.forward(l) for l in inner_loops]
 
 
-def tile_loops_bottom_up(proc, loop, tiles):
-
+def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True):
+    loop = proc.forward(loop)
     cur_loop = loop
     for i in tiles[:-1]:
         if not len(cur_loop.body()) == 1:
@@ -609,10 +606,13 @@ def tile_loops_bottom_up(proc, loop, tiles):
             return 0
         return max([get_depth(i) for i in loop.body()]) + 1
 
-    def push_loop_in(proc, loop, depth):
+    def push_loop_in(proc, loop, depth, size=None):
         loop = proc.forward(loop)
-        if get_depth(loop) == depth:
-            return proc
+        allocs = list(filter(lambda a: isinstance(a, AllocCursor), loop.body()))
+        proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
+        if const_allocs and size:
+            proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
+        loop = proc.forward(loop)
         count = len(loop.body())
         for stmt in list(loop.body())[:-1]:
             proc = fission(proc, stmt.after())
@@ -622,7 +622,7 @@ def tile_loops_bottom_up(proc, loop, tiles):
             loops.append(loop)
             loop = loop.next()
         for loop in loops:
-            if get_depth(loop) == depth:
+            if get_depth(loop) <= depth:
                 continue
             loop = proc.forward(loop)
             child = loop.body()[0]
@@ -634,8 +634,8 @@ def tile_loops_bottom_up(proc, loop, tiles):
                 child = proc.forward(child)
                 forwarded_loop = child.body()[0]
             else:
-                assert False, "Invalid"
-            proc = push_loop_in(proc, forwarded_loop, depth)
+                continue
+            proc = push_loop_in(proc, forwarded_loop, depth, size)
         return proc
 
     for depth, (loop, tile) in enumerate(loops[::-1]):
@@ -643,8 +643,8 @@ def tile_loops_bottom_up(proc, loop, tiles):
             proc, (_, inner, tail) = divide_loop_(
                 proc, loop, tile, tail="cut_and_guard", rc=True
             )
-            proc = push_loop_in(proc, inner, depth + 1)
-            proc = push_loop_in(proc, tail.body()[0], depth + 1)
+            proc = push_loop_in(proc, inner, depth + 1, tile)
+            proc = push_loop_in(proc, tail.body()[0], depth + 1, tile)
         else:
             proc = push_loop_in(proc, loop, depth + 1)
 
@@ -655,9 +655,8 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False)
     if new_buff_name is None:
         new_buff_name = unique_name.get()
 
-    if not isinstance(block, BlockCursor):
-        block = proc.forward(block)
-        block = block.as_block()
+    block = proc.forward(block)
+    block = block.as_block()
 
     block_nodes = list(lrn(proc, block))
     block_loops = list(filter(lambda s: is_loop(proc, s), block_nodes))
@@ -963,6 +962,7 @@ def stage_compute(
                 break
         return apply(stage)(proc, children)
 
+    block = proc.forward(block)
     allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, block))
     proc = apply(set_memory)(proc, allocs, memory)
     proc = make_pass(attempt(unfold_reduce))(proc, block)
@@ -1012,33 +1012,19 @@ class replace_cursors:
         yield self.call
 
 
-def checked_replace(proc, stmt, subproc, quiet=False):
+def checked_replace(proc, stmt, subproc, quiet=False, rc=False):
     stmt = proc.forward(stmt)
-    parent = stmt.parent()
-    index = get_index_in_body(proc, stmt)
-
+    block = stmt.as_block()
     try:
         proc = replace(proc, stmt, subproc, quiet=quiet)
     except:
         raise BLAS_SchedulingError("failed to replace")
-
-    is_else = False
-    if (
-        isinstance(parent, IfCursor)
-        and not isinstance(parent.orelse(), InvalidCursor)
-        and index < len(parent.orelse())
-        and parent.orelse()[index] == stmt
-    ):
-        is_else = True
-    if not isinstance(parent, InvalidCursor):
-        parent = proc.forward(parent)
-    else:
-        parent = proc
-
-    call = parent.body()[index] if not is_else else parent.orelse()[index]
+    call = proc.forward(block)[0]
     if not check_call_site(proc, call):
         raise BLAS_SchedulingError("Call site inconsistency")
-    return proc
+    if not rc:
+        return proc
+    return proc, replace_cursors(call)
 
 
 def replace_all_stmts(proc, instructions):
@@ -1050,12 +1036,17 @@ def replace_all_stmts(proc, instructions):
             stmt = proc.forward(stmt)
         except InvalidCursorError:
             continue
-        for instr in instructions:
+        for val in instructions:
+            if isinstance(val, tuple):
+                instr, eqv = val
+            else:
+                instr = val
+                eqv = val
             try:
-                proc = checked_replace(proc, stmt, instr, quiet=True)
-                break
-            except BLAS_SchedulingError:
-                pass
+                proc, (call,) = checked_replace(proc, stmt, instr, quiet=True, rc=True)
+            except (BLAS_SchedulingError, InvalidCursorError):
+                continue
+            proc = call_eqv(proc, call, eqv)
     return proc
 
 
@@ -1110,10 +1101,10 @@ def unroll_loops(proc, block=InvalidCursor(), threshold=None):
     return make_pass(predicate(unroll_loop, pred), lrn_stmts)(proc, block)
 
 
-def cleanup(proc):
+def cleanup(proc, block=InvalidCursor()):
     proc = simplify(proc)
-    proc = unroll_loops(proc, threshold=1)
-    proc = dce(proc)
+    proc = unroll_loops(proc, block, threshold=1)
+    proc = dce(proc, block)
     try:
         proc.find("pass")
         proc = delete_pass(proc)
@@ -1168,14 +1159,14 @@ def divide_loop_recursive(proc, loop, factor, tail="cut", rc=False):
 
 @dataclass
 class binary_specialize_cursors:
-    stmts: Cursor
+    blocks: Cursor
 
     def __iter__(self):
-        yield self.stmts
+        yield self.blocks
 
 
-def binary_specialize(proc, stmt, expr, values, rc=False):
-    stmt = proc.forward(stmt)
+def binary_specialize(proc, block, expr, values, rc=False):
+    block = proc.forward(block)
     if isinstance(expr, ExprCursor):
         expr = proc.forward(expr)
         expr = expr_to_string(expr)
@@ -1184,46 +1175,45 @@ def binary_specialize(proc, stmt, expr, values, rc=False):
     if len(values) == 1:
         raise BLAS_SchedulingError("Cannot specialize given one value!")
     values = sorted(values)
-    stmt = proc.forward(stmt)
+    block = proc.forward(block)
 
-    stmts = []
+    blocks = []
 
-    def rewrite(proc, stmt, values):
+    def rewrite(proc, block, values):
+        block = proc.forward(block)
         if len(values) == 1:
             # This should be redundant if the user provided correct inputs!
             # So, it is really a check that the inputs the user provided cover the full range.
-            proc, (if_stmt,) = specialize_(
-                proc, stmt, get_cond("==", values[0]), rc=True
-            )
-            proc = simplify(proc)
+            proc = specialize(proc, block, get_cond("==", values[0]))
+            if_stmt = proc.forward(block)[0]
             proc = eliminate_dead_code(proc, if_stmt)
-            stmts.append(if_stmt.body()[0])
-            stmts.append(if_stmt.orelse()[0])
+            blocks.append(if_stmt.body()[0])
+            blocks.append(if_stmt.orelse()[0])
             return proc
         md = len(values) // 2
-        proc, (if_stmt,) = specialize_(proc, stmt, get_cond("<", values[md]), rc=True)
-        proc = rewrite(proc, if_stmt.body()[0], values[:md])
-        proc = rewrite(proc, if_stmt.orelse()[0], values[md:])
+        proc = specialize(proc, block, get_cond("<", values[md]))
+        if_stmt = proc.forward(block)[0]
+        proc = rewrite(proc, if_stmt.body(), values[:md])
+        proc = rewrite(proc, if_stmt.orelse(), values[md:])
         return proc
 
-    proc = rewrite(proc, stmt, values)
+    proc = rewrite(proc, block, values)
     if not rc:
         return proc
 
-    filtered_stmts = []
-    for s in stmts:
+    filtered_blocks = []
+    for s in blocks:
         try:
             stmt = proc.forward(s)
             if not isinstance(stmt, PassCursor):
-                filtered_stmts.append(stmt)
+                filtered_blocks.append(stmt)
         except InvalidCursorError:
             pass
-    return proc, binary_specialize_cursors(filtered_stmts)
+    return proc, binary_specialize_cursors(filtered_blocks)
 
 
 def cse(proc, block, precision):
-    if not isinstance(block, BlockCursor):
-        block = proc.forward(block).as_block()
+    block = proc.forward(block).as_block()
 
     nodes = list(lrn(proc, block))
 
@@ -1311,3 +1301,116 @@ def cut_loop_and_unroll(proc, loop, const, front=True, rc=False):
     if not rc:
         return proc
     return proc, cut_loop_and_unroll_cursors(loop)
+
+
+def bound_alloc(proc, alloc, bounds):
+    alloc = proc.forward(alloc)
+    for idx, bound in enumerate(bounds):
+        if bound is not None:
+            proc = resize_dim(proc, alloc, idx, bound, 0)
+    return proc
+
+
+@dataclass
+class inline_proc_and_wins_cursors:
+    block: BlockCursor
+
+    def __iter__(self):
+        yield self.block
+
+
+def inline_proc_and_wins(proc, call, rc=False):
+    call = proc.forward(call)
+    proc = inline(proc, call)
+    block = proc.forward(call.as_block())
+    windows = filter(lambda s: isinstance(s, WindowStmtCursor), block)
+    proc = apply(inline_window)(proc, windows)
+    if not rc:
+        return proc
+    return proc, inline_proc_and_wins_cursors(proc.forward(block))
+
+
+def squash_buffers(proc, buffers):
+    buffers = [proc.forward(b) for b in buffers]
+    buffer = buffers[0]
+    depths = [get_depth(proc, b) for b in buffers]
+
+    squash = apply(attempt(lambda p, e, b: reuse_buffer(p, b, e)))
+    proc = squash(proc, buffers[1:], buffer)
+    max_d = max(depths)
+    while max_d > 1:
+        for i, (b, d) in enumerate(zip(buffers, depths)):
+            if max_d != d:
+                continue
+            depths[i] -= 1
+            if not is_invalid(proc, b):
+                proc = lift_alloc(proc, b)
+        proc = squash(proc, buffers[1:], buffer)
+        max_d = max(depths)
+    return proc
+
+
+@dataclass
+class pack_mem_cursors:
+    alloc: AllocCursor
+    load: Cursor
+    block: BlockCursor
+    store: Cursor
+
+    def __iter__(self):
+        yield self.alloc
+        yield self.load
+        yield self.block
+        yield self.store
+
+
+def pack_mem(proc, block, buffer, shape, name=None, rc=False):
+    proc, (alloc, load, block, store) = auto_stage_mem(
+        proc, block, buffer, name, rc=True
+    )
+    bounds = [1] * len(alloc.shape())
+
+    loop_nest = [[] for _ in alloc.shape()]
+
+    def add_loop_nest(loop):
+        if is_invalid(proc, loop):
+            return
+        for idx, _ in enumerate(alloc.shape()):
+            loop_nest[idx].append(loop)
+            loop = loop.body()[0]
+
+    add_loop_nest(load)
+    add_loop_nest(store)
+
+    divisions = {}
+    for dst_dim, (src_dim, size) in enumerate(shape):
+        divisions.setdefault(src_dim, []).append((dst_dim, size))
+        bounds[src_dim] *= size
+    proc = bound_alloc(proc, alloc, bounds)
+    perm = []
+    for src_dim, _ in reversed(list(enumerate(alloc.shape()))):
+        for dst_dim, size in reversed(divisions[src_dim][1:]):
+            proc = divide_dim(proc, alloc, src_dim, size)
+            # proc = apply(divide_loop_)(proc, loop_nest[src_dim], size, tail="cut") # TODO: This should be enabled but it slows down compilation
+            perm.append(dst_dim)
+        perm.append(divisions[src_dim][0][0])
+
+    perm = perm[::-1]
+    final_perm = [0] * len(perm)
+    for i, val in enumerate(perm):
+        final_perm[val] = i
+    proc = rearrange_dim(proc, alloc, final_perm)
+    proc = simplify(proc)
+
+    if not rc:
+        return proc
+
+    alloc = proc.forward(alloc)
+    block = proc.forward(block)
+
+    if not is_invalid(proc, load):
+        load = proc.forward(load)
+        diff = get_index_in_body(proc, block[0]) - get_index_in_body(proc, load) - 1
+        load = load.as_block().expand(0, diff)
+
+    return proc, pack_mem_cursors(alloc, load, block, store)

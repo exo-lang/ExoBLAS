@@ -19,23 +19,11 @@ void exo_sgemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA,
   if (TransB != CBLAS_TRANSPOSE::CblasNoTrans) {
     throw UnsupportedParameterException("sgemm::TransB must be nonTrans");
   }
-  if (alpha != 1.0) {
-    throw UnsupportedParameterException("sgemm::alpha must be 1.0");
-  }
   if (beta != 1.0) {
     throw UnsupportedParameterException("sgemm::beta must be 1.0");
   }
-  if (lda != K) {
-    throw UnsupportedParameterException("sgemm::lda must be K");
-  }
-  if (ldb != N) {
-    throw UnsupportedParameterException("sgemm::ldb must be N");
-  }
-  if (ldc != N) {
-    throw UnsupportedParameterException("sgemm::ldc must be N");
-  }
-  exo_sgemm_matmul_stride_any(nullptr, M, N, K,
-                              exo_win_2f32c{.data = A, .strides = {lda, 1}},
-                              exo_win_2f32c{.data = B, .strides = {ldb, 1}},
-                              exo_win_2f32{.data = C, .strides{ldc, 1}});
+  exo_sgemm_stride_1(nullptr, M, N, K, &alpha,
+                     exo_win_2f32c{.data = A, .strides = {lda, 1}},
+                     exo_win_2f32c{.data = B, .strides = {ldb, 1}},
+                     exo_win_2f32{.data = C, .strides{ldc, 1}});
 }
