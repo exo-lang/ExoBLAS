@@ -84,15 +84,15 @@ def divide_loop_(proc, loop_cursor, div_const, tail="guard", rc=False):
 @dataclass
 class stage_mem_cursors:
     alloc: AllocCursor
-    load_stage: Cursor
+    load: Cursor
     block: BlockCursor
-    store_stage: Cursor
+    store: Cursor
 
     def __iter__(self):
         yield self.alloc
-        yield self.load_stage
+        yield self.load
         yield self.block
-        yield self.store_stage
+        yield self.store
 
 
 def stage_mem_(proc, block, buff, new_buff_name, accum=False, rc=False):
@@ -105,12 +105,12 @@ def stage_mem_(proc, block, buff, new_buff_name, accum=False, rc=False):
     block_first = proc.forward(block_first)
     block_last = proc.forward(block_last)
     alloc = block_first.prev().prev()
-    load_stage = block_first.prev()
+    load = block_first.prev()
     block = block_first.as_block().expand(0, len(block) - 1)
-    store_stage = block_last.next()
+    store = block_last.next()
     if not rc:
         return proc
-    return proc, stage_mem_cursors(alloc, load_stage, block, store_stage)
+    return proc, stage_mem_cursors(alloc, load, block, store)
 
 
 @dataclass

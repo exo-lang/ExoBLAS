@@ -1348,3 +1348,69 @@ def squash_buffers(proc, buffers):
         proc = squash(proc, buffers[1:], buffer)
         max_d = max(depths)
     return proc
+
+
+@dataclass
+class pack_mem_cursors:
+    alloc: AllocCursor
+    load: Cursor
+    block: BlockCursor
+    store: Cursor
+
+    def __iter__(self):
+        yield self.alloc
+        yield self.load
+        yield self.block
+        yield self.store
+
+
+def pack_mem(proc, block, buffer, shape, name=None, rc=False):
+    proc, (alloc, load, block, store) = auto_stage_mem(
+        proc, block, buffer, name, rc=True
+    )
+    bounds = [1] * len(alloc.shape())
+
+    loop_nest = [[] for _ in alloc.shape()]
+
+    def add_loop_nest(loop):
+        if is_invalid(proc, loop):
+            return
+        for idx, _ in enumerate(alloc.shape()):
+            loop_nest[idx].append(loop)
+            loop = loop.body()[0]
+
+    add_loop_nest(load)
+    add_loop_nest(store)
+
+    divisions = {}
+    for dst_dim, (src_dim, size) in enumerate(shape):
+        divisions.setdefault(src_dim, []).append((dst_dim, size))
+        bounds[src_dim] *= size
+    proc = bound_alloc(proc, alloc, bounds)
+    perm = []
+    for src_dim, _ in reversed(list(enumerate(alloc.shape()))):
+        for dst_dim, size in reversed(divisions[src_dim][1:]):
+            proc = divide_dim(proc, alloc, src_dim, size)
+            # proc = apply(divide_loop_)(proc, loop_nest[src_dim], size, tail="cut") # TODO: This should be enabled but it slows down compilation
+            perm.append(dst_dim)
+        perm.append(divisions[src_dim][0][0])
+
+    perm = perm[::-1]
+    final_perm = [0] * len(perm)
+    for i, val in enumerate(perm):
+        final_perm[val] = i
+    proc = rearrange_dim(proc, alloc, final_perm)
+    proc = simplify(proc)
+
+    if not rc:
+        return proc
+
+    alloc = proc.forward(alloc)
+    block = proc.forward(block)
+
+    if not is_invalid(proc, load):
+        load = proc.forward(load)
+        diff = get_index_in_body(proc, block[0]) - get_index_in_body(proc, load) - 1
+        load = load.as_block().expand(0, diff)
+
+    return proc, pack_mem_cursors(alloc, load, block, store)

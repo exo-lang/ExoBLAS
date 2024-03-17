@@ -78,25 +78,29 @@ def schedule_micro(gemm_uk, precision, machine, m_r, n_r_fac):
 def schedule_macro(
     gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac, do_br=False
 ):
+    vw = machine.vec_width(precision)
+    n_r = vw * n_r_fac
     gemm_mk = specialize_precision(gemm_mk, precision)
     for var, max_var in zip(("M", "N", "K"), (max_M, max_N, max_K)):
         gemm_mk = gemm_mk.add_assertion(f"{var} <= {max_var}")
+
     gemm_mk_starter = gemm_mk
     gemm_mk = rename(gemm_mk, gemm_mk.name() + "_mk")
     i_loop = gemm_mk.body()[0]
-    gemm_mk, (A_alloc, A_load, _, _) = auto_stage_mem(
-        gemm_mk, i_loop, "A", "packed_A", rc=True
-    )
-    gemm_mk, (B_alloc, B_load, _, _) = auto_stage_mem(
-        gemm_mk, i_loop, "B", "packed_B", rc=True
-    )
-    gemm_mk = bound_alloc(gemm_mk, A_alloc, (max_M, max_K))
 
-    gemm_mk = bound_alloc(gemm_mk, B_alloc, (max_K, max_N))
-    gemm_mk, _ = extract_subproc(gemm_mk, A_load, "A_pack_kernel")
-    gemm_mk, _ = extract_subproc(gemm_mk, B_load, "B_pack_kernel")
+    packed_A_shape = ((0, max_M // m_r), (1, max_K), (0, m_r))
+    gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
+    gemm_mk, _ = extract_subproc(
+        gemm_mk, cursors.load, "A_pack_kernel"
+    )  # TODO: Schedule packing kernel
+
+    packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
+    gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
+    gemm_mk, _ = extract_subproc(
+        gemm_mk, cursors.load, "B_pack_kernel"
+    )  # TODO: Schedule packing kernel
+
     gemm_mk, _ = extract_subproc(gemm_mk, i_loop, "compute")
-
     return gemm_mk_starter, gemm_mk
     n_r = machine.vec_width(precision) * n_r_fac
     j_loop = get_inner_loop(gemm_mk, i_loop)
