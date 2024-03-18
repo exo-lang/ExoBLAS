@@ -1,7 +1,6 @@
 from exo.stdlib.scheduling import *
 
 from exceptions import *
-from inspection import *
 
 
 def attempt(op, errs=exo_exceptions):
@@ -37,7 +36,7 @@ def predicate(op, pred):
     return rewrite
 
 
-def make_pass(op, trav_start=nlr_stmts):
+def make_pass(op, trav_start):
     def rewrite(proc, block=InvalidCursor(), *args, **kwargs):
         stmts = trav_start(proc, block)
         return apply(op)(proc, stmts, *args, **kwargs)
@@ -88,6 +87,15 @@ def extract_and_schedule(op):
         return proc, (subproc, subproc_sched)
 
     return rewrite
+
+
+def filter_cursors(op):
+    def filter_c(proc, cursors, *args, **kwargs):
+        for c in cursors:
+            if op(proc, c, *args, **kwargs):
+                yield c
+
+    return filter_c
 
 
 __all__ = [

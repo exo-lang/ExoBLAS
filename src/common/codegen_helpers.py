@@ -39,7 +39,7 @@ def specialize_precision(proc, precision, all_buffs=True):
 
     set_type = set_numerics if all_buffs else set_R_type
     proc = apply(set_type)(proc, proc.args(), precision)
-    proc = make_pass(set_type)(proc, proc.body(), precision)
+    proc = make_pass(set_type, nlr_stmts)(proc, proc.body(), precision)
     return proc
 
 

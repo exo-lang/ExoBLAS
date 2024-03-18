@@ -90,15 +90,13 @@ def schedule_macro(
 
     packed_A_shape = ((0, max_M // m_r), (1, max_K), (0, m_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
-    gemm_mk, _ = extract_subproc(
-        gemm_mk, cursors.load, "A_pack_kernel"
-    )  # TODO: Schedule packing kernel
+    # TODO: Schedule packing kernel
+    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, "A_pack_kernel")
 
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
-    gemm_mk, _ = extract_subproc(
-        gemm_mk, cursors.load, "B_pack_kernel"
-    )  # TODO: Schedule packing kernel
+    # TODO: Schedule packing kernel
+    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, "B_pack_kernel")
 
     gemm_mk, _ = extract_subproc(gemm_mk, i_loop, "compute")
     return gemm_mk_starter, gemm_mk
@@ -152,9 +150,7 @@ def schedule(main_gemm, i_loop, precision, machine):
     )  # Change macrokernel loops to original order
 
     gemm_tiled = replace_all_stmts(gemm_tiled, [gemm_macro])
-    macro_calls = filter(
-        lambda c: is_call(gemm_tiled, c, gemm_macro[1]), nlr_stmts(gemm_tiled)
-    )
+    macro_calls = filter_cursors(is_call)(gemm_tiled, nlr_stmts(gemm_tiled))
     gemm_tiled = simplify(apply(inline_proc_and_wins)(gemm_tiled, macro_calls))
 
     gemm_tiled = apply(hoist_from_loop)(

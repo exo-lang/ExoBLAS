@@ -3,6 +3,7 @@ from exo.API_cursors import *
 from exo.stdlib.analysis import *
 
 from exceptions import *
+from higher_order import filter_cursors
 
 
 def get_children(proc, cursor=InvalidCursor(), lr=True):
@@ -85,8 +86,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
 
 
 def get_numeric_children(proc, cursor=InvalidCursor()):
-    check = lambda c: hasattr(c, "type") and c.type().is_numeric()
-    yield from filter(check, get_children(proc, cursor))
+    yield from filter_cursors(is_type_numeric)(proc, get_children(proc, cursor))
 
 
 def _get_cursors(
@@ -223,6 +223,16 @@ def is_single_stmt_loop(proc, loop):
     return loop_body_len(proc, loop) == 1
 
 
+def is_type_numeric(proc, c):
+    c = proc.forward(c)
+    return hasattr(c, "type") and c.type().is_numeric()
+
+
+def is_alloc(proc, a):
+    a = proc.forward(a)
+    return isinstance(a, AllocCursor)
+
+
 def get_enclosing_scope(proc, cursor, scope_type):
     cursor = proc.forward(cursor)
     cursor = cursor.parent()
@@ -293,7 +303,7 @@ def get_parents(proc, stmt):
 
 def get_nth_inner_loop(proc, loop, n):
     loop = proc.forward(loop)
-    inner_loops = list(filter(lambda s: is_loop(proc, s), loop.body()))
+    inner_loops = list(filter_cursors(is_loop)(proc, loop.body()))
     if n >= len(inner_loops):
         raise BLAS_SchedulingError(
             f"Expected exactly at least {n + 1} loops, found {len(inner_loops)}"
@@ -371,8 +381,15 @@ def is_write(proc, write):
     return is_reduce(proc, write) or is_assign(proc, write)
 
 
-def is_access(proc, access):
-    return is_read(proc, access) or is_write(proc, access)
+def is_access(proc, access, name=None):
+    return (is_read(proc, access) or is_write(proc, access)) and (
+        name is None or access.name() == name
+    )
+
+
+def is_window_stmt(proc, window):
+    window = proc.forward(window)
+    return isinstance(window, WindowStmtCursor)
 
 
 def is_unary_minus(proc, expr):

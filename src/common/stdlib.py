@@ -74,7 +74,7 @@ def parallelize_allocs(proc, cursor):
             f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
         )
 
-    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, cursor))
+    allocs = filter_cursors(is_alloc)(proc, nlr_stmts(proc, cursor))
     func = lambda proc, alloc: parallelize_and_lift_alloc(
         proc, alloc, get_distance(proc, alloc, cursor)
     )
@@ -109,7 +109,7 @@ def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail
         if par_reduce:
             proc = parallelize_all_reductions(proc, outer, memory=memory, unroll=True)
             loop = proc.forward(outer).body()[0]
-        allocs = filter(lambda s: isinstance(s, AllocCursor), loop.body())
+        allocs = filter_cursors(is_alloc)(proc, loop.body())
         proc = apply(parallelize_and_lift_alloc)(proc, allocs)
 
         stmts = list(proc.forward(loop).body())
@@ -384,7 +384,7 @@ def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=Fals
                 break
         return parallelize_reduction(proc, s, factor, memory, nth_loop, unroll)
 
-    return make_pass(attempt(rewrite))(proc, loop.body())
+    return make_pass(attempt(rewrite), nlr_stmts)(proc, loop.body())
 
 
 def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
@@ -478,7 +478,7 @@ def fission_into_singles(proc, cursor):
         if n_lifts and not is_end_of_body(proc, cursor):
             proc = fission(proc, cursor.after(), n_lifts)
         children = get_children(proc, cursor)
-        children = filter(lambda s: isinstance(s, StmtCursor), children)
+        children = filter_cursors(is_stmt)(proc, children)
         return apply(dfs)(proc, children, n_lifts + 1)
 
     proc = parallelize_allocs(proc, cursor)
@@ -608,7 +608,7 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True):
 
     def push_loop_in(proc, loop, depth, size=None):
         loop = proc.forward(loop)
-        allocs = list(filter(lambda a: isinstance(a, AllocCursor), loop.body()))
+        allocs = list(filter_cursors(is_alloc)(proc, loop.body()))
         proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
         if const_allocs and size:
             proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
@@ -659,10 +659,8 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False)
     block = block.as_block()
 
     block_nodes = list(lrn(proc, block))
-    block_loops = list(filter(lambda s: is_loop(proc, s), block_nodes))
-    block_accesses = filter(
-        lambda s: is_access(proc, s) and s.name() == buff, block_nodes
-    )
+    block_loops = list(filter_cursors(is_loop)(proc, block_nodes))
+    block_accesses = filter_cursors(is_access)(proc, block_nodes, name=buff)
 
     def eval_rng(expr, env):
         expr = proc.forward(expr)
@@ -850,7 +848,7 @@ def _eliminate_dead_code_pruned(proc, s):
         return eliminate_dead_code(proc, s)
 
 
-dce = make_pass(attempt(_eliminate_dead_code_pruned))
+dce = make_pass(attempt(_eliminate_dead_code_pruned), nlr_stmts)
 
 
 def unroll_buffers(proc, block=InvalidCursor(), mem=None):
@@ -867,7 +865,7 @@ def unroll_buffers(proc, block=InvalidCursor(), mem=None):
         return proc
 
     while True:
-        new_proc = make_pass(rewrite)(proc, block)
+        new_proc = make_pass(rewrite, nlr_stmts)(proc, block)
         if new_proc == proc:
             break
         proc = new_proc
@@ -963,15 +961,15 @@ def stage_compute(
         return apply(stage)(proc, children)
 
     block = proc.forward(block)
-    allocs = filter(lambda s: isinstance(s, AllocCursor), nlr_stmts(proc, block))
+    allocs = filter_cursors(is_alloc)(proc, nlr_stmts(proc, block))
     proc = apply(set_memory)(proc, allocs, memory)
-    proc = make_pass(attempt(unfold_reduce))(proc, block)
-    assigns = filter(lambda s: isinstance(s, AssignCursor), lrn_stmts(proc, block))
+    proc = make_pass(attempt(unfold_reduce), nlr_stmts)(proc, block)
+    assigns = filter_cursors(is_assign)(proc, lrn_stmts(proc, block))
     exprs = [assign.rhs() for assign in assigns]
     proc = apply(stage)(proc, exprs)
     # TODO: uncomment once bug in Exo is fixed
     # proc = inline_copies(proc, block)
-    proc = make_pass(attempt(fold_into_reduce))(proc, block)
+    proc = make_pass(attempt(fold_into_reduce), nlr_stmts)(proc, block)
     proc = dealiasing_pass(proc, block)
     return proc
 
@@ -986,7 +984,7 @@ def check_call_site(proc, call_cursor):
     ###################################################################
     env = {}
     obs_stmts = get_observed_stmts(call_cursor)
-    allocs = filter(lambda s: isinstance(s, AllocCursor), obs_stmts)
+    allocs = filter_cursors(is_alloc)(proc, obs_stmts)
     for s in list(proc.args()) + list(allocs):
         if s.type().is_numeric():
             env[s.name()] = (s.mem(), s.type())
@@ -1218,8 +1216,10 @@ def cse(proc, block, precision):
     nodes = list(lrn(proc, block))
 
     # First do CSE on the buffer accesses
-    accesses = filter(lambda c: is_access(proc, c), nodes)
-    accesses = filter(lambda c: is_stmt(proc, c) or c.type().is_numeric(), accesses)
+    accesses = filter_cursors(is_access)(proc, nodes)
+    accesses = filter_cursors(lambda p, c: is_stmt(p, c) or c.type().is_numeric())(
+        proc, accesses
+    )
 
     buff_map = {}
 
@@ -1236,7 +1236,7 @@ def cse(proc, block, precision):
     return proc
 
 
-inline_copies = make_pass(predicate(attempt(inline_assign), is_copy))
+inline_copies = make_pass(predicate(attempt(inline_assign), is_copy), nlr_stmts)
 
 
 def dealias(proc, stmt):
@@ -1247,8 +1247,10 @@ def dealias(proc, stmt):
 
     nodes = list(lrn(proc, stmt.rhs()))
 
-    accesses = filter(lambda c: is_access(proc, c), nodes)
-    accesses = filter(lambda c: is_stmt(proc, c) or c.type().is_numeric(), accesses)
+    accesses = filter_cursors(is_access)(proc, nodes)
+    accesses = filter_cursors(lambda p, c: is_stmt(p, c) or c.type().is_numeric())(
+        proc, accesses
+    )
 
     buff_map = {}
     for access in accesses:
@@ -1266,7 +1268,7 @@ def dealias(proc, stmt):
     return proc
 
 
-dealiasing_pass = make_pass(attempt(dealias, errs=(TypeError,)))
+dealiasing_pass = make_pass(attempt(dealias, errs=(TypeError,)), nlr_stmts)
 
 
 def round_loop(proc, loop, factor, up=True):
@@ -1323,7 +1325,7 @@ def inline_proc_and_wins(proc, call, rc=False):
     call = proc.forward(call)
     proc = inline(proc, call)
     block = proc.forward(call.as_block())
-    windows = filter(lambda s: isinstance(s, WindowStmtCursor), block)
+    windows = filter_cursors(is_window_stmt)(proc, block)
     proc = apply(inline_window)(proc, windows)
     if not rc:
         return proc
