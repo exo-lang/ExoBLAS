@@ -585,69 +585,70 @@ def tile_loops_top_down(proc, loop_tile_pairs):
     return proc, [proc.forward(l) for l in inner_loops]
 
 
-def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True):
+def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_guard"):
     loop = proc.forward(loop)
-    cur_loop = loop
-    for i in tiles[:-1]:
-        if not len(cur_loop.body()) == 1:
-            raise BLAS_SchedulingError("All loop must have a body length of 1")
-        if not isinstance(cur_loop.body()[0], ForCursor):
-            raise BLAS_SchedulingError("Did not find a nested loop")
-        cur_loop = cur_loop.body()[0]
 
-    loops = []
+    loops = [(loop, tiles[0])]
     cur_loop = loop
-    for i in tiles:
-        loops.append((cur_loop, i))
-        cur_loop = cur_loop.body()[0]
+    for tile in tiles[1:]:
+        cur_loop = get_inner_loop(proc, cur_loop)
+        loops.append((cur_loop, tile))
 
-    def get_depth(loop):
-        if not isinstance(loop, (ForCursor, IfCursor)):
+    def get_depth(proc, scope):
+        scope = proc.forward(scope)
+        if not isinstance(scope, (ForCursor, IfCursor)):
             return 0
-        return max([get_depth(i) for i in loop.body()]) + 1
+        return max([get_depth(proc, i) for i in scope.body()]) + 1
 
-    def push_loop_in(proc, loop, depth, size=None):
-        loop = proc.forward(loop)
-        allocs = list(filter_cursors(is_alloc)(proc, loop.body()))
+    def push_scope_in(proc, scope, depth, size=None):
+        scope = proc.forward(scope)
+        allocs = list(filter_cursors(is_alloc)(proc, scope.body()))
         proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
+
         if const_allocs and size:
             proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
-        loop = proc.forward(loop)
-        count = len(loop.body())
-        for stmt in list(loop.body())[:-1]:
-            proc = fission(proc, stmt.after())
-        loop = proc.forward(loop)
-        loops = []
-        for i in range(count):
-            loops.append(loop)
-            loop = loop.next()
-        for loop in loops:
-            if get_depth(loop) <= depth:
+
+        scope = proc.forward(scope)
+        count = len(scope.body())
+        scopes = [scope]
+        for stmt in list(scope.body())[:-1]:
+            proc, (scope1, scope2) = fission_(proc, stmt.after(), rc=True)
+            scopes = scopes[:-1]
+            scopes += [scope1, scope2]
+
+        for scope in scopes:
+            if get_depth(proc, scope) <= depth:
                 continue
-            loop = proc.forward(loop)
-            child = loop.body()[0]
-            if isinstance(child, ForCursor):
-                proc = reorder_loops(proc, loop)
-                forwarded_loop = proc.forward(loop)
-            elif isinstance(child, IfCursor):
+            scope = proc.forward(scope)
+            child = scope.body()[0]
+            if isinstance(child, (ForCursor, IfCursor)):
                 proc = lift_scope(proc, child)
                 child = proc.forward(child)
-                forwarded_loop = child.body()[0]
+                forwarded_scope = child.body()[0]
             else:
                 continue
-            proc = push_loop_in(proc, forwarded_loop, depth, size)
+            proc = push_scope_in(proc, forwarded_scope, depth, size)
         return proc
 
+    guards = 0
     for depth, (loop, tile) in enumerate(loops[::-1]):
-        if tile is not None:
-            proc, (_, inner, tail) = divide_loop_(
-                proc, loop, tile, tail="cut_and_guard", rc=True
-            )
-            proc = push_loop_in(proc, inner, depth + 1, tile)
-            proc = push_loop_in(proc, tail.body()[0], depth + 1, tile)
-        else:
-            proc = push_loop_in(proc, loop, depth + 1)
-
+        if tail == "cut_and_guard":
+            if tile is not None:
+                proc, (_, inner, tail_l) = divide_loop_(
+                    proc, loop, tile, tail=tail, rc=True
+                )
+                proc = push_scope_in(proc, inner, depth + 1, tile)
+                proc = push_scope_in(proc, tail_l.body()[0], depth + 1, tile)
+            else:
+                proc = push_scope_in(proc, loop, depth + 1)
+        elif tail == "guard":
+            if tile is not None:
+                proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
+                proc = push_scope_in(proc, inner.body()[0], guards + 1)
+                guards += 1
+                proc = push_scope_in(proc, inner, depth + guards + 1, tile)
+            else:
+                proc = push_scope_in(proc, loop, depth + guards + 1)
     return proc
 
 

@@ -65,9 +65,7 @@ def schedule_micro(gemm_uk, precision, machine, m_r, n_r_fac):
         gemm_uk = divide_dim(gemm_uk, tile, 1, vw)
 
         loops = [init, main_i, axpy]
-        gemm_uk = apply(optimize_level_2)(
-            gemm_uk, loops, precision, machine, m_r, n_r // vw, vec_tail="perfect"
-        )
+
         return gemm_uk
 
     blocks = map(lambda c: c.expand(), gemm_uk.find("C_tile:_", many=True))
@@ -75,9 +73,30 @@ def schedule_micro(gemm_uk, precision, machine, m_r, n_r_fac):
     return gemm_uk
 
 
-def schedule_macro(
-    gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac, do_br=False
-):
+def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
+    vw = machine.vec_width(precision)
+    n_r = vw * n_r_fac
+
+    i_loop = gemm_compute.body()[0]
+    j_loop = get_inner_loop(gemm_compute, i_loop)
+    k_loop = get_inner_loop(gemm_compute, j_loop)
+
+    gemm_compute, cs = auto_stage_mem(
+        gemm_compute, k_loop, "C", "C_tile", accum=True, rc=1
+    )
+    gemm_compute = lift_reduce_constant(gemm_compute, cs.load.expand(0, 1))
+    assign = gemm_compute.forward(cs.store).prev()
+    gemm_compute = inline_assign(gemm_compute, assign)
+    gemm_compute = set_memory(gemm_compute, cs.alloc, machine.mem_type)
+
+    gemm_compute = tile_loops_bottom_up(
+        gemm_compute, i_loop, (m_r, n_r, None), tail="guard"
+    )
+    gemm_compute = repeate_n(lift_scope)(gemm_compute, gemm_compute.find_loop("k"), n=2)
+    return gemm_compute
+
+
+def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
     gemm_mk = specialize_precision(gemm_mk, precision)
@@ -91,41 +110,17 @@ def schedule_macro(
     packed_A_shape = ((0, max_M // m_r), (1, max_K), (0, m_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
     # TODO: Schedule packing kernel
-    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, "A_pack_kernel")
+    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "A_pack")
 
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
     # TODO: Schedule packing kernel
-    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, "B_pack_kernel")
+    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "B_pack")
 
-    gemm_mk, _ = extract_subproc(gemm_mk, i_loop, "compute")
-    return gemm_mk_starter, gemm_mk
-    n_r = machine.vec_width(precision) * n_r_fac
-    j_loop = get_inner_loop(gemm_mk, i_loop)
-    k_loop = get_inner_loop(gemm_mk, j_loop)
-
-    gemm_mk = auto_stage_mem(gemm_mk, k_loop, "C", "C_tile", accum=True)
-    gemm_mk = lift_reduce_constant(gemm_mk, gemm_mk.forward(k_loop).expand(1, 0))
-    gemm_mk = inline_assign(gemm_mk, gemm_mk.find("C_tile = _ * _"))
-
-    gemm_mk = tile_loops_bottom_up(gemm_mk, i_loop, (m_r, n_r, None))
-    gemm_mk = apply(repeate_n(lift_scope))(
-        gemm_mk, gemm_mk.find_loop("k", many=True), n=2
+    gemm_mk = extract_and_schedule(schedule_compute)(
+        gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
     )
-
-    tiles = gemm_mk.find("C_tile:_", many=True)
-    names = ["_uk", "_r_uk", "_b_uk", "_br_uk"]
-    names = [gemm_mk.name() + su for su in names]
-    if not do_br:
-        tiles = tiles[:-1]
-        names = names[:-1]
-    for tile, name in zip(tiles, names):
-        gemm_mk = extract_and_schedule(schedule_micro)(
-            gemm_mk, tile.expand(), name, precision, machine, m_r, n_r_fac
-        )
-
-    gemm_mk = cleanup(gemm_mk)
-    return gemm_mk
+    return gemm_mk_starter, gemm_mk
 
 
 def schedule(main_gemm, i_loop, precision, machine):
