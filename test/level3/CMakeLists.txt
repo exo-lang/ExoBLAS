@@ -1,4 +1,4 @@
-add_exo_blas_test(level3 gemm s)
+add_exo_blas_test(level3 gemm "")
 add_exo_blas_test(level3 syrk s)
 add_exo_blas_test(level3 syrk d)
 # add_exo_blas_test(syr2k s)

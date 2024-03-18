@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdexcept>
+
 class UnsupportedParameterException : public std::runtime_error {
  public:
   UnsupportedParameterException(char const* const message) throw()

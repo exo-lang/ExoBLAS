@@ -37,6 +37,20 @@ class kernel:
         s = ns_to_s(self.get_real_time())
         return gb / s
 
+    def get_gflops_per_sec(self):
+        gflops = b_to_gb(self.get_flops())
+        s = ns_to_s(self.get_real_time())
+        return gflops / s
+
+    def __eq__(self, other):
+        return self.get_cmp_tuple_() == other.get_cmp_tuple_()
+
+    def __lt__(self, other):
+        return self.get_cmp_tuple_() < other.get_cmp_tuple_()
+
+    def __hash__(self):
+        return hash(self.get_cmp_tuple_())
+
 
 class level_1(kernel):
     def __init__(self, bench):
@@ -55,14 +69,8 @@ class level_1(kernel):
     def get_size_param(self):
         return self.N
 
-    def __eq__(self, other):
-        return self.N == other.N
-
-    def __lt__(self, other):
-        return self.N < other.N
-
-    def __hash__(self):
-        return self.N
+    def get_cmp_tuple_(self):
+        return (self.N,)
 
     def get_graph_description(self):
         return "N"
@@ -206,15 +214,6 @@ class level_2(kernel):
     def get_cmp_tuple_(self):
         return (self.N, self.M)
 
-    def __eq__(self, other):
-        return self.get_cmp_tuple_() == other.get_cmp_tuple_()
-
-    def __lt__(self, other):
-        return self.get_cmp_tuple_() < other.get_cmp_tuple_()
-
-    def __hash__(self):
-        return hash(self.get_cmp_tuple_())
-
     def get_graph_description(self):
         if self.bench_type == BENCH_TYPE.level_2_sq.value:
             return "N"
@@ -321,3 +320,54 @@ class syr2(level_2):
 
     def get_stored_bytes(self):
         return ((self.N * (self.N + 1)) / 2) * get_elem_bytes(self.precision)
+
+
+class level_3(kernel):
+    def __init__(self, bench):
+        self.real_time = float(bench["real_time"])
+        assert bench["name"] == bench["run_name"]
+
+        run_name = bench["run_name"]
+        run_dict = run_name_to_dict(run_name)
+
+        self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
+        self.bench_type = int(run_dict["bench_type"])
+        assert self.bench_type in level_3_bench_types
+
+        self.precision = run_dict["precision"]
+
+
+class gemm(level_3):
+    def __init__(self, bench):
+        super().__init__(bench)
+
+        run_name = bench["run_name"]
+        run_dict = run_name_to_dict(run_name)
+
+        self.M = int(run_dict["M"])
+        self.N = int(run_dict["N"])
+        self.K = int(run_dict["K"])
+
+    def get_size_param(self):
+        return self.K
+
+    def get_cmp_tuple_(self):
+        return (self.M, self.N, self.K)
+
+    def get_graph_description(self):
+        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+            return "M = N = K"
+
+    def get_flops(self):
+        return 2 * self.M * self.N * self.K
+
+    def get_input_bytes(self):
+        return (self.M * self.K + self.K * self.N + self.M * self.N) * get_elem_bytes(
+            self.precision
+        )
+
+    def get_loaded_bytes(self):
+        return self.M * self.N * self.K * 2 * get_elem_bytes(self.precision)
+
+    def get_stored_bytes(self):
+        return self.M * self.N * get_elem_bytes(self.precision)

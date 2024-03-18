@@ -34,9 +34,11 @@ class BENCH_TYPE(Enum):
     level_1 = 0
     level_2_eq = 1
     level_2_sq = 2
+    level_3_eq = 3
 
 
 level_2_bench_types = {BENCH_TYPE.level_2_eq.value, BENCH_TYPE.level_2_sq.value}
+level_3_bench_types = {BENCH_TYPE.level_3_eq.value}
 
 # From netlib `cblas.h`
 class CBLAS_TRANSPOSE(Enum):
@@ -53,5 +55,6 @@ __all__ = [
     "run_name_to_dict",
     "BENCH_TYPE",
     "level_2_bench_types",
+    "level_3_bench_types",
     "CBLAS_TRANSPOSE",
 ]

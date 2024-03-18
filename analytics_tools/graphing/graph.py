@@ -11,8 +11,19 @@ ROOT_PATH = SCRIPT_PATH.parent.parent.parent.resolve()
 
 GRAPHING_ROOT = SCRIPT_PATH.parent.resolve()
 GRAPHS_DIR = GRAPHING_ROOT / "graphs"
+PEAKS_JSON = GRAPHING_ROOT / "peaks.json"
 
 BENCHMARK_JSONS_DIR = ROOT_PATH / "benchmark_results"
+
+
+def get_peaks_json():
+    if PEAKS_JSON.exists():
+        with open(PEAKS_JSON, "r") as f:
+            peaks = json.load(f)
+        return peaks
+    else:
+        print(f"Could not find peaks jsons at: {PEAKS_JSON}")
+        return {}
 
 
 def kernel_graphs_dir(kernel):
@@ -102,7 +113,7 @@ def parse_jsons(kernel, jsons):
     return parsed_jsons
 
 
-def plot_bandwidth_throughput(kernel, data, loads=True):
+def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
     plt.clf()
 
     for libname, runs in data.items():
@@ -135,6 +146,41 @@ def plot_bandwidth_throughput(kernel, data, loads=True):
     plt.savefig(filename)
 
 
+def plot_flops_throughput(kernel, data, peaks):
+    plt.clf()
+
+    some_point = next(iter(data.values()))[0]
+
+    peak_flops_key = (
+        "peakflops_sp_avx_fma" if some_point.precision == "f32" else "peakflops_avx_fma"
+    )
+    if flops := peaks.get(peak_flops_key):
+        fig, ax = plt.subplots()
+        ax.axhline(y=flops, linewidth=2, color="r", label="Peak Flops")
+
+    for libname, runs in data.items():
+        sorted_runs = sorted(runs)
+        assert len(runs) == len(set(runs))  # No duplicates
+        x = [run.get_size_param() for run in sorted_runs]
+        y = [run.get_gflops_per_sec() for run in sorted_runs]
+        plt.plot(x, y, label=libname)
+
+    plt.legend()
+
+    unit = "GFlops / Sec"
+
+    plt.xscale("log")
+    plt.ylabel(unit)
+
+    plt.xlabel(some_point.get_graph_description())
+    plt.title(some_point.sub_kernel_name)
+
+    filename = (
+        GRAPHS_DIR / kernel / f"{some_point.sub_kernel_name}_flops_throughput.png"
+    )
+    plt.savefig(filename)
+
+
 if __name__ == "__main__":
     check_args()
 
@@ -144,7 +190,10 @@ if __name__ == "__main__":
     jsons = get_jsons(kernel)
     parsed_jsons = parse_jsons(kernel, jsons)
 
+    peaks = get_peaks_json()
+
     for bench_type_dict in parsed_jsons.values():
         for data in bench_type_dict.values():
-            plot_bandwidth_throughput(kernel, data, loads=True)
-            plot_bandwidth_throughput(kernel, data, loads=False)
+            plot_bandwidth_throughput(kernel, data, peaks, loads=True)
+            plot_bandwidth_throughput(kernel, data, peaks, loads=False)
+            plot_flops_throughput(kernel, data, peaks)
