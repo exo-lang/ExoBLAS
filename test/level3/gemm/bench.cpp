@@ -1,93 +1,87 @@
 #include <benchmark/benchmark.h>
 #include <cblas.h>
-#include <math.h>
 
-#include <algorithm>
-#include <cassert>
-#include <chrono>
-#include <cstdio>
-#include <cstdlib>
-#include <iostream>
-#include <random>
-#include <vector>
-
-#include "exo_sgemm.h"
+#include "bench_ranges.h"
+#include "exo_gemm_wrapper.h"
 #include "generate_buffer.h"
+#include "misc.h"
 
-static void BM_cblas_sgemm(benchmark::State &state) {
-  int m = state.range(0);
-  int n = state.range(1);
-  int k = state.range(2);
-  auto a = AlignedBuffer2D<float>(m, k);
-  auto b = AlignedBuffer2D<float>(k, n);
-  auto c = AlignedBuffer2D<float>(m, n);
+generate_wrapper(gemm);
 
-  float alpha = 1.0f;
-  float beta = 1.0f;
+template <typename lib, typename T>
+static void bench(benchmark::State &state) {
+  int M = state.range(0);
+  int N = state.range(1);
+  int K = state.range(2);
+  const enum CBLAS_ORDER order = (const enum CBLAS_ORDER)state.range(3);
+  const enum CBLAS_TRANSPOSE TransA =
+      (const enum CBLAS_TRANSPOSE)state.range(4);
+  const enum CBLAS_TRANSPOSE TransB =
+      (const enum CBLAS_TRANSPOSE)state.range(5);
+  const T alpha = state.range(6);
+  const int lda_diff = state.range(7);
+  const int ldb_diff = state.range(8);
+  const T beta = state.range(9);
+  const int ldc = N + state.range(10);
+  const int alignmentA = state.range(11);
+  const int alignmentB = state.range(12);
+  const int alignmentC = state.range(13);
+
+  auto A_dims = get_dims(TransA, M, K, lda_diff);
+  const int lda = A_dims.second;
+  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second);
+  auto B_dims = get_dims(TransB, K, N, ldb_diff);
+  const int ldb = B_dims.second;
+  auto B = AlignedBuffer2D<T>(B_dims.first, B_dims.second);
+  auto C = AlignedBuffer2D<T>(M, N);
 
   for (auto _ : state) {
-    cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha,
-                a.data(), k, b.data(), n, beta, c.data(), n);
+    gemm<lib, T>(CblasRowMajor, CblasNoTrans, CblasNoTrans, M, N, K, alpha,
+                 A.data(), lda, B.data(), ldb, beta, C.data(), ldc);
   }
 }
 
-static void BM_exo_sgemm(benchmark::State &state) {
-  int m = state.range(0);
-  int n = state.range(1);
-  int k = state.range(2);
-  auto a = AlignedBuffer2D<float>(m, k);
-  auto b = AlignedBuffer2D<float>(k, n);
-  auto c = AlignedBuffer2D<float>(m, n);
-
-  const float alpha = 1.0f;
-  const float beta = 1.0f;
-
-  for (auto _ : state) {
-    exo_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, n, k, alpha,
-              a.data(), k, b.data(), n, beta, c.data(), n);
+template <typename T, int order, int TransA, int TransB>
+static void args(benchmark::internal::Benchmark *b) {
+  auto add_arg = [&b](int M, int N, int K) {
+    return b->Args({M,
+                    N,
+                    K,
+                    order,
+                    TransA,
+                    TransB,
+                    17,
+                    0,
+                    0,
+                    1,
+                    0,
+                    64,
+                    64,
+                    64,
+                    {BENCH_TYPES::level_3_eq},
+                    {type_bits<T>()}});
+  };
+  b->ArgNames({"M", "N", "K", "order", "TransA", "TransB", "alpha", "lda_diff",
+               "ldb_diff", "beta", "ldc_diff", "alignmentA", "alignmentB",
+               "alignmentC", "bench_type", "precision"});
+  for (int i = 1; i <= 16; i *= 2) {
+    add_arg(i, i, i);
+  }
+  for (int i = 7; i <= 16; i *= 7) {
+    add_arg(i, i, i);
   }
 }
 
-static void gemm_arguments_increasing(benchmark::internal::Benchmark *b) {
-  size_t L1 = 192 * 1024;
-  size_t L2 = 3 * 1024 * 1024 / 2;
-  size_t L3 = 9 * 1024 * 1024;
-  size_t DRAM = L3 * 20;
-  size_t minMem = 0;
-  size_t maxMem = DRAM;
+#define call_gemm_bench(lib, T, order, TransA, TransB)                   \
+  BENCHMARK(bench<lib, T>)                                               \
+      ->Name(level_3_kernel_name<lib, T, order, TransA, TransB>("gemm")) \
+      ->Apply(args<T, order, TransA, TransB>);
 
-  int m_multiple = 32;
-  int k_multiple = 96;
-  int n_multiple = 24;
-  for (int i = 1; i < 1000; i += 4) {
-    int M = i * m_multiple;
-    int N = i * n_multiple;
-    int K = i * k_multiple;
+#define call_gemm_bench_all(order, TransA, TransB)      \
+  call_gemm_bench(Exo, float, order, TransA, TransB);   \
+  call_gemm_bench(Cblas, float, order, TransA, TransB); \
+  call_gemm_bench(Exo, double, order, TransA, TransB);  \
+  call_gemm_bench(Cblas, double, order, TransA, TransB);
 
-    size_t total = (size_t)M * N + (size_t)M * K + (size_t)N * K;
-    total *= 4;
-
-    if (total < maxMem && total >= minMem) {
-      b->Args({M, N, K});
-    }
-  }
-}
-
-static void gemm_arguments_large(benchmark::internal::Benchmark *b) {
-  for (int i = 1; i < 4; ++i) {
-    b->Args({4096 * i, 3072 * i, 96 * 10 * i});
-  }
-}
-
-BENCHMARK(BM_cblas_sgemm)
-    ->ArgNames({"m", "n", "k"})
-    ->Apply(gemm_arguments_large);
-
-BENCHMARK(BM_exo_sgemm)->ArgNames({"m", "n", "k"})->Apply(gemm_arguments_large);
-
-// BENCHMARK(BM_cblas_sgemm)
-//     ->ArgNames({"m", "n", "k"})
-//     ->Apply(gemm_arguments_increasing);
-
-// BENCHMARK(BM_exo_sgemm)->ArgNames({"m", "n",
-// "k"})->Apply(gemm_arguments_increasing);
+call_gemm_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_TRANSPOSE::CblasNoTrans,
+                    CBLAS_TRANSPOSE::CblasNoTrans);

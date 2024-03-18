@@ -20,7 +20,7 @@ static void bench(benchmark::State &state) {
           ? CBLAS_TRANSPOSE::CblasNoTrans
           : CBLAS_TRANSPOSE::CblasTrans;
   const T alpha = state.range(4);
-  const int lda = 16384;
+  const int lda = M + state.range(5);
   const int incX = state.range(6);
   const T beta = state.range(7);
   const int incY = state.range(8);

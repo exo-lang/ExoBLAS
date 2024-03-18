@@ -4,6 +4,15 @@
 
 #include <string>
 
+std::pair<int, int> get_dims(const enum CBLAS_TRANSPOSE trans, int M, int N,
+                             int ld_diff) {
+  if (trans == CBLAS_TRANSPOSE::CblasNoTrans) {
+    return {M, N + ld_diff};
+  } else {
+    return {N, M + ld_diff};
+  }
+}
+
 class BLAS_lib {};
 
 class Exo : public BLAS_lib {};
@@ -59,6 +68,26 @@ std::string level_2_kernel_name(std::string kernel) {
     name += "u";
   } else if constexpr (Uplo == CBLAS_UPLO::CblasLower) {
     name += "l";
+  }
+  return name;
+}
+
+template <typename lib, typename T, int order, int TransA, int TransB>
+std::string level_3_kernel_name(std::string kernel) {
+  auto name = lib_name<lib>() + "_" + type_prefix<T>() + kernel;
+  name += order == CBLAS_ORDER::CblasRowMajor ? "_rm" : "_col";
+  if constexpr (TransA + TransB) {
+    name += "_";
+  }
+  if constexpr (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {
+    name += "n";
+  } else if constexpr (TransA == CBLAS_TRANSPOSE::CblasTrans) {
+    name += "t";
+  }
+  if constexpr (TransB == CBLAS_TRANSPOSE::CblasNoTrans) {
+    name += "n";
+  } else if constexpr (TransB == CBLAS_TRANSPOSE::CblasTrans) {
+    name += "t";
   }
   return name;
 }
