@@ -64,10 +64,10 @@ static void args(benchmark::internal::Benchmark *b) {
   b->ArgNames({"M", "N", "K", "order", "TransA", "TransB", "alpha", "lda_diff",
                "ldb_diff", "beta", "ldc_diff", "alignmentA", "alignmentB",
                "alignmentC", "bench_type", "precision"});
-  for (int i = 1; i <= 16; i *= 2) {
+  for (int i = 1; i <= level_3_max_N; i *= 2) {
     add_arg(i, i, i);
   }
-  for (int i = 7; i <= 16; i *= 7) {
+  for (int i = 7; i <= level_3_max_N; i *= 7) {
     add_arg(i, i, i);
   }
 }
