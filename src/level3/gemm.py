@@ -58,17 +58,25 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     right_cond = lambda l, i: f"(N - {l.name()} * {n_r} + {vw - 1}) / {vw}"
     gemm_compute = cut(gemm_compute, j_loop, right_cond, range(1, n_r_fac))
     bottom_cond = lambda l, i: f"M - {l.name()} * {m_r}"
-    gemm_compute = cut(gemm_compute, i_loop, bottom_cond, range(1, m_r))
+    gemm_compute = cut(gemm_compute, i_loop, bottom_cond, range(m_r, 1, -1))
 
     def rewrite(p):
-        p = simplify(dce(p))
+        p = dce(p)
         p = replace_all_stmts(p, machine.get_instructions(precision))
+        p = simplify(p)
+        try:
+            p = delete_pass(p)
+        except:
+            pass
         return p
 
-    for i, tile in enumerate(gemm_compute.find_loop("C_tile:_", many=True)):
+    blocks = gemm_compute.find_loop("C_tile:_", many=True)
+    for i, tile in enumerate(blocks[:8]):
         name = gemm_compute.name() + str(i)
         gemm_compute = extract_and_schedule(rewrite)(gemm_compute, tile.expand(), name)
-
+    # for i, tile in enumerate(blocks[8:]):
+    #     name = gemm_compute.name() + str(8 + i)
+    #     gemm_compute = extract_and_schedule(lambda p:p)(gemm_compute, tile.expand(), name)
     return gemm_compute
 
 
@@ -123,5 +131,5 @@ def schedule(
 
 
 variants_generator(schedule, ("f32",))(
-    gemm, "i", 4, 3, 512, 512, 512, globals=globals()
+    gemm, "i", 4, 3, 512 * 4, 512 * 24, 512, globals=globals()
 )
