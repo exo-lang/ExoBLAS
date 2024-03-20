@@ -38,8 +38,8 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/avx2",
       "cacheVariables": {
-        "CMAKE_C_FLAGS": "-march=native -O3 -ffast-math -std=c11",
-        "CMAKE_CXX_FLAGS": "-std=c++17 -march=native -O3 -ffast-math",
+        "CMAKE_C_FLAGS": "-march=core-avx2 -O3 -ffast-math -std=c11",
+        "CMAKE_CXX_FLAGS": "-std=c++17 -march=core-avx2 -O3 -ffast-math",
         "CXX_STANDARD" : "C++17",
         "CMAKE_BUILD_TYPE": "Release",
         "TARGET_ARCH": "avx2",
