@@ -112,10 +112,13 @@ def schedule(
         gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac
     )
 
-    # Iterate over the main gemm as (i, k, j)
-    gemm_tiled = reorder_loops(main_gemm, i_loop.body()[0])
-    gemm_tiled = tile_loops_bottom_up(gemm_tiled, i_loop, [M_tile, K_tile, N_tile])
-    gemm_tiled = apply(reorder_loops)(gemm_tiled, gemm_tiled.find_loop("ki", many=True))
+    gemm_tiled = main_gemm
+    k_loop = get_inner_loop(gemm_tiled, get_inner_loop(gemm_tiled, i_loop))
+    gemm_tiled = repeate_n(lift_scope)(gemm_tiled, k_loop, n=2)
+    gemm_tiled = tile_loops_bottom_up(gemm_tiled, k_loop, [K_tile, M_tile, N_tile])
+    gemm_tiled = apply(repeate_n(reorder_loops))(
+        gemm_tiled, gemm_tiled.find_loop("ki", many=True), n=2
+    )
     gemm_tiled = replace_all_stmts(gemm_tiled, [gemm_macro])
 
     macro_calls = filter_cursors(is_call)(gemm_tiled, nlr_stmts(gemm_tiled))
@@ -132,11 +135,11 @@ def schedule(
 m_r = 4
 n_r_fac = 3
 n_r = n_r_fac * C.Machine.vec_width("f32")
-M_tile_fac = 4096 // m_r
-N_tile_fac = 4096 // n_r
+M_tile_fac = 66
+N_tile_fac = 3
 M_tile = M_tile_fac * m_r
 N_tile = N_tile_fac * n_r
-K_tile = 32
+K_tile = 512
 
 variants_generator(schedule, ("f32",))(
     gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
