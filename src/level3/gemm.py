@@ -46,7 +46,14 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
 
     loops = gemm_compute.find_loop("ii", many=True)
     gemm_compute = apply(optimize_level_2)(
-        gemm_compute, loops, precision, machine, m_r, n_r_fac, vec_tail="perfect"
+        gemm_compute,
+        loops,
+        precision,
+        machine,
+        m_r,
+        n_r_fac,
+        instrs=[],
+        vec_tail="perfect",
     )
 
     def cut(proc, loop, cond, rng):
