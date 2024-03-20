@@ -148,6 +148,6 @@ M_tile = M_tile_fac * m_r
 N_tile = N_tile_fac * n_r
 K_tile = 512
 
-variants_generator(schedule, ("f32",))(
+variants_generator(schedule, ("f32",), (AVX2,))(
     gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
 )
