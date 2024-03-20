@@ -3,6 +3,7 @@ from __future__ import annotations
 from exo import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
+from exo.libs.memories import DRAM_STATIC
 
 import exo_blas_config as C
 from stdlib import *
@@ -71,12 +72,9 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
         return p
 
     blocks = gemm_compute.find_loop("C_tile:_", many=True)
-    for i, tile in enumerate(blocks[:8]):
+    for i, tile in enumerate(blocks):
         name = gemm_compute.name() + str(i)
         gemm_compute = extract_and_schedule(rewrite)(gemm_compute, tile.expand(), name)
-    # for i, tile in enumerate(blocks[8:]):
-    #     name = gemm_compute.name() + str(8 + i)
-    #     gemm_compute = extract_and_schedule(lambda p:p)(gemm_compute, tile.expand(), name)
     return gemm_compute
 
 
@@ -93,13 +91,14 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
 
     packed_A_shape = ((0, max_M // m_r), (1, max_K), (0, m_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
-    # TODO: Schedule packing kernel
+    gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
     gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_A_pack")
 
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
-    # TODO: Schedule packing kernel
+    gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
     gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_B_pack")
+
     gemm_mk = extract_and_schedule(schedule_compute)(
         gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
     )
@@ -130,6 +129,15 @@ def schedule(
     return gemm_tiled
 
 
+m_r = 4
+n_r_fac = 3
+n_r = n_r_fac * C.Machine.vec_width("f32")
+M_tile_fac = 4096 // m_r
+N_tile_fac = 4096 // n_r
+M_tile = M_tile_fac * m_r
+N_tile = N_tile_fac * n_r
+K_tile = 32
+
 variants_generator(schedule, ("f32",))(
-    gemm, "i", 4, 3, 512 * 4, 512 * 24, 512, globals=globals()
+    gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
 )
