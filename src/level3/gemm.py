@@ -82,7 +82,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     for i, tile in enumerate(blocks):
         name = gemm_compute.name() + str(i)
         gemm_compute = extract_and_schedule(rewrite)(gemm_compute, tile.expand(), name)
-    return gemm_compute
+    return simplify(gemm_compute)
 
 
 def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac):
@@ -109,7 +109,7 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     gemm_mk = extract_and_schedule(schedule_compute)(
         gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
     )
-    return gemm_mk_starter, gemm_mk
+    return gemm_mk_starter, simplify(gemm_mk)
 
 
 def schedule(
@@ -136,7 +136,7 @@ def schedule(
     )
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_A : _", many=True))
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_B : _", many=True))
-    return gemm_tiled
+    return simplify(gemm_tiled)
 
 
 m_r = 4
