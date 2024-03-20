@@ -3,6 +3,7 @@ from __future__ import annotations
 from exo import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
+from exo.libs.memories import DRAM_STATIC
 
 import exo_blas_config as C
 from stdlib import *
@@ -22,62 +23,69 @@ def gemm(M: size, N: size, K: size, alpha: R, A: [R][M, K], B: [R][K, N], C: [R]
                 C[i, j] += alpha * (A[i, k] * B[k, j])
 
 
-def specialize_micro(gemm_uk, precision, machine, m_r, n_r_fac):
-    vw = machine.vec_width(precision)
-    _, init, main_k, axpy = gemm_uk.body()
-
-    main_i = get_inner_loop(gemm_uk, main_k)
-    j_loops = [get_inner_loop(gemm_uk, c) for c in (init, main_i, axpy)]
-
-    gemm_uk = simplify(apply(lambda p, c: round_loop(p, c, vw))(gemm_uk, j_loops))
-    j_loop = gemm_uk.forward(j_loops[0])
-
-    specialize_i = not is_loop_bounds_const(gemm_uk, main_i)
-    specialize_j = not is_loop_bounds_const(gemm_uk, j_loop)
-    make_conds = lambda e, mx: [f"{expr_to_string(e)} == {i + 1}" for i in range(mx)]
-
-    if specialize_i:
-        gemm_uk = specialize(gemm_uk, gemm_uk.body(), make_conds(main_i.hi(), m_r))
-    if specialize_j:
-        for tile in gemm_uk.find("C_tile:_", many=True):
-            gemm_uk = specialize(
-                gemm_uk, tile.expand(), make_conds(j_loop.hi().lhs(), n_r_fac)
-            )
-    gemm_uk = dce(simplify(gemm_uk))
-    return gemm_uk
-
-
-def schedule_micro(gemm_uk, precision, machine, m_r, n_r_fac):
+def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
+    i_loop = gemm_compute.body()[0]
+    j_loop = get_inner_loop(gemm_compute, i_loop)
+    k_loop = get_inner_loop(gemm_compute, j_loop)
 
-    gemm_uk = specialize_micro(gemm_uk, precision, machine, m_r, n_r_fac)
+    gemm_compute, cs = auto_stage_mem(
+        gemm_compute, k_loop, "C", "C_tile", accum=True, rc=1
+    )
+    gemm_compute = lift_reduce_constant(gemm_compute, cs.load.expand(0, 1))
+    assign = gemm_compute.forward(cs.store).prev()
+    gemm_compute = inline_assign(gemm_compute, assign)
+    gemm_compute = set_memory(gemm_compute, cs.alloc, machine.mem_type)
 
-    def rewrite(gemm_uk):
-        tile, init, main_k, axpy = gemm_uk.body()
-        main_i = get_inner_loop(gemm_uk, main_k)
-        main_j = get_inner_loop(gemm_uk, main_i)
-        m_r = main_i.hi().value()
-        n_r = main_j.hi().value()
+    gemm_compute = tile_loops_bottom_up(
+        gemm_compute, i_loop, (m_r, n_r, None), tail="guard"
+    )
+    gemm_compute = repeate_n(lift_scope)(gemm_compute, k_loop, n=2)
+    gemm_compute = divide_dim(gemm_compute, cs.alloc, 1, vw)
 
-        gemm_uk = rename(gemm_uk, f"{gemm_uk.name()}_{m_r}x{n_r}")
-        gemm_uk = set_memory(gemm_uk, tile, machine.mem_type)
-        gemm_uk = divide_dim(gemm_uk, tile, 1, vw)
+    loops = gemm_compute.find_loop("ii", many=True)
+    gemm_compute = apply(optimize_level_2)(
+        gemm_compute,
+        loops,
+        precision,
+        machine,
+        m_r,
+        n_r_fac,
+        instrs=[],
+        vec_tail="perfect",
+    )
 
-        loops = [init, main_i, axpy]
-        gemm_uk = apply(optimize_level_2)(
-            gemm_uk, loops, precision, machine, m_r, n_r // vw, vec_tail="perfect"
-        )
-        return gemm_uk
+    def cut(proc, loop, cond, rng):
+        loop = proc.forward(loop)
+        cut_val = FormattedExprStr(f"_ - 1", loop.hi())
+        proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
+        proc = specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng])
+        return proc
 
-    blocks = map(lambda c: c.expand(), gemm_uk.find("C_tile:_", many=True))
-    gemm_uk = apply(extract_and_schedule(rewrite))(gemm_uk, blocks, gemm_uk.name())
-    return gemm_uk
+    right_cond = lambda l, i: f"(N - {l.name()} * {n_r} + {vw - 1}) / {vw}"
+    gemm_compute = cut(gemm_compute, j_loop, right_cond, range(1, n_r_fac))
+    bottom_cond = lambda l, i: f"M - {l.name()} * {m_r}"
+    gemm_compute = cut(gemm_compute, i_loop, bottom_cond, range(m_r, 1, -1))
+
+    def rewrite(p):
+        p = dce(p)
+        p = replace_all_stmts(p, machine.get_instructions(precision))
+        p = simplify(p)
+        try:
+            p = delete_pass(p)
+        except:
+            pass
+        return p
+
+    blocks = gemm_compute.find_loop("C_tile:_", many=True)
+    for i, tile in enumerate(blocks):
+        name = gemm_compute.name() + str(i)
+        gemm_compute = extract_and_schedule(rewrite)(gemm_compute, tile.expand(), name)
+    return simplify(gemm_compute)
 
 
-def schedule_macro(
-    gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac, do_br=False
-):
+def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
     gemm_mk = specialize_precision(gemm_mk, precision)
@@ -90,66 +98,36 @@ def schedule_macro(
 
     packed_A_shape = ((0, max_M // m_r), (1, max_K), (0, m_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
-    # TODO: Schedule packing kernel
-    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, "A_pack_kernel")
+    gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
+    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_A_pack")
 
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
-    # TODO: Schedule packing kernel
-    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, "B_pack_kernel")
+    gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
+    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_B_pack")
 
-    gemm_mk, _ = extract_subproc(gemm_mk, i_loop, "compute")
-    return gemm_mk_starter, gemm_mk
-    n_r = machine.vec_width(precision) * n_r_fac
-    j_loop = get_inner_loop(gemm_mk, i_loop)
-    k_loop = get_inner_loop(gemm_mk, j_loop)
-
-    gemm_mk = auto_stage_mem(gemm_mk, k_loop, "C", "C_tile", accum=True)
-    gemm_mk = lift_reduce_constant(gemm_mk, gemm_mk.forward(k_loop).expand(1, 0))
-    gemm_mk = inline_assign(gemm_mk, gemm_mk.find("C_tile = _ * _"))
-
-    gemm_mk = tile_loops_bottom_up(gemm_mk, i_loop, (m_r, n_r, None))
-    gemm_mk = apply(repeate_n(lift_scope))(
-        gemm_mk, gemm_mk.find_loop("k", many=True), n=2
+    gemm_mk = extract_and_schedule(schedule_compute)(
+        gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
     )
-
-    tiles = gemm_mk.find("C_tile:_", many=True)
-    names = ["_uk", "_r_uk", "_b_uk", "_br_uk"]
-    names = [gemm_mk.name() + su for su in names]
-    if not do_br:
-        tiles = tiles[:-1]
-        names = names[:-1]
-    for tile, name in zip(tiles, names):
-        gemm_mk = extract_and_schedule(schedule_micro)(
-            gemm_mk, tile.expand(), name, precision, machine, m_r, n_r_fac
-        )
-
-    gemm_mk = cleanup(gemm_mk)
-    return gemm_mk
+    return gemm_mk_starter, simplify(gemm_mk)
 
 
-def schedule(main_gemm, i_loop, precision, machine):
-    m_r = 4
-    n_r_fac = 3
-    vw = machine.vec_width(precision)
-
-    M_tile = m_r * 512
-    N_tile = n_r_fac * vw * 512
-    K_tile = 512
-
+def schedule(
+    main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile
+):
     gemm_macro = schedule_macro(
         gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac
     )
 
-    gemm_tiled = reorder_loops(
-        main_gemm, i_loop.body()[0]
-    )  # Iterate over the main gemm as (i, k, j)
-    gemm_tiled = tile_loops_bottom_up(gemm_tiled, i_loop, [M_tile, K_tile, N_tile])
-    gemm_tiled = apply(reorder_loops)(
-        gemm_tiled, gemm_tiled.find_loop("ki", many=True)
-    )  # Change macrokernel loops to original order
-
+    gemm_tiled = main_gemm
+    k_loop = get_inner_loop(gemm_tiled, get_inner_loop(gemm_tiled, i_loop))
+    gemm_tiled = repeate_n(lift_scope)(gemm_tiled, k_loop, n=2)
+    gemm_tiled = tile_loops_bottom_up(gemm_tiled, k_loop, [K_tile, M_tile, N_tile])
+    gemm_tiled = apply(repeate_n(reorder_loops))(
+        gemm_tiled, gemm_tiled.find_loop("ki", many=True), n=2
+    )
     gemm_tiled = replace_all_stmts(gemm_tiled, [gemm_macro])
+
     macro_calls = filter_cursors(is_call)(gemm_tiled, nlr_stmts(gemm_tiled))
     gemm_tiled = simplify(apply(inline_proc_and_wins)(gemm_tiled, macro_calls))
 
@@ -158,7 +136,18 @@ def schedule(main_gemm, i_loop, precision, machine):
     )
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_A : _", many=True))
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_B : _", many=True))
-    return gemm_tiled
+    return simplify(gemm_tiled)
 
 
-variants_generator(schedule, ("f32",))(gemm, "i", globals=globals())
+m_r = 4
+n_r_fac = 3
+n_r = n_r_fac * C.Machine.vec_width("f32")
+M_tile_fac = 66
+N_tile_fac = 3
+M_tile = M_tile_fac * m_r
+N_tile = N_tile_fac * n_r
+K_tile = 512
+
+variants_generator(schedule, ("f32",), (AVX2,))(
+    gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
+)

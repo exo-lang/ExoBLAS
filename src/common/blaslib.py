@@ -19,12 +19,14 @@ def optimize_level_1(
     precision,
     machine,
     interleave_factor,
+    instrs=None,
     vec_tail=None,
     inter_tail="recursive",
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
-    instructions = machine.get_instructions(precision)
+    if instrs is None:
+        instrs = machine.get_instructions(precision)
 
     if vec_tail is None:
         vec_tail = "cut_and_predicate" if machine.supports_predication else "cut"
@@ -44,7 +46,7 @@ def optimize_level_1(
     )
 
     proc = cleanup(proc)
-    proc = replace_all_stmts(proc, instructions)
+    proc = replace_all_stmts(proc, instrs)
     return proc
 
 

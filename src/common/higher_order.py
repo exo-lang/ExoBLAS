@@ -81,7 +81,7 @@ def extract_and_schedule(op):
         proc, subproc = extract_subproc(proc, block, subproc_name)
         subproc_sched = op(subproc, *args, **kwargs)
         call = proc.forward(block)[0]
-        proc = call_eqv(proc, call, subproc)
+        proc = call_eqv(proc, call, subproc_sched)
         if not rc:
             return proc
         return proc, (subproc, subproc_sched)

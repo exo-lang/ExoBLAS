@@ -110,7 +110,7 @@ def export_perf_features(kernel_name, perf_features):
         json.dump(perf_features, f, sort_keys=True, indent=4, separators=(",", ": "))
 
 
-def variants_generator(blas_op, opt_precisions=("f32", "f64")):
+def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Neon)):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
         for precision in ("f32", "f64"):
@@ -126,7 +126,7 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64")):
             loop = stride_1.find_loop(loop_name)
             algorithm = get_perf_features(stride_1)
 
-            if precision in opt_precisions:
+            if precision in opt_precisions and C.Machine.mem_type in targets:
                 stride_1 = blas_op(
                     stride_1, loop, precision, C.Machine, *args, **kwargs
                 )
