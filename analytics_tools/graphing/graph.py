@@ -31,12 +31,12 @@ def kernel_graphs_dir(kernel):
 
 
 def help_msg():
-    print("python graph.py <kernel name>!")
+    print("python graph.py <kernel name> <verbose?>!")
     exit(1)
 
 
 def check_args():
-    if len(sys.argv) != 2:
+    if len(sys.argv) > 3:
         help_msg()
 
 
@@ -146,7 +146,7 @@ def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
     plt.savefig(filename)
 
 
-def plot_flops_throughput(kernel, data, peaks):
+def plot_flops_throughput(kernel, data, peaks, verbose):
     plt.clf()
 
     some_point = next(iter(data.values()))[0]
@@ -163,6 +163,8 @@ def plot_flops_throughput(kernel, data, peaks):
         assert len(runs) == len(set(runs))  # No duplicates
         x = [run.get_size_param() for run in sorted_runs]
         y = [run.get_gflops_per_sec() for run in sorted_runs]
+        if verbose:
+            print(libname, ": ", list(zip(x, y)))
         plt.plot(x, y, label=libname)
 
     plt.legend()
@@ -185,6 +187,7 @@ if __name__ == "__main__":
     check_args()
 
     kernel = sys.argv[1]
+    verbose = sys.argv[2]
 
     init_directories(kernel)
     jsons = get_jsons(kernel)
@@ -196,4 +199,4 @@ if __name__ == "__main__":
         for data in bench_type_dict.values():
             plot_bandwidth_throughput(kernel, data, peaks, loads=True)
             plot_bandwidth_throughput(kernel, data, peaks, loads=False)
-            plot_flops_throughput(kernel, data, peaks)
+            plot_flops_throughput(kernel, data, peaks, verbose)
