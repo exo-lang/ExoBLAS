@@ -29,7 +29,6 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     i_loop = gemm_compute.body()[0]
     j_loop = get_inner_loop(gemm_compute, i_loop)
     k_loop = get_inner_loop(gemm_compute, j_loop)
-
     gemm_compute, cs = auto_stage_mem(
         gemm_compute, k_loop, "C", "C_tile", accum=True, rc=1
     )
@@ -139,15 +138,13 @@ def schedule(
     return simplify(gemm_tiled)
 
 
-m_r = 4
-n_r_fac = 3
+PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (6, 4, 44, 1, 512)}
+
+m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
 n_r = n_r_fac * C.Machine.vec_width("f32")
-M_tile_fac = 66
-N_tile_fac = 3
 M_tile = M_tile_fac * m_r
 N_tile = N_tile_fac * n_r
-K_tile = 512
 
-variants_generator(schedule, ("f32",), (AVX2,))(
+variants_generator(schedule, ("f32",), (AVX2, AVX512))(
     gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
 )

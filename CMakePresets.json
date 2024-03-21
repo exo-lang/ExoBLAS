@@ -17,7 +17,7 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_FLAGS": "-std=c++17 -O3",
         "BLA_VENDOR": "Apple",
-        "TARGET_ARCH": "apple-silicon"
+        "TARGET_ARCH": "neon"
       }
     },
     {
@@ -28,7 +28,7 @@
       "binaryDir": "${sourceDir}/build/linux-arm64",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "TARGET_ARCH": "linux-arm64"
+        "TARGET_ARCH": "neon"
       }
     },
     {
@@ -44,6 +44,21 @@
         "CMAKE_BUILD_TYPE": "Release",
         "TARGET_ARCH": "avx2",
         "MKL_ENABLE_INSTRUCTIONS": "AVX2"
+      }
+    },
+    {
+      "name": "avx512",
+      "displayName": "Intel AVX512",
+      "description": "Configure Exo-Blas for AVX512 with GCC-compatible compiler",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/avx512",
+      "cacheVariables": {
+        "CMAKE_C_FLAGS": "-march=skylake-avx512 -O3 -ffast-math -std=c11",
+        "CMAKE_CXX_FLAGS": "-std=c++17 -march=skylake-avx512 -O3 -ffast-math",
+        "CXX_STANDARD" : "C++17",
+        "CMAKE_BUILD_TYPE": "Release",
+        "TARGET_ARCH": "avx512",
+        "MKL_ENABLE_INSTRUCTIONS": "AVX512"
       }
     }
   ]
