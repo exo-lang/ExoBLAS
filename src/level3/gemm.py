@@ -138,7 +138,7 @@ def schedule(
     return simplify(gemm_tiled)
 
 
-PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (6, 4, 44, 1, 512)}
+PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (6, 4, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
 
 m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
 n_r = n_r_fac * C.Machine.vec_width("f32")
