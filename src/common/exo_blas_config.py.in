@@ -1,9 +1,11 @@
 import sys
 
-if @HAVE_NEON@:
+if "@TARGET_ARCH@" == "neon":
     from machines.neon import Machine
-elif @HAVE_AVX2@:
+elif "@TARGET_ARCH@" == "avx2":
     from machines.avx2 import Machine
+elif "@TARGET_ARCH@" == "avx512":
+    from machines.avx512 import Machine
 else:
     sys.exit("Failed to determine machine configuration")
 
