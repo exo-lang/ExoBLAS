@@ -306,7 +306,7 @@ def jam_stmt(proc, stmt, unsafe_disable_check=False, rc=False):
 
 
 def parallelize_reduction(
-    proc, reduce_stmt, factor=None, memory=DRAM, nth_loop=1, unroll=False
+    proc, reduce_stmt, factor=None, memory=DRAM, nth_loop=1, inner=False, unroll=False
 ):
     # Auto-coersion
     if isinstance(unroll, bool):
@@ -349,7 +349,12 @@ def parallelize_reduction(
     # Parallelize the reduction
     reduce_loop = proc.forward(reduce_loop)
     proc = parallelize_and_lift_alloc(proc, reduce_loop.prev().prev())
+    alloc = proc.forward(alloc)
 
+    if inner:
+        ln = len(alloc.shape())
+        perm = [ln - 1] + list(range(1, ln - 1)) + [0]
+        proc = rearrange_dim(proc, alloc, perm)
     # Fission the zero and store-back stages
     proc = fission(proc, reduce_loop.before())
     proc = fission(proc, reduce_loop.after())
@@ -357,20 +362,27 @@ def parallelize_reduction(
     # Reorder the loop nest back
     reduce_loop = proc.forward(reduce_loop)
     proc = reorder_loops(proc, reduce_loop.parent())
-
     # Unroll any loops
     reduce_loop = proc.forward(reduce_loop)
+    init_loop = reduce_loop.prev()
+    write_back_loop = reduce_loop.next()
+    if inner:
+        height = get_height(proc, init_loop)
+        proc = repeate_n(reorder_loops)(proc, init_loop, n=height - 1)
+        proc = repeate_n(reorder_loops)(proc, write_back_loop, n=height - 1)
     if unroll[0]:
-        proc = unroll_loop(proc, reduce_loop.prev())
+        proc = unroll_loop(proc, init_loop)
     if unroll[1]:
-        proc = unroll_loop(proc, reduce_loop.next())
+        proc = unroll_loop(proc, write_back_loop)
 
     if factor is not None:
         proc = undo_divide_and_guard_loop(proc, reduce_loop)
     return proc
 
 
-def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=False):
+def parallelize_all_reductions(
+    proc, loop, factor=None, memory=DRAM, inner=False, unroll=False
+):
     loop = proc.forward(loop)
 
     def rewrite(proc, s):
@@ -382,7 +394,7 @@ def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=Fals
                 nth_loop += 1
             if parent == reduc_loop:
                 break
-        return parallelize_reduction(proc, s, factor, memory, nth_loop, unroll)
+        return parallelize_reduction(proc, s, factor, memory, nth_loop, inner, unroll)
 
     return make_pass(attempt(rewrite), nlr_stmts)(proc, loop.body())
 
@@ -504,12 +516,14 @@ def vectorize_predicate_tail(
     tail="cut_and_predicate",
     rc=False,
 ):
-    proc = parallelize_all_reductions(proc, loop, factor=vec_width, memory=mem_type)
+    proc = parallelize_all_reductions(
+        proc, loop, factor=vec_width, memory=mem_type, inner=True
+    )
     proc = stage_compute(proc, loop, precision, mem_type, rules)
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, rc=True)
     proc = simplify(proc)
-    proc = fission_into_singles(proc, inner)
-
+    proc = push_scope_in(proc, inner.body()[0], 1, fail_okay=True)
+    proc = push_scope_in(proc, inner, 2, fail_okay=True)
     if tail == "cut_and_predicate":
         if_c = inner.body()[0]
         cut = FormattedExprStr("_ - 1", outer.hi())
@@ -540,14 +554,13 @@ def vectorize(
             proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc
         )
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
-    proc = parallelize_all_reductions(proc, outer, memory=mem_type)
+    proc = parallelize_all_reductions(proc, outer, memory=mem_type, inner=True)
 
     outer = proc.forward(outer)
     inner = outer.body()[0]
 
     proc = stage_compute(proc, inner, precision, mem_type, rules)
-    proc = fission_into_singles(proc, inner)
-
+    proc = push_scope_in(proc, inner, 1, fail_okay=True)
     proc = replace_all_stmts(proc, instructions)
 
     if not rc:
@@ -585,6 +598,42 @@ def tile_loops_top_down(proc, loop_tile_pairs):
     return proc, [proc.forward(l) for l in inner_loops]
 
 
+def push_scope_in(proc, scope, height, size=None, fail_okay=False):
+    scope = proc.forward(scope)
+    allocs = list(filter_cursors(is_alloc)(proc, scope.body()))
+    proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
+
+    if size:
+        proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
+
+    scope = proc.forward(scope)
+    count = len(scope.body())
+    scopes = [scope]
+    for stmt in list(scope.body())[:-1]:
+        proc, (scope1, scope2) = fission_(proc, stmt.after(), rc=True)
+        scopes = scopes[:-1]
+        scopes += [scope1, scope2]
+
+    for scope in scopes:
+        if get_height(proc, scope) <= height:
+            continue
+        scope = proc.forward(scope)
+        child = scope.body()[0]
+        if isinstance(child, (ForCursor, IfCursor)):
+            proc, success = attempt(lift_scope)(proc, child, rs=True)
+            if not success:
+                if fail_okay:
+                    continue
+                else:
+                    raise BLAS_SchedulingError("Failure to push scope in!")
+            child = proc.forward(child)
+            forwarded_scope = child.body()[0]
+        else:
+            continue
+        proc = push_scope_in(proc, forwarded_scope, height, size)
+    return proc
+
+
 def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_guard"):
     loop = proc.forward(loop)
 
@@ -594,63 +643,30 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
         cur_loop = get_inner_loop(proc, cur_loop)
         loops.append((cur_loop, tile))
 
-    def get_depth(proc, scope):
-        scope = proc.forward(scope)
-        if not isinstance(scope, (ForCursor, IfCursor)):
-            return 0
-        return max([get_depth(proc, i) for i in scope.body()]) + 1
-
-    def push_scope_in(proc, scope, depth, size=None):
-        scope = proc.forward(scope)
-        allocs = list(filter_cursors(is_alloc)(proc, scope.body()))
-        proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
-
-        if const_allocs and size:
-            proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
-
-        scope = proc.forward(scope)
-        count = len(scope.body())
-        scopes = [scope]
-        for stmt in list(scope.body())[:-1]:
-            proc, (scope1, scope2) = fission_(proc, stmt.after(), rc=True)
-            scopes = scopes[:-1]
-            scopes += [scope1, scope2]
-
-        for scope in scopes:
-            if get_depth(proc, scope) <= depth:
-                continue
-            scope = proc.forward(scope)
-            child = scope.body()[0]
-            if isinstance(child, (ForCursor, IfCursor)):
-                proc = lift_scope(proc, child)
-                child = proc.forward(child)
-                forwarded_scope = child.body()[0]
-            else:
-                continue
-            proc = push_scope_in(proc, forwarded_scope, depth, size)
-        return proc
-
     guards = 0
-    for depth, (loop, tile) in enumerate(loops[::-1]):
+    for height, (loop, tile) in enumerate(loops[::-1]):
+        size = tile if const_allocs else None
         if tail == "cut_and_guard":
             if tile is not None:
                 proc, (_, inner, tail_l) = divide_loop_(
                     proc, loop, tile, tail=tail, rc=True
                 )
                 proc = simplify(proc)
-                proc = push_scope_in(proc, inner, depth + 1, tile)
-                proc = push_scope_in(proc, tail_l.body()[0], depth + 1, tile)
+                proc = push_scope_in(proc, inner, height + 1, tile, size=size)
+                proc = push_scope_in(
+                    proc, tail_l.body()[0], height + 1, tile, size=size
+                )
             else:
-                proc = push_scope_in(proc, loop, depth + 1)
+                proc = push_scope_in(proc, loop, height + 1, size=size)
         elif tail == "guard":
             if tile is not None:
                 proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
                 proc = simplify(proc)
-                proc = push_scope_in(proc, inner.body()[0], guards + 1)
+                proc = push_scope_in(proc, inner.body()[0], guards + 1, size=size)
                 guards += 1
-                proc = push_scope_in(proc, inner, depth + guards + 1, tile)
+                proc = push_scope_in(proc, inner, height + guards + 1, tile, size=size)
             else:
-                proc = push_scope_in(proc, loop, depth + guards + 1)
+                proc = push_scope_in(proc, loop, height + guards + 1, size=size)
     return proc
 
 

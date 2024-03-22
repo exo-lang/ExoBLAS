@@ -434,6 +434,13 @@ def get_depth(proc, cursor):
     return depth
 
 
+def get_height(proc, stmt):
+    stmt = proc.forward(stmt)
+    if not isinstance(stmt, (ForCursor, IfCursor)):
+        return 0
+    return max([get_height(proc, i) for i in stmt.body()]) + 1
+
+
 def get_lca(proc, cursor1, cursor2):
     cursor1 = proc.forward(cursor1)
     cursor2 = proc.forward(cursor2)
