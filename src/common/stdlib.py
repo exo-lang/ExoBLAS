@@ -1232,13 +1232,14 @@ def binary_specialize(proc, block, expr, values, rc=False):
 def cse(proc, block, precision):
     block = proc.forward(block).as_block()
 
-    nodes = list(lrn(proc, block))
+    nodes = list(nlr(proc, block))
 
     # First do CSE on the buffer accesses
     accesses = filter_cursors(is_access)(proc, nodes)
     accesses = filter_cursors(lambda p, c: is_stmt(p, c) or c.type().is_numeric())(
         proc, accesses
     )
+    loops = list(filter_cursors(is_loop)(proc, nodes))
 
     buff_map = {}
 
@@ -1252,6 +1253,17 @@ def cse(proc, block, precision):
             if len(access_list) > 1:
                 staging_block = get_bounding_block(proc, access_list)
                 proc = auto_stage_mem(proc, staging_block, buff)
+            else:
+                access = access_list[0]
+                access_deps = get_symbols(proc, access.idx())
+                cond = (
+                    lambda loop: loop.is_ancestor_of(access)
+                    and loop.name() not in access_deps
+                )
+                ancestor_loops = [loop for loop in loops if cond(loop)]
+                if ancestor_loops:
+                    proc = auto_stage_mem(proc, ancestor_loops[0], buff)
+
     return proc
 
 
