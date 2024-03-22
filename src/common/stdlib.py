@@ -156,7 +156,7 @@ class hoist_stmt_cursors:
         yield self.loop
 
 
-def hoist_stmt(proc, stmt, rc=False):
+def hoist_stmt(proc, stmt, loop=InvalidCursor(), rc=False):
     """
     for i in seq(0, hi):
         B1;
@@ -176,22 +176,29 @@ def hoist_stmt(proc, stmt, rc=False):
     if not isinstance(stmt, StmtCursor):
         raise BLAS_SchedulingError("Cannot hoist cursor that are not statements")
 
-    loop = stmt.parent()
+    if is_invalid(proc, loop):
+        loop = stmt.parent()
 
-    # Pre-condition 1: a scope exists
-    if not isinstance(loop, ForCursor):
-        raise BLAS_SchedulingError("Statement is not within a loop")
+        # Pre-condition 1: a scope exists
+        if not isinstance(loop, ForCursor):
+            raise BLAS_SchedulingError("Statement is not within a loop")
+    loop = proc.forward(loop)
+    # Pre-condition 2: loop is an ancestor of stmt
+    if not loop.is_ancestor_of(stmt):
+        raise BLAS_SchedulingError("Loop must be an ancestor of the statement")
 
-    # Pre-condition 2: fail-fast, no dependency on a loop
+    # Pre-condition 3: fail-fast, no dependency on a loop
     deps = list(get_symbols(proc, stmt))
     if isinstance(loop, ForCursor) and loop.name() in deps:
         raise BLAS_SchedulingError(
             "Cannot hoist cursor to a statement that depends on enclosing loop"
         )
 
+    lifts = get_distance(proc, loop, stmt)
+
     # Alloc is a special case
     if isinstance(stmt, AllocCursor):
-        proc = lift_alloc(proc, stmt)
+        proc = lift_alloc(proc, stmt, n_lifts=lifts)
         if not rc:
             return proc
         loop = proc.forward(loop)
@@ -199,23 +206,27 @@ def hoist_stmt(proc, stmt, rc=False):
         return proc, hoist_stmt_cursors([stmt], stmt, loop)
 
     allocs = []
-
-    # Reorder the statement to the top of the loop
-    while not isinstance(stmt.prev(), InvalidCursor):
-        prev_stmt = stmt.prev()
-        if isinstance(prev_stmt, AllocCursor) and prev_stmt.name() in deps:
-            proc = lift_alloc(proc, prev_stmt)
-            allocs.append(prev_stmt)
-        else:
-            proc = reorder_stmts(proc, stmt.expand(1, 0))
-        stmt = proc.forward(stmt)
-
-    # Pull the statement on its own outside the loop
-    if len(loop.body()) > 1:
-        proc, (_, loop) = fission_(proc, stmt.after(), rc=True)
-        stmt = proc.forward(stmt)
-    proc = remove_loop(proc, stmt.parent())
-
+    starter_stmt = stmt
+    for i in range(lifts):
+        # Reorder the statement to the top of the loop
+        while not isinstance(stmt.prev(), InvalidCursor):
+            prev_stmt = stmt.prev()
+            if isinstance(prev_stmt, AllocCursor) and prev_stmt.name() in deps:
+                proc = parallelize_and_lift_alloc(
+                    proc, prev_stmt, n_lifts=lifts - i - 1
+                )
+                proc = lift_alloc(proc, prev_stmt)
+                allocs.append(prev_stmt)
+            else:
+                proc = reorder_stmts(proc, stmt.expand(1, 0))
+            stmt = proc.forward(stmt)
+        parent = stmt.parent()
+        # Pull the statement on its own outside the loop
+        if len(parent.body()) > 1:
+            proc, (_, loop) = fission_(proc, stmt.after(), rc=True)
+        stmt = proc.forward(parent)
+    proc = remove_loop(proc, stmt)
+    stmt = proc.forward(starter_stmt)
     if not rc:
         return proc
 
@@ -244,14 +255,16 @@ def hoist_from_loop(proc, loop, rc=False):
     rcs = []
 
     def hoist_non_alloc(proc, stmt):
+        nonlocal loop
         stmt = proc.forward(stmt)
         if isinstance(stmt, AllocCursor):
             return proc
-        proc, cursors = hoist_stmt(proc, stmt, rc=True)
+        proc, cursors = hoist_stmt(proc, stmt, loop, rc=True)
+        loop = cursors.loop
         rcs.append(cursors)
         return proc
 
-    proc = apply(attempt(hoist_non_alloc))(proc, loop.body())
+    proc = apply(attempt(hoist_non_alloc))(proc, nlr_stmts(proc, loop.body()))
 
     if not rc:
         return proc
