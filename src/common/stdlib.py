@@ -81,7 +81,9 @@ def parallelize_allocs(proc, cursor):
     return apply(func)(proc, allocs)
 
 
-def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail="cut"):
+def interleave_loop(
+    proc, loop, factor=None, par_reduce=False, memory=DRAM, height=2, tail="cut"
+):
     """
     for i in seq(0, c):
         S1
@@ -112,9 +114,8 @@ def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail
         allocs = filter_cursors(is_alloc)(proc, loop.body())
         proc = apply(parallelize_and_lift_alloc)(proc, allocs)
 
-        stmts = list(proc.forward(loop).body())
-        proc = apply(fission)(proc, [s.after() for s in stmts[:-1]])
-        proc = apply(unroll_loop)(proc, [proc.forward(s).parent() for s in stmts])
+        proc, (loops,) = push_scope_in(proc, loop, height, rc=True)
+        proc = apply(unroll_loop)(proc, loops)
         return proc
 
     if tail in {"cut", "cut_and_guard"}:
@@ -611,40 +612,59 @@ def tile_loops_top_down(proc, loop_tile_pairs):
     return proc, [proc.forward(l) for l in inner_loops]
 
 
-def push_scope_in(proc, scope, height, size=None, fail_okay=False):
-    scope = proc.forward(scope)
-    allocs = list(filter_cursors(is_alloc)(proc, scope.body()))
-    proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
+@dataclass
+class push_scope_in_cursors:
+    scopes: List[Cursor]
 
-    if size:
-        proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
+    def __iter__(self):
+        yield self.scopes
 
-    scope = proc.forward(scope)
-    count = len(scope.body())
-    scopes = [scope]
-    for stmt in list(scope.body())[:-1]:
-        proc, (scope1, scope2) = fission_(proc, stmt.after(), rc=True)
-        scopes = scopes[:-1]
-        scopes += [scope1, scope2]
 
-    for scope in scopes:
-        if get_height(proc, scope) <= height:
-            continue
+def push_scope_in(proc, scope, height, size=None, fail_okay=False, rc=False):
+    cursors = push_scope_in_cursors([])
+
+    def rewrite(proc, scope):
         scope = proc.forward(scope)
-        child = scope.body()[0]
-        if isinstance(child, (ForCursor, IfCursor)):
-            proc, success = attempt(lift_scope)(proc, child, rs=True)
-            if not success:
-                if fail_okay:
-                    continue
-                else:
-                    raise BLAS_SchedulingError("Failure to push scope in!")
-            child = proc.forward(child)
-            forwarded_scope = child.body()[0]
-        else:
-            continue
-        proc = push_scope_in(proc, forwarded_scope, height, size)
-    return proc
+        allocs = list(filter_cursors(is_alloc)(proc, scope.body()))
+        proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
+
+        if size:
+            proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
+
+        scope = proc.forward(scope)
+        count = len(scope.body())
+        scopes = [scope]
+        for stmt in list(scope.body())[:-1]:
+            proc, (scope1, scope2) = fission_(proc, stmt.after(), rc=True)
+            scopes = scopes[:-1]
+            scopes += [scope1, scope2]
+
+        for scope in scopes:
+            if get_height(proc, scope) <= height:
+                cursors.scopes.append(scope)
+                continue
+            scope = proc.forward(scope)
+            child = scope.body()[0]
+            if isinstance(child, (ForCursor, IfCursor)):
+                proc, success = attempt(lift_scope)(proc, child, rs=True)
+                if not success:
+                    if fail_okay:
+                        continue
+                    else:
+                        raise BLAS_SchedulingError("Failure to push scope in!")
+                child = proc.forward(child)
+                forwarded_scope = child.body()[0]
+            else:
+                cursors.scopes.append(scope)
+                continue
+            proc = rewrite(proc, forwarded_scope)
+        return proc
+
+    proc = rewrite(proc, scope)
+    if not rc:
+        return proc
+    cursors.scopes = [proc.forward(s) for s in cursors.scopes]
+    return proc, cursors
 
 
 def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_guard"):
