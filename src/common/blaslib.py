@@ -13,6 +13,30 @@ from inspection import *
 from codegen_helpers import *
 
 
+def blas_cleanup(proc, block=InvalidCursor()):
+    def unroll_loops(proc, block):
+        def pred(proc, s):
+            s = proc.forward(s)
+            if not (is_loop(proc, s) and is_loop_bounds_const(proc, s)):
+                return False
+            return (
+                len(list(filter_cursors(is_loop)(proc, nlr_stmts(proc, s.body())))) > 0
+            )
+
+        return make_pass(predicate(unroll_loop, pred), lrn_stmts)(proc, block)
+
+    proc = simplify(proc)
+    proc = unroll_loops(proc, block)
+    proc = unroll_buffers(proc, block, DRAM)
+    proc = dce(proc, block)
+    try:
+        proc.find("pass")
+        proc = delete_pass(proc)
+    except SchedulingError:
+        pass
+    return proc
+
+
 def optimize_level_1(
     proc,
     loop,
@@ -44,8 +68,7 @@ def optimize_level_1(
     proc = interleave_loop(
         proc, loop, interleave_factor, par_reduce=True, memory=memory, tail=inter_tail
     )
-
-    proc = cleanup(proc)
+    proc = blas_cleanup(proc)
     proc = replace_all_stmts(proc, instrs)
     return proc
 
@@ -100,8 +123,7 @@ def optimize_level_2(
         kernel_loop = outer_loop.parent()
         inner_loop = get_inner_loop(proc, outer_loop)
         proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
-        proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
-        proc = unroll_buffers(proc, kernel_loop)
+        proc = unroll_and_jam_parent(proc, inner_loop, rows_factor, unroll=(1, 0, 1))
         proc = optimize_level_1(
             proc, inner_loop, precision, machine, cols_factor, **kwargs
         )

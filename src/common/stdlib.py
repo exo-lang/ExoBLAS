@@ -910,8 +910,7 @@ def unroll_buffers(proc, block=InvalidCursor(), mem=None):
             return proc
         if not alloc.is_tensor():
             return proc
-        diff = int(alloc.mem() is mem)
-        if len(alloc.shape()) - diff:
+        if mem and issubclass(alloc.mem(), mem):
             if isinstance(alloc.shape()[0], LiteralCursor):
                 return unroll_buffer(proc, alloc, 0)
         return proc
