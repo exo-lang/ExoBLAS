@@ -60,7 +60,8 @@ def generate_stride_1_proc(proc):
 
 def export_exo_proc(globals, proc):
     proc = rename(proc, f"exo_{proc.name()}")
-    globals[proc.name()] = simplify(proc)
+    print(proc)
+    globals[proc.name()] = proc
     globals.setdefault("__all__", []).append(proc.name())
 
 
@@ -130,6 +131,7 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Ne
                 stride_1 = blas_op(
                     stride_1, loop, precision, C.Machine, *args, **kwargs
                 )
+            stride_1 = cleanup(stride_1)
             stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
             scheduled = get_perf_features(stride_1)
 

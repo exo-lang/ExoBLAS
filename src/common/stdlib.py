@@ -82,7 +82,7 @@ def parallelize_allocs(proc, cursor):
 
 
 def interleave_loop(
-    proc, loop, factor=None, par_reduce=False, memory=DRAM, height=2, tail="cut"
+    proc, loop, factor=None, par_reduce=False, memory=DRAM, height=1, tail="cut"
 ):
     """
     for i in seq(0, c):
@@ -367,7 +367,8 @@ def parallelize_reduction(
 
     if inner:
         ln = len(alloc.shape())
-        perm = [ln - 1] + list(range(1, ln - 1)) + [0]
+        perm = list(range(0, ln))
+        perm[0], perm[ln - 1] = perm[ln - 1], perm[0]
         proc = rearrange_dim(proc, alloc, perm)
     # Fission the zero and store-back stages
     proc = fission(proc, reduce_loop.before())
@@ -536,8 +537,9 @@ def vectorize_predicate_tail(
     proc = stage_compute(proc, loop, precision, mem_type, rules)
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, rc=True)
     proc = simplify(proc)
-    proc = push_scope_in(proc, inner.body()[0], 1, fail_okay=True)
-    proc = push_scope_in(proc, inner, 2, fail_okay=True)
+    ifs = filter_cursors(is_if)(proc, lrn_stmts(proc, inner))
+    proc = apply(push_scope_in)(proc, ifs, 1, fail_okay=True)
+    proc = push_scope_in(proc, inner, 1, fail_okay=True)
     if tail == "cut_and_predicate":
         if_c = inner.body()[0]
         cut = FormattedExprStr("_ - 1", outer.hi())
@@ -1152,8 +1154,7 @@ def unroll_loops(proc, block=InvalidCursor(), threshold=None):
 
 def cleanup(proc, block=InvalidCursor()):
     proc = simplify(proc)
-    proc = unroll_loops(proc, block, threshold=1)
-    proc = dce(proc, block)
+    proc = unroll_loops(proc, block)
     try:
         proc.find("pass")
         proc = delete_pass(proc)

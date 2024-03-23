@@ -54,22 +54,24 @@ def optimize_level_1(
 
     if vec_tail is None:
         vec_tail = "cut_and_predicate" if machine.supports_predication else "cut"
-
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
-
     rules = [fma_rule, abs_rule]
     proc, (loop,) = vectorize(
-        proc, loop, vec_width, precision, memory, rules=rules, tail=vec_tail, rc=True
+        proc,
+        loop,
+        vec_width,
+        precision,
+        memory,
+        rules=rules,
+        tail=vec_tail,
+        instructions=instrs,
+        rc=True,
     )
-
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
-
     proc = interleave_loop(
         proc, loop, interleave_factor, par_reduce=True, memory=memory, tail=inter_tail
     )
-    proc = blas_cleanup(proc)
-    proc = replace_all_stmts(proc, instrs)
     return proc
 
 
