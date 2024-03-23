@@ -540,6 +540,7 @@ def vectorize_predicate_tail(
     ifs = filter_cursors(is_if)(proc, lrn_stmts(proc, inner))
     proc = apply(push_scope_in)(proc, ifs, 1, fail_okay=True)
     proc = push_scope_in(proc, inner, 1, fail_okay=True)
+    proc = dce(proc, outer)
     if tail == "cut_and_predicate":
         if_c = inner.body()[0]
         cut = FormattedExprStr("_ - 1", outer.hi())
