@@ -56,6 +56,7 @@ def optimize_level_1(
         vec_tail = "cut_and_predicate" if machine.supports_predication else "cut"
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
+
     rules = [fma_rule, abs_rule]
     proc, (loop,) = vectorize(
         proc,
@@ -72,7 +73,8 @@ def optimize_level_1(
     proc = interleave_loop(
         proc, loop, interleave_factor, par_reduce=True, memory=memory, tail=inter_tail
     )
-    return proc
+    proc = replace_all_stmts(proc, instrs)
+    return simplify(proc)
 
 
 def get_triangle_type(proc, loop):

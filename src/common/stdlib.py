@@ -113,8 +113,7 @@ def interleave_loop(
             loop = proc.forward(outer).body()[0]
         allocs = filter_cursors(is_alloc)(proc, loop.body())
         proc = apply(parallelize_and_lift_alloc)(proc, allocs)
-
-        proc, (loops,) = push_scope_in(proc, loop, height, rc=True)
+        proc, (loops,) = push_scope_in(proc, loop, height, fail_okay=True, rc=True)
         proc = apply(unroll_loop)(proc, loops)
         return proc
 
@@ -128,6 +127,7 @@ def interleave_loop(
         proc, (_, inners, _) = divide_loop_recursive(
             proc, loop, factor, tail="cut", rc=True
         )
+        proc = simplify(proc)
         proc = apply(rewrite)(proc, inners, par_reduce=par_reduce, memory=memory)
     elif tail == "specialize":
         if factor is None:
@@ -320,19 +320,26 @@ def jam_stmt(proc, stmt, unsafe_disable_check=False, rc=False):
 
 
 def parallelize_reduction(
-    proc, reduce_stmt, factor=None, memory=DRAM, nth_loop=1, inner=False, unroll=False
+    proc,
+    reduce_access,
+    reduce_loop,
+    factor=None,
+    memory=DRAM,
+    inner=False,
+    unroll=False,
 ):
     # Auto-coersion
     if isinstance(unroll, bool):
         unroll = (unroll, unroll)
 
-    reduce_stmt = proc.forward(reduce_stmt)
+    reduce_access = proc.forward(reduce_access)
+    if isinstance(reduce_access, ReduceCursor):
+        control_vars = get_symbols(proc, reduce_access.idx())
+    elif isinstance(reduce_access, (ReadCursor, WindowExprCursor)):
+        control_vars = get_symbols(proc, reduce_access)
+    else:
+        raise TypeError(f"Unsupported type {type(reduce_access)}")
 
-    if not is_reduce(proc, reduce_stmt):
-        raise TypeError(f"reduce_stmt must of type {ReduceCursor}")
-
-    reduce_loop = get_enclosing_loop(proc, reduce_stmt, nth_loop)
-    control_vars = get_symbols(proc, reduce_stmt.idx())
     if reduce_loop.name() in control_vars:
         raise BLAS_SchedulingError(
             "Statement isn't a reduction over the specified loop."
@@ -343,14 +350,13 @@ def parallelize_reduction(
             proc, reduce_loop, factor, tail="guard", rc=True
         )
         proc = simplify(proc)
-        nth_loop += 1
 
     # Stage reduction around the loop we are reducing over
     proc = reorder_loops(proc, reduce_loop)
     proc = auto_stage_mem(
         proc,
         reduce_loop,
-        reduce_stmt.name(),
+        reduce_access.name(),
         accum=True,
     )
     proc = simplify(proc)
@@ -389,7 +395,6 @@ def parallelize_reduction(
         proc = unroll_loop(proc, init_loop)
     if unroll[1]:
         proc = unroll_loop(proc, write_back_loop)
-
     if factor is not None:
         proc = undo_divide_and_guard_loop(proc, reduce_loop)
     return proc
@@ -403,13 +408,16 @@ def parallelize_all_reductions(
     def rewrite(proc, s):
         s = proc.forward(s)
         reduc_loop = proc.forward(loop)
-        nth_loop = 0
-        for parent in get_parents(proc, s):
-            if is_loop(proc, parent):
-                nth_loop += 1
-            if parent == reduc_loop:
-                break
-        return parallelize_reduction(proc, s, factor, memory, nth_loop, inner, unroll)
+        if isinstance(s, ReduceCursor):
+            return parallelize_reduction(
+                proc, s, reduc_loop, factor, memory, inner, unroll
+            )
+        elif isinstance(s, CallCursor):
+            return apply(attempt(parallelize_reduction))(
+                proc, s.args(), reduc_loop, factor, memory, inner, unroll
+            )
+        else:
+            return proc
 
     return make_pass(attempt(rewrite), nlr_stmts)(proc, loop.body())
 
@@ -688,19 +696,17 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
                     proc, loop, tile, tail=tail, rc=True
                 )
                 proc = simplify(proc)
-                proc = push_scope_in(proc, inner, height + 1, tile, size=size)
-                proc = push_scope_in(
-                    proc, tail_l.body()[0], height + 1, tile, size=size
-                )
+                proc = push_scope_in(proc, inner, height + 1, size=size)
+                proc = push_scope_in(proc, tail_l.body()[0], height + 1, size=size)
             else:
                 proc = push_scope_in(proc, loop, height + 1, size=size)
         elif tail == "guard":
             if tile is not None:
                 proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
                 proc = simplify(proc)
-                proc = push_scope_in(proc, inner.body()[0], guards + 1, size=size)
+                proc = push_scope_in(proc, inner.body()[0], guards + 1)
                 guards += 1
-                proc = push_scope_in(proc, inner, height + guards + 1, tile, size=size)
+                proc = push_scope_in(proc, inner, height + guards + 1, size=size)
             else:
                 proc = push_scope_in(proc, loop, height + guards + 1, size=size)
     return proc
