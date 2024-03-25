@@ -70,14 +70,10 @@ def parallelize_and_lift_alloc(proc, alloc_cursor, n_lifts=1):
 
 def parallelize_allocs(proc, cursor):
     if not isinstance(cursor, (ForCursor, IfCursor)):
-        raise BLAS_SchedulingError(
-            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
-        )
+        raise BLAS_SchedulingError(f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}")
 
     allocs = filter_cursors(is_alloc)(proc, nlr_stmts(proc, cursor))
-    func = lambda proc, alloc: parallelize_and_lift_alloc(
-        proc, alloc, get_distance(proc, alloc, cursor)
-    )
+    func = lambda proc, alloc: parallelize_and_lift_alloc(proc, alloc, get_distance(proc, alloc, cursor))
     return apply(func)(proc, allocs)
 
 
@@ -101,9 +97,7 @@ def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail
     def rewrite(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail="cut"):
         loop = proc.forward(loop)
         if factor is not None:
-            proc, (outer, loop, _) = divide_loop_(
-                proc, loop, factor, tail=tail, rc=True
-            )
+            proc, (outer, loop, _) = divide_loop_(proc, loop, factor, tail=tail, rc=True)
         else:
             outer = loop.parent()
         if par_reduce:
@@ -121,23 +115,15 @@ def interleave_loop(proc, loop, factor=None, par_reduce=False, memory=DRAM, tail
         proc = rewrite(proc, loop, factor, par_reduce, memory, tail)
     elif tail == "recursive":
         if factor is None:
-            raise BLAS_SchedulingError(
-                "Cannot specify recursive tail strategy and factor=None"
-            )
-        proc, (_, inners, _) = divide_loop_recursive(
-            proc, loop, factor, tail="cut", rc=True
-        )
+            raise BLAS_SchedulingError("Cannot specify recursive tail strategy and factor=None")
+        proc, (_, inners, _) = divide_loop_recursive(proc, loop, factor, tail="cut", rc=True)
         proc = apply(rewrite)(proc, inners, par_reduce=par_reduce, memory=memory)
     elif tail == "specialize":
         if factor is None:
-            raise BLAS_SchedulingError(
-                "Cannot specify recursive tail strategy and factor=None"
-            )
+            raise BLAS_SchedulingError("Cannot specify recursive tail strategy and factor=None")
         proc = rewrite(proc, loop, factor, par_reduce, memory, tail="cut")
         tail_loop = proc.forward(loop).next()
-        proc, (stmts,) = binary_specialize(
-            proc, tail_loop, tail_loop.hi(), [i for i in range(factor)], rc=True
-        )
+        proc, (stmts,) = binary_specialize(proc, tail_loop, tail_loop.hi(), [i for i in range(factor)], rc=True)
         proc = apply(rewrite)(proc, stmts, par_reduce=par_reduce, memory=memory)
     else:
         raise BLAS_SchedulingError(f"Unknown tail strategy: {tail}")
@@ -185,9 +171,7 @@ def hoist_stmt(proc, stmt, rc=False):
     # Pre-condition 2: fail-fast, no dependency on a loop
     deps = list(get_symbols(proc, stmt))
     if isinstance(loop, ForCursor) and loop.name() in deps:
-        raise BLAS_SchedulingError(
-            "Cannot hoist cursor to a statement that depends on enclosing loop"
-        )
+        raise BLAS_SchedulingError("Cannot hoist cursor to a statement that depends on enclosing loop")
 
     # Alloc is a special case
     if isinstance(stmt, AllocCursor):
@@ -305,9 +289,7 @@ def jam_stmt(proc, stmt, unsafe_disable_check=False, rc=False):
     return proc, jam_stmt_cursors(stmt_loop, stmt)
 
 
-def parallelize_reduction(
-    proc, reduce_stmt, factor=None, memory=DRAM, nth_loop=1, unroll=False
-):
+def parallelize_reduction(proc, reduce_stmt, factor=None, memory=DRAM, nth_loop=1, unroll=False):
     # Auto-coersion
     if isinstance(unroll, bool):
         unroll = (unroll, unroll)
@@ -320,14 +302,10 @@ def parallelize_reduction(
     reduce_loop = get_enclosing_loop(proc, reduce_stmt, nth_loop)
     control_vars = get_symbols(proc, reduce_stmt.idx())
     if reduce_loop.name() in control_vars:
-        raise BLAS_SchedulingError(
-            "Statement isn't a reduction over the specified loop."
-        )
+        raise BLAS_SchedulingError("Statement isn't a reduction over the specified loop.")
 
     if factor is not None:
-        proc, (reduce_loop, _, _) = divide_loop_(
-            proc, reduce_loop, factor, tail="guard", rc=True
-        )
+        proc, (reduce_loop, _, _) = divide_loop_(proc, reduce_loop, factor, tail="guard", rc=True)
         proc = simplify(proc)
         nth_loop += 1
 
@@ -395,9 +373,7 @@ def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
     if len(inner_loops) == 0:
         raise BLAS_SchedulingError("No loops found")
 
-    return interleave_outer_loop_with_inner_loop(
-        proc, loop, inner_loops[0], factor, unroll=unroll
-    )
+    return interleave_outer_loop_with_inner_loop(proc, loop, inner_loops[0], factor, unroll=unroll)
 
 
 def unroll_and_jam_parent(proc, loop, factor, unroll=(True, True, True)):
@@ -405,9 +381,7 @@ def unroll_and_jam_parent(proc, loop, factor, unroll=(True, True, True)):
     outer_loop = loop.parent()
     if not isinstance(outer_loop, ForCursor):
         raise BLAS_SchedulingError("parent is not a loop")
-    return interleave_outer_loop_with_inner_loop(
-        proc, outer_loop, loop, factor, unroll=unroll
-    )
+    return interleave_outer_loop_with_inner_loop(proc, outer_loop, loop, factor, unroll=unroll)
 
 
 def interleave_outer_loop_with_inner_loop(
@@ -421,10 +395,7 @@ def interleave_outer_loop_with_inner_loop(
     outer_loop_cursor = proc.forward(outer_loop_cursor)
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
-    if (
-        isinstance(outer_loop_cursor.hi(), LiteralCursor)
-        and outer_loop_cursor.hi().value() == interleave_factor
-    ):
+    if isinstance(outer_loop_cursor.hi(), LiteralCursor) and outer_loop_cursor.hi().value() == interleave_factor:
         middle_loop_cursor = outer_loop_cursor
     else:
         proc = divide_loop(
@@ -468,9 +439,7 @@ def interleave_outer_loop_with_inner_loop(
 
 def fission_into_singles(proc, cursor):
     if not isinstance(cursor, (ForCursor, IfCursor)):
-        raise BLAS_SchedulingError(
-            f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}"
-        )
+        raise BLAS_SchedulingError(f"Got type {type(cursor)}, expected {ForCursor} or {IfCursor}")
 
     cursor = proc.forward(cursor)
 
@@ -536,9 +505,7 @@ def vectorize(
     rc=False,
 ):
     if tail in {"predicate", "cut_and_predicate"}:
-        return vectorize_predicate_tail(
-            proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc
-        )
+        return vectorize_predicate_tail(proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc)
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
     proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
@@ -565,9 +532,7 @@ def tile_loops_top_down(proc, loop_tile_pairs):
         outer_loop = loop_tile_pairs[i][0]
         tile_size = loop_tile_pairs[i][1]
         new_names = (outer_loop.name() + "o", outer_loop.name() + "i")
-        if isinstance(outer_loop.hi(), LiteralCursor) and (
-            outer_loop.hi().value() % tile_size == 0
-        ):
+        if isinstance(outer_loop.hi(), LiteralCursor) and (outer_loop.hi().value() % tile_size == 0):
             proc = divide_loop(proc, outer_loop, tile_size, new_names, perfect=True)
         else:
             proc = divide_loop(proc, outer_loop, tile_size, new_names, tail="cut")
@@ -579,9 +544,7 @@ def tile_loops_top_down(proc, loop_tile_pairs):
         tile_size = loop_tile_pairs[i][1]
         for j in range(i + 1, len(loop_tile_pairs)):
             loop = loop_tile_pairs[j][0]
-            proc = interleave_outer_loop_with_inner_loop(
-                proc, inner_loop, loop, tile_size, (False, False, False)
-            )
+            proc = interleave_outer_loop_with_inner_loop(proc, inner_loop, loop, tile_size, (False, False, False))
     return proc, [proc.forward(l) for l in inner_loops]
 
 
@@ -634,9 +597,7 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
     for depth, (loop, tile) in enumerate(loops[::-1]):
         if tail == "cut_and_guard":
             if tile is not None:
-                proc, (_, inner, tail_l) = divide_loop_(
-                    proc, loop, tile, tail=tail, rc=True
-                )
+                proc, (_, inner, tail_l) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
                 proc = simplify(proc)
                 proc = push_scope_in(proc, inner, depth + 1, tile)
                 proc = push_scope_in(proc, tail_l.body()[0], depth + 1, tile)
@@ -646,7 +607,7 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
             if tile is not None:
                 proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
                 proc = simplify(proc)
-                proc = push_scope_in(proc, inner.body()[0], guards + 1)
+                proc = push_scope_in(proc, inner.body()[0], depth + guards + 1)
                 guards += 1
                 proc = push_scope_in(proc, inner, depth + guards + 1, tile)
             else:
@@ -726,13 +687,11 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False)
 
     def my_stage_mem(proc, window):
         window = window_to_str(window)
-        return attempt(stage_mem, errs=(SchedulingError,))(
-            proc, block, window, new_buff_name, accum, rs=True
-        )
+        return attempt(stage_mem, errs=(SchedulingError,))(proc, block, window, new_buff_name, accum, rs=True)
 
     declaration = get_declaration(proc, block[0], buff)
     if not declaration.is_tensor():
-        return stage_mem(proc, block, buff, new_buff_name, accum)
+        return stage_mem_(proc, block, buff, new_buff_name, accum, rc=rc)
 
     # Start with the window as the entire buffer
     buff_window = [["0", eval_rng(dim, {})[0]] for dim in declaration.shape()]
@@ -927,18 +886,12 @@ def stage_expr_into_memory(proc, exprs, precision, memory):
     # No need to stage if expr is already assigned
     # to the target memory
     parent = expr.parent()
-    if (
-        isinstance(parent, AssignCursor)
-        and get_declaration(proc, expr, parent.name()).mem() is memory
-    ):
+    if isinstance(parent, AssignCursor) and get_declaration(proc, expr, parent.name()).mem() is memory:
         return proc, expr
 
     # No need to stage if expr is already read
     # from the target memory
-    if (
-        isinstance(expr, ReadCursor)
-        and get_declaration(proc, expr, expr.name()).mem() is memory
-    ):
+    if isinstance(expr, ReadCursor) and get_declaration(proc, expr, expr.name()).mem() is memory:
         return proc, expr
     return lift_rc(bind_and_set_expr, "bound_expr")(proc, exprs, precision, memory)
 
@@ -1061,11 +1014,7 @@ def bound_loop_by_if(proc, loop):
     if not isinstance(if_c.orelse(), InvalidCursor):
         raise BLAS_SchedulingError(err)
 
-    if (
-        not isinstance(if_c.cond().lhs(), ReadCursor)
-        or if_c.cond().lhs().name() != loop.name()
-        or if_c.cond().op() != "<"
-    ):
+    if not isinstance(if_c.cond().lhs(), ReadCursor) or if_c.cond().lhs().name() != loop.name() or if_c.cond().op() != "<":
         raise BLAS_SchedulingError(err)
 
     if_c = loop.body()[0]
@@ -1145,9 +1094,7 @@ def divide_loop_recursive(proc, loop, factor, tail="cut", rc=False):
     inner_loops = []
     tail_loop = loop
     while factor > 1:
-        proc, (outer, inner, tail_loop) = divide_loop_(
-            proc, tail_loop, factor, tail=tail, rc=True
-        )
+        proc, (outer, inner, tail_loop) = divide_loop_(proc, tail_loop, factor, tail=tail, rc=True)
         outer_loops.append(outer)
         inner_loops.append(inner)
         factor = factor // 2
@@ -1220,9 +1167,7 @@ def cse(proc, block, precision):
 
     # First do CSE on the buffer accesses
     accesses = filter_cursors(is_access)(proc, nodes)
-    accesses = filter_cursors(lambda p, c: is_stmt(p, c) or c.type().is_numeric())(
-        proc, accesses
-    )
+    accesses = filter_cursors(lambda p, c: is_stmt(p, c) or c.type().is_numeric())(proc, accesses)
 
     buff_map = {}
 
@@ -1251,9 +1196,7 @@ def dealias(proc, stmt):
     nodes = list(lrn(proc, stmt.rhs()))
 
     accesses = filter_cursors(is_access)(proc, nodes)
-    accesses = filter_cursors(lambda p, c: is_stmt(p, c) or c.type().is_numeric())(
-        proc, accesses
-    )
+    accesses = filter_cursors(lambda p, c: is_stmt(p, c) or c.type().is_numeric())(proc, accesses)
 
     buff_map = {}
     for access in accesses:
@@ -1291,11 +1234,7 @@ class cut_loop_and_unroll_cursors:
 
 def cut_loop_and_unroll(proc, loop, const, front=True, rc=False):
     loop = proc.forward(loop)
-    cut = (
-        FormattedExprStr("_ + 1", loop.lo())
-        if front
-        else FormattedExprStr("_ - 1", loop.hi())
-    )
+    cut = FormattedExprStr("_ + 1", loop.lo()) if front else FormattedExprStr("_ - 1", loop.hi())
     proc, (const_loop, loop) = cut_loop_(proc, loop, cut, rc=True)
     if not front:
         const_loop, loop = loop, const_loop
@@ -1370,9 +1309,7 @@ class pack_mem_cursors:
 
 
 def pack_mem(proc, block, buffer, shape, name=None, rc=False):
-    proc, (alloc, load, block, store) = auto_stage_mem(
-        proc, block, buffer, name, rc=True
-    )
+    proc, (alloc, load, block, store) = auto_stage_mem(proc, block, buffer, name, rc=True)
     bounds = [1] * len(alloc.shape())
 
     loop_nest = [[] for _ in alloc.shape()]

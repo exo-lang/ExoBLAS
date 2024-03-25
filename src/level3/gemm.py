@@ -29,31 +29,35 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     i_loop = gemm_compute.body()[0]
     j_loop = get_inner_loop(gemm_compute, i_loop)
     k_loop = get_inner_loop(gemm_compute, j_loop)
-    gemm_compute, cs = auto_stage_mem(
-        gemm_compute, k_loop, "C", "C_tile", accum=True, rc=1
-    )
+    gemm_compute, cs = auto_stage_mem(gemm_compute, k_loop, "C", "C_tile", accum=True, rc=1)
     gemm_compute = lift_reduce_constant(gemm_compute, cs.load.expand(0, 1))
     assign = gemm_compute.forward(cs.store).prev()
     gemm_compute = inline_assign(gemm_compute, assign)
     gemm_compute = set_memory(gemm_compute, cs.alloc, machine.mem_type)
 
-    gemm_compute = tile_loops_bottom_up(
-        gemm_compute, i_loop, (m_r, n_r, None), tail="guard"
-    )
-    gemm_compute = repeate_n(lift_scope)(gemm_compute, k_loop, n=2)
-    gemm_compute = divide_dim(gemm_compute, cs.alloc, 1, vw)
+    gemm_compute = tile_loops_bottom_up(gemm_compute, i_loop, (m_r, n_r, None), tail="guard")
 
-    loops = gemm_compute.find_loop("ii", many=True)
-    gemm_compute = apply(optimize_level_2)(
-        gemm_compute,
-        loops,
-        precision,
-        machine,
-        m_r,
-        n_r_fac,
-        instrs=[],
-        vec_tail="perfect",
-    )
+    gemm_compute = repeate_n(lift_scope)(gemm_compute, k_loop, n=4)
+    gemm_compute = divide_dim(gemm_compute, cs.alloc, 1, vw)
+    init_i, cmp_i, axpy_i = gemm_compute.find_loop("ii", many=True)
+    init_j, cmp_j, axpy_j = gemm_compute.find_loop("ji", many=True)
+    gemm_compute = vectorize(gemm_compute, init_j, vw, precision, machine.mem_type, tail="perfect")
+    gemm_compute = unroll_loop(gemm_compute, init_j)
+    gemm_compute, (o_cmp_j, i_cmp_j, _) = divide_loop_(gemm_compute, cmp_j, vw, tail="perfect", rc=True)
+    gemm_compute = simplify(gemm_compute)
+    gemm_compute, cursors = auto_stage_mem(gemm_compute, cmp_i, "packed_B", rc=True)
+    gemm_compute = set_memory(gemm_compute, cursors.alloc, machine.mem_type)
+    gemm_compute = simplify(gemm_compute)
+    gemm_compute = divide_dim(gemm_compute, cursors.alloc, 0, vw)
+    gemm_compute = vectorize(gemm_compute, cursors.load, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+    gemm_compute = unroll_loop(gemm_compute, cursors.load)
+    gemm_compute = vectorize(gemm_compute, i_cmp_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+    gemm_compute = unroll_loop(gemm_compute, i_cmp_j)
+    gemm_compute = unroll_loop(gemm_compute, o_cmp_j)
+    gemm_compute, alpah_cursors = auto_stage_mem(gemm_compute, axpy_j.body(), "alpha", rc=True)
+    gemm_compute = vectorize(gemm_compute, axpy_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+    gemm_compute = unroll_loop(gemm_compute, axpy_j)
+    gemm_compute = simplify(gemm_compute)
 
     def cut(proc, loop, cond, rng):
         loop = proc.forward(loop)
@@ -64,18 +68,20 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
 
     right_cond = lambda l, i: f"(N - {l.name()} * {n_r} + {vw - 1}) / {vw}"
     gemm_compute = cut(gemm_compute, j_loop, right_cond, range(1, n_r_fac))
+    gemm_compute = dce(gemm_compute)
+    gemm_compute = replace_all_stmts(gemm_compute, machine.get_instructions(precision))
+
+    gemm_compute = simplify(unroll_loops(gemm_compute))
     bottom_cond = lambda l, i: f"M - {l.name()} * {m_r}"
     gemm_compute = cut(gemm_compute, i_loop, bottom_cond, range(m_r, 1, -1))
 
     def rewrite(p):
-        p = dce(p)
-        p = replace_all_stmts(p, machine.get_instructions(precision))
-        p = simplify(p)
         try:
             p = delete_pass(p)
         except:
             pass
-        return p
+        p = dce(p)
+        return simplify(p)
 
     blocks = gemm_compute.find_loop("C_tile:_", many=True)
     for i, tile in enumerate(blocks):
@@ -111,28 +117,20 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     return gemm_mk_starter, simplify(gemm_mk)
 
 
-def schedule(
-    main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile
-):
-    gemm_macro = schedule_macro(
-        gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac
-    )
+def schedule(main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile):
+    gemm_macro = schedule_macro(gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac)
 
     gemm_tiled = main_gemm
     k_loop = get_inner_loop(gemm_tiled, get_inner_loop(gemm_tiled, i_loop))
     gemm_tiled = repeate_n(lift_scope)(gemm_tiled, k_loop, n=2)
     gemm_tiled = tile_loops_bottom_up(gemm_tiled, k_loop, [K_tile, M_tile, N_tile])
-    gemm_tiled = apply(repeate_n(reorder_loops))(
-        gemm_tiled, gemm_tiled.find_loop("ki", many=True), n=2
-    )
+    gemm_tiled = apply(repeate_n(reorder_loops))(gemm_tiled, gemm_tiled.find_loop("ki", many=True), n=2)
     gemm_tiled = replace_all_stmts(gemm_tiled, [gemm_macro])
 
     macro_calls = filter_cursors(is_call)(gemm_tiled, nlr_stmts(gemm_tiled))
     gemm_tiled = simplify(apply(inline_proc_and_wins)(gemm_tiled, macro_calls))
 
-    gemm_tiled = apply(hoist_from_loop)(
-        gemm_tiled, gemm_tiled.find_loop("jo", many=True)
-    )
+    gemm_tiled = apply(hoist_from_loop)(gemm_tiled, gemm_tiled.find_loop("jo", many=True))
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_A : _", many=True))
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_B : _", many=True))
     return simplify(gemm_tiled)
@@ -145,6 +143,4 @@ n_r = n_r_fac * C.Machine.vec_width("f32")
 M_tile = M_tile_fac * m_r
 N_tile = N_tile_fac * n_r
 
-variants_generator(schedule, ("f32",), (AVX2, AVX512))(
-    gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
-)
+variants_generator(schedule, ("f32",), (AVX2, AVX512))(gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())
