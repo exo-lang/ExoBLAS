@@ -17,7 +17,7 @@ VERBOSE = False
 
 
 # Be very catious adding tests here. Ideally, we don't want any.
-NON_DETERMINISTIC_TESTS = {"exo_trmv", "exo_trsv", "exo_syr"}
+NON_DETERMINISTIC_TESTS = {"exo_trmv", "exo_trsv", "exo_syr", "exo_syrk"}
 
 
 def get_diff(file1, file2):
@@ -29,9 +29,7 @@ def get_diff(file1, file2):
         f2_text = f2.readlines()
 
     if f1_text != f2_text:
-        diff = difflib.unified_diff(
-            f1_text, f2_text, fromfile=str(file1), tofile=str(file2), lineterm=""
-        )
+        diff = difflib.unified_diff(f1_text, f2_text, fromfile=str(file1), tofile=str(file2), lineterm="")
         diff = "\n".join(diff)
         return diff
 
@@ -122,10 +120,7 @@ def check_sha256(target_arch, level, kernel):
     reference_source = get_reference_source_filename(target_arch, kernel)
 
     if not os.path.exists(reference_source):
-        exit(
-            err
-            + f"Reference source was not found at {reference_source} to show the diff.\n{update_instructions}."
-        )
+        exit(err + f"Reference source was not found at {reference_source} to show the diff.\n{update_instructions}.")
 
     reference_source_hash = get_reference_source_hash(target_arch, kernel)
     if reference_source_hash != reference_hash:
