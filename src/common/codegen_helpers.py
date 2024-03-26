@@ -52,9 +52,7 @@ def generate_stride_1_proc(proc):
     proc = rename(proc, proc.name() + "_stride_1")
     for arg in proc.args():
         if arg.is_tensor():
-            proc = proc.add_assertion(
-                f"stride({arg.name()}, {len(arg.shape()) - 1}) == 1"
-            )
+            proc = proc.add_assertion(f"stride({arg.name()}, {len(arg.shape()) - 1}) == 1")
     return proc
 
 
@@ -110,15 +108,14 @@ def export_perf_features(kernel_name, perf_features):
         json.dump(perf_features, f, sort_keys=True, indent=4, separators=(",", ": "))
 
 
-def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Neon)):
+def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Neon), stage_scalars=True):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
         for precision in ("f32", "f64"):
             proc_variant = specialize_precision(proc, precision)
 
-            proc_variant = stage_scalar_args(proc_variant)
-
             stride_any = generate_stride_any_proc(proc_variant)
+            stride_any = stage_scalar_args(stride_any)
             stride_any = bind_builtins_args(stride_any, stride_any.body(), precision)
             export_exo_proc(globals, stride_any)
 
@@ -127,9 +124,8 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Ne
             algorithm = get_perf_features(stride_1)
 
             if precision in opt_precisions and C.Machine.mem_type in targets:
-                stride_1 = blas_op(
-                    stride_1, loop, precision, C.Machine, *args, **kwargs
-                )
+                stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args, **kwargs)
+            stride_1 = stage_scalar_args(stride_1)
             stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
             scheduled = get_perf_features(stride_1)
 

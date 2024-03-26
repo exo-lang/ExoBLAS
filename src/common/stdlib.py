@@ -670,8 +670,9 @@ def auto_stage_mem(proc, block, buff, new_buff_name=None, accum=False, rc=False)
         for loop in my_loops:
             lo_rng = eval_rng(loop.lo(), env)
             hi_rng = eval_rng(loop.hi(), env)
-            env[loop.name()] = (lo_rng[0], hi_rng[1])
-        window = tuple(eval_rng(idx, env) for idx in cursor.idx())
+            env[loop.name()] = (lo_rng[0], f"{hi_rng[1]} - 1")
+        extend_hi = lambda rng: (rng[0], f"{rng[1]} + 1") if rng[0] != rng[1] else rng
+        window = tuple(extend_hi(eval_rng(idx, env)) for idx in cursor.idx())
         return window
 
     def window_to_str(window):
