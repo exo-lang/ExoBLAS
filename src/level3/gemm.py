@@ -127,8 +127,7 @@ def schedule(main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
     gemm_tiled = apply(repeate_n(reorder_loops))(gemm_tiled, gemm_tiled.find_loop("ki", many=True), n=2)
     gemm_tiled = replace_all_stmts(gemm_tiled, [gemm_macro])
 
-    macro_calls = filter_cursors(is_call)(gemm_tiled, nlr_stmts(gemm_tiled))
-    gemm_tiled = simplify(apply(inline_proc_and_wins)(gemm_tiled, macro_calls))
+    gemm_tiled = inline_calls(gemm_tiled, subproc=gemm_macro[1])
 
     gemm_tiled = apply(hoist_from_loop)(gemm_tiled, gemm_tiled.find_loop("jo", many=True))
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_A : _", many=True))

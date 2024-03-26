@@ -72,9 +72,9 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-#define call_gemm_bench(lib, T, order, TransA, TransB)                   \
-  BENCHMARK(bench<lib, T>)                                               \
-      ->Name(level_3_kernel_name<lib, T, order, TransA, TransB>("gemm")) \
+#define call_gemm_bench(lib, T, order, TransA, TransB)                      \
+  BENCHMARK(bench<lib, T>)                                                  \
+      ->Name(level_3_kernel_name<lib, T>("gemm", order, 0, TransA, TransB)) \
       ->Apply(args<T, order, TransA, TransB>);
 
 #define call_gemm_bench_all(order, TransA, TransB)      \

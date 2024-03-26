@@ -63,9 +63,7 @@ def _count(proc, count_assign, count_reduce, upper=False):
             iter_sym = sp.Symbol(cursor.name(), integer=integers, positive=integers)
             new_syms[cursor.name()] = iter_sym
             stmts_ops = [get_stmt_ops(s, new_syms) for s in cursor.body()]
-            sums = [
-                sp.summation(s_ops, (iter_sym, lo, hi - one)) for s_ops in stmts_ops
-            ]
+            sums = [sp.summation(s_ops, (iter_sym, lo, hi - one)) for s_ops in stmts_ops]
             return sum(sums)
         else:
             return zero
@@ -74,14 +72,14 @@ def _count(proc, count_assign, count_reduce, upper=False):
     for arg in proc.args():
         if arg.type().is_indexable():
             is_size = arg.type() == ExoType.Size
-            syms[arg.name()] = sp.Symbol(
-                arg.name(), integer=integers, positive=is_size and integers
-            )
-
-    ops = get_stmt_ops(proc.body(), syms)
-    ops = sp.simplify(ops)
-    ops = sp.factor(ops)
-    return ops
+            syms[arg.name()] = sp.Symbol(arg.name(), integer=integers, positive=is_size and integers)
+    try:
+        ops = get_stmt_ops(proc.body(), syms)
+        ops = sp.simplify(ops)
+        ops = sp.factor(ops)
+        return ops
+    except:
+        return zero
 
 
 def count_flops(proc, upper=False):
@@ -91,9 +89,7 @@ def count_flops(proc, upper=False):
     def get_expr_ops(proc, expr):
         expr = proc.forward(expr)
         if isinstance(expr, (BuiltInFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
-            children_ops = sum(
-                get_expr_ops(proc, c) for c in get_numeric_children(proc, expr)
-            )
+            children_ops = sum(get_expr_ops(proc, c) for c in get_numeric_children(proc, expr))
             return one + children_ops
         return zero
 
@@ -140,9 +136,7 @@ def _count_mem_traffic(proc, loads, upper=False):
     def get_expr_loads(proc, expr):
         expr = proc.forward(expr)
         if isinstance(expr, (BuiltInFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
-            return sum(
-                get_expr_loads(proc, c) for c in get_numeric_children(proc, expr)
-            )
+            return sum(get_expr_loads(proc, c) for c in get_numeric_children(proc, expr))
         elif isinstance(expr, ReadCursor):
             return get_bytes_traffic(proc, expr)
         return zero
