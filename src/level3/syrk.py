@@ -110,24 +110,22 @@ def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
 
-    for var, max_var in zip(("N", "K"), (max_N, max_N, max_K)):
+    for var, max_var in zip(("N", "K"), (max_N, max_K)):
         mk = mk.add_assertion(f"{var} <= {max_var}")
 
     mk_starter = mk
     mk = rename(mk, mk.name() + "_mk")
     i_loop = mk.body()[0]
-
     packed_A_shape = ((0, max_N // m_r), (1, max_K), (0, m_r))
     mk, cursors = pack_mem(mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
     mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
     mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_pack")
 
     # TODO: This packing step is doing more work the necessary (packing the whole matrix, not jus triangle)
-    packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
-    mk, cursors = pack_mem(mk, i_loop, "A_alias", packed_B_shape, "packed_A_alias", rc=1)
+    packed_A_alias_shape = ((0, max_N // n_r), (1, max_K), (0, n_r))
+    mk, cursors = pack_mem(mk, i_loop, "A_alias", packed_A_alias_shape, "packed_A_alias", rc=1)
     mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
     mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_alias_pack")
-
     mk = extract_and_schedule(schedule_compute)(mk, i_loop, mk.name() + "_compute", precision, machine, m_r, n_r_fac)
     return mk_starter, simplify(mk)
 
@@ -164,6 +162,7 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile):
     tiled = apply(hoist_from_loop)(tiled, tiled.find_loop("jo", many=True))
     tiled = squash_buffers(tiled, tiled.find("packed_A : _", many=True))
     tiled = squash_buffers(tiled, tiled.find("packed_A_alias : _", many=True))
+
     return simplify(tiled)
 
 
