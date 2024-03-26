@@ -566,8 +566,7 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
     def push_scope_in(proc, scope, depth, size=None):
         scope = proc.forward(scope)
         allocs = list(filter_cursors(is_alloc)(proc, scope.body()))
-        proc = apply(attempt(parallelize_and_lift_alloc))(proc, allocs)
-
+        proc = apply(parallelize_and_lift_alloc)(proc, allocs)
         if const_allocs and size:
             proc = apply(lambda p, a: resize_dim(p, a, 0, size, 0))(proc, allocs)
 
@@ -1015,11 +1014,18 @@ def bound_loop_by_if(proc, loop):
     if not isinstance(if_c.orelse(), InvalidCursor):
         raise BLAS_SchedulingError(err)
 
-    if not isinstance(if_c.cond().lhs(), ReadCursor) or if_c.cond().lhs().name() != loop.name() or if_c.cond().op() != "<":
+    cond = if_c.cond()
+    cond_lhs = cond.lhs()
+
+    if is_read(proc, cond_lhs, loop.name()) and cond.op() == "<":
+        cut_point = FormattedExprStr("_ + _", loop.lo(), cond.rhs())
+    elif is_add(proc, cond_lhs) and is_read(proc, cond_lhs.lhs(), loop.name()) and cond.op() == "<":
+        cut_point = FormattedExprStr("_ + (_ - _)", loop.lo(), cond.rhs(), cond_lhs.rhs())
+    else:
         raise BLAS_SchedulingError(err)
 
     if_c = loop.body()[0]
-    proc = cut_loop(proc, loop, FormattedExprStr("_ + _", loop.lo(), if_c.cond().rhs()))
+    proc = cut_loop(proc, loop, cut_point)
     loop1 = proc.forward(loop)
     loop2 = loop1.next()
     proc = eliminate_dead_code(proc, loop1.body()[0])
@@ -1359,3 +1365,9 @@ def pack_mem(proc, block, buffer, shape, name=None, rc=False):
         load = load.as_block().expand(0, diff)
 
     return proc, pack_mem_cursors(alloc, load, block, store)
+
+
+def inline_calls(proc, block=InvalidCursor(), subproc=None):
+    calls = filter_cursors(is_call)(proc, nlr_stmts(proc, block), subproc)
+    proc = simplify(apply(inline_proc_and_wins)(proc, calls))
+    return proc

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 
 from exo import *
 from exo.stdlib.scheduling import *
@@ -73,7 +74,6 @@ def schedule_compute(compute, precision, machine, m_r, n_r_fac):
     compute = vectorize(compute, axpy_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
     compute = unroll_loop(compute, axpy_j)
     compute = simplify(compute)
-    print(compute)
 
     def cut(proc, loop, cond, rng):
         loop = proc.forward(loop)
@@ -106,22 +106,23 @@ def schedule_compute(compute, precision, machine, m_r, n_r_fac):
     return simplify(compute)
 
 
-def schedule_macro(mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac):
+def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
 
-    for var, max_var in zip(("N", "K"), (max_M, max_N, max_K)):
+    for var, max_var in zip(("N", "K"), (max_N, max_N, max_K)):
         mk = mk.add_assertion(f"{var} <= {max_var}")
 
     mk_starter = mk
     mk = rename(mk, mk.name() + "_mk")
     i_loop = mk.body()[0]
 
-    packed_A_shape = ((0, max_M // m_r), (1, max_K), (0, m_r))
+    packed_A_shape = ((0, max_N // m_r), (1, max_K), (0, m_r))
     mk, cursors = pack_mem(mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
     mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
     mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_pack")
 
+    # TODO: This packing step is doing more work the necessary (packing the whole matrix, not jus triangle)
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     mk, cursors = pack_mem(mk, i_loop, "A_alias", packed_B_shape, "packed_A_alias", rc=1)
     mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
@@ -131,33 +132,49 @@ def schedule_macro(mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac):
     return mk_starter, simplify(mk)
 
 
-def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile):
-    macro = schedule_macro(proc, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac)
+def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile):
+    macro = schedule_macro(proc, precision, machine, N_tile, K_tile, m_r, n_r_fac)
     tiled = proc
-    k_loop = get_inner_loop(tiled, get_inner_loop(tiled, i_loop))
+    j_loop = get_inner_loop(tiled, i_loop)
+    k_loop = get_inner_loop(tiled, j_loop)
     tiled = repeate_n(lift_scope)(tiled, k_loop, n=2)
-    tiled = tile_loops_bottom_up(tiled, k_loop, [K_tile, M_tile, N_tile])
+    tiled = tile_loops_bottom_up(tiled, k_loop, [K_tile, N_tile, N_tile], tail="guard")
+
+    # TODO: This code should be a part of tiling
+    def rewrite(proc, loop):
+        loop = proc.forward(loop)
+        cut_point = FormattedExprStr("_ - 1", loop.hi())
+        proc, (loop, loop2) = cut_loop_(proc, loop, cut_point, rc=True)
+        proc = simplify(shift_loop(proc, loop2, 0))
+        proc = attempt(unroll_loop)(proc, loop2)
+        return proc
+
+    tiled = apply(rewrite)(tiled, (j_loop, i_loop, k_loop))
+    tiled = simplify(dce(tiled))
+    tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ki", many=True))
+    tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ii", many=True))
+    tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ji", many=True))
+    tiled = simplify(delete_pass(tiled))
+
     tiled = apply(repeate_n(reorder_loops))(tiled, tiled.find_loop("ki", many=True), n=2)
     tiled = replace_all_stmts(tiled, [macro])
-
-    macro_calls = filter_cursors(is_call)(tiled, nlr_stmts(tiled))
-    tiled = simplify(apply(inline_proc_and_wins)(tiled, macro_calls))
+    tiled = inline_calls(tiled, subproc=macro[1])
+    # TODO: Replace gemm calls here...
 
     tiled = apply(hoist_from_loop)(tiled, tiled.find_loop("jo", many=True))
     tiled = squash_buffers(tiled, tiled.find("packed_A : _", many=True))
     tiled = squash_buffers(tiled, tiled.find("packed_A_alias : _", many=True))
-    print(tiled)
     return simplify(tiled)
 
 
-PARAMS = {AVX2: (2, 2, 66, 3, 512), AVX512: (6, 4, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
+# TODO: Figure out proper parameters
+PARAMS = {AVX2: (4, 3, 32, 512), AVX512: (6, 4, 44, 512), Neon: (1, 1, 1, 1)}
 
-m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
+m_r, n_r_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
 n_r = n_r_fac * C.Machine.vec_width("f32")
-M_tile = M_tile_fac * m_r
-N_tile = N_tile_fac * n_r
 
-variants_generator(schedule, ("f32",), (AVX2, AVX512))(syrk_rm_l, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())
-variants_generator(identity_schedule, ("f32",), (AVX2, AVX512))(
-    syrk_rm_u, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
-)
+lcm = (m_r * n_r) // math.gcd(m_r, n_r)
+N_tile = lcm
+
+variants_generator(schedule, ("f32",), (AVX2, AVX512))(syrk_rm_l, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())
+variants_generator(identity_schedule, ("f32",), (AVX2, AVX512))(syrk_rm_u, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())
