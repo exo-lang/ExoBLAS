@@ -2,56 +2,47 @@
 #include <cblas.h>
 
 #include "bench_ranges.h"
-#include "exo_gemm_wrapper.h"
+#include "exo_syrk_wrapper.h"
 #include "generate_buffer.h"
 #include "misc.h"
 
-generate_wrapper(gemm);
+generate_wrapper(syrk);
 
 template <typename lib, typename T>
 static void bench(benchmark::State &state) {
-  int M = state.range(0);
-  int N = state.range(1);
-  int K = state.range(2);
-  const enum CBLAS_ORDER order = (const enum CBLAS_ORDER)state.range(3);
-  const enum CBLAS_TRANSPOSE TransA =
-      (const enum CBLAS_TRANSPOSE)state.range(4);
-  const enum CBLAS_TRANSPOSE TransB =
-      (const enum CBLAS_TRANSPOSE)state.range(5);
-  const T alpha = state.range(6);
-  const int lda_diff = state.range(7);
-  const int ldb_diff = state.range(8);
-  const T beta = state.range(9);
-  const int ldc = N + state.range(10);
-  const int alignmentA = state.range(11);
-  const int alignmentB = state.range(12);
-  const int alignmentC = state.range(13);
+  int N = state.range(0);
+  int K = state.range(1);
+  const enum CBLAS_ORDER Order = (const enum CBLAS_ORDER)state.range(2);
+  const enum CBLAS_UPLO Uplo = (const enum CBLAS_UPLO)state.range(3);
+  const enum CBLAS_TRANSPOSE Trans = (const enum CBLAS_TRANSPOSE)state.range(4);
+  const T alpha = state.range(5);
+  const int lda_diff = state.range(6);
+  const T beta = state.range(7);
+  const int ldc = N + state.range(8);
+  const int alignmentA = state.range(9);
+  const int alignmentB = state.range(10);
+  const int alignmentC = state.range(11);
 
-  auto A_dims = get_dims(TransA, M, K, lda_diff);
+  auto A_dims = get_dims(Trans, N, K, lda_diff);
   const int lda = A_dims.second;
-  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second);
-  auto B_dims = get_dims(TransB, K, N, ldb_diff);
-  const int ldb = B_dims.second;
-  auto B = AlignedBuffer2D<T>(B_dims.first, B_dims.second);
-  auto C = AlignedBuffer2D<T>(M, N);
+  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second, alignmentA);
+  auto C = AlignedBuffer2D<T>(N, ldc, alignmentC);
 
   for (auto _ : state) {
-    gemm<lib, T>(CblasRowMajor, CblasNoTrans, CblasNoTrans, M, N, K, alpha,
-                 A.data(), lda, B.data(), ldb, beta, C.data(), ldc);
+    syrk<lib, T>(Order, Uplo, Trans, N, K, alpha, A.data(), lda, beta, C.data(),
+                 ldc);
   }
 }
 
-template <typename T, int order, int TransA, int TransB>
+template <typename T, int order, int Uplo, int Trans>
 static void args(benchmark::internal::Benchmark *b) {
-  auto add_arg = [&b](int M, int N, int K) {
-    return b->Args({M,
-                    N,
+  auto add_arg = [&b](int N, int K) {
+    return b->Args({N,
                     K,
                     order,
-                    TransA,
-                    TransB,
+                    Uplo,
+                    Trans,
                     17,
-                    0,
                     0,
                     1,
                     0,
@@ -61,27 +52,27 @@ static void args(benchmark::internal::Benchmark *b) {
                     {BENCH_TYPES::level_3_eq},
                     {type_bits<T>()}});
   };
-  b->ArgNames({"M", "N", "K", "order", "TransA", "TransB", "alpha", "lda_diff",
-               "ldb_diff", "beta", "ldc_diff", "alignmentA", "alignmentB",
-               "alignmentC", "bench_type", "precision"});
+  b->ArgNames({"N", "K", "order", "Uplo", "Trans", "alpha", "lda_diff", "beta",
+               "ldc_diff", "alignmentA", "alignmentC", "bench_type",
+               "precision"});
   for (int i = 1; i <= level_3_max_N; i *= 2) {
-    add_arg(i, i, i);
+    add_arg(i, i);
   }
   for (int i = 7; i <= level_3_max_N; i *= 7) {
-    add_arg(i, i, i);
+    add_arg(i, i);
   }
 }
 
-#define call_gemm_bench(lib, T, order, TransA, TransB)                   \
+#define call_syrk_bench(lib, T, order, Uplo, Trans)                      \
   BENCHMARK(bench<lib, T>)                                               \
-      ->Name(level_3_kernel_name<lib, T, order, TransA, TransB>("gemm")) \
-      ->Apply(args<T, order, TransA, TransB>);
+      ->Name(level_3_kernel_name<lib, T>("syrk", order, Uplo, Trans, 0)) \
+      ->Apply(args<T, order, Uplo, Trans>);
 
-#define call_gemm_bench_all(order, TransA, TransB)      \
-  call_gemm_bench(Exo, float, order, TransA, TransB);   \
-  call_gemm_bench(Cblas, float, order, TransA, TransB); \
-  call_gemm_bench(Exo, double, order, TransA, TransB);  \
-  call_gemm_bench(Cblas, double, order, TransA, TransB);
+#define call_syrk_bench_all(order, Uplo, Trans)      \
+  call_syrk_bench(Exo, float, order, Uplo, Trans);   \
+  call_syrk_bench(Cblas, float, order, Uplo, Trans); \
+  call_syrk_bench(Exo, double, order, Uplo, Trans);  \
+  call_syrk_bench(Cblas, double, order, Uplo, Trans);
 
-call_gemm_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_TRANSPOSE::CblasNoTrans,
+call_syrk_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_UPLO::CblasLower,
                     CBLAS_TRANSPOSE::CblasNoTrans);

@@ -15,18 +15,15 @@ std::pair<int, int> get_dims(const enum CBLAS_TRANSPOSE trans, int M, int N,
 
 class BLAS_lib {};
 
-class Exo : public BLAS_lib {};
+class Exo : public BLAS_lib {
+ public:
+  static std::string lib_name() { return "exo"; }
+};
 
-class Cblas : public BLAS_lib {};
-
-template <typename lib>
-std::string lib_name() {
-  if constexpr (std::is_same<lib, Exo>::value) {
-    return "exo";
-  } else {
-    return "cblas";
-  }
-}
+class Cblas : public BLAS_lib {
+ public:
+  static std::string lib_name() { return "cblas"; }
+};
 
 template <typename T>
 std::string type_prefix() {
@@ -46,49 +43,60 @@ int type_bits() {
   }
 }
 
+std::string order_symbol(int Order) {
+  if (Order == CBLAS_ORDER::CblasRowMajor) {
+    return "_rm";
+  } else if (Order == CBLAS_ORDER::CblasColMajor) {
+    return "_col";
+  } else {
+    return "";
+  }
+}
+
+std::string trans_symbol(int Trans) {
+  if (Trans == CBLAS_TRANSPOSE::CblasNoTrans) {
+    return "n";
+  } else if (Trans == CBLAS_TRANSPOSE::CblasTrans) {
+    return "t";
+  } else {
+    return "";
+  }
+}
+
+std::string uplo_symbol(int Uplo) {
+  if (Uplo == CBLAS_UPLO::CblasLower) {
+    return "l";
+  } else if (Uplo == CBLAS_UPLO::CblasUpper) {
+    return "u";
+  } else {
+    return "";
+  }
+}
+
 template <typename lib, typename T>
 std::string kernel_name(std::string kernel) {
-  return lib_name<lib>() + "_" + type_prefix<T>() + kernel;
+  return lib::lib_name() + "_" + type_prefix<T>() + kernel;
 }
 
 template <typename lib, typename T, int order, int TransA, int Uplo>
 std::string level_2_kernel_name(std::string kernel) {
-  auto name = lib_name<lib>() + "_" + type_prefix<T>() + kernel;
-  name += order == CBLAS_ORDER::CblasRowMajor ? "_rm" : "_col";
-  if constexpr (TransA + Uplo) {
-    name += "_";
-  }
-  if constexpr (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {
-    name += "n";
-  } else if constexpr (TransA == CBLAS_TRANSPOSE::CblasTrans) {
-    name += "t";
-  }
-
-  if constexpr (Uplo == CBLAS_UPLO::CblasUpper) {
-    name += "u";
-  } else if constexpr (Uplo == CBLAS_UPLO::CblasLower) {
-    name += "l";
-  }
+  auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
+  name += order_symbol(order);
+  name += Uplo + TransA ? "_" : "";
+  name += uplo_symbol(Uplo);
+  name += trans_symbol(TransA);
   return name;
 }
 
-template <typename lib, typename T, int order, int TransA, int TransB>
-std::string level_3_kernel_name(std::string kernel) {
-  auto name = lib_name<lib>() + "_" + type_prefix<T>() + kernel;
-  name += order == CBLAS_ORDER::CblasRowMajor ? "_rm" : "_col";
-  if constexpr (TransA + TransB) {
-    name += "_";
-  }
-  if constexpr (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {
-    name += "n";
-  } else if constexpr (TransA == CBLAS_TRANSPOSE::CblasTrans) {
-    name += "t";
-  }
-  if constexpr (TransB == CBLAS_TRANSPOSE::CblasNoTrans) {
-    name += "n";
-  } else if constexpr (TransB == CBLAS_TRANSPOSE::CblasTrans) {
-    name += "t";
-  }
+template <typename lib, typename T>
+std::string level_3_kernel_name(std::string kernel, int Order, int Uplo,
+                                int TransA, int TransB) {
+  auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
+  name += order_symbol(Order);
+  name += Uplo + TransA + TransB ? "_" : "";
+  name += uplo_symbol(Uplo);
+  name += trans_symbol(TransA);
+  name += trans_symbol(TransB);
   return name;
 }
 
