@@ -20,8 +20,7 @@ static void bench(benchmark::State &state) {
   const T beta = state.range(7);
   const int ldc = N + state.range(8);
   const int alignmentA = state.range(9);
-  const int alignmentB = state.range(10);
-  const int alignmentC = state.range(11);
+  const int alignmentC = state.range(10);
 
   auto A_dims = get_dims(Trans, N, K, lda_diff);
   const int lda = A_dims.second;
@@ -46,7 +45,6 @@ static void args(benchmark::internal::Benchmark *b) {
                     0,
                     1,
                     0,
-                    64,
                     64,
                     64,
                     {BENCH_TYPES::level_3_eq},
