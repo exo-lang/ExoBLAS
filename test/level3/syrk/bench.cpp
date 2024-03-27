@@ -61,9 +61,9 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-#define call_syrk_bench(lib, T, order, Uplo, Trans)                      \
-  BENCHMARK(bench<lib, T>)                                               \
-      ->Name(level_3_kernel_name<lib, T>("syrk", order, Uplo, Trans, 0)) \
+#define call_syrk_bench(lib, T, order, Uplo, Trans)                         \
+  BENCHMARK(bench<lib, T>)                                                  \
+      ->Name(level_3_kernel_name<lib, T>("syrk", order, 0, Uplo, Trans, 0)) \
       ->Apply(args<T, order, Uplo, Trans>);
 
 #define call_syrk_bench_all(order, Uplo, Trans)      \
