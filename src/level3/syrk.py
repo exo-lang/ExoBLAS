@@ -65,7 +65,9 @@ def schedule_compute(compute, precision, machine, m_r, n_r_fac):
     compute = set_memory(compute, cs.alloc, machine.mem_type)
 
     compute = tile_loops_bottom_up(compute, i_loop, (m_r, n_r, None), tail="guard")
-
+    compute = repeate_n(parallelize_and_lift_alloc)(compute, cs.alloc, n=4)
+    compute = fission(compute, compute.forward(cs.load).after(), n_lifts=4)
+    compute = fission(compute, compute.forward(cs.store).before(), n_lifts=4)
     compute = repeate_n(lift_scope)(compute, k_loop, n=4)
     compute = divide_dim(compute, cs.alloc, 1, vw)
     init_i, cmp_i, axpy_i = compute.find_loop("ii", many=True)
