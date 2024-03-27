@@ -2,57 +2,63 @@
 #include <cblas.h>
 
 #include "bench_ranges.h"
-#include "exo_syrk_wrapper.h"
+#include "exo_symm_wrapper.h"
 #include "generate_buffer.h"
 #include "misc.h"
 
-generate_wrapper(syrk);
+generate_wrapper(symm);
 
 template <typename lib, typename T>
 static void bench(benchmark::State &state) {
-  int N = state.range(0);
-  int K = state.range(1);
+  int M = state.range(0);
+  int N = state.range(1);
   const enum CBLAS_ORDER Order = (const enum CBLAS_ORDER)state.range(2);
-  const enum CBLAS_UPLO Uplo = (const enum CBLAS_UPLO)state.range(3);
-  const enum CBLAS_TRANSPOSE Trans = (const enum CBLAS_TRANSPOSE)state.range(4);
+  const enum CBLAS_SIDE Side = (const enum CBLAS_SIDE)state.range(3);
+  const enum CBLAS_UPLO Uplo = (const enum CBLAS_UPLO)state.range(4);
   const T alpha = state.range(5);
   const int lda_diff = state.range(6);
-  const T beta = state.range(7);
-  const int ldc = N + state.range(8);
-  const int alignmentA = state.range(9);
-  const int alignmentC = state.range(10);
+  const int ldb = N + state.range(7);
+  const T beta = state.range(8);
+  const int ldc = N + state.range(9);
+  const int alignmentA = state.range(10);
+  const int alignmentB = state.range(11);
+  const int alignmentC = state.range(12);
 
-  auto A_dims = get_dims(Trans, N, K, lda_diff);
-  const int lda = A_dims.second;
-  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second, alignmentA);
-  auto C = AlignedBuffer2D<T>(N, ldc, alignmentC);
+  int lda = Side == CBLAS_SIDE::CblasLeft ? M + lda_diff : N + lda_diff;
+  int ka = Side == CBLAS_SIDE::CblasLeft ? M : N;
+
+  auto A = AlignedBuffer2D<T>(ka, lda, alignmentA);
+  auto B = AlignedBuffer2D<T>(M, ldb, alignmentB);
+  auto C = AlignedBuffer2D<T>(M, ldc, alignmentC);
 
   for (auto _ : state) {
-    syrk<lib, T>(Order, Uplo, Trans, N, K, alpha, A.data(), lda, beta, C.data(),
-                 ldc);
+    symm<lib, T>(Order, Side, Uplo, M, N, alpha, A.data(), lda, B.data(), ldb,
+                 beta, C.data(), ldc);
   }
 }
 
-template <typename T, int order, int Uplo, int Trans>
+template <typename T, int order, int Side, int Uplo>
 static void args(benchmark::internal::Benchmark *b) {
-  auto add_arg = [&b](int N, int K) {
-    return b->Args({N,
-                    K,
+  auto add_arg = [&b](int M, int N) {
+    return b->Args({M,
+                    N,
                     order,
+                    Side,
                     Uplo,
-                    Trans,
                     17,
+                    0,
                     0,
                     1,
                     0,
                     64,
                     64,
+                    64,
                     {BENCH_TYPES::level_3_eq},
                     {type_bits<T>()}});
   };
-  b->ArgNames({"N", "K", "order", "Uplo", "Trans", "alpha", "lda_diff", "beta",
-               "ldc_diff", "alignmentA", "alignmentC", "bench_type",
-               "precision"});
+  b->ArgNames({"M", "N", "Order", "Side", "Uplo", "alpha", "lda_diff",
+               "ldb_diff", "beta", "ldc_diff", "alignmentA", "alignmentB",
+               "alignmentC", "bench_type", "precision"});
   for (int i = 1; i <= level_3_max_N; i *= 2) {
     add_arg(i, i);
   }
@@ -61,16 +67,16 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-#define call_syrk_bench(lib, T, order, Uplo, Trans)                      \
-  BENCHMARK(bench<lib, T>)                                               \
-      ->Name(level_3_kernel_name<lib, T>("syrk", order, Uplo, Trans, 0)) \
-      ->Apply(args<T, order, Uplo, Trans>);
+#define call_symm_bench(lib, T, Order, Side, Uplo)                         \
+  BENCHMARK(bench<lib, T>)                                                 \
+      ->Name(level_3_kernel_name<lib, T>("symm", Order, Side, Uplo, 0, 0)) \
+      ->Apply(args<T, Order, Side, Uplo>);
 
-#define call_syrk_bench_all(order, Uplo, Trans)      \
-  call_syrk_bench(Exo, float, order, Uplo, Trans);   \
-  call_syrk_bench(Cblas, float, order, Uplo, Trans); \
-  call_syrk_bench(Exo, double, order, Uplo, Trans);  \
-  call_syrk_bench(Cblas, double, order, Uplo, Trans);
+#define call_symm_bench_all(Order, Side, Uplo)      \
+  call_symm_bench(Exo, float, Order, Side, Uplo);   \
+  call_symm_bench(Cblas, float, Order, Side, Uplo); \
+  call_symm_bench(Exo, double, Order, Side, Uplo);  \
+  call_symm_bench(Cblas, double, Order, Side, Uplo);
 
-call_syrk_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_UPLO::CblasLower,
-                    CBLAS_TRANSPOSE::CblasNoTrans);
+call_symm_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_SIDE::CblasLeft,
+                    CBLAS_UPLO::CblasLower);
