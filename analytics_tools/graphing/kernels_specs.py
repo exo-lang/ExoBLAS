@@ -229,9 +229,7 @@ class gemv(level_2):
         return (self.M * self.N + self.M + self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return (self.M * self.N + self.M * self.N / 4 + self.M) * get_elem_bytes(
-            self.precision
-        )
+        return (self.M * self.N + self.M * self.N / 4 + self.M) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
         if self.TransA == CBLAS_TRANSPOSE.CblasNoTrans:
@@ -262,14 +260,10 @@ class trmv(level_2):
         return (self.M * self.N + self.M) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return ((self.N * (self.N + 1)) / 2 * (1 + 1 / 4) + self.N) * get_elem_bytes(
-            self.precision
-        )
+        return ((self.N * (self.N + 1)) / 2 * (1 + 1 / 4) + self.N) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
-        return ((self.N * (self.N + 1)) / 2 * (1 / 4) + self.N) * get_elem_bytes(
-            self.precision
-        )
+        return ((self.N * (self.N + 1)) / 2 * (1 / 4) + self.N) * get_elem_bytes(self.precision)
 
 
 class symv(level_2):
@@ -280,14 +274,10 @@ class symv(level_2):
         return (self.N * self.N + 2 * self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return (
-            (self.N * (self.N + 1)) / 2 * (1 + 1 / 4 + 1 / 4) + self.N
-        ) * get_elem_bytes(self.precision)
+        return ((self.N * (self.N + 1)) / 2 * (1 + 1 / 4 + 1 / 4) + self.N) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
-        return ((self.N * (self.N + 1)) / 2 * (1 / 4) + self.N) * get_elem_bytes(
-            self.precision
-        )
+        return ((self.N * (self.N + 1)) / 2 * (1 / 4) + self.N) * get_elem_bytes(self.precision)
 
 
 class syr(level_2):
@@ -298,9 +288,7 @@ class syr(level_2):
         return (self.N * self.N + self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return ((self.N * (self.N + 1)) / 2 * (1 + 1 / 4)) * get_elem_bytes(
-            self.precision
-        )
+        return ((self.N * (self.N + 1)) / 2 * (1 + 1 / 4)) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
         return ((self.N * (self.N + 1)) / 2) * get_elem_bytes(self.precision)
@@ -314,9 +302,7 @@ class syr2(level_2):
         return (self.N * self.N + self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return ((self.N * (self.N + 1)) / 2 * (1 + 1 / 4)) * get_elem_bytes(
-            self.precision
-        )
+        return ((self.N * (self.N + 1)) / 2 * (1 + 1 / 4)) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
         return ((self.N * (self.N + 1)) / 2) * get_elem_bytes(self.precision)
@@ -362,12 +348,43 @@ class gemm(level_3):
         return 2 * self.M * self.N * self.K
 
     def get_input_bytes(self):
-        return (self.M * self.K + self.K * self.N + self.M * self.N) * get_elem_bytes(
-            self.precision
-        )
+        return (self.M * self.K + self.K * self.N + self.M * self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
         return self.M * self.N * self.K * 2 * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
         return self.M * self.N * get_elem_bytes(self.precision)
+
+
+class syrk(level_3):
+    def __init__(self, bench):
+        super().__init__(bench)
+
+        run_name = bench["run_name"]
+        run_dict = run_name_to_dict(run_name)
+
+        self.N = int(run_dict["N"])
+        self.K = int(run_dict["K"])
+
+    def get_size_param(self):
+        return self.K
+
+    def get_cmp_tuple_(self):
+        return (self.N, self.K)
+
+    def get_graph_description(self):
+        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+            return "N = K"
+
+    def get_flops(self):
+        return self.N * (self.N - 1) * self.K
+
+    def get_input_bytes(self):
+        return self.N * self.K * 2 * get_elem_bytes(self.precision)
+
+    def get_loaded_bytes(self):
+        return self.N * (self.N - 1) * self.K * 2 * get_elem_bytes(self.precision)
+
+    def get_stored_bytes(self):
+        return self.N * self.N * get_elem_bytes(self.precision)
