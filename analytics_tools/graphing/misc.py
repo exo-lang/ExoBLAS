@@ -42,9 +42,14 @@ level_3_bench_types = {BENCH_TYPE.level_3_eq.value}
 
 # From netlib `cblas.h`
 class CBLAS_TRANSPOSE(Enum):
-    CblasNoTrans = (111,)
-    CblasTrans = (112,)
+    CblasNoTrans = 111
+    CblasTrans = 112
     CblasConjTrans = 113
+
+
+class CBLAS_SIDE(Enum):
+    CblasLeft = 141
+    CblasRight = 142
 
 
 __all__ = [
@@ -57,4 +62,5 @@ __all__ = [
     "level_2_bench_types",
     "level_3_bench_types",
     "CBLAS_TRANSPOSE",
+    "CBLAS_SIDE",
 ]

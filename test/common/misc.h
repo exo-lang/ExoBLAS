@@ -53,6 +53,16 @@ std::string order_symbol(int Order) {
   }
 }
 
+std::string side_symbol(int Side) {
+  if (Side == CBLAS_SIDE::CblasLeft) {
+    return "l";
+  } else if (Side == CBLAS_SIDE::CblasRight) {
+    return "r";
+  } else {
+    return "";
+  }
+}
+
 std::string trans_symbol(int Trans) {
   if (Trans == CBLAS_TRANSPOSE::CblasNoTrans) {
     return "n";
@@ -89,11 +99,12 @@ std::string level_2_kernel_name(std::string kernel) {
 }
 
 template <typename lib, typename T>
-std::string level_3_kernel_name(std::string kernel, int Order, int Uplo,
-                                int TransA, int TransB) {
+std::string level_3_kernel_name(std::string kernel, int Order, int Side,
+                                int Uplo, int TransA, int TransB) {
   auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
   name += order_symbol(Order);
-  name += Uplo + TransA + TransB ? "_" : "";
+  name += Side + Uplo + TransA + TransB ? "_" : "";
+  name += side_symbol(Side);
   name += uplo_symbol(Uplo);
   name += trans_symbol(TransA);
   name += trans_symbol(TransB);

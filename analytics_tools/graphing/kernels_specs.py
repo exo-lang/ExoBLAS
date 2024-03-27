@@ -232,7 +232,7 @@ class gemv(level_2):
         return (self.M * self.N + self.M * self.N / 4 + self.M) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
-        if self.TransA == CBLAS_TRANSPOSE.CblasNoTrans:
+        if self.TransA == CBLAS_TRANSPOSE.CblasNoTrans.value:
             return self.M * get_elem_bytes(self.precision)
         else:
             return ((self.M * self.N) // 4) * get_elem_bytes(self.precision)
@@ -322,18 +322,18 @@ class level_3(kernel):
 
         self.precision = run_dict["precision"]
 
+        self.M = int(run_dict.get("M", 0))
+        self.N = int(run_dict.get("N", 0))
+        self.K = int(run_dict.get("K", 0))
+        self.Order = int(run_dict.get("Order", 0))
+        self.Side = int(run_dict.get("Side", 0))
+        self.Uplo = int(run_dict.get("Uplo", 0))
+        self.TransA = int(run_dict.get("TransA", 0))
+        self.TransB = int(run_dict.get("TransB", 0))
+        self.Trans = int(run_dict.get("Trans", 0))
+
 
 class gemm(level_3):
-    def __init__(self, bench):
-        super().__init__(bench)
-
-        run_name = bench["run_name"]
-        run_dict = run_name_to_dict(run_name)
-
-        self.M = int(run_dict["M"])
-        self.N = int(run_dict["N"])
-        self.K = int(run_dict["K"])
-
     def get_size_param(self):
         return self.K
 
@@ -351,22 +351,47 @@ class gemm(level_3):
         return (self.M * self.K + self.K * self.N + self.M * self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return self.M * self.N * self.K * 2 * get_elem_bytes(self.precision)
+        return (self.get_flops() + self.M * self.N) * get_elem_bytes(self.precision)
+
+    def get_stored_bytes(self):
+        return self.M * self.N * get_elem_bytes(self.precision)
+
+
+class symm(level_3):
+    def get_size_param(self):
+        return self.N
+
+    def get_cmp_tuple_(self):
+        return (self.M, self.N)
+
+    def get_graph_description(self):
+        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+            return "M = N"
+
+    def get_flops(self):
+        print(self.M)
+        print(self.N)
+        value = 2 * self.M * self.N
+        if self.Side == CBLAS_SIDE.CblasLeft.value:
+            return value * self.M
+        else:
+            return value * self.N
+
+    def get_input_bytes(self):
+        value = 2 * self.M * self.N
+        if self.Side == CBLAS_SIDE.CblasLeft.value:
+            return value + self.M**2
+        else:
+            return value + self.N**2
+
+    def get_loaded_bytes(self):
+        return (self.get_flops() + self.M * self.N) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
         return self.M * self.N * get_elem_bytes(self.precision)
 
 
 class syrk(level_3):
-    def __init__(self, bench):
-        super().__init__(bench)
-
-        run_name = bench["run_name"]
-        run_dict = run_name_to_dict(run_name)
-
-        self.N = int(run_dict["N"])
-        self.K = int(run_dict["K"])
-
     def get_size_param(self):
         return self.K
 
