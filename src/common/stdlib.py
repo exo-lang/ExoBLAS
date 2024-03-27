@@ -565,6 +565,8 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
 
     def push_scope_in(proc, scope, depth, size=None):
         scope = proc.forward(scope)
+        if get_depth(proc, scope) <= depth:
+            return proc
         allocs = list(filter_cursors(is_alloc)(proc, scope.body()))
         proc = apply(parallelize_and_lift_alloc)(proc, allocs)
         if const_allocs and size:
@@ -579,8 +581,6 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
             scopes += [scope1, scope2]
 
         for scope in scopes:
-            if get_depth(proc, scope) <= depth:
-                continue
             scope = proc.forward(scope)
             child = scope.body()[0]
             if isinstance(child, (ForCursor, IfCursor)):
@@ -592,25 +592,26 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
             proc = push_scope_in(proc, forwarded_scope, depth, size)
         return proc
 
+    min_depth = max(get_depth(proc, s) for s in loops[-1][0].body())
     guards = 0
     for depth, (loop, tile) in enumerate(loops[::-1]):
         if tail == "cut_and_guard":
             if tile is not None:
                 proc, (_, inner, tail_l) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
                 proc = simplify(proc)
-                proc = push_scope_in(proc, inner, depth + 1, tile)
-                proc = push_scope_in(proc, tail_l.body()[0], depth + 1, tile)
+                proc = push_scope_in(proc, inner, depth + min_depth + 1, tile)
+                proc = push_scope_in(proc, tail_l.body()[0], depth + min_depth + 1, tile)
             else:
-                proc = push_scope_in(proc, loop, depth + 1)
+                proc = push_scope_in(proc, loop, depth + min_depth + 1)
         elif tail == "guard":
             if tile is not None:
                 proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
                 proc = simplify(proc)
-                proc = push_scope_in(proc, inner.body()[0], depth + guards + 1)
+                proc = push_scope_in(proc, inner.body()[0], depth + guards + min_depth + 1)
                 guards += 1
-                proc = push_scope_in(proc, inner, depth + guards + 1, tile)
+                proc = push_scope_in(proc, inner, depth + guards + min_depth + 1, tile)
             else:
-                proc = push_scope_in(proc, loop, depth + guards + 1)
+                proc = push_scope_in(proc, loop, depth + guards + min_depth + 1)
     return proc
 
 
@@ -1298,6 +1299,7 @@ def squash_buffers(proc, buffers):
                 proc = lift_alloc(proc, b)
         proc = squash(proc, buffers[1:], buffer)
         max_d = max(depths)
+    proc = squash(proc, buffers[1:], buffer)
     return proc
 
 
