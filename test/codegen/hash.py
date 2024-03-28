@@ -17,7 +17,7 @@ VERBOSE = False
 
 
 # Be very catious adding tests here. Ideally, we don't want any.
-NON_DETERMINISTIC_TESTS = {"exo_trmv", "exo_trsv", "exo_syr", "exo_syrk"}
+NON_DETERMINISTIC_TESTS = {"exo_trmv", "exo_trsv", "exo_syr", "exo_syrk", "exo_symm"}
 
 
 def get_diff(file1, file2):

@@ -9,74 +9,41 @@ import exo_blas_config as C
 from stdlib import *
 from codegen_helpers import *
 from blaslib import *
+from cblas_enums import *
 
 
 @proc
-def symm_rm_ll(M: size, N: size, alpha: R, A: [R][M, M], B: [R][M, N], C: [R][M, N]):
-    assert stride(A, 1) == 1
-    assert stride(B, 1) == 1
-    assert stride(C, 1) == 1
-
+def symm_rm(Side: size, Uplo: size, M: size, N: size, alpha: R, Aleft: [R][M, M], Aright: [R][N, N], B: [R][M, N], C: [R][M, N]):
     for i in seq(0, M):
         for j in seq(0, N):
-            for k in seq(0, M):
-                a_val: R
-                if k < i + 1:
-                    a_val = A[i, k]
-                else:
-                    a_val = A[k, i]
-                C[i, j] += alpha * (a_val * B[k, j])
-
-
-@proc
-def symm_rm_lu(M: size, N: size, alpha: R, A: [R][M, M], B: [R][M, N], C: [R][M, N]):
-    assert stride(A, 1) == 1
-    assert stride(B, 1) == 1
-    assert stride(C, 1) == 1
-
-    for i in seq(0, M):
-        for j in seq(0, N):
-            for k in seq(0, M):
-                a_val: R
-                if k < i + 1:
-                    a_val = A[k, i]
-                else:
-                    a_val = A[i, k]
-                C[i, j] += alpha * (a_val * B[k, j])
-
-
-@proc
-def symm_rm_rl(M: size, N: size, alpha: R, A: [R][N, N], B: [R][M, N], C: [R][M, N]):
-    assert stride(A, 1) == 1
-    assert stride(B, 1) == 1
-    assert stride(C, 1) == 1
-
-    for i in seq(0, M):
-        for j in seq(0, N):
-            for k in seq(0, N):
-                a_val: R
-                if j < k + 1:
-                    a_val = A[k, j]
-                else:
-                    a_val = A[j, k]
-                C[i, j] += alpha * (B[i, k] * a_val)
-
-
-@proc
-def symm_rm_ru(M: size, N: size, alpha: R, A: [R][N, N], B: [R][M, N], C: [R][M, N]):
-    assert stride(A, 1) == 1
-    assert stride(B, 1) == 1
-    assert stride(C, 1) == 1
-
-    for i in seq(0, M):
-        for j in seq(0, N):
-            for k in seq(0, N):
-                a_val: R
-                if j < k + 1:
-                    a_val = A[j, k]
-                else:
-                    a_val = A[k, j]
-                C[i, j] += alpha * (B[i, k] * a_val)
+            if Side == CblasLeftValue:
+                for k in seq(0, M):
+                    a_val: R
+                    if Uplo == CblasUpperValue:
+                        if k < i + 1:
+                            a_val = Aleft[k, i]
+                        else:
+                            a_val = Aleft[i, k]
+                    else:
+                        if k < i + 1:
+                            a_val = Aleft[i, k]
+                        else:
+                            a_val = Aleft[k, i]
+                    C[i, j] += alpha * (a_val * B[k, j])
+            else:
+                for k in seq(0, N):
+                    a_val: R
+                    if Uplo == CblasUpperValue:
+                        if j < k + 1:
+                            a_val = Aright[j, k]
+                        else:
+                            a_val = Aright[k, j]
+                    else:
+                        if j < k + 1:
+                            a_val = Aright[k, j]
+                        else:
+                            a_val = Aright[j, k]
+                    C[i, j] += alpha * (B[i, k] * a_val)
 
 
 @proc
@@ -203,15 +170,20 @@ def schedule(main_symm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
     return simplify(symm_tiled)
 
 
-PARAMS = {AVX2: (2, 2, 66, 3, 512), AVX512: (6, 4, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
+def schedule_symm(symm, loop, precision, machine, Side=None, Uplo=None):
+    PARAMS = {AVX2: (2, 2, 66, 3, 512), AVX512: (6, 4, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
 
-m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
-n_r = n_r_fac * C.Machine.vec_width("f32")
+    m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[machine.mem_type]
+    n_r = n_r_fac * machine.vec_width("f32")
 
-M_tile = M_tile_fac * m_r
-N_tile = N_tile_fac * n_r
+    M_tile = M_tile_fac * m_r
+    N_tile = N_tile_fac * n_r
 
-variants_generator(schedule, ("f32",), (AVX2, AVX512))(symm_rm_ll, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())
-variants_generator(identity_schedule)(symm_rm_lu, "i", globals=globals())
-variants_generator(identity_schedule)(symm_rm_rl, "i", globals=globals())
-variants_generator(identity_schedule)(symm_rm_ru, "i", globals=globals())
+    if Side == CblasRightValue or Uplo == CblasUpperValue:
+        return symm
+
+    symm = schedule(symm, loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile)
+    return symm
+
+
+variants_generator(schedule_symm, ("f32",), (AVX2, AVX512))(symm_rm, "i", globals=globals())
