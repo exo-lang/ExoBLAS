@@ -369,8 +369,6 @@ class symm(level_3):
             return "M = N"
 
     def get_flops(self):
-        print(self.M)
-        print(self.N)
         value = 2 * self.M * self.N
         if self.Side == CBLAS_SIDE.CblasLeft.value:
             return value * self.M

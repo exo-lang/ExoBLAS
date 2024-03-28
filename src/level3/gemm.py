@@ -36,7 +36,9 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = set_memory(gemm_compute, cs.alloc, machine.mem_type)
 
     gemm_compute = tile_loops_bottom_up(gemm_compute, i_loop, (m_r, n_r, None), tail="guard")
-
+    gemm_compute = repeate_n(parallelize_and_lift_alloc)(gemm_compute, cs.alloc, n=4)
+    gemm_compute = fission(gemm_compute, gemm_compute.forward(cs.load).after(), n_lifts=4)
+    gemm_compute = fission(gemm_compute, gemm_compute.forward(cs.store).before(), n_lifts=4)
     gemm_compute = repeate_n(lift_scope)(gemm_compute, k_loop, n=4)
     gemm_compute = divide_dim(gemm_compute, cs.alloc, 1, vw)
     init_i, cmp_i, axpy_i = gemm_compute.find_loop("ii", many=True)
