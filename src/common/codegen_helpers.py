@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import dataclass
 from pathlib import Path
 import json
 
@@ -15,6 +16,7 @@ from higher_order import *
 import exo_blas_config as C
 from perf_features import *
 from stdlib import *
+from cblas_enums import *
 
 
 def specialize_precision(proc, precision, all_buffs=True):
@@ -54,6 +56,63 @@ def generate_stride_1_proc(proc):
         if arg.is_tensor():
             proc = proc.add_assertion(f"stride({arg.name()}, {len(arg.shape()) - 1}) == 1")
     return proc
+
+
+@dataclass
+class paramseter_variants_cursors:
+    calls: List
+
+    def __iter__(self):
+        yield self.calls
+
+
+def generate_parameters_variants(proc, rc=False):
+    # Extract Relevant Parameters
+    params = []
+    for param in proc.args():
+        name = param.name()
+        if name in Cblas_params_defaults:
+            params.append(name)
+
+    if not params:
+        if not rc:
+            return proc
+        return proc, paramseter_variants_cursors([])
+
+    # Eliminate any parameter control from within the computation
+    for param in params[::-1]:
+        value = Cblas_params_defaults[param]
+        proc = specialize(proc, proc.body(), f"{param} == {value}")
+    proc = dce(simplify(proc))
+
+    calls = []
+
+    # Extract the different cases as their own subprocs and schedule them
+    def traverse(proc, block, params, suffix, mapping):
+        block = proc.forward(block)
+        if len(params) == 0:
+            name = proc.name() + "_" + suffix
+            proc, _ = extract_subproc(proc, block, name)
+            call = proc.forward(block)[0]
+            calls.append((call, mapping))
+            return proc
+
+        if_c = block[0]
+        param = params[0]
+        param_value = Cblas_params_defaults[param]
+
+        letter = Cblas_suffix[param_value]
+        proc = traverse(proc, if_c.body(), params[1:], suffix + letter, mapping | {param: param_value})
+
+        letter = Cblas_suffix[param_value + 1]
+        proc = traverse(proc, if_c.orelse(), params[1:], suffix + letter, mapping | {param: param_value + 1})
+        return proc
+
+    proc = traverse(proc, proc.body(), params, "", {})
+    if not rc:
+        return proc
+
+    return proc, paramseter_variants_cursors(calls)
 
 
 def export_exo_proc(globals, proc):
@@ -108,7 +167,7 @@ def export_perf_features(kernel_name, perf_features):
         json.dump(perf_features, f, sort_keys=True, indent=4, separators=(",", ": "))
 
 
-def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Neon), stage_scalars=True):
+def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Neon)):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
         for precision in ("f32", "f64"):
@@ -117,14 +176,25 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Ne
             stride_any = generate_stride_any_proc(proc_variant)
             stride_any = stage_scalar_args(stride_any)
             stride_any = bind_builtins_args(stride_any, stride_any.body(), precision)
+            stride_any = generate_parameters_variants(stride_any)
             export_exo_proc(globals, stride_any)
 
             stride_1 = generate_stride_1_proc(proc_variant)
-            loop = stride_1.find_loop(loop_name)
             algorithm = get_perf_features(stride_1)
 
+            stride_1, (calls,) = generate_parameters_variants(stride_1, rc=True)
             if precision in opt_precisions and C.Machine.mem_type in targets:
-                stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args, **kwargs)
+                if not calls:
+                    loop = stride_1.find_loop(loop_name)
+                    stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args, **kwargs)
+                else:
+                    for (call, mapping) in calls:
+                        call = stride_1.forward(call)
+                        subproc = call.subproc()
+                        loop = subproc.find_loop(loop_name)
+                        subproc = blas_op(subproc, loop, precision, C.Machine, *args, **kwargs, **mapping)
+                        stride_1 = call_eqv(stride_1, call, subproc)
+
             stride_1 = stage_scalar_args(stride_1)
             stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
             scheduled = get_perf_features(stride_1)
