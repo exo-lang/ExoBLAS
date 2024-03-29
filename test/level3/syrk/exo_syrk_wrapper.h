@@ -3,6 +3,7 @@
 #include <cblas.h>
 
 #include "error.h"
+#include "exo_mscal.h"
 #include "exo_syrk.h"
 
 #define exo_syrk(type, prefix, exo_type)                                    \
@@ -17,9 +18,9 @@
     if (Trans != CBLAS_TRANSPOSE::CblasNoTrans) {                           \
       throw UnsupportedParameterException("syrk::Trans must be nonTrans");  \
     }                                                                       \
-    if (beta != 1.0) {                                                      \
-      throw UnsupportedParameterException("syrk::beta must be 1.0");        \
-    }                                                                       \
+    exo_##prefix##trmscal_rm_stride_1(                                      \
+        nullptr, Uplo, N, &beta,                                            \
+        exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                  \
     if (Uplo == CBLAS_UPLO::CblasLower) {                                   \
       exo_##prefix##syrk_rm_l_stride_1(                                     \
           nullptr, N, K, &alpha,                                            \

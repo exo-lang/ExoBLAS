@@ -49,7 +49,7 @@ static void args(benchmark::internal::Benchmark *b) {
                     17,
                     0,
                     0,
-                    1,
+                    18,
                     0,
                     64,
                     64,
