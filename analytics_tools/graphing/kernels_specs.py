@@ -411,3 +411,27 @@ class syrk(level_3):
 
     def get_stored_bytes(self):
         return self.N * self.N * get_elem_bytes(self.precision)
+
+
+class syr2k(level_3):
+    def get_size_param(self):
+        return self.K
+
+    def get_cmp_tuple_(self):
+        return (self.N, self.K)
+
+    def get_graph_description(self):
+        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+            return "N = K"
+
+    def get_flops(self):
+        return 2 * self.N * (self.N - 1) * self.K
+
+    def get_input_bytes(self):
+        return self.N * self.K * 2 * get_elem_bytes(self.precision)
+
+    def get_loaded_bytes(self):
+        return 2 * self.N * (self.N - 1) * self.K * 2 * get_elem_bytes(self.precision)
+
+    def get_stored_bytes(self):
+        return self.N * self.N * get_elem_bytes(self.precision)
