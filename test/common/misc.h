@@ -88,10 +88,10 @@ std::string kernel_name(std::string kernel) {
   return lib::lib_name() + "_" + type_prefix<T>() + kernel;
 }
 
-template <typename lib, typename T, int order, int TransA, int Uplo>
-std::string level_2_kernel_name(std::string kernel) {
+template <typename lib, typename T>
+std::string kernel_name(std::string kernel, int Order, int TransA, int Uplo) {
   auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
-  name += order_symbol(order);
+  name += order_symbol(Order);
   name += Uplo + TransA ? "_" : "";
   name += uplo_symbol(Uplo);
   name += trans_symbol(TransA);
@@ -99,8 +99,8 @@ std::string level_2_kernel_name(std::string kernel) {
 }
 
 template <typename lib, typename T>
-std::string level_3_kernel_name(std::string kernel, int Order, int Side,
-                                int Uplo, int TransA, int TransB) {
+std::string kernel_name(std::string kernel, int Order, int Side, int Uplo,
+                        int TransA, int TransB) {
   auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
   name += order_symbol(Order);
   name += Side + Uplo + TransA + TransB ? "_" : "";
@@ -111,13 +111,15 @@ std::string level_3_kernel_name(std::string kernel, int Order, int Side,
   return name;
 }
 
-#define call_bench(lib, T, kernel) \
-  BENCHMARK(bench<lib, T>)->Name(kernel_name<lib, T>(#kernel))->Apply(args<T>);
-#define call_bench_all(kernel)      \
-  call_bench(Exo, float, kernel);   \
-  call_bench(Exo, double, kernel);  \
-  call_bench(Cblas, float, kernel); \
-  call_bench(Cblas, double, kernel);
+#define call_bench(lib, T, kernel, ...)                 \
+  BENCHMARK(bench<lib, T>)                              \
+      ->Name(kernel_name<lib, T>(#kernel, __VA_ARGS__)) \
+      ->Apply(args<T, __VA_ARGS__>);
+#define call_bench_all(kernel, ...)              \
+  call_bench(Exo, float, kernel, __VA_ARGS__);   \
+  call_bench(Exo, double, kernel, __VA_ARGS__);  \
+  call_bench(Cblas, float, kernel, __VA_ARGS__); \
+  call_bench(Cblas, double, kernel, __VA_ARGS__);
 
 #define generate_wrapper_ret(kernel)                    \
   template <typename lib, typename T, typename... Args> \

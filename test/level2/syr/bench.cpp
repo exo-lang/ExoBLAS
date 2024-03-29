@@ -31,7 +31,7 @@ static void bench(benchmark::State &state) {
   }
 }
 
-template <typename T, int order, int Uplo>
+template <typename T, int order, int TransA, int Uplo>
 static void args(benchmark::internal::Benchmark *b) {
   auto add_arg = [&b](int N) {
     return b->Args({N,
@@ -55,16 +55,5 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-#define call_syr_bench(lib, T, order, Uplo)                      \
-  BENCHMARK(bench<lib, T>)                                       \
-      ->Name(level_2_kernel_name<lib, T, order, 0, Uplo>("syr")) \
-      ->Apply(args<T, order, Uplo>);
-
-#define call_syr_bench_all(order, Uplo)      \
-  call_syr_bench(Exo, float, order, Uplo);   \
-  call_syr_bench(Cblas, float, order, Uplo); \
-  call_syr_bench(Exo, double, order, Uplo);  \
-  call_syr_bench(Cblas, double, order, Uplo);
-
-call_syr_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_UPLO::CblasUpper);
-call_syr_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_UPLO::CblasLower);
+call_bench_all(syr, CblasRowMajor, 0, CblasUpper);
+call_bench_all(syr, CblasRowMajor, 0, CblasLower);

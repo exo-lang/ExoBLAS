@@ -41,7 +41,7 @@ static void bench(benchmark::State &state) {
   }
 }
 
-template <typename T, int order, int TransA, int TransB>
+template <typename T, int order, int Side, int Uplo, int TransA, int TransB>
 static void args(benchmark::internal::Benchmark *b) {
   auto add_arg = [&b](int M, int N, int K) {
     return b->Args({M,
@@ -72,16 +72,4 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-#define call_gemm_bench(lib, T, order, TransA, TransB)                         \
-  BENCHMARK(bench<lib, T>)                                                     \
-      ->Name(level_3_kernel_name<lib, T>("gemm", order, 0, 0, TransA, TransB)) \
-      ->Apply(args<T, order, TransA, TransB>);
-
-#define call_gemm_bench_all(order, TransA, TransB)      \
-  call_gemm_bench(Exo, float, order, TransA, TransB);   \
-  call_gemm_bench(Cblas, float, order, TransA, TransB); \
-  call_gemm_bench(Exo, double, order, TransA, TransB);  \
-  call_gemm_bench(Cblas, double, order, TransA, TransB);
-
-call_gemm_bench_all(CBLAS_ORDER::CblasRowMajor, CBLAS_TRANSPOSE::CblasNoTrans,
-                    CBLAS_TRANSPOSE::CblasNoTrans);
+call_bench_all(gemm, CblasRowMajor, 0, 0, CblasNoTrans, CblasNoTrans);
