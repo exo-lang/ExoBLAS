@@ -18,20 +18,12 @@ def syr2k_rm(
 
     for i in seq(0, N):
         for j in seq(0, N):
-            if Uplo == CblasUpperValue:
-                if j > i - 1:
-                    for k in seq(0, K):
-                        if Trans == CblasNoTransValue:
-                            C[i, j] += alpha * (A[i, k] * B[j, k] + B[i, k] * A[j, k])
-                        else:
-                            C[i, j] += alpha * (AT[k, i] * BT[k, j] + BT[k, i] * AT[k, j])
-            else:
-                if j < i + 1:
-                    for k in seq(0, K):
-                        if Trans == CblasNoTransValue:
-                            C[i, j] += alpha * (A[i, k] * B[j, k] + B[i, k] * A[j, k])
-                        else:
-                            C[i, j] += alpha * (AT[k, i] * BT[k, j] + BT[k, i] * AT[k, j])
+            if (Uplo == CblasUpperValue and j > i - 1) or ((Uplo > CblasUpperValue or Uplo < CblasUpperValue) and j < i + 1):
+                for k in seq(0, K):
+                    if Trans == CblasNoTransValue:
+                        C[i, j] += alpha * (A[i, k] * B[j, k] + B[i, k] * A[j, k])
+                    else:
+                        C[i, j] += alpha * (AT[k, i] * BT[k, j] + BT[k, i] * AT[k, j])
 
 
 def schedule(syr2k, loop, precision, machine, Uplo=None, Trans=None):
