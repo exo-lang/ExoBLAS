@@ -38,4 +38,5 @@ Cblas_params_defaults = {
     "Uplo": CblasUpperValue,
     "TransA": CblasNoTransValue,
     "TransB": CblasNoTransValue,
+    "Trans": CblasNoTransValue,
 }
