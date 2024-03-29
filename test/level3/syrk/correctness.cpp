@@ -12,9 +12,12 @@ generate_wrapper(syrk);
 template <typename T>
 void test_syrk(const enum CBLAS_ORDER Order, const enum CBLAS_UPLO Uplo,
                const enum CBLAS_TRANSPOSE Trans, const int N, const int K,
-               const float alpha, const int lda, const float beta,
-               const int ldc) {
-  auto A = AlignedBuffer2D<T>(N, lda);
+               const float alpha, const int lda_diff, const float beta,
+               const int ldc_diff) {
+  auto A_dims = get_dims(Trans, N, K, lda_diff);
+  const int lda = A_dims.second;
+  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second);
+  const int ldc = N + ldc_diff;
   auto C = AlignedBuffer2D<T>(N, ldc);
 
   auto A_expected = A;
@@ -47,13 +50,8 @@ void run() {
             for (const auto ldc_diff : ld_diffs)
               for (const auto alpha : alphas)
                 for (const auto beta : betas) {
-                  auto lda = K + lda_diff;
-                  auto ldc = N + ldc_diff;
-                  if (Trans == CBLAS_TRANSPOSE::CblasTrans) {
-                    lda = N + lda_diff;
-                  }
                   test_syrk<T>(CBLAS_ORDER::CblasRowMajor, Uplo, Trans, N, K,
-                               alpha, lda, beta, ldc);
+                               alpha, lda_diff, beta, ldc_diff);
                 }
 }
 

@@ -29,11 +29,11 @@ static void bench(benchmark::State &state) {
 
   auto A_dims = get_dims(TransA, M, K, lda_diff);
   const int lda = A_dims.second;
-  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second);
+  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second, alignmentA);
   auto B_dims = get_dims(TransB, K, N, ldb_diff);
   const int ldb = B_dims.second;
-  auto B = AlignedBuffer2D<T>(B_dims.first, B_dims.second);
-  auto C = AlignedBuffer2D<T>(M, N);
+  auto B = AlignedBuffer2D<T>(B_dims.first, B_dims.second, alignmentB);
+  auto C = AlignedBuffer2D<T>(M, ldc, alignmentC);
 
   for (auto _ : state) {
     gemm<lib, T>(CblasRowMajor, CblasNoTrans, CblasNoTrans, M, N, K, alpha,
