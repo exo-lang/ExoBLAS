@@ -111,15 +111,15 @@ std::string kernel_name(std::string kernel, int Order, int Side, int Uplo,
   return name;
 }
 
-#define call_bench(lib, T, kernel, ...)                 \
-  BENCHMARK(bench<lib, T>)                              \
-      ->Name(kernel_name<lib, T>(#kernel, __VA_ARGS__)) \
-      ->Apply(args<T, __VA_ARGS__>);
-#define call_bench_all(kernel, ...)              \
-  call_bench(Exo, float, kernel, __VA_ARGS__);   \
-  call_bench(Exo, double, kernel, __VA_ARGS__);  \
-  call_bench(Cblas, float, kernel, __VA_ARGS__); \
-  call_bench(Cblas, double, kernel, __VA_ARGS__);
+#define call_bench(lib, T, kernel, ...)                   \
+  BENCHMARK(bench<lib, T>)                                \
+      ->Name(kernel_name<lib, T>(#kernel, ##__VA_ARGS__)) \
+      ->Apply(args<T, ##__VA_ARGS__>);
+#define call_bench_all(kernel, ...)                \
+  call_bench(Exo, float, kernel, ##__VA_ARGS__);   \
+  call_bench(Exo, double, kernel, ##__VA_ARGS__);  \
+  call_bench(Cblas, float, kernel, ##__VA_ARGS__); \
+  call_bench(Cblas, double, kernel, ##__VA_ARGS__);
 
 #define generate_wrapper_ret(kernel)                    \
   template <typename lib, typename T, typename... Args> \
