@@ -12,10 +12,15 @@ generate_wrapper(gemm);
 template <typename T>
 void test_gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA,
                const enum CBLAS_TRANSPOSE TransB, const int M, const int N,
-               const int K, const T alpha, const int lda, const int ldb,
-               const T beta, const int ldc) {
-  auto A = AlignedBuffer2D<T>(M, lda);
-  auto B = AlignedBuffer2D<T>(K, ldb);
+               const int K, const T alpha, const int lda_diff,
+               const int ldb_diff, const T beta, const int ldc_diff) {
+  auto A_dims = get_dims(TransA, M, K, lda_diff);
+  const int lda = A_dims.second;
+  auto A = AlignedBuffer2D<T>(A_dims.first, A_dims.second);
+  auto B_dims = get_dims(TransB, K, N, ldb_diff);
+  const int ldb = B_dims.second;
+  auto B = AlignedBuffer2D<T>(B_dims.first, B_dims.second);
+  const int ldc = N + ldc_diff;
   auto C = AlignedBuffer2D<T>(M, ldc);
 
   auto A_expected = A;
@@ -37,7 +42,7 @@ void test_gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA,
 
 template <typename T>
 void run() {
-  std::vector<int> dims{1, 7, 32, 64, 257};
+  std::vector<int> dims{1, 7, 32, 64, 257, 300};
   std::vector<CBLAS_TRANSPOSE> trans{CblasNoTrans};
   std::vector<int> ld_diffs{0, 5};
   std::vector<T> alphas{13.0};
@@ -53,17 +58,9 @@ void run() {
                 for (const auto ldc_diff : ld_diffs)
                   for (const auto alpha : alphas)
                     for (const auto beta : betas) {
-                      auto lda = K + lda_diff;
-                      auto ldb = N + ldb_diff;
-                      auto ldc = N + ldc_diff;
-                      if (TransA == CBLAS_TRANSPOSE::CblasTrans) {
-                        lda = M + lda_diff;
-                      }
-                      if (TransB == CBLAS_TRANSPOSE::CblasTrans) {
-                        ldb = K + ldb_diff;
-                      }
                       test_gemm<T>(CBLAS_ORDER::CblasRowMajor, TransA, TransB,
-                                   M, N, K, alpha, lda, ldb, beta, ldc);
+                                   M, N, K, alpha, lda_diff, ldb_diff, beta,
+                                   ldc_diff);
                     }
 }
 
