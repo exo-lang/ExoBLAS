@@ -33,3 +33,10 @@ add_exo_library(
   SOURCES symm.py
   PYTHONPATH ${PYTHONPATH}
 )
+
+
+add_exo_library(
+  NAME exo_mscal
+  SOURCES mscal.py
+  PYTHONPATH ${PYTHONPATH}
+)

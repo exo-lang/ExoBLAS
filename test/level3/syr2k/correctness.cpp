@@ -46,7 +46,7 @@ void run() {
   std::vector<CBLAS_UPLO> uplo{CblasLower, CblasUpper};
   std::vector<int> ld_diffs{0, 5};
   std::vector<T> alphas{13.0};
-  std::vector<T> betas{1.0};
+  std::vector<T> betas{18.0};
   for (const auto Uplo : uplo)
     for (const auto N : dims)
       for (const auto K : dims)

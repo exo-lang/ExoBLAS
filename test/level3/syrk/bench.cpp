@@ -43,7 +43,7 @@ static void args(benchmark::internal::Benchmark *b) {
                     TransA,
                     17,
                     0,
-                    1,
+                    18,
                     0,
                     64,
                     64,

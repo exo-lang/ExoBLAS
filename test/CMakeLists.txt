@@ -41,6 +41,7 @@ function(add_exo_blas_test level kernel precision)
     PRIVATE
     EXO_BLAS::exo_${kernel}
     BLAS::BLAS
+    ${ARGN}
     benchmark::benchmark_main
   )
   target_include_directories(${precision_kernel}_bench PRIVATE ${precision_kernel})
@@ -70,6 +71,7 @@ function(add_exo_blas_test level kernel precision)
     PRIVATE
     EXO_BLAS::exo_${kernel}
     BLAS::BLAS
+    ${ARGN}
   )
   target_include_directories(${precision_kernel}_correctness PRIVATE ${precision_kernel})
 

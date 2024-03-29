@@ -3,6 +3,7 @@
 #include <cblas.h>
 
 #include "error.h"
+#include "exo_mscal.h"
 #include "exo_syr2k.h"
 
 #define exo_syr2k(type, prefix, exo_type)                                    \
@@ -14,9 +15,9 @@
     if (Order != CBLAS_ORDER::CblasRowMajor) {                               \
       throw UnsupportedParameterException("syr2k::Order must be Row Major"); \
     }                                                                        \
-    if (beta != 1.0) {                                                       \
-      throw UnsupportedParameterException("syr2k::beta must be 1.0");        \
-    }                                                                        \
+    exo_##prefix##trmscal_rm_stride_1(                                       \
+        nullptr, Uplo, N, &beta,                                             \
+        exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                   \
     exo_##prefix##syr2k_rm_stride_1(                                         \
         nullptr, Uplo, Trans, N, K, &alpha,                                  \
         exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},              \
