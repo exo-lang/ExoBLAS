@@ -15,17 +15,13 @@
     if (Order != CBLAS_ORDER::CblasRowMajor) {                                 \
       throw UnsupportedParameterException("sgemm::Order must be Row Major");   \
     }                                                                          \
-    if (TransA != CBLAS_TRANSPOSE::CblasNoTrans) {                             \
-      throw UnsupportedParameterException("sgemm::TransA must be nonTrans");   \
-    }                                                                          \
-    if (TransB != CBLAS_TRANSPOSE::CblasNoTrans) {                             \
-      throw UnsupportedParameterException("sgemm::TransB must be nonTrans");   \
-    }                                                                          \
     exo_##prefix##mscal_rm_stride_1(                                           \
         nullptr, M, N, &beta,                                                  \
         exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                     \
     exo_##prefix##gemm_stride_1(                                               \
-        nullptr, M, N, K, &alpha,                                              \
+        nullptr, TransA, TransB, M, N, K, &alpha,                              \
+        exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},                \
+        exo_win_2##exo_type##c{.data = B, .strides = {ldb, 1}},                \
         exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},                \
         exo_win_2##exo_type##c{.data = B, .strides = {ldb, 1}},                \
         exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                     \
