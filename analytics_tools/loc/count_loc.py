@@ -20,8 +20,12 @@ class ProcCounter(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node):
         proc_decorated = any(isinstance(decorator, ast.Name) and decorator.id == "proc" for decorator in node.decorator_list)
-        if proc_decorated:
-            func_start = node.lineno - len(node.decorator_list)  # Adjust for decorator lines
+        instr_decorated = any(
+            isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name) and decorator.func.id == "instr"
+            for decorator in node.decorator_list
+        )
+        if proc_decorated or instr_decorated:
+            func_start = node.decorator_list[0].lineno  # Adjust for decorator lines
             func_end = node.end_lineno
             func_lines = func_end - func_start + 1
             self.proc_count += func_lines
