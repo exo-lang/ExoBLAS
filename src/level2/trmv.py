@@ -6,7 +6,6 @@ from blaslib import *
 from codegen_helpers import *
 
 
-### EXO_LOC ALGORITHM START ###
 @proc
 def trmv_rm_un(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
@@ -85,12 +84,5 @@ def trmv_rm_lt(Diag: index, n: size, x: [R][n], A: [R][n, n]):
         x[l] = xCopy[l]
 
 
-### EXO_LOC ALGORITHM END ###
-
-
-### EXO_LOC SCHEDULE START ###
-
 for proc in trmv_rm_un, trmv_rm_ln, trmv_rm_ut, trmv_rm_lt:
     variants_generator(optimize_level_2)(proc, "i", 4, 2, globals=globals())
-
-### EXO_LOC SCHEDULE END ###
