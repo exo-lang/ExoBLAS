@@ -1,4 +1,3 @@
-from typing import List, Self
 import ast
 import os
 
@@ -73,12 +72,6 @@ def count_lines_of_code(file_path):
 
 
 class LoC:
-    name: str
-    children: List[Self]
-    alg_loc: int
-    sched_loc: int
-    c_loc: int
-
     def __init__(self, name, children=[], alg_loc=0, sched_loc=0, c_loc=0):
         self.name = name
         self.children = children
