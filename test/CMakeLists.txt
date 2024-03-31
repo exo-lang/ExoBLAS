@@ -94,7 +94,7 @@ function(add_exo_blas_test level kernel precision)
 
   add_test(
     NAME ${precision_kernel}_graph
-    COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/test/graph.py" ${precision_kernel} ${PROJECT_SOURCE_DIR}/benchmark_results ${PROJECT_SOURCE_DIR}/graphs
+    COMMAND Python::Interpreter "${PROJECT_SOURCE_DIR}/analytics_tools/graphing/graph.py" ${precision_kernel}
   )
 endfunction()
 

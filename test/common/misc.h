@@ -66,7 +66,8 @@ std::string side_symbol(int Side) {
 std::string trans_symbol(int Trans) {
   if (Trans == CBLAS_TRANSPOSE::CblasNoTrans) {
     return "n";
-  } else if (Trans == CBLAS_TRANSPOSE::CblasTrans) {
+  } else if (Trans == CBLAS_TRANSPOSE::CblasTrans ||
+             Trans == CBLAS_TRANSPOSE::CblasConjTrans) {
     return "t";
   } else {
     return "";
@@ -83,24 +84,36 @@ std::string uplo_symbol(int Uplo) {
   }
 }
 
+std::string diag_symbol(int Diag) {
+  if (Diag == CBLAS_DIAG::CblasNonUnit) {
+    return "n";
+  } else if (Diag == CBLAS_DIAG::CblasUnit) {
+    return "u";
+  } else {
+    return "";
+  }
+}
+
 template <typename lib, typename T>
 std::string kernel_name(std::string kernel) {
   return lib::lib_name() + "_" + type_prefix<T>() + kernel;
 }
 
 template <typename lib, typename T>
-std::string kernel_name(std::string kernel, int Order, int TransA, int Uplo) {
+std::string kernel_name(std::string kernel, int Order, int Uplo, int TransA,
+                        int Diag) {
   auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
   name += order_symbol(Order);
-  name += Uplo + TransA ? "_" : "";
+  name += Uplo + TransA + Diag ? "_" : "";
   name += uplo_symbol(Uplo);
   name += trans_symbol(TransA);
+  name += diag_symbol(Diag);
   return name;
 }
 
 template <typename lib, typename T>
 std::string kernel_name(std::string kernel, int Order, int Side, int Uplo,
-                        int TransA, int TransB) {
+                        int TransA, int TransB, int Diag) {
   auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
   name += order_symbol(Order);
   name += Side + Uplo + TransA + TransB ? "_" : "";
@@ -108,6 +121,7 @@ std::string kernel_name(std::string kernel, int Order, int Side, int Uplo,
   name += uplo_symbol(Uplo);
   name += trans_symbol(TransA);
   name += trans_symbol(TransB);
+  name += diag_symbol(Diag);
   return name;
 }
 

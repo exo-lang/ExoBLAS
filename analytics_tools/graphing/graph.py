@@ -40,6 +40,15 @@ def check_args():
         help_msg()
 
 
+def parse_args():
+    check_args()
+    kernel = sys.argv[1]
+    verbose = False
+    if len(sys.argv) > 2:
+        verbose = bool(sys.argv[2])
+    return kernel, verbose
+
+
 def init_directories(kernel):
     kernel_graphs_dir(kernel).mkdir(parents=True, exist_ok=True)
     assert BENCHMARK_JSONS_DIR.exists()
@@ -73,9 +82,7 @@ def get_jsons(kernel):
             try:
                 data = json.load(f)
             except json.decoder.JSONDecodeError:
-                print(
-                    f"Failed parsing {json_path}. Benchmarking likely got interrupted for {libname}/{libdir.name}"
-                )
+                print(f"Failed parsing {json_path}. Benchmarking likely got interrupted for {libname}/{libdir.name}")
                 continue
             jsons[libname] = data
 
@@ -107,9 +114,7 @@ def parse_jsons(kernel, jsons):
         benchmarks = json["benchmarks"]
         for bench in benchmarks:
             obj = kernel_class(bench)
-            parsed_jsons.setdefault(obj.sub_kernel_name, {}).setdefault(
-                obj.bench_type, {}
-            ).setdefault(libname, []).append(obj)
+            parsed_jsons.setdefault(obj.sub_kernel_name, {}).setdefault(obj.bench_type, {}).setdefault(libname, []).append(obj)
     return parsed_jsons
 
 
@@ -138,11 +143,7 @@ def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
     plt.xlabel(some_point.get_graph_description())
     plt.title(some_point.sub_kernel_name)
 
-    filename = (
-        GRAPHS_DIR
-        / kernel
-        / f"{some_point.sub_kernel_name}_{bandwith_type}_throughput.png"
-    )
+    filename = GRAPHS_DIR / kernel / f"{some_point.sub_kernel_name}_{bandwith_type}_throughput.png"
     plt.savefig(filename)
 
 
@@ -151,9 +152,7 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
 
     some_point = next(iter(data.values()))[0]
 
-    peak_flops_key = (
-        "peakflops_sp_avx_fma" if some_point.precision == "f32" else "peakflops_avx_fma"
-    )
+    peak_flops_key = "peakflops_sp_avx_fma" if some_point.precision == "f32" else "peakflops_avx_fma"
     if flops := peaks.get(peak_flops_key):
         fig, ax = plt.subplots()
         ax.axhline(y=flops, linewidth=2, color="r", label="Peak Flops")
@@ -177,17 +176,13 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
     plt.xlabel(some_point.get_graph_description())
     plt.title(some_point.sub_kernel_name)
 
-    filename = (
-        GRAPHS_DIR / kernel / f"{some_point.sub_kernel_name}_flops_throughput.png"
-    )
+    filename = GRAPHS_DIR / kernel / f"{some_point.sub_kernel_name}_flops_throughput.png"
     plt.savefig(filename)
 
 
 if __name__ == "__main__":
     check_args()
-
-    kernel = sys.argv[1]
-    verbose = sys.argv[2]
+    kernel, verbose = parse_args()
 
     init_directories(kernel)
     jsons = get_jsons(kernel)

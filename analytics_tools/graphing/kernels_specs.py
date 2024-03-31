@@ -199,14 +199,19 @@ class level_2(kernel):
         self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
         self.bench_type = int(run_dict["bench_type"])
         assert self.bench_type in level_2_bench_types
-        self.N = int(run_dict["N"])
-        if self.bench_type != BENCH_TYPE.level_2_sq.value:
-            self.M = int(run_dict["M"])
-        else:
-            self.M = self.N
         self.precision = run_dict["precision"]
-        if "TransA" in run_dict:
-            self.TransA = int(run_dict["TransA"])
+
+        self.M = int(run_dict.get("M", 0))
+        self.N = int(run_dict.get("N", 0))
+        self.K = int(run_dict.get("K", 0))
+
+        self.Order = int(run_dict.get("Order", 0))
+        self.Side = int(run_dict.get("Side", 0))
+        self.Uplo = int(run_dict.get("Uplo", 0))
+        self.TransA = int(run_dict.get("TransA", 0))
+        self.TransB = int(run_dict.get("TransB", 0))
+        self.Trans = int(run_dict.get("Trans", 0))
+        self.Diag = int(run_dict.get("Diag", 0))
 
     def get_size_param(self):
         return self.N
@@ -264,6 +269,10 @@ class trmv(level_2):
 
     def get_stored_bytes(self):
         return ((self.N * (self.N + 1)) / 2 * (1 / 4) + self.N) * get_elem_bytes(self.precision)
+
+
+class trsv(trmv):
+    pass
 
 
 class symv(level_2):
