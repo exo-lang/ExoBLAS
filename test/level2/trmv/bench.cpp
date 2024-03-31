@@ -46,7 +46,7 @@ static void args(benchmark::internal::Benchmark *b) {
   };
   b->ArgNames({"N", "order", "Uplo", "TransA", "Diag", "lda_diff", "incX",
                "alignmentA", "alignmentX", "bench_type", "precision"});
-  for (int i = 1; i <= 8; i *= 2) {
+  for (int i = 1; i <= level_2_max_N; i *= 2) {
     add_arg(i);
   }
   for (int i = 7; i <= 8; i *= 7) {
