@@ -107,7 +107,6 @@ def analyze_directory(directory, indent=""):
     for item in items:
         path = os.path.join(directory, item)
         if os.path.isdir(path):
-            print(f"{indent}{item}/")
             sub_counts = analyze_directory(path, indent + "  ")
             children.append(sub_counts)
         elif item.endswith(".py"):
@@ -117,23 +116,61 @@ def analyze_directory(directory, indent=""):
                     counter = ProcCounter(source)
                     file_loc = LoC(item, alg_loc=counter.proc_count, sched_loc=counter.other_count)
                     children.append(file_loc)
-                    print(f"{indent}{item}: {file_loc}")
             except Exception as e:
                 print(f"{indent}Error processing {path}: {e}")
         elif item.endswith(".c") or item.endswith(".h"):
             loc = count_lines_of_code(path)
             file_loc = LoC(item, c_loc=loc)
             children.append(file_loc)
-            print(f"{indent}{item}: {file_loc}")
 
     dir_name = os.path.basename(directory)
     dir_loc = LoC(dir_name, children)
 
-    if directory != os.path.abspath(directory_path):  # Avoid printing for the root directory
-        print(f"{indent}Total in '{dir_name}/': {dir_loc}")
     return dir_loc
 
 
-print("Project Line Counts:")
+def print_hierarchy_table(node, level=0, is_last_child=True):
+    prefix = "    " * level + ("└── " if level > 0 else "")
+    if node.children:
+        print(f"{prefix}{node.name} (alg loc: {node.alg_loc}, sched loc: {node.sched_loc}, c loc: {node.c_loc})")
+        for i, child in enumerate(node.children):
+            print_hierarchy_table(child, level + 1, i == len(node.children) - 1)
+    else:
+        # Leaf node
+        print(f"{prefix}{node.name} (alg loc: {node.alg_loc}, sched loc: {node.sched_loc}, c loc: {node.c_loc})")
+
+
+def markdown_hierarchy(node):
+    # Header for the markdown table
+    markdown = "| Name | Algorithm LoC | Schedule LoC | C LoC |\n"
+    markdown += "|------|---------------|--------------|-------|\n"
+
+    # Recursively process children
+    for child in node.children:
+        markdown += f"| {child.name} | {child.alg_loc} | {child.sched_loc} | {child.c_loc} |\n"
+
+    # Adding the current node's data to the markdown table
+    markdown += f"| **{node.name}** | **{node.alg_loc}** | **{node.sched_loc}** | **{node.c_loc}** |\n"
+
+    markdown += "\n"
+
+    for child in node.children:
+        if child.children:
+            markdown += markdown_hierarchy(child)
+
+    return markdown
+
+
 total_counts = analyze_directory(directory_path)
-print(f"Total across all files and directories: {total_counts}")
+
+print_hierarchy_table(total_counts)
+
+markdown = [markdown_hierarchy(child) for child in total_counts.children]
+markdown = "\n".join(markdown)
+
+md_file = os.path.join(script_directory, "LoC.md")
+
+with open(md_file, "w") as f:
+    f.write(markdown)
+
+# TODO: Add latex
