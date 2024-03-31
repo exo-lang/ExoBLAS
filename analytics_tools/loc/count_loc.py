@@ -1,3 +1,4 @@
+from typing import List, Self
 import ast
 import os
 
@@ -67,35 +68,70 @@ def count_lines_of_code(file_path):
         return 0
 
 
+class LoC:
+    name: str
+    children: List[Self]
+    alg_loc: int
+    sched_loc: int
+    c_loc: int
+
+    def __init__(self, name, children=[], alg_loc=0, sched_loc=0, c_loc=0):
+        self.name = name
+        self.children = children
+        self.alg_loc = alg_loc
+        self.sched_loc = sched_loc
+        self.c_loc = c_loc
+
+        for child in children:
+            self.alg_loc += child.alg_loc
+            self.sched_loc += child.sched_loc
+            self.c_loc += child.c_loc
+
+    def __repr__(self):
+        tokens = [
+            f"Algorithms LoC = {self.alg_loc}",
+            f"Schedule and Other LoC = {self.sched_loc}",
+            f"C Sources and Headers LoC = {self.c_loc}",
+        ]
+        if self.name.endswith(".py"):
+            return ",".join(tokens[:2])
+        elif self.name.endswith(".c") or self.name.endswith(".h"):
+            return ",".join(tokens[2:])
+        else:
+            return ",".join(tokens)
+
+
 def analyze_directory(directory, indent=""):
-    line_counts = {"Algorithms": 0, "Schedule + Other": 0, "C Source + Headers": 0}
+    children = []
     items = [item for item in os.listdir(directory) if item != "__pycache__"]
     for item in items:
         path = os.path.join(directory, item)
         if os.path.isdir(path):
             print(f"{indent}{item}/")
             sub_counts = analyze_directory(path, indent + "  ")
-            line_counts["Algorithms"] += sub_counts["Algorithms"]
-            line_counts["Schedule + Other"] += sub_counts["Schedule + Other"]
-            line_counts["C Source + Headers"] += sub_counts["C Source + Headers"]
+            children.append(sub_counts)
         elif item.endswith(".py"):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     source = f.read()
                     counter = ProcCounter(source)
-                    file_counts = {"Algorithms": counter.proc_count, "Schedule + Other": counter.other_count}
-                    line_counts["Algorithms"] += file_counts["Algorithms"]
-                    line_counts["Schedule + Other"] += file_counts["Schedule + Other"]
-                    print(f"{indent}{item}: {line_counts}")
+                    file_loc = LoC(item, alg_loc=counter.proc_count, sched_loc=counter.other_count)
+                    children.append(file_loc)
+                    print(f"{indent}{item}: {file_loc}")
             except Exception as e:
                 print(f"{indent}Error processing {path}: {e}")
         elif item.endswith(".c") or item.endswith(".h"):
             loc = count_lines_of_code(path)
-            line_counts["C Source + Headers"] += loc
+            file_loc = LoC(item, c_loc=loc)
+            children.append(file_loc)
+            print(f"{indent}{item}: {file_loc}")
+
+    dir_name = os.path.basename(directory)
+    dir_loc = LoC(dir_name, children)
 
     if directory != os.path.abspath(directory_path):  # Avoid printing for the root directory
-        print(f"{indent}Total in '{os.path.basename(directory)}/': {line_counts}")
-    return line_counts
+        print(f"{indent}Total in '{dir_name}/': {dir_loc}")
+    return dir_loc
 
 
 print("Project Line Counts:")
