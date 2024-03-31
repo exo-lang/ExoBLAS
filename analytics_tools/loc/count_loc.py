@@ -44,33 +44,60 @@ class ProcCounter(ast.NodeVisitor):
         super().generic_visit(node)
 
 
+def strip_comments_and_empty_lines(source):
+    """Strip single-line and multi-line comments and empty lines from the source code."""
+    # Remove single-line comments
+    source = re.sub(r"//.*", "", source)
+    # Remove multi-line comments
+    source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+    # Remove empty lines
+    source = os.linesep.join([line for line in source.splitlines() if line.strip()])
+    return source
+
+
+def count_lines_of_code(file_path):
+    """Count lines of code in a C source or header file, excluding comments and empty lines."""
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            source = f.read()
+            stripped_source = strip_comments_and_empty_lines(source)
+            return len(stripped_source.splitlines())
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return 0
+
+
 def analyze_directory(directory, indent=""):
-    line_counts = {"proc": 0, "other": 0}
+    line_counts = {"Algorithms": 0, "Schedule + Other": 0, "C Source + Headers": 0}
     items = [item for item in os.listdir(directory) if item != "__pycache__"]
     for item in items:
         path = os.path.join(directory, item)
         if os.path.isdir(path):
             print(f"{indent}{item}/")
             sub_counts = analyze_directory(path, indent + "  ")
-            line_counts["proc"] += sub_counts["proc"]
-            line_counts["other"] += sub_counts["other"]
+            line_counts["Algorithms"] += sub_counts["Algorithms"]
+            line_counts["Schedule + Other"] += sub_counts["Schedule + Other"]
+            line_counts["C Source + Headers"] += sub_counts["C Source + Headers"]
         elif item.endswith(".py"):
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     source = f.read()
                     counter = ProcCounter(source)
-                    file_counts = {"proc": counter.proc_count, "other": counter.other_count}
-                    line_counts["proc"] += file_counts["proc"]
-                    line_counts["other"] += file_counts["other"]
-                    print(f"{indent}{item}: @proc={file_counts['proc']}, Other={file_counts['other']}")
+                    file_counts = {"Algorithms": counter.proc_count, "Schedule + Other": counter.other_count}
+                    line_counts["Algorithms"] += file_counts["Algorithms"]
+                    line_counts["Schedule + Other"] += file_counts["Schedule + Other"]
+                    print(f"{indent}{item}: {line_counts}")
             except Exception as e:
                 print(f"{indent}Error processing {path}: {e}")
+        elif item.endswith(".c") or item.endswith(".h"):
+            loc = count_lines_of_code(path)
+            line_counts["C Source + Headers"] += loc
 
     if directory != os.path.abspath(directory_path):  # Avoid printing for the root directory
-        print(f"{indent}Total in '{os.path.basename(directory)}/': @proc={line_counts['proc']}, Other={line_counts['other']}")
+        print(f"{indent}Total in '{os.path.basename(directory)}/': {line_counts}")
     return line_counts
 
 
 print("Project Line Counts:")
 total_counts = analyze_directory(directory_path)
-print(f"Total across all files and directories: @proc={total_counts['proc']}, Other={total_counts['other']}")
+print(f"Total across all files and directories: {total_counts}")
