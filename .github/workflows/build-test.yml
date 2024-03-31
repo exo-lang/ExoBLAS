@@ -88,4 +88,4 @@ jobs:
 
       # This is to make sure it runs without runtime errors
       - name : Run LoC Script
-        run: ${{github.workspace}}/ExoBLAS/analytics_tools/loc/count_loc.py
+        run: python ${{github.workspace}}/ExoBLAS/analytics_tools/loc/count_loc.py
