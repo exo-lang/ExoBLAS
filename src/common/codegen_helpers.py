@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import json
+import inspect
 
 from exo import *
 from exo.libs.memories import *
@@ -66,12 +67,42 @@ class paramseter_variants_cursors:
         yield self.calls
 
 
+def simplify_triang_loop(proc, block, mapping):
+    if "Uplo" not in mapping:
+        return proc
+
+    def extract_cut_point(proc, loop):
+        loop = proc.forward(loop)
+        # Target format (Uplo == CblasUpperValue and iter >= cut_point) or (Uplo == CblasLowerValue and iter < cut_point)
+        if len(loop.body()) != 1 or not is_if(proc, loop.body()[0]):
+            return None
+        cond = loop.body()[0].cond()
+        if not is_or(proc, cond):
+            return None
+        cut_point = cond.lhs().rhs().rhs() if mapping["Uplo"] == CblasUpperValue else cond.rhs().rhs().rhs()
+        return expr_to_string(cut_point)
+
+    def rewrite(proc, loop):
+        loop = proc.forward(loop)
+        cut_point = extract_cut_point(proc, loop)
+        if cut_point is not None:
+            proc, (loop1, loop2) = cut_loop_(proc, loop, cut_point, rc=True)
+            proc = shift_loop(proc, loop2, 0)
+            proc = eliminate_dead_code(proc, loop1.body()[0])
+            proc = eliminate_dead_code(proc, loop2.body()[0])
+            proc = delete_pass(proc)
+        return proc
+
+    loops = filter_cursors(is_loop)(proc, lrn(proc, block))
+    return apply(attempt(rewrite))(proc, loops)
+
+
 def generate_parameters_variants(proc, rc=False):
     # Extract Relevant Parameters
     params = []
     for param in proc.args():
         name = param.name()
-        if name in Cblas_params_defaults:
+        if name in Cblas_params_values:
             params.append(name)
 
     if not params:
@@ -79,12 +110,15 @@ def generate_parameters_variants(proc, rc=False):
             return proc
         return proc, paramseter_variants_cursors([])
 
+    for param in params:
+        assertion = [f"{param} == {v}" for v in Cblas_params_values[param]]
+        assertion = " or ".join(assertion)
+        proc = proc.add_assertion(assertion)
     # Eliminate any parameter control from within the computation
     for param in params[::-1]:
-        value = Cblas_params_defaults[param]
+        value = Cblas_params_values[param][0]
         proc = specialize(proc, proc.body(), f"{param} == {value}")
-    proc = dce(simplify(proc))
-
+    proc = dce(proc)
     calls = []
 
     # Extract the different cases as their own subprocs and schedule them
@@ -92,6 +126,7 @@ def generate_parameters_variants(proc, rc=False):
         block = proc.forward(block)
         if len(params) == 0:
             name = proc.name() + "_" + suffix
+            proc = simplify_triang_loop(proc, block, mapping)
             proc, _ = extract_subproc(proc, block, name)
             call = proc.forward(block)[0]
             calls.append((call, mapping))
@@ -99,7 +134,7 @@ def generate_parameters_variants(proc, rc=False):
 
         if_c = block[0]
         param = params[0]
-        param_value = Cblas_params_defaults[param]
+        param_value = Cblas_params_values[param][0]
 
         letter = Cblas_suffix[param_value]
         proc = traverse(proc, if_c.body(), params[1:], suffix + letter, mapping | {param: param_value})
@@ -111,8 +146,7 @@ def generate_parameters_variants(proc, rc=False):
     proc = traverse(proc, proc.body(), params, "", {})
     if not rc:
         return proc
-
-    return proc, paramseter_variants_cursors(calls)
+    return simplify(proc), paramseter_variants_cursors(calls)
 
 
 def export_exo_proc(globals, proc):
@@ -167,6 +201,16 @@ def export_perf_features(kernel_name, perf_features):
         json.dump(perf_features, f, sort_keys=True, indent=4, separators=(",", ": "))
 
 
+def is_param_optional(func):
+    signature = inspect.signature(func)
+
+    def check(name):
+        param = signature.parameters.get(name)
+        return param and param.default is not inspect.Parameter.empty
+
+    return check
+
+
 def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Neon)):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
@@ -192,7 +236,9 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Ne
                         call = stride_1.forward(call)
                         subproc = call.subproc()
                         loop = subproc.find_loop(loop_name)
-                        subproc = blas_op(subproc, loop, precision, C.Machine, *args, **kwargs, **mapping)
+                        check = is_param_optional(blas_op)
+                        filtered_mapping = dict(filter(lambda p: check(p[0]), mapping.items()))
+                        subproc = blas_op(subproc, loop, precision, C.Machine, *args, **kwargs, **filtered_mapping)
                         stride_1 = call_eqv(stride_1, call, subproc)
 
             stride_1 = stage_scalar_args(stride_1)

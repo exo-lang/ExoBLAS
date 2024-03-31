@@ -20,7 +20,7 @@ def syrk_rm(Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A
 
     for i in seq(0, N):
         for j in seq(0, N):
-            if (Uplo == CblasUpperValue and j > i - 1) or ((Uplo > CblasUpperValue or Uplo < CblasUpperValue) and j < i + 1):
+            if (Uplo == CblasUpperValue and j >= i) or (Uplo == CblasLowerValue and j < i + 1):
                 for k in seq(0, K):
                     if Trans == CblasNoTransValue:
                         C[i, j] += alpha * (A[i, k] * A_alias[j, k])
@@ -135,12 +135,6 @@ def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
 
 
 def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Uplo=None, Trans=None):
-    j_loop = get_inner_loop(proc, i_loop)
-    cut_point = "i" if Uplo == CblasUpperValue else "i + 1"
-    proc, (loop1, loop2) = cut_loop_(proc, j_loop, cut_point, rc=True)
-    proc = shift_loop(proc, loop2, 0)
-    proc = simplify(delete_pass(dce(proc)))
-
     if Uplo != CblasLowerValue or Trans != CblasNoTransValue:
         return proc
 

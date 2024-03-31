@@ -26,9 +26,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         elif isinstance(expr, (LiteralCursor, ReadConfigCursor)):
             pass
         else:
-            raise BLAS_SchedulingError(
-                f"Got an instance of {type(expr)} which is unsupported."
-            )
+            raise BLAS_SchedulingError(f"Got an instance of {type(expr)} which is unsupported.")
 
     def stmt_children(stmt):
         if isinstance(stmt, AllocCursor):
@@ -55,9 +53,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         elif isinstance(stmt, PassCursor):
             pass
         else:
-            raise BLAS_SchedulingError(
-                f"Got an instance of {type(stmt)} which is unsupported."
-            )
+            raise BLAS_SchedulingError(f"Got an instance of {type(stmt)} which is unsupported.")
 
     def generator():
         if isinstance(cursor, (ExprListCursor, BlockCursor, tuple, list)):
@@ -74,9 +70,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         elif isinstance(cursor, StmtCursor):
             yield from stmt_children(cursor)
         else:
-            raise BLAS_SchedulingError(
-                f"Got an instance of {type(cursor)} which is unsupported."
-            )
+            raise BLAS_SchedulingError(f"Got an instance of {type(cursor)} which is unsupported.")
 
     if lr:
         yield from generator()
@@ -89,9 +83,7 @@ def get_numeric_children(proc, cursor=InvalidCursor()):
     yield from filter_cursors(is_type_numeric)(proc, get_children(proc, cursor))
 
 
-def _get_cursors(
-    proc, cursor=InvalidCursor(), node_first=False, lr=True, pred=lambda p, c: True
-):
+def _get_cursors(proc, cursor=InvalidCursor(), node_first=False, lr=True, pred=lambda p, c: True):
 
     if not isinstance(cursor, (InvalidCursor, ExprListCursor, BlockCursor)):
         cursor = proc.forward(cursor)
@@ -141,15 +133,11 @@ def nlr_stmts(proc, cursor=InvalidCursor()):
 
 
 def rln_stmts(proc, cursor=InvalidCursor()):
-    yield from _get_cursors(
-        proc, cursor=cursor, node_first=False, lr=False, pred=is_stmt
-    )
+    yield from _get_cursors(proc, cursor=cursor, node_first=False, lr=False, pred=is_stmt)
 
 
 def nrl_stmts(proc, cursor=InvalidCursor()):
-    yield from _get_cursors(
-        proc, cursor=cursor, node_first=True, lr=False, pred=is_stmt
-    )
+    yield from _get_cursors(proc, cursor=cursor, node_first=True, lr=False, pred=is_stmt)
 
 
 def get_symbols(proc, cursor=InvalidCursor()):
@@ -305,9 +293,7 @@ def get_nth_inner_loop(proc, loop, n):
     loop = proc.forward(loop)
     inner_loops = list(filter_cursors(is_loop)(proc, loop.body()))
     if n >= len(inner_loops):
-        raise BLAS_SchedulingError(
-            f"Expected exactly at least {n + 1} loops, found {len(inner_loops)}"
-        )
+        raise BLAS_SchedulingError(f"Expected exactly at least {n + 1} loops, found {len(inner_loops)}")
     return inner_loops[n]
 
 
@@ -338,6 +324,18 @@ def is_div(proc, expr):
 
 def is_mod(proc, expr):
     return is_binop(proc, expr, "%")
+
+
+def is_eq(proc, expr):
+    return is_binop(proc, expr, "==")
+
+
+def is_or(proc, expr):
+    return is_binop(proc, expr, "or")
+
+
+def is_and(proc, expr):
+    return is_binop(proc, expr, "and")
 
 
 def is_builtin(proc, expr, name):
@@ -382,9 +380,7 @@ def is_write(proc, write):
 
 
 def is_access(proc, access, name=None):
-    return (is_read(proc, access) or is_write(proc, access)) and (
-        name is None or access.name() == name
-    )
+    return (is_read(proc, access) or is_write(proc, access)) and (name is None or access.name() == name)
 
 
 def is_window_stmt(proc, window):
@@ -399,9 +395,7 @@ def is_unary_minus(proc, expr):
 
 def is_call(proc, call, subproc=None):
     call = proc.forward(call)
-    return isinstance(call, CallCursor) and (
-        subproc is None or call.subproc() == subproc
-    )
+    return isinstance(call, CallCursor) and (subproc is None or call.subproc() == subproc)
 
 
 def is_invalid(proc, inv):
@@ -458,9 +452,7 @@ def get_lca(proc, cursor1, cursor2):
 
 def get_distance(proc, cursor1, cursor2):
     lca = get_lca(proc, cursor1, cursor2)
-    return (
-        get_depth(proc, cursor1) + get_depth(proc, cursor2) - 2 * get_depth(proc, lca)
-    )
+    return get_depth(proc, cursor1) + get_depth(proc, cursor2) - 2 * get_depth(proc, lca)
 
 
 def are_exprs_equal(proc, expr1, expr2):
@@ -473,10 +465,7 @@ def are_exprs_equal(proc, expr1, expr2):
 
         attrs = ["name", "value", "op", "config", "field"]
         for attr in attrs:
-            if (
-                hasattr(expr1, attr)
-                and getattr(expr1, attr)() != getattr(expr2, attr)()
-            ):
+            if hasattr(expr1, attr) and getattr(expr1, attr)() != getattr(expr2, attr)():
                 return False
 
         expr1_children = list(get_children(proc, expr1))
