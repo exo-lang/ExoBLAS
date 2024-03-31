@@ -271,6 +271,10 @@ class trmv(level_2):
         return ((self.N * (self.N + 1)) / 2 * (1 / 4) + self.N) * get_elem_bytes(self.precision)
 
 
+class trsv(trmv):
+    pass
+
+
 class symv(level_2):
     def get_flops(self):
         return self.N * (self.N + 1) * 2
