@@ -37,7 +37,8 @@ static void bench(benchmark::State &state) {
   }
 }
 
-template <typename T, int order, int Side, int Uplo, int TransA, int TransB>
+template <typename T, int order, int Side, int Uplo, int TransA, int TransB,
+          int Diag>
 static void args(benchmark::internal::Benchmark *b) {
   auto add_arg = [&b](int M, int N) {
     return b->Args({M,
@@ -67,4 +68,4 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-call_bench_all(symm, CblasRowMajor, CblasLeft, CblasLower, 0, 0);
+call_bench_all(symm, CblasRowMajor, CblasLeft, CblasLower, 0, 0, 0);
