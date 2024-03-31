@@ -23,20 +23,24 @@ CblasLeftValue = CBLAS_SIDE.CblasLeft.value
 CblasRightValue = CBLAS_SIDE.CblasRight.value
 CblasNoTransValue = CBLAS_TRANSPOSE.CblasNoTrans.value
 CblasTransValue = CBLAS_TRANSPOSE.CblasTrans.value
+CblasConjTransValue = CBLAS_TRANSPOSE.CblasConjTrans.value
 
 Cblas_suffix = {
     CblasNoTransValue: "n",
     CblasTransValue: "t",
+    CblasConjTransValue: "t",
     CblasLeftValue: "l",
     CblasRightValue: "r",
     CblasUpperValue: "u",
     CblasLowerValue: "l",
 }
 
-Cblas_params_defaults = {
-    "Side": CblasLeftValue,
-    "Uplo": CblasUpperValue,
-    "TransA": CblasNoTransValue,
-    "TransB": CblasNoTransValue,
-    "Trans": CblasNoTransValue,
+TransVals = (CblasNoTransValue, CblasTransValue, CblasConjTransValue)
+
+Cblas_params_values = {
+    "Side": (CblasLeftValue, CblasRightValue),
+    "Uplo": (CblasUpperValue, CblasLowerValue),
+    "TransA": TransVals,
+    "TransB": TransVals,
+    "Trans": TransVals,
 }
