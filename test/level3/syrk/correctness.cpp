@@ -37,7 +37,7 @@ void test_syrk(const enum CBLAS_ORDER Order, const enum CBLAS_UPLO Uplo,
 template <typename T>
 void run() {
   std::vector<int> dims{1, 7, 32, 64, 257};
-  std::vector<CBLAS_TRANSPOSE> trans{CblasNoTrans};
+  std::vector<CBLAS_TRANSPOSE> trans{CblasNoTrans, CblasTrans};
   std::vector<CBLAS_UPLO> uplo{CblasLower, CblasUpper};
   std::vector<int> ld_diffs{0, 5};
   std::vector<T> alphas{13.0};
