@@ -9,29 +9,33 @@ directory_path = os.path.join(parent_of_parent_directory, "src")
 class ProcCounter(ast.NodeVisitor):
     def __init__(self, source):
         self.proc_count = 0
-        self.total_lines = len([line for line in source.split("\n") if line.strip() and not line.strip().startswith("#")])
         self.docstring_count = 0
-        self.visit(ast.parse(source))
-        self.other_count = self.total_lines - self.proc_count - self.docstring_count
+        self.import_count = 0  # Initialize count for import lines
+        source = [line for line in source.split("\n") if line.strip() and not line.strip().startswith("#")]
+        self.total_lines = len(source)
+        self.visit(ast.parse("\n".join(source)))
+        # Adjust total lines by subtracting proc, docstring, and import counts to get other lines
+        self.other_count = self.total_lines - self.proc_count - self.docstring_count - self.import_count
 
     def visit_FunctionDef(self, node):
-        # Detect @proc decorator and include its line in the count
-        if any(isinstance(decorator, ast.Name) and decorator.id == "proc" for decorator in node.decorator_list):
-            func_lines = node.end_lineno - node.lineno + 1
-            decorator_lines = len(
-                [decorator for decorator in node.decorator_list if isinstance(decorator, ast.Name) and decorator.id == "proc"]
-            )
-            self.proc_count += func_lines + decorator_lines  # Include decorator line(s)
+        proc_decorated = any(isinstance(decorator, ast.Name) and decorator.id == "proc" for decorator in node.decorator_list)
+        if proc_decorated:
+            func_start = node.lineno - len(node.decorator_list)  # Adjust for decorator lines
+            func_end = node.end_lineno
+            func_lines = func_end - func_start + 1
+            self.proc_count += func_lines
 
             if ast.get_docstring(node):
                 doc_lines = len(ast.get_docstring(node, clean=False).split("\n"))
-                self.proc_count -= doc_lines  # Subtract docstring lines from @proc count
-
-        if ast.get_docstring(node):
-            doc_lines = len(ast.get_docstring(node, clean=False).split("\n"))
-            self.docstring_count += doc_lines
+                self.docstring_count += doc_lines
 
         self.generic_visit(node)
+
+    def visit_Import(self, node):
+        self.import_count += 1
+
+    def visit_ImportFrom(self, node):
+        self.import_count += 1
 
     def generic_visit(self, node):
         if isinstance(node, (ast.Module, ast.ClassDef)) and ast.get_docstring(node):

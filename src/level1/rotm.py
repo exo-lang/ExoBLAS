@@ -5,7 +5,7 @@ from exo import *
 from blaslib import *
 from codegen_helpers import *
 
-### EXO_LOC ALGORITHM START ###
+
 @proc
 def rotm_flag_neg_one(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
     for i in seq(0, n):
@@ -33,10 +33,5 @@ def rotm_flag_one(n: size, x: [R][n], y: [R][n], H: R[2, 2]):
         y[i] = -xReg + H[1, 1] * y[i]
 
 
-### EXO_LOC ALGORITHM END ###
-
-
-### EXO_LOC SCHEDULE START ###
 for proc in rotm_flag_neg_one, rotm_flag_zero, rotm_flag_one:
     variants_generator(optimize_level_1)(proc, "i", 4, globals=globals())
-### EXO_LOC SCHEDULE END ###

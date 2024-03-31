@@ -6,7 +6,6 @@ from blaslib import *
 from codegen_helpers import *
 
 
-### EXO_LOC ALGORITHM START ###
 @proc
 def syr_rm_u(n: size, alpha: R, x: [R][n], x_copy: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
@@ -25,11 +24,5 @@ def syr_rm_l(n: size, alpha: R, x: [R][n], x_copy: [R][n], A: [R][n, n]):
             A[i, j] += alpha * x[i] * x_copy[j]
 
 
-### EXO_LOC ALGORITHM END ###
-
-
-### EXO_LOC SCHEDULE START ###
 variants_generator(optimize_level_2)(syr_rm_u, "i", 4, 2, globals=globals())
 variants_generator(optimize_level_2)(syr_rm_l, "i", 4, 2, globals=globals())
-
-### EXO_LOC SCHEDULE END ###

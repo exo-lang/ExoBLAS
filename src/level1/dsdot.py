@@ -7,7 +7,7 @@ from blaslib import *
 from codegen_helpers import *
 import exo_blas_config as C
 
-### EXO_LOC ALGORITHM START ###
+
 @proc
 def dsdot(n: size, x: [f32][n], y: [f32][n], result: f64):
     d_dot: f64
@@ -37,10 +37,6 @@ def sdsdot(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
     result = d_result
 
 
-### EXO_LOC ALGORITHM END ###
-
-
-### EXO_LOC SCHEDULE START ###
 for proc in dsdot, sdsdot:
     export_exo_proc(globals(), generate_stride_any_proc(proc))
     stride_1 = generate_stride_1_proc(proc)
@@ -48,4 +44,3 @@ for proc in dsdot, sdsdot:
         loop = stride_1.find_loop("i")
         stride_1 = optimize_level_1(stride_1, loop, "f64", C.Machine, 4)
     export_exo_proc(globals(), stride_1)
-### EXO_LOC SCHEDULE END ###

@@ -11,7 +11,6 @@ import exo_blas_config as C
 from stdlib import *
 
 
-### EXO_LOC ALGORITHM START ###
 @proc
 def gbmv_row_major_NonTrans(
     m: size,
@@ -54,10 +53,6 @@ def gbmv_row_major_NonTrans(
         y[i] = beta * y[i] + alpha * result
 
 
-### EXO_LOC ALGORITHM END ###
-
-
-### EXO_LOC SCHEDULE START ###
 def specialize_sdot(precision):
     specialized = sdot
 
@@ -131,7 +126,6 @@ entry_points = [
     exo_dgbmv_row_major_NonTrans_stride_any,
     exo_dgbmv_row_major_NonTrans_stride_1,
 ]
-### EXO_LOC SCHEDULE END ###
 
 
 if __name__ == "__main__":
