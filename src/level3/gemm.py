@@ -9,10 +9,23 @@ import exo_blas_config as C
 from stdlib import *
 from codegen_helpers import *
 from blaslib import *
+from cblas_enums import *
 
 
 @proc
-def gemm(M: size, N: size, K: size, alpha: R, A: [R][M, K], B: [R][K, N], C: [R][M, N]):
+def gemm(
+    TransA: size,
+    TransB: size,
+    M: size,
+    N: size,
+    K: size,
+    alpha: R,
+    A: [R][M, K],
+    B: [R][K, N],
+    AT: [R][K, M],
+    BT: [R][N, K],
+    C: [R][M, N],
+):
     assert stride(A, 1) == 1
     assert stride(B, 1) == 1
     assert stride(C, 1) == 1
@@ -20,7 +33,16 @@ def gemm(M: size, N: size, K: size, alpha: R, A: [R][M, K], B: [R][K, N], C: [R]
     for i in seq(0, M):
         for j in seq(0, N):
             for k in seq(0, K):
-                C[i, j] += alpha * (A[i, k] * B[k, j])
+                if TransA == CblasNoTransValue:
+                    if TransB == CblasNoTransValue:
+                        C[i, j] += alpha * (A[i, k] * B[k, j])
+                    else:
+                        C[i, j] += alpha * (A[i, k] * BT[j, k])
+                else:
+                    if TransB == CblasNoTransValue:
+                        C[i, j] += alpha * (AT[k, i] * B[k, j])
+                    else:
+                        C[i, j] += alpha * (AT[k, i] * BT[j, k])
 
 
 def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
@@ -119,8 +141,11 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     return gemm_mk_starter, simplify(gemm_mk)
 
 
-def schedule(main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile):
-    gemm_macro = schedule_macro(gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac)
+def schedule(main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA=None, TransB=None):
+    if TransA != CblasNoTransValue or TransB != CblasNoTransValue:
+        return main_gemm
+
+    gemm_macro = schedule_macro(main_gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac)
 
     gemm_tiled = main_gemm
     k_loop = get_inner_loop(gemm_tiled, get_inner_loop(gemm_tiled, i_loop))

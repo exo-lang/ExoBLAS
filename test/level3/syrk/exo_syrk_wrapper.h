@@ -15,25 +15,15 @@
     if (Order != CBLAS_ORDER::CblasRowMajor) {                              \
       throw UnsupportedParameterException("syrk::Order must be Row Major"); \
     }                                                                       \
-    if (Trans != CBLAS_TRANSPOSE::CblasNoTrans) {                           \
-      throw UnsupportedParameterException("syrk::Trans must be nonTrans");  \
-    }                                                                       \
     exo_##prefix##trmscal_rm_stride_1(                                      \
         nullptr, Uplo, N, &beta,                                            \
         exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                  \
-    if (Uplo == CBLAS_UPLO::CblasLower) {                                   \
-      exo_##prefix##syrk_rm_l_stride_1(                                     \
-          nullptr, N, K, &alpha,                                            \
-          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},           \
-          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},           \
-          exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                \
-    } else {                                                                \
-      exo_##prefix##syrk_rm_u_stride_1(                                     \
-          nullptr, N, K, &alpha,                                            \
-          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},           \
-          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},           \
-          exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                \
-    }                                                                       \
+    exo_##prefix##syrk_rm_stride_1(                                         \
+        nullptr, Uplo, Trans, N, K, &alpha,                                 \
+        exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},             \
+        exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},             \
+        exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},             \
+        exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                  \
   }
 
 exo_syrk(float, s, f32);

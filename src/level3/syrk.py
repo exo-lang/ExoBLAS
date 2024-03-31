@@ -13,30 +13,19 @@ from blaslib import *
 
 
 @proc
-def syrk_rm_l(N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], C: [R][N, N]):
+def syrk_rm(Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], AT: [R][K, N], C: [R][N, N]):
     assert stride(A, 1) == 1
     assert stride(A_alias, 1) == 1
     assert stride(C, 1) == 1
 
     for i in seq(0, N):
-        for j in seq(0, i + 1):
-            for k in seq(0, K):
-                C[i, j] += alpha * (A[i, k] * A_alias[j, k])
-
-
-@proc
-def syrk_rm_u(N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], C: [R][N, N]):
-    assert stride(A, 1) == 1
-    assert stride(A_alias, 1) == 1
-    assert stride(C, 1) == 1
-
-    for i in seq(0, N):
-        for j in seq(i, N):
-            for k in seq(0, K):
-                C[i, j] += alpha * (A[i, k] * A_alias[j, k])
-
-
-syrk_rm_u = shift_loop(syrk_rm_u, "j", 0)
+        for j in seq(0, N):
+            if (Uplo == CblasUpperValue and j > i - 1) or ((Uplo > CblasUpperValue or Uplo < CblasUpperValue) and j < i + 1):
+                for k in seq(0, K):
+                    if Trans == CblasNoTransValue:
+                        C[i, j] += alpha * (A[i, k] * A_alias[j, k])
+                    else:
+                        C[i, j] += alpha * (AT[k, i] * AT[k, j])
 
 
 @proc
@@ -145,7 +134,16 @@ def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
     return mk_starter, simplify(mk)
 
 
-def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile):
+def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Uplo=None, Trans=None):
+    j_loop = get_inner_loop(proc, i_loop)
+    cut_point = "i" if Uplo == CblasUpperValue else "i + 1"
+    proc, (loop1, loop2) = cut_loop_(proc, j_loop, cut_point, rc=True)
+    proc = shift_loop(proc, loop2, 0)
+    proc = simplify(delete_pass(dce(proc)))
+
+    if Uplo != CblasLowerValue or Trans != CblasNoTransValue:
+        return proc
+
     syrk_macro = schedule_macro(proc, precision, machine, N_tile, K_tile, m_r, n_r_fac)
 
     syrk_gemm_macro = specialize_precision(syrk_gemm, precision)
@@ -196,5 +194,4 @@ n_r = n_r_fac * C.Machine.vec_width("f32")
 lcm = (m_r * n_r) // math.gcd(m_r, n_r)
 N_tile = lcm * N_tile_fac
 
-variants_generator(schedule, ("f32",), (AVX2, AVX512))(syrk_rm_l, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())
-variants_generator(identity_schedule, ("f32",), (AVX2, AVX512))(syrk_rm_u, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())
+variants_generator(schedule, ("f32",), (AVX2, AVX512))(syrk_rm, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())

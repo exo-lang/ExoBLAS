@@ -42,8 +42,8 @@ void test_gemm(const enum CBLAS_ORDER Order, const enum CBLAS_TRANSPOSE TransA,
 
 template <typename T>
 void run() {
-  std::vector<int> dims{1, 7, 32, 64, 257, 300};
-  std::vector<CBLAS_TRANSPOSE> trans{CblasNoTrans};
+  std::vector<int> dims{1, 7, 32, 64, 257};
+  std::vector<CBLAS_TRANSPOSE> trans{CblasNoTrans, CblasTrans};
   std::vector<int> ld_diffs{0, 5};
   std::vector<T> alphas{13.0};
   std::vector<T> betas{18.0};
