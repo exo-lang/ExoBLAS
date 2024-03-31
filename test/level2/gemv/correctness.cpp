@@ -51,9 +51,9 @@ void run() {
   std::vector<int> M{77, 103, 500};
   std::vector<T> alpha_vals{2.4};
   std::vector<int> lda_diffs{0, 5};
-  std::vector<int> incX_vals{3, -2};
+  std::vector<int> incX_vals{1, 2};
   std::vector<T> beta_vals{2.4};
-  std::vector<int> incY_vals{5, 3};
+  std::vector<int> incY_vals{1, -3};
 
   for (auto TransA : TransA_vals) {
     for (auto n : N) {
