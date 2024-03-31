@@ -3,27 +3,36 @@
 #include <vector>
 
 #include "correctness_helpers.h"
-#include "exo_trmv_wrapper.h"
+#include "exo_trsv_wrapper.h"
 #include "generate_buffer.h"
 #include "misc.h"
 
+generate_wrapper(trsv);
 generate_wrapper(trmv);
 
 template <typename T>
-void test_trmv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
+void test_trsv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
                const enum CBLAS_TRANSPOSE TransA, const enum CBLAS_DIAG Diag,
                const int N, const int lda, const int incX) {
   auto X = AlignedBuffer<T>(N, incX);
   auto A = AlignedBuffer2D<T>(N, lda);
+
+  for (int i = 0; i < N; ++i) {
+    for (int j = 0; j < N; ++j) A[i * lda + j] = 2.0;
+  }
+  for (int i = 0; i < X.size(); ++i) {
+    X[i] = i;
+  }
+
   auto X_expected = X;
   auto A_expected = A;
 
-  trmv<Exo, T>(order, Uplo, TransA, Diag, N, A.data(), lda, X.data(), incX);
-  trmv<Cblas, T>(order, Uplo, TransA, Diag, N, A_expected.data(), lda,
+  trsv<Exo, T>(order, Uplo, TransA, Diag, N, A.data(), lda, X.data(), incX);
+  trsv<Cblas, T>(order, Uplo, TransA, Diag, N, A_expected.data(), lda,
                  X_expected.data(), incX);
 
   if (!X.check_buffer_equal(X_expected)) {
-    failed<T>("trmv", "order", order, "Uplo", Uplo, "TransA", TransA, "Diag",
+    failed<T>("trsv", "order", order, "Uplo", Uplo, "TransA", TransA, "Diag",
               Diag, "N", N, "lda", lda, "incX", incX);
   }
 }
@@ -45,7 +54,7 @@ void run() {
             for (auto incX : incX_vals)
               for (auto lda_diff : lda_diffs) {
                 int lda = n + lda_diff;
-                test_trmv<T>(order, Uplo, TransA, Diag, n, lda, incX);
+                test_trsv<T>(order, Uplo, TransA, Diag, n, lda, incX);
               }
 }
 

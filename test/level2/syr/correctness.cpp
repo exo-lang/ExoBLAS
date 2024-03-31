@@ -18,8 +18,8 @@ void test_syr(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
   auto A_expected = A;
 
   syr<Exo, T>(order, Uplo, N, alpha, X.data(), incX, A.data(), lda);
-  syr<Exo, T>(order, Uplo, N, alpha, X_expected.data(), incX, A_expected.data(),
-              lda);
+  syr<Cblas, T>(order, Uplo, N, alpha, X_expected.data(), incX,
+                A_expected.data(), lda);
 
   if (!A.check_buffer_equal(A_expected)) {
     failed<T>("syr", "N", N, "alpha", alpha, "lda", lda, "incX", incX,
