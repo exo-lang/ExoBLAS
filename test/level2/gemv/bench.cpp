@@ -36,12 +36,12 @@ static void bench(benchmark::State &state) {
   auto Y = AlignedBuffer<T>(sizeY, incY, alignmentY);
 
   for (auto _ : state) {
-    gemv<lib, T>(Order, TransA, N, N, alpha, A.data(), lda, X.data(), incX,
+    gemv<lib, T>(Order, TransA, M, N, alpha, A.data(), lda, X.data(), incX,
                  beta, Y.data(), incY);
   }
 }
 
-template <typename T, int Order, int TransA, int Uplo>
+template <typename T, int Order, int Uplo, int TransA, int Diag>
 static void args(benchmark::internal::Benchmark *b) {
   auto add_arg = [&b](int M, int N) {
     return b->Args({M,
@@ -56,7 +56,7 @@ static void args(benchmark::internal::Benchmark *b) {
                     64,
                     64,
                     64,
-                    {BENCH_TYPES::level_2_eq},
+                    {BENCH_TYPES::level_2_sq},
                     {type_bits<T>()}});
   };
   b->ArgNames({"M", "N", "Order", "TransA", "alpha", "lda_diff", "incX", "beta",
@@ -70,5 +70,5 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-call_bench_all(gemv, CblasRowMajor, CblasNoTrans, 0);
-call_bench_all(gemv, CblasRowMajor, CblasTrans, 0);
+call_bench_all(gemv, CblasRowMajor, 0, CblasNoTrans, 0);
+call_bench_all(gemv, CblasRowMajor, 0, CblasTrans, 0);

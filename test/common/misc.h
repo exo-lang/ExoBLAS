@@ -43,7 +43,7 @@ int type_bits() {
   }
 }
 
-std::string order_symbol(int Order) {
+std::string order_symbol(enum CBLAS_ORDER Order) {
   if (Order == CBLAS_ORDER::CblasRowMajor) {
     return "_rm";
   } else if (Order == CBLAS_ORDER::CblasColMajor) {
@@ -53,7 +53,7 @@ std::string order_symbol(int Order) {
   }
 }
 
-std::string side_symbol(int Side) {
+std::string side_symbol(enum CBLAS_SIDE Side) {
   if (Side == CBLAS_SIDE::CblasLeft) {
     return "l";
   } else if (Side == CBLAS_SIDE::CblasRight) {
@@ -63,20 +63,31 @@ std::string side_symbol(int Side) {
   }
 }
 
-std::string trans_symbol(int Trans) {
+std::string trans_symbol(enum CBLAS_TRANSPOSE Trans) {
   if (Trans == CBLAS_TRANSPOSE::CblasNoTrans) {
     return "n";
-  } else if (Trans == CBLAS_TRANSPOSE::CblasTrans) {
+  } else if (Trans == CBLAS_TRANSPOSE::CblasTrans ||
+             Trans == CBLAS_TRANSPOSE::CblasConjTrans) {
     return "t";
   } else {
     return "";
   }
 }
 
-std::string uplo_symbol(int Uplo) {
+std::string uplo_symbol(enum CBLAS_UPLO Uplo) {
   if (Uplo == CBLAS_UPLO::CblasLower) {
     return "l";
   } else if (Uplo == CBLAS_UPLO::CblasUpper) {
+    return "u";
+  } else {
+    return "";
+  }
+}
+
+std::string diag_symbol(enum CBLAS_DIAG Diag) {
+  if (Diag == CBLAS_DIAG::CblasNonUnit) {
+    return "n";
+  } else if (Diag == CBLAS_DIAG::CblasUnit) {
     return "u";
   } else {
     return "";
@@ -89,18 +100,23 @@ std::string kernel_name(std::string kernel) {
 }
 
 template <typename lib, typename T>
-std::string kernel_name(std::string kernel, int Order, int TransA, int Uplo) {
+std::string kernel_name(std::string kernel, enum CBLAS_ORDER Order,
+                        enum CBLAS_UPLO Uplo, enum CBLAS_TRANSPOSE TransA,
+                        enum CBLAS_DIAG Diag) {
   auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
   name += order_symbol(Order);
-  name += Uplo + TransA ? "_" : "";
+  name += Uplo + TransA + Diag ? "_" : "";
   name += uplo_symbol(Uplo);
   name += trans_symbol(TransA);
+  name += diag_symbol(Diag);
   return name;
 }
 
 template <typename lib, typename T>
-std::string kernel_name(std::string kernel, int Order, int Side, int Uplo,
-                        int TransA, int TransB) {
+std::string kernel_name(std::string kernel, enum CBLAS_ORDER Order,
+                        enum CBLAS_SIDE Side, enum CBLAS_UPLO Uplo,
+                        enum CBLAS_TRANSPOSE TransA,
+                        enum CBLAS_TRANSPOSE TransB) {
   auto name = lib::lib_name() + "_" + type_prefix<T>() + kernel;
   name += order_symbol(Order);
   name += Side + Uplo + TransA + TransB ? "_" : "";

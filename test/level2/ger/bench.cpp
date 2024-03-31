@@ -31,7 +31,7 @@ static void bench(benchmark::State &state) {
   }
 }
 
-template <typename T, int Order, int TransA, int Uplo>
+template <typename T, int Order, int Uplo, int TransA, int Diag>
 static void args(benchmark::internal::Benchmark *b) {
   auto add_arg = [&b](int M, int N) {
     return b->Args({M,
@@ -44,7 +44,7 @@ static void args(benchmark::internal::Benchmark *b) {
                     64,
                     64,
                     64,
-                    {BENCH_TYPES::level_2_eq},
+                    {BENCH_TYPES::level_2_sq},
                     {type_bits<T>()}});
   };
   b->ArgNames({"M", "N", "Order", "alpha", "incX", "incY", "lda_diff",
@@ -58,4 +58,4 @@ static void args(benchmark::internal::Benchmark *b) {
   }
 }
 
-call_bench_all(ger, CblasRowMajor, 0, 0);
+call_bench_all(ger, CblasRowMajor, 0, 0, 0);
