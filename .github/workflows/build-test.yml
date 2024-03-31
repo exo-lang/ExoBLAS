@@ -85,3 +85,7 @@ jobs:
       - name: Test Codegen
         run: ctest --test-dir ${{github.workspace}}/ExoBLAS/build/${{matrix.PRESET}} -C ${{env.BUILD_TYPE}} -R codegen_verbose
         if: ${{matrix.runner == 'ubuntu-latest'}}
+
+      # This is to make sure it runs without runtime errors
+      - name : Run LoC Script
+        run: ${{github.workspace}}/ExoBLAS/analytics_tools/loc/count_loc.py
