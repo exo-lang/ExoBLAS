@@ -5,3 +5,4 @@ pre-commit==3.2.2
 clang-format==16.0.1
 matplotlib==3.8.3
 sympy==1.12
+seaborn==0.13.2
