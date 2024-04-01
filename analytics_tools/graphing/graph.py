@@ -252,7 +252,7 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
 
         cmap = mcolors.LinearSegmentedColormap.from_list("custom_colormap", ["red", "lightgreen", "green"], N=256)
         plt.figure(figsize=(9, 9), dpi=200)
-        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap)
+        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap, vmin=0.8, vmax=1.2)
 
         # Place the ticks in-between the columns
         tick_positions = np.arange(data.shape[1] + 1)
