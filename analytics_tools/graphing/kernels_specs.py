@@ -4,7 +4,29 @@ from dataclasses import dataclass
 
 class kernel:
     def __init__(self, bench):
-        raise NotImplementedError(f"{__name__} not implemented")
+        self.real_time = float(bench["real_time"])
+        assert bench["name"] == bench["run_name"]
+
+        run_name = bench["run_name"]
+        run_dict = run_name_to_dict(run_name)
+
+        self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
+        self.sub_kernel_name = self.sub_kernel_name.replace("_rm", "")
+        self.bench_type = int(run_dict["bench_type"])
+
+        self.precision = run_dict["precision"]
+
+        self.M = int(run_dict.get("M", 0))
+        self.N = int(run_dict.get("N", 0))
+        self.K = int(run_dict.get("K", 0))
+
+        self.Order = int(run_dict.get("Order", 0))
+        self.Side = int(run_dict.get("Side", 0))
+        self.Uplo = int(run_dict.get("Uplo", 0))
+        self.TransA = int(run_dict.get("TransA", 0))
+        self.TransB = int(run_dict.get("TransB", 0))
+        self.Trans = int(run_dict.get("Trans", 0))
+        self.Diag = int(run_dict.get("Diag", 0))
 
     def get_size_param(self):
         raise NotImplementedError(f"{__name__} not implemented")
@@ -53,19 +75,6 @@ class kernel:
 
 
 class level_1(kernel):
-    def __init__(self, bench):
-        self.real_time = float(bench["real_time"])
-        assert bench["name"] == bench["run_name"]
-
-        run_name = bench["run_name"]
-        run_dict = run_name_to_dict(run_name)
-
-        self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
-        self.bench_type = int(run_dict["bench_type"])
-        assert self.bench_type == BENCH_TYPE.level_1.value
-        self.N = int(run_dict["N"])
-        self.precision = run_dict["precision"]
-
     def get_size_param(self):
         return self.N
 
@@ -189,30 +198,6 @@ class swap(level_1_double_vec):
 
 
 class level_2(kernel):
-    def __init__(self, bench):
-        self.real_time = float(bench["real_time"])
-        assert bench["name"] == bench["run_name"]
-
-        run_name = bench["run_name"]
-        run_dict = run_name_to_dict(run_name)
-
-        self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
-        self.bench_type = int(run_dict["bench_type"])
-        assert self.bench_type in level_2_bench_types
-        self.precision = run_dict["precision"]
-
-        self.M = int(run_dict.get("M", 0))
-        self.N = int(run_dict.get("N", 0))
-        self.K = int(run_dict.get("K", 0))
-
-        self.Order = int(run_dict.get("Order", 0))
-        self.Side = int(run_dict.get("Side", 0))
-        self.Uplo = int(run_dict.get("Uplo", 0))
-        self.TransA = int(run_dict.get("TransA", 0))
-        self.TransB = int(run_dict.get("TransB", 0))
-        self.Trans = int(run_dict.get("Trans", 0))
-        self.Diag = int(run_dict.get("Diag", 0))
-
     def get_size_param(self):
         return self.N
 
@@ -318,28 +303,7 @@ class syr2(level_2):
 
 
 class level_3(kernel):
-    def __init__(self, bench):
-        self.real_time = float(bench["real_time"])
-        assert bench["name"] == bench["run_name"]
-
-        run_name = bench["run_name"]
-        run_dict = run_name_to_dict(run_name)
-
-        self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
-        self.bench_type = int(run_dict["bench_type"])
-        assert self.bench_type in level_3_bench_types
-
-        self.precision = run_dict["precision"]
-
-        self.M = int(run_dict.get("M", 0))
-        self.N = int(run_dict.get("N", 0))
-        self.K = int(run_dict.get("K", 0))
-        self.Order = int(run_dict.get("Order", 0))
-        self.Side = int(run_dict.get("Side", 0))
-        self.Uplo = int(run_dict.get("Uplo", 0))
-        self.TransA = int(run_dict.get("TransA", 0))
-        self.TransB = int(run_dict.get("TransB", 0))
-        self.Trans = int(run_dict.get("Trans", 0))
+    pass
 
 
 class gemm(level_3):

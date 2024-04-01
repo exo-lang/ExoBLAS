@@ -3,6 +3,8 @@ import sys
 import matplotlib.pyplot as plt
 from pathlib import Path
 import importlib
+import numpy as np
+import seaborn as sns
 
 from misc import *
 
@@ -59,32 +61,36 @@ def rename_lib(dir_name):
     if lib_name == "Intel10_64lp_seq":
         lib_name = "MKL"
     elif lib_name == "exo" or lib_name == "Exo":
-        lib_name = "Exo"
+        lib_name = "ExoBLAS"
     elif lib_name == "All":
         lib_name = "OpenBLAS"
     return lib_name
 
 
-def get_jsons(kernel):
+def get_jsons(target_kernel):
     jsons = {}
     for libdir in BENCHMARK_JSONS_DIR.iterdir():
         assert libdir.is_dir()
-
-        json_path = libdir / f"{kernel}.json"
-
         libname = rename_lib(libdir.name)
+        jsons[libname] = {}
+        for json_path in libdir.iterdir():
+            assert json_path.name.endswith(".json")
+            kernel = json_path.name[:-5]
 
-        if not json_path.exists():
-            print(f"Results for {libname}/{libdir.name} not found!")
-            continue
-
-        with open(json_path) as f:
-            try:
-                data = json.load(f)
-            except json.decoder.JSONDecodeError:
-                print(f"Failed parsing {json_path}. Benchmarking likely got interrupted for {libname}/{libdir.name}")
+            if target_kernel != "all" and target_kernel != kernel:
                 continue
-            jsons[libname] = data
+
+            if not json_path.exists():
+                print(f"Results for {libname}/{libdir.name} not found!")
+                continue
+
+            with open(json_path) as f:
+                try:
+                    data = json.load(f)
+                except json.decoder.JSONDecodeError:
+                    print(f"Failed parsing {json_path}. Benchmarking likely got interrupted for {libname}/{libdir.name}")
+                    continue
+                jsons[libname][kernel] = data
 
     return jsons
 
@@ -94,27 +100,35 @@ def get_kernel_class(kernel):
     return getattr(kernels_specs, kernel)
 
 
-def parse_jsons(kernel, jsons):
+def parse_jsons(jsons):
     """
     Returns a dictionary of the following form:
     {
-
-        'sub_kernel_name1' : {
+        'kernel1' = {
+            'sub_kernel_name1' : {
             'bench_type1' : {'lib1' : [runs], 'lib2' : [runs] }
             'bench_type2' : ...
             ...
-        },
-        'sub_kernel_name2' :  { ... }
+            },
+            'sub_kernel_name2' :  { ... }
+            ...
+        }
+        'kernel2' = {
+            ...
+        }
         ...
     }
     """
-    kernel_class = get_kernel_class(kernel)
     parsed_jsons = {}
-    for libname, json in jsons.items():
-        benchmarks = json["benchmarks"]
-        for bench in benchmarks:
-            obj = kernel_class(bench)
-            parsed_jsons.setdefault(obj.sub_kernel_name, {}).setdefault(obj.bench_type, {}).setdefault(libname, []).append(obj)
+    for libname, kernel_dict in jsons.items():
+        for kernel, json in kernel_dict.items():
+            kernel_class = get_kernel_class(kernel)
+            benchmarks = json["benchmarks"]
+            for bench in benchmarks:
+                obj = kernel_class(bench)
+                parsed_jsons.setdefault(kernel, {}).setdefault(obj.sub_kernel_name, {}).setdefault(obj.bench_type, {}).setdefault(
+                    libname, []
+                ).append(obj)
     return parsed_jsons
 
 
@@ -180,18 +194,127 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
     plt.savefig(filename)
 
 
+def discretize_and_aggregate(results, ranges, agg_func=np.mean):
+    aggregated = {func: {range_: [] for range_ in ranges} for func, _ in results}
+    for func, data in results:
+        for x, t in data:
+            for rng in ranges:
+                if rng[0] <= x and (not rng[1] or x < rng[1]):
+                    aggregated[func][rng].append(t)
+
+    # Calculate average time for each function and range
+    for func in aggregated:
+        for range_ in ranges:
+            times = aggregated[func][range_]
+            aggregated[func][range_] = agg_func(times) if times else 0  # Handle case with no data
+
+    return aggregated
+
+
+# Convert aggregated data into a format suitable for heatmap creation
+def prepare_heatmap_data(aggregated):
+    data = []
+    functions = list(aggregated.keys())
+    ranges = list(next(iter(aggregated.values())).keys())
+    for func in functions:
+        data.append([aggregated[func][range_] for range_ in ranges])
+    array = np.array(data)
+    non_zero_columns = ~np.all(array == 0, axis=0)
+    array = array[:, non_zero_columns]
+    ranges = np.array(ranges)
+    ranges = ranges[non_zero_columns]
+    return array, functions, ranges
+
+
+def plot_geomean_heatmap(bench_type, lib, heatmap_data):
+    def aggregate(data):
+        data = np.array(data)
+        return data.prod() ** (1.0 / len(data))
+
+    powers_list = lambda b, mx: [(b**i, b ** (i + 1)) for i in range(0, mx)]
+
+    p4_ranges = powers_list(4, 11)
+    p10_ranges = powers_list(10, 9)
+
+    for p, ranges in ((4, p4_ranges), (10, p10_ranges)):
+        plt.clf()
+        agg_heatmap_data = discretize_and_aggregate(heatmap_data, ranges, aggregate)
+        data, sub_kernels, ranges = prepare_heatmap_data(agg_heatmap_data)
+        plt.figure(figsize=(9, 9), dpi=200)
+        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels)
+        plt.title(f"Geomean of runtime of {lib} / ExoBLAS")
+        plt.xlabel("Ranges")
+        plt.ylabel("Kernel Names")
+        filename = GRAPHS_DIR / "all" / f"p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
+        plt.savefig(filename)
+
+
+def plot_speedup_heatmap(parsed_jsons):
+
+    new_data = {}
+    libs = set()
+    for kernel_dict in parsed_jsons.values():
+        for sub_kernel, bench_type_dict in kernel_dict.items():
+            for bench_type, data in bench_type_dict.items():
+                new_data.setdefault(bench_type, {})[sub_kernel] = data
+                libs |= data.keys()
+
+    libs.remove("ExoBLAS")
+    for bench_type in new_data:
+        for lib in libs:
+            heatmap_data = []
+            for sub_kernel in new_data[bench_type]:
+                if "ExoBLAS" not in new_data[bench_type][sub_kernel]:
+                    continue
+                if lib not in new_data[bench_type][sub_kernel]:
+                    continue
+                lib_data = sorted(new_data[bench_type][sub_kernel][lib])
+                exoblas_data = sorted(new_data[bench_type][sub_kernel]["ExoBLAS"])
+
+                lib_data_x = [run.get_size_param() for run in lib_data]
+                exoblas_data_x = [run.get_size_param() for run in exoblas_data]
+
+                if lib_data_x != exoblas_data_x:
+                    continue
+
+                lib_data_y = [run.get_real_time() for run in lib_data]
+                exoblas_data_y = [run.get_real_time() for run in exoblas_data]
+
+                geomean = [lib / exoblas for lib, exoblas in zip(lib_data_y, exoblas_data_y)]
+                print(f"Adding {sub_kernel} for bench_type = {bench_type} and lib = {lib}")
+                heatmap_data.append((sub_kernel, list(zip(lib_data_x, geomean))))
+            if not heatmap_data:
+                continue
+
+            heatmap_data = sorted(heatmap_data, key=lambda x: (x[0][1:], x[0]))
+            plot_geomean_heatmap(bench_type, lib, heatmap_data)
+
+
+def plot_kernel(kernel, parsed_jsons, peaks):
+    assert len(parsed_jsons) == 1
+    parsed_jsons = next(iter(parsed_jsons.values()))
+    for bench_type_dict in parsed_jsons.values():
+        for data in bench_type_dict.values():
+            plot_bandwidth_throughput(kernel, data, peaks, loads=True)
+            plot_bandwidth_throughput(kernel, data, peaks, loads=False)
+            plot_flops_throughput(kernel, data, peaks, verbose)
+
+
+def plot_all(parsed_jsons, peaks):
+    plot_speedup_heatmap(parsed_jsons)
+
+
 if __name__ == "__main__":
     check_args()
     kernel, verbose = parse_args()
 
     init_directories(kernel)
     jsons = get_jsons(kernel)
-    parsed_jsons = parse_jsons(kernel, jsons)
+    parsed_jsons = parse_jsons(jsons)
 
     peaks = get_peaks_json()
 
-    for bench_type_dict in parsed_jsons.values():
-        for data in bench_type_dict.values():
-            plot_bandwidth_throughput(kernel, data, peaks, loads=True)
-            plot_bandwidth_throughput(kernel, data, peaks, loads=False)
-            plot_flops_throughput(kernel, data, peaks, verbose)
+    if kernel != "all":
+        plot_kernel(kernel, parsed_jsons, peaks)
+    else:
+        plot_all(parsed_jsons, peaks)
