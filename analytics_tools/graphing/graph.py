@@ -5,6 +5,7 @@ from pathlib import Path
 import importlib
 import numpy as np
 import seaborn as sns
+import matplotlib.colors as mcolors
 
 from misc import *
 
@@ -241,8 +242,9 @@ def plot_geomean_heatmap(bench_type, lib, heatmap_data):
         agg_heatmap_data = discretize_and_aggregate(heatmap_data, ranges, aggregate)
         data, sub_kernels, ranges = prepare_heatmap_data(agg_heatmap_data)
 
+        cmap = mcolors.LinearSegmentedColormap.from_list("custom_colormap", ["red", "lightgreen", "green"], N=256)
         plt.figure(figsize=(9, 9), dpi=200)
-        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels)
+        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap)
 
         plt.title(f"Geomean of runtime of {lib} / ExoBLAS")
         plt.xlabel("N")
