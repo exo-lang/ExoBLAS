@@ -8,6 +8,7 @@ import seaborn as sns
 import matplotlib.colors as mcolors
 
 from misc import *
+from kernels_specs import level_1, level_2, level_3
 
 SCRIPT_PATH = Path(__file__)
 ROOT_PATH = SCRIPT_PATH.parent.parent.parent.resolve()
@@ -227,7 +228,14 @@ def prepare_heatmap_data(aggregated):
     return array, functions, ranges
 
 
-def plot_geomean_heatmap(bench_type, lib, heatmap_data):
+def to_superscript(n):
+    # Dictionary mapping of numbers to their superscript counterparts
+    superscript_map = {"0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"}
+    # Convert the input number to string, map each character to its superscript, and join them back into a string
+    return "".join(superscript_map.get(digit, "") for digit in str(n))
+
+
+def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
     def aggregate(data):
         data = np.array(data)
         return data.prod() ** (1.0 / len(data))
@@ -246,16 +254,21 @@ def plot_geomean_heatmap(bench_type, lib, heatmap_data):
         plt.figure(figsize=(9, 9), dpi=200)
         sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap)
 
-        plt.title(f"Geomean of runtime of {lib} / ExoBLAS")
-        plt.xlabel("N")
-        plt.ylabel("Kernel Names")
-
         # Place the ticks in-between the columns
         tick_positions = np.arange(data.shape[1] + 1)
         tick_labels = [r[0] for r in ranges] + [ranges[-1][1]]
+        tick_labels = [f"{p}{to_superscript(int(np.emath.logn(p, l)))}" for l in tick_labels]
         plt.xticks(tick_positions, tick_labels, rotation=0)
 
-        filename = GRAPHS_DIR / "all" / f"p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
+        # Remove the ticks from the y-axis
+        plt.tick_params(axis="y", which="both", length=0)
+
+        level_name = level.__name__.replace("_", " ").capitalize()
+        plt.title(f"{level_name} Geomean of runtime of {lib} / ExoBLAS")
+        plt.xlabel("N")
+        plt.ylabel("Kernel Names")
+
+        filename = GRAPHS_DIR / "all" / f"{level.__name__}_p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
         plt.savefig(filename)
 
 
@@ -272,32 +285,35 @@ def plot_speedup_heatmap(parsed_jsons):
     libs.remove("ExoBLAS")
     for bench_type in new_data:
         for lib in libs:
-            heatmap_data = []
-            for sub_kernel in new_data[bench_type]:
-                if "ExoBLAS" not in new_data[bench_type][sub_kernel]:
+            for level in (level_1, level_2, level_3):
+                heatmap_data = []
+                for sub_kernel in new_data[bench_type]:
+                    if "ExoBLAS" not in new_data[bench_type][sub_kernel]:
+                        continue
+                    if lib not in new_data[bench_type][sub_kernel]:
+                        continue
+                    if not isinstance(new_data[bench_type][sub_kernel][lib][0], level):
+                        continue
+                    lib_data = sorted(new_data[bench_type][sub_kernel][lib])
+                    exoblas_data = sorted(new_data[bench_type][sub_kernel]["ExoBLAS"])
+
+                    lib_data_x = [run.get_size_param() for run in lib_data]
+                    exoblas_data_x = [run.get_size_param() for run in exoblas_data]
+
+                    if lib_data_x != exoblas_data_x:
+                        continue
+
+                    lib_data_y = [run.get_real_time() for run in lib_data]
+                    exoblas_data_y = [run.get_real_time() for run in exoblas_data]
+
+                    geomean = [lib / exoblas for lib, exoblas in zip(lib_data_y, exoblas_data_y)]
+                    print(f"Adding {sub_kernel} for bench_type = {bench_type} and lib = {lib}")
+                    heatmap_data.append((sub_kernel, list(zip(lib_data_x, geomean))))
+                if not heatmap_data:
                     continue
-                if lib not in new_data[bench_type][sub_kernel]:
-                    continue
-                lib_data = sorted(new_data[bench_type][sub_kernel][lib])
-                exoblas_data = sorted(new_data[bench_type][sub_kernel]["ExoBLAS"])
 
-                lib_data_x = [run.get_size_param() for run in lib_data]
-                exoblas_data_x = [run.get_size_param() for run in exoblas_data]
-
-                if lib_data_x != exoblas_data_x:
-                    continue
-
-                lib_data_y = [run.get_real_time() for run in lib_data]
-                exoblas_data_y = [run.get_real_time() for run in exoblas_data]
-
-                geomean = [lib / exoblas for lib, exoblas in zip(lib_data_y, exoblas_data_y)]
-                print(f"Adding {sub_kernel} for bench_type = {bench_type} and lib = {lib}")
-                heatmap_data.append((sub_kernel, list(zip(lib_data_x, geomean))))
-            if not heatmap_data:
-                continue
-
-            heatmap_data = sorted(heatmap_data, key=lambda x: (x[0][1:], x[0]))
-            plot_geomean_heatmap(bench_type, lib, heatmap_data)
+                heatmap_data = sorted(heatmap_data, key=lambda x: (x[0][1:], x[0]))
+                plot_geomean_heatmap(level, bench_type, lib, heatmap_data)
 
 
 def plot_kernel(kernel, parsed_jsons, peaks):
