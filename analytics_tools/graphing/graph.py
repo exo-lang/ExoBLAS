@@ -240,11 +240,19 @@ def plot_geomean_heatmap(bench_type, lib, heatmap_data):
         plt.clf()
         agg_heatmap_data = discretize_and_aggregate(heatmap_data, ranges, aggregate)
         data, sub_kernels, ranges = prepare_heatmap_data(agg_heatmap_data)
+
         plt.figure(figsize=(9, 9), dpi=200)
         sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels)
+
         plt.title(f"Geomean of runtime of {lib} / ExoBLAS")
-        plt.xlabel("Ranges")
+        plt.xlabel("N")
         plt.ylabel("Kernel Names")
+
+        # Place the ticks in-between the columns
+        tick_positions = np.arange(data.shape[1] + 1)
+        tick_labels = [r[0] for r in ranges] + [ranges[-1][1]]
+        plt.xticks(tick_positions, tick_labels, rotation=0)
+
         filename = GRAPHS_DIR / "all" / f"p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
         plt.savefig(filename)
 
