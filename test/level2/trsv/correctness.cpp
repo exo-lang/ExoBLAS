@@ -18,7 +18,7 @@ void test_trsv(const enum CBLAS_ORDER order, const enum CBLAS_UPLO Uplo,
   auto A = AlignedBuffer2D<T>(N, lda);
 
   for (int i = 0; i < N; ++i) {
-    for (int j = 0; j < N; ++j) A[i * lda + j] = 2.0;
+    for (int j = 0; j < N; ++j) A[i * lda + j] = 2.0 + j / N;
   }
   for (int i = 0; i < X.size(); ++i) {
     X[i] = i;
