@@ -102,4 +102,4 @@ for trsv in trsv_rm_ut, trsv_rm_lt:
     variants_generator(schedule_t)(trsv, "i #1", 4, 2, globals=globals())
 
 for trsv in trsv_rm_un, trsv_rm_ln:
-    variants_generator(identity_schedule)(trsv, "i", 4, 2, round_up=False, globals=globals())
+    variants_generator(optimize_level_2)(trsv, "i", 4, 2, round_up=False, globals=globals())
