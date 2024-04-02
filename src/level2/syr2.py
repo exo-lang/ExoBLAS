@@ -40,5 +40,5 @@ def syr2_rm_l(
             A[i, j] += (alpha * x[i]) * y[j] + (alpha * y_copy[i]) * x_copy[j]
 
 
-variants_generator(optimize_level_2)(syr2_rm_u, "i", 4, 1, round_up=False, globals=globals())
-variants_generator(optimize_level_2)(syr2_rm_l, "i", 4, 1, globals=globals())
+variants_generator(optimize_level_2)(syr2_rm_u, "i", 4, 2, round_up=False, globals=globals())
+variants_generator(optimize_level_2)(syr2_rm_l, "i", 4, 2, globals=globals())
