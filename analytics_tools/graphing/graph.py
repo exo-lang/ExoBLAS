@@ -257,7 +257,7 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         # Place the ticks in-between the columns
         tick_positions = np.arange(data.shape[1] + 1)
         tick_labels = [r[0] for r in ranges] + [ranges[-1][1]]
-        tick_labels = [f"{p}{to_superscript(int(np.emath.logn(p, l)))}" for l in tick_labels]
+        tick_labels = [f"{p}{to_superscript(round(np.emath.logn(p, l)))}" for l in tick_labels]
         plt.xticks(tick_positions, tick_labels, rotation=0)
 
         # Remove the ticks from the y-axis
