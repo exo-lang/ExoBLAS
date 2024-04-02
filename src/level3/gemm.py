@@ -128,10 +128,24 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     packed_A_shape = ((0, max_M // m_r), (1, max_K), (0, m_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
     gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
+
+    expr = gemm_mk.find(f"(i0i + M / {m_r} * {m_r}) / {m_r}")
+    gemm_mk = rewrite_expr(gemm_mk, expr, f"M / {m_r}")
+
+    expr = gemm_mk.find(f"(i0i + M / {m_r} * {m_r}) % {m_r}")
+    gemm_mk = rewrite_expr(gemm_mk, expr, f"i0i")
+
     gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_A_pack")
 
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
+
+    expr = gemm_mk.find(f"(i1i + N / {n_r} * {n_r}) / {n_r}")
+    gemm_mk = rewrite_expr(gemm_mk, expr, f"N / {n_r}")
+
+    expr = gemm_mk.find(f"(i1i + N / {n_r} * {n_r}) % {n_r}")
+    gemm_mk = rewrite_expr(gemm_mk, expr, f"i1i")
+
     gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
     gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_B_pack")
 
@@ -162,7 +176,7 @@ def schedule(main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
     return simplify(gemm_tiled)
 
 
-PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (6, 4, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
+PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (5, 5, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
 
 m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
 n_r = n_r_fac * C.Machine.vec_width("f32")
