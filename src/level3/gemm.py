@@ -83,6 +83,8 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = unroll_loop(gemm_compute, axpy_j)
     gemm_compute = simplify(gemm_compute)
 
+    gemm_compute = specialize(gemm_compute, gemm_compute.body(), f"M % {m_r} == 0 and N % {n_r} == 0")
+
     def cut(proc, loop, cond, rng):
         loop = proc.forward(loop)
         cut_val = FormattedExprStr(f"_ - 1", loop.hi())
@@ -91,13 +93,14 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
         return proc
 
     right_cond = lambda l, i: f"(N - {l.name()} * {n_r} + {vw - 1}) / {vw}"
-    gemm_compute = cut(gemm_compute, j_loop, right_cond, range(1, n_r_fac))
+    gemm_compute = cut(gemm_compute, gemm_compute.find_loop("jo #1"), right_cond, range(1, n_r_fac))
+
     gemm_compute = dce(gemm_compute)
     gemm_compute = replace_all_stmts(gemm_compute, machine.get_instructions(precision))
 
     gemm_compute = simplify(unroll_loops(gemm_compute))
     bottom_cond = lambda l, i: f"M - {l.name()} * {m_r}"
-    gemm_compute = cut(gemm_compute, i_loop, bottom_cond, range(m_r, 1, -1))
+    gemm_compute = cut(gemm_compute, gemm_compute.find_loop("io #1"), bottom_cond, range(m_r, 1, -1))
 
     def rewrite(p):
         try:
@@ -106,6 +109,8 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
             pass
         p = dce(p)
         return simplify(p)
+
+    gemm_compute = interleave_loop(gemm_compute, gemm_compute.find_loop("k"), 2, memory=machine.mem_type)
 
     blocks = gemm_compute.find_loop("C_tile:_", many=True)
     for i, tile in enumerate(blocks):
@@ -134,8 +139,8 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
 
     expr = gemm_mk.find(f"(i0i + M / {m_r} * {m_r}) % {m_r}")
     gemm_mk = rewrite_expr(gemm_mk, expr, f"i0i")
-
-    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_A_pack")
+    gemm_mk = apply(lift_scope)(gemm_mk, gemm_mk.find_loop("i1", many=True))
+    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.find_loop("i1").expand(0, 2), gemm_mk.name() + "_A_pack")
 
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
@@ -176,7 +181,7 @@ def schedule(main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
     return simplify(gemm_tiled)
 
 
-PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (5, 5, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
+PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (8, 3, 33, 2, 512), Neon: (1, 1, 1, 1, 1)}
 
 m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
 n_r = n_r_fac * C.Machine.vec_width("f32")
