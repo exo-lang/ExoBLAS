@@ -33,17 +33,12 @@ def optimize_level_1(
 
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
-
     rules = [fma_rule, abs_rule]
-    proc, (loop,) = vectorize(
-        proc, loop, vec_width, precision, memory, rules=rules, tail=vec_tail, rc=True
-    )
+    proc, (loop,) = vectorize(proc, loop, vec_width, precision, memory, rules=rules, tail=vec_tail, rc=True)
 
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
 
-    proc = interleave_loop(
-        proc, loop, interleave_factor, par_reduce=True, memory=memory, tail=inter_tail
-    )
+    proc = interleave_loop(proc, loop, interleave_factor, par_reduce=True, memory=memory, tail=inter_tail)
 
     proc = cleanup(proc)
     proc = replace_all_stmts(proc, instrs)
@@ -61,9 +56,7 @@ def get_triangle_type(proc, loop):
         return 1
     if not is_add(proc, loop.hi()):
         return 0
-    if is_read(proc, loop.hi().lhs(), outer_loop.name()) and is_literal(
-        proc, loop.hi().rhs(), 1
-    ):
+    if is_read(proc, loop.hi().lhs(), outer_loop.name()) and is_literal(proc, loop.hi().rhs(), 1):
         return 2
     return 0
 
@@ -91,9 +84,7 @@ def optimize_level_2(
             proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
             inner_loop = get_inner_loop(proc, outer_loop)
         if not round_up and triangle == 2:
-            proc, (inner_loop,) = cut_loop_and_unroll(
-                proc, inner_loop, 1, front=False, rc=True
-            )
+            proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
 
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
@@ -102,15 +93,11 @@ def optimize_level_2(
         proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
         proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
         proc = unroll_buffers(proc, kernel_loop)
-        proc = optimize_level_1(
-            proc, inner_loop, precision, machine, cols_factor, **kwargs
-        )
+        proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
         return proc
 
     if rows_tail in {"level_1", "cut"}:
-        proc, (_, inner, tail_l) = divide_loop_(
-            proc, outer_loop, rows_factor, tail="cut", rc=True
-        )
+        proc, (_, inner, tail_l) = divide_loop_(proc, outer_loop, rows_factor, tail="cut", rc=True)
         proc = rewrite(proc, inner, rows_factor, cols_factor)
         if rows_tail == "level_1":
             proc = optimize_level_1(

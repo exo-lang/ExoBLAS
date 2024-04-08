@@ -140,8 +140,7 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     expr = gemm_mk.find(f"(i0i + M / {m_r} * {m_r}) % {m_r}")
     gemm_mk = rewrite_expr(gemm_mk, expr, f"i0i")
     gemm_mk = apply(lift_scope)(gemm_mk, gemm_mk.find_loop("i1", many=True))
-    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.find_loop("i1").expand(0, 2), gemm_mk.name() + "_A_pack")
-
+    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.find_loop("i0o").expand(0, 1), gemm_mk.name() + "_A_pack")
     packed_B_shape = ((1, max_N // n_r), (0, max_K), (1, n_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
 
@@ -150,6 +149,10 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
 
     expr = gemm_mk.find(f"(i1i + N / {n_r} * {n_r}) % {n_r}")
     gemm_mk = rewrite_expr(gemm_mk, expr, f"i1i")
+    gemm_mk = optimize_level_1(
+        gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, n_r_fac, vec_tail="perfect", inter_tail="cut"
+    )
+    gemm_mk = optimize_level_1(gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, 1)
 
     gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
     gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_B_pack")

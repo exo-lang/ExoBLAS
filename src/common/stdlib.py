@@ -1342,7 +1342,7 @@ def pack_mem(proc, block, buffer, shape, name=None, rc=False):
     for src_dim, _ in reversed(list(enumerate(alloc.shape()))):
         for dst_dim, size in reversed(divisions[src_dim][1:]):
             proc = divide_dim(proc, alloc, src_dim, size)
-            proc = apply(divide_loop_)(proc, loop_nest[src_dim], size, tail="cut")
+            proc = apply(divide_loop_)(proc, loop_nest[src_dim], size, tail="cut_and_guard")
             perm.append(dst_dim)
         perm.append(divisions[src_dim][0][0])
 
