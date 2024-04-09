@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 
 from exo import *
 from exo.stdlib.scheduling import *
@@ -51,6 +52,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     i_loop = gemm_compute.body()[0]
     j_loop = get_inner_loop(gemm_compute, i_loop)
     k_loop = get_inner_loop(gemm_compute, j_loop)
+    gemm_compute = auto_stage_mem(gemm_compute, gemm_compute.body(), "alpha", "alpha_")
     gemm_compute, cs = auto_stage_mem(gemm_compute, k_loop, "C", "C_tile", accum=True, rc=1)
     gemm_compute = lift_reduce_constant(gemm_compute, cs.load.expand(0, 1))
     assign = gemm_compute.forward(cs.store).prev()
@@ -75,11 +77,16 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = divide_dim(gemm_compute, cursors.alloc, 0, vw)
     gemm_compute = vectorize(gemm_compute, cursors.load, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
     gemm_compute = unroll_loop(gemm_compute, cursors.load)
-    gemm_compute = vectorize(gemm_compute, i_cmp_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
-    gemm_compute = unroll_loop(gemm_compute, i_cmp_j)
+    gemm_compute = lift_scope(gemm_compute, i_cmp_j)
+    i_cmp_j = gemm_compute.forward(i_cmp_j)
+    gemm_compute = auto_stage_mem(gemm_compute, i_cmp_j.body(), "packed_A", "A_reg")
     gemm_compute = unroll_loop(gemm_compute, o_cmp_j)
-    gemm_compute, alpah_cursors = auto_stage_mem(gemm_compute, axpy_j.body(), "alpha", rc=True)
+    gemm_compute = vectorize(gemm_compute, i_cmp_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+
+    gemm_compute = unroll_loop(gemm_compute, i_cmp_j)
+    gemm_compute, alpah_cursors = auto_stage_mem(gemm_compute, axpy_j.body(), "alpha_", rc=True)
     gemm_compute = vectorize(gemm_compute, axpy_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+    gemm_compute = simplify(interleave_loop(gemm_compute, axpy_j, n_r_fac))
     gemm_compute = unroll_loop(gemm_compute, axpy_j)
     gemm_compute = simplify(gemm_compute)
 
@@ -108,9 +115,9 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
         except:
             pass
         p = dce(p)
+        p = divide_loop_(p, p.find_loop("k"), 4, tail="cut")
+        p = unroll_loop(p, p.find_loop("ki"))
         return simplify(p)
-
-    gemm_compute = interleave_loop(gemm_compute, gemm_compute.find_loop("k"), 2, memory=machine.mem_type)
 
     blocks = gemm_compute.find_loop("C_tile:_", many=True)
     for i, tile in enumerate(blocks):
@@ -184,11 +191,36 @@ def schedule(main_gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
     return simplify(gemm_tiled)
 
 
-PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (8, 3, 33, 2, 512), Neon: (1, 1, 1, 1, 1)}
+PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (5, 5, 33, 2, 512), Neon: (1, 1, 1, 1, 1)}
 
 m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
 n_r = n_r_fac * C.Machine.vec_width("f32")
-M_tile = M_tile_fac * m_r
-N_tile = N_tile_fac * n_r
+
+
+W_L1 = 12
+S_L1 = 48 * 1024
+C_L1 = 64
+N_L1 = S_L1 // (C_L1 * W_L1)
+C_Br = math.floor((W_L1 - 1) / (1 + m_r / n_r))
+S_data = 4
+K_tile = (C_Br * N_L1 * C_L1) // (n_r * S_data)
+
+W_L2 = 20
+S_L2 = 1280 * 1024
+C_L2 = 64
+N_L2 = S_L2 // (C_L2 * W_L2)
+C_BT = math.floor((W_L2 - 1) / 2)
+N_tile = (C_BT * N_L2 * C_L2) // (K_tile * S_data)
+
+N_tile = (N_tile // n_r) * n_r
+
+W_L3 = 12
+S_L3 = 3 * 1024 * 1024
+C_L3 = 64
+N_L3 = S_L3 // (C_L3 * W_L3)
+C_AT = math.floor((W_L3 - 1) / 2)
+M_tile = (C_AT * N_L3 * C_L3) // (K_tile * S_data)
+
+M_tile = (M_tile // m_r) * m_r
 
 variants_generator(schedule, ("f32",), (AVX2, AVX512))(gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())
