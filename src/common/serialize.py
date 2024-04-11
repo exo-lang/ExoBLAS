@@ -13,23 +13,6 @@ def get_path(proc):
     return CACHE_DIR / f"{proc.name()}.py"
 
 
-def filter_proc(proc):
-    filtered_lines = []
-    lines = proc.split("\n")
-    # Loop through each line in the original file
-    for line in lines:
-        # Check if the line starts (considering leading whitespaces) with "assert"
-        # and ends with "== True" or "== False"
-        line_lstripped = line.lstrip()  # Remove leading whitespaces for the startswith check
-        if not (
-            line_lstripped.startswith("assert")
-            and (line_lstripped.strip().endswith("== True") or line_lstripped.strip().endswith("== False"))
-        ):
-            # If it doesn't match the criteria, add it to the list of filtered lines
-            filtered_lines.append(line)
-    return "\n".join(filtered_lines)
-
-
 def serialize_(proc):
     string = ""
     calls = filter_cursors(is_call)(proc, lrn_stmts(proc))
@@ -38,7 +21,6 @@ def serialize_(proc):
         if not subproc.is_instr():
             string += serialize_(subproc)
     proc_str = str(proc)
-    proc_str = filter_proc(proc_str)
     string += f"@proc\n{proc_str}\n"
     return string
 
