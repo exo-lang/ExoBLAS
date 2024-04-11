@@ -11,6 +11,7 @@ from stdlib import *
 from codegen_helpers import *
 from blaslib import *
 from cblas_enums import *
+from serialize import *
 
 
 @proc
@@ -46,7 +47,35 @@ def gemm(
                         C[i, j] += alpha * (AT[k, i] * BT[j, k])
 
 
+def get_gemm_compute(precision, machine, m_r, n_r_fac):
+    vw = machine.vec_width(precision)
+    n_r = vw * n_r_fac
+
+    @proc
+    def gemm_compute(
+        M: size, N: size, K: size, M_T: size, N_T: size, alpha: R, A: [R][M_T, K, m_r], B: [R][N_T, K, n_r], C: [R][M, N]
+    ):
+        assert stride(A, 2) == 1
+        assert stride(B, 2) == 1
+        assert stride(C, 1) == 1
+        assert M_T * m_r > M
+        assert N_T * n_r > N
+
+        for i in seq(0, M):
+            for j in seq(0, N):
+                for k in seq(0, K):
+                    C[i, j] += alpha * (A[i / m_r, k, i % m_r] * B[j / n_r, k, j % n_r])
+
+    gemm_compute = rename(gemm_compute, gemm_compute.name() + f"_{machine.name}_{m_r}x{n_r}")
+    gemm_compute = specialize_precision(gemm_compute, precision)
+    sched_gemm_compute = schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac)
+    return gemm_compute, gemm_compute
+
+
 def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
+    if sched_gemm_compute := deserialize(gemm_compute):
+        print("Used cache")
+        return sched_gemm_compute
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
     i_loop = gemm_compute.body()[0]
@@ -71,7 +100,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = unroll_loop(gemm_compute, init_j)
     gemm_compute, (o_cmp_j, i_cmp_j, _) = divide_loop_(gemm_compute, cmp_j, vw, tail="perfect", rc=True)
     gemm_compute = simplify(gemm_compute)
-    gemm_compute, cursors = auto_stage_mem(gemm_compute, cmp_i, "packed_B", rc=True)
+    gemm_compute, cursors = auto_stage_mem(gemm_compute, cmp_i, "B", rc=True)
     gemm_compute = set_memory(gemm_compute, cursors.alloc, machine.mem_type)
     gemm_compute = simplify(gemm_compute)
     gemm_compute = divide_dim(gemm_compute, cursors.alloc, 0, vw)
@@ -79,7 +108,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = unroll_loop(gemm_compute, cursors.load)
     gemm_compute = lift_scope(gemm_compute, i_cmp_j)
     i_cmp_j = gemm_compute.forward(i_cmp_j)
-    gemm_compute = auto_stage_mem(gemm_compute, i_cmp_j.body(), "packed_A", "A_reg")
+    gemm_compute = auto_stage_mem(gemm_compute, i_cmp_j.body(), "A", "A_reg")
     gemm_compute = unroll_loop(gemm_compute, o_cmp_j)
     gemm_compute = vectorize(gemm_compute, i_cmp_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
 
@@ -108,22 +137,12 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = simplify(unroll_loops(gemm_compute))
     bottom_cond = lambda l, i: f"M - {l.name()} * {m_r}"
     gemm_compute = cut(gemm_compute, gemm_compute.find_loop("io #1"), bottom_cond, range(m_r, 1, -1))
-
-    def rewrite(p):
-        try:
-            p = delete_pass(p)
-        except:
-            pass
-        p = dce(p)
-        p = divide_loop_(p, p.find_loop("k"), 4, tail="cut")
-        p = unroll_loop(p, p.find_loop("ki"))
-        return simplify(p)
-
-    blocks = gemm_compute.find_loop("C_tile:_", many=True)
-    for i, tile in enumerate(blocks):
-        name = gemm_compute.name() + str(i)
-        gemm_compute = extract_and_schedule(rewrite)(gemm_compute, tile.expand(), name)
-    return simplify(gemm_compute)
+    gemm_compute = delete_pass(gemm_compute)
+    gemm_compute = dce(gemm_compute)
+    gemm_compute = apply(divide_and_unroll_loop)(gemm_compute, gemm_compute.find_loop("k", many=True), 4, tail="cut")
+    gemm_compute = simplify(gemm_compute)
+    serialize(gemm_compute)
+    return gemm_compute
 
 
 def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac):
@@ -164,9 +183,8 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
     gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_B_pack")
 
-    gemm_mk = extract_and_schedule(schedule_compute)(
-        gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
-    )
+    gemm_compute = get_gemm_compute(precision, machine, m_r, n_r_fac)
+    gemm_mk = replace_all_stmts(gemm_mk, [gemm_compute])
     return gemm_mk_starter, simplify(gemm_mk)
 
 
@@ -190,7 +208,7 @@ def schedule(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_t
     return simplify(gemm_tiled)
 
 
-PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (5, 5, 33, 2, 512), Neon: (1, 1, 1, 1, 1)}
+PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (2, 2, 33, 2, 512), Neon: (1, 1, 1, 1, 1)}
 
 m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
 n_r = n_r_fac * C.Machine.vec_width("f32")

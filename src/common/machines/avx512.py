@@ -6,10 +6,41 @@ from exo.stdlib.scheduling import *
 from .machine import MachineParameters
 
 
+@instr("{C_data} = _mm512_mask_fmadd_ps({A_data}, ((1 << {N}) - 1), {B_data}, {C_data});")
+def mm512_mask_fmadd_ps(
+    N: size,
+    A: [f32][16] @ AVX512,
+    B: [f32][16] @ AVX512,
+    C: [f32][16] @ AVX512,
+):
+    assert N >= 1
+    assert N <= 16
+    assert stride(A, 0) == 1
+    assert stride(B, 0) == 1
+    assert stride(C, 0) == 1
+
+    for i in seq(0, 16):
+        if i < N:
+            C[i] += A[i] * B[i]
+
+
+@instr("{dst_data} = _mm512_set1_ps({src_data});")
+def mm512_mask_set1_ps(
+    N: size,
+    dst: [f32][16] @ AVX512,
+    src: [f32][1],
+):
+    assert N >= 1
+    assert N <= 16
+    assert stride(dst, 0) == 1
+
+    for i in seq(0, 16):
+        if i < N:
+            dst[i] = src[0]
+
+
 mm512_fmadd_reduce_ps = rename(mm512_fmadd_ps, "mm512_fmadd_reduce_ps")
-mm512_prefix_fmadd_reduce_ps = rename(
-    mm512_mask_fmadd_ps, "mm512_prefix_fmadd_reduce_ps"
-)
+mm512_prefix_fmadd_reduce_ps = rename(mm512_mask_fmadd_ps, "mm512_prefix_fmadd_reduce_ps")
 
 
 @instr("{dst_data} = _mm512_fmadd_ps({A_data}, {B_data}, {C_data});")
@@ -27,9 +58,7 @@ def mm512_fmadd_ps(
         dst[i] = C[i] + A[i] * B[i]
 
 
-@instr(
-    "{dst_data} = _mm512_mask_fmadd_ps({A_data}, ((1 << {N}) - 1), {B_data}, {C_data});"
-)
+@instr("{dst_data} = _mm512_mask_fmadd_ps({A_data}, ((1 << {N}) - 1), {B_data}, {C_data});")
 def mm512_mask_fmadd_ps(
     N: size,
     dst: [f32][16] @ AVX512,
@@ -38,7 +67,7 @@ def mm512_mask_fmadd_ps(
     C: [f32][16] @ AVX512,
 ):
     assert N >= 1
-    assert N < 16
+    assert N <= 16
     assert stride(A, 0) == 1
     assert stride(B, 0) == 1
     assert stride(C, 0) == 1

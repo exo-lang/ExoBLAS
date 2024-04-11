@@ -1059,6 +1059,12 @@ def unroll_loops(proc, block=InvalidCursor(), threshold=None):
     return make_pass(predicate(unroll_loop, pred), lrn_stmts)(proc, block)
 
 
+def divide_and_unroll_loop(proc, loop, factor, tail="cut"):
+    proc, cursors = divide_loop_(proc, loop, factor, tail=tail, rc=True)
+    proc = unroll_loop(proc, cursors.inner_loop)
+    return proc
+
+
 def cleanup(proc, block=InvalidCursor()):
     proc = simplify(proc)
     proc = unroll_loops(proc, block, threshold=1)
