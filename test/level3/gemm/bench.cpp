@@ -71,6 +71,9 @@ static void args(benchmark::internal::Benchmark *b) {
   for (int i = 7; i <= level_3_max_N; i *= 7) {
     add_arg(i, i, i);
   }
+  for (int i = 500; i <= 4000; i += 100) {
+    add_arg(i, i, i);
+  }
 }
 
 call_bench_all(gemm, CblasRowMajor, 0, 0, CblasNoTrans, CblasNoTrans, 0);
