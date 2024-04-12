@@ -103,7 +103,7 @@ def main(binary_path, fltrs, sizes):
 
 # Example usage
 if __name__ == "__main__":
-    sizes = [i for i in range(500, 600, 100)]
+    sizes = [i for i in range(500, 300, 100)]
     fltrs = ["exo_sgemm_rm_nn/M:"]
     binary = "/home/samir/ExoBLAS/build/avx512/test/level3/gemm_bench"
     main(binary, fltrs, sizes)
