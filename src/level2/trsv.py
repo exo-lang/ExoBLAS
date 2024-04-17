@@ -80,6 +80,7 @@ def trsv_rm_lt(Diag: index, n: size, x: [R][n], A: [R][n, n]):
 def schedule_t(proc, i_loop, precision, machine, rows_factor, cols_factor):
     i_loop = proc.forward(i_loop)
     vw = machine.vec_width(precision)
+    rows_factor = min(rows_factor, vec_width)
     proc, (tail_loop, i_loop) = cut_loop_(proc, i_loop, f"n % {rows_factor}", rc=True)
     proc = shift_loop(proc, i_loop, 0)
     j_loop = get_inner_loop(proc, i_loop)
