@@ -179,7 +179,9 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
         x = [run.get_size_param() for run in sorted_runs]
         y = [run.get_gflops_per_sec() for run in sorted_runs]
         if verbose:
-            print(libname, ": ", list(zip(x, y)))
+            print(libname, ": ")
+            for s, flops in zip(x, y):
+                print(s, flops)
         plt.plot(x, y, label=libname)
 
     plt.legend()

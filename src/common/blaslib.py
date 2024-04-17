@@ -33,7 +33,6 @@ def optimize_level_1(
 
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
-
     rules = [fma_rule, abs_rule]
     proc, (loop,) = vectorize(proc, loop, vec_width, precision, memory, rules=rules, tail=vec_tail, rc=True)
 
