@@ -56,11 +56,9 @@ def avx2_assoc_reduce_add_pd_buffer(x: [f64][4] @ AVX2, result: [f64][1]):
         result[0] += x[i]
 
 
-@instr(
-    """{dst_data} = _mm256_loadu_ps(&{src_data});
-{dst_data} = _mm256_permutevar8x32_ps({dst_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
-"""
-)
+# {dst_data} = _mm256_loadu_ps(&{src_data});
+# {dst_data} = _mm256_permutevar8x32_ps({dst_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+@instr("""{dst_data} = _mm256_loadu_ps(&{src_data});""")
 def avx2_loadu_ps_backwards(dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
@@ -69,13 +67,10 @@ def avx2_loadu_ps_backwards(dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM):
         dst[i] = src[7 - i]
 
 
-@instr(
-    """
-{dst_data} = _mm256_loadu_pd(&{src_data});
-{dst_data} = _mm256_permute2f128_pd({dst_data}, {dst_data}, 1);
-{dst_data} = _mm256_permute_pd({dst_data}, 1 + 4);
-"""
-)
+# {dst_data} = _mm256_loadu_pd(&{src_data});
+# {dst_data} = _mm256_permute2f128_pd({dst_data}, {dst_data}, 1);
+# {dst_data} = _mm256_permute_pd({dst_data}, 1 + 4);
+@instr("""{dst_data} = _mm256_loadu_pd(&{src_data});""")
 def avx2_loadu_pd_backwards(dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
@@ -95,9 +90,7 @@ def avx2_loadu_pd_backwards(dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM):
 }}
 """
 )
-def avx2_prefix_load_ps_backwards(
-    dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM, bound: size
-):
+def avx2_prefix_load_ps_backwards(dst: [f32][8] @ AVX2, src: [f32][8] @ DRAM, bound: size):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
     assert bound <= 8
@@ -118,9 +111,7 @@ def avx2_prefix_load_ps_backwards(
 }}
 """
 )
-def avx2_prefix_load_pd_backwards(
-    dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM, bound: size
-):
+def avx2_prefix_load_pd_backwards(dst: [f64][4] @ AVX2, src: [f64][4] @ DRAM, bound: size):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
     assert bound <= 4
@@ -129,14 +120,9 @@ def avx2_prefix_load_pd_backwards(
             dst[i] = src[3 - i]
 
 
-@instr(
-    """
-{{
-__m256 tmp = _mm256_permutevar8x32_ps({src_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
-_mm256_storeu_ps(&{dst_data}, tmp);
-}}
-"""
-)
+# __m256 tmp = _mm256_permutevar8x32_ps({src_data}, _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+# _mm256_storeu_ps(&{dst_data}, tmp);
+@instr("""_mm256_storeu_ps(&{dst_data}, {src_data});""")
 def avx2_storeu_ps_backwards(dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
@@ -145,15 +131,10 @@ def avx2_storeu_ps_backwards(dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2):
         dst[7 - i] = src[i]
 
 
-@instr(
-    """
-{{
-__m256d tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
-tmp = _mm256_permute_pd(tmp, 1 + 4);
-_mm256_storeu_pd(&{dst_data}, tmp);
-}}
-"""
-)
+# __m256d tmp = _mm256_permute2f128_pd({src_data}, {src_data}, 1);
+# tmp = _mm256_permute_pd(tmp, 1 + 4);
+# _mm256_storeu_pd(&{dst_data}, tmp);
+@instr("""_mm256_storeu_pd(&{dst_data}, {src_data});""")
 def avx2_storeu_pd_backwards(dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2):
     assert stride(src, 0) == 1
     assert stride(dst, 0) == 1
@@ -173,9 +154,7 @@ def avx2_storeu_pd_backwards(dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2):
     }}
     """
 )
-def avx2_prefix_store_ps_backwards(
-    dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2, bound: size
-):
+def avx2_prefix_store_ps_backwards(dst: [f32][8] @ DRAM, src: [f32][8] @ AVX2, bound: size):
     assert stride(dst, 0) == 1
     assert stride(src, 0) == 1
     assert bound <= 8
@@ -196,9 +175,7 @@ def avx2_prefix_store_ps_backwards(
     }}
     """
 )
-def avx2_prefix_store_pd_backwards(
-    dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2, bound: size
-):
+def avx2_prefix_store_pd_backwards(dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2, bound: size):
     assert stride(dst, 0) == 1
     assert stride(src, 0) == 1
     assert bound <= 4
@@ -294,9 +271,7 @@ def mm256_prefix_store_pd(dst: [f64][4] @ DRAM, src: [f64][4] @ AVX2, bound: siz
 }}
 """
 )
-def mm256_prefix_fmadd_ps(
-    dst: [f32][8] @ AVX2, src1: [f32][8] @ AVX2, src2: [f32][8] @ AVX2, bound: size
-):
+def mm256_prefix_fmadd_ps(dst: [f32][8] @ AVX2, src1: [f32][8] @ AVX2, src2: [f32][8] @ AVX2, bound: size):
     assert stride(src1, 0) == 1
     assert stride(src2, 0) == 1
     assert stride(dst, 0) == 1
@@ -318,9 +293,7 @@ def mm256_prefix_fmadd_ps(
 }}
 """
 )
-def mm256_prefix_fmadd_pd(
-    dst: [f64][4] @ AVX2, src1: [f64][4] @ AVX2, src2: [f64][4] @ AVX2, bound: size
-):
+def mm256_prefix_fmadd_pd(dst: [f64][4] @ AVX2, src1: [f64][4] @ AVX2, src2: [f64][4] @ AVX2, bound: size):
     assert stride(src1, 0) == 1
     assert stride(src2, 0) == 1
     assert stride(dst, 0) == 1
@@ -342,9 +315,7 @@ def mm256_prefix_fmadd_pd(
     }}
     """
 )
-def avx2_prefix_reduce_add_wide_ps(
-    dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2, bound: size
-):
+def avx2_prefix_reduce_add_wide_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2, bound: size):
     assert stride(dst, 0) == 1
     assert stride(src, 0) == 1
 
@@ -364,9 +335,7 @@ def avx2_prefix_reduce_add_wide_ps(
     }}
     """
 )
-def avx2_prefix_reduce_add_wide_pd(
-    dst: [f64][4] @ AVX2, src: [f64][4] @ AVX2, bound: size
-):
+def avx2_prefix_reduce_add_wide_pd(dst: [f64][4] @ AVX2, src: [f64][4] @ AVX2, bound: size):
     assert stride(dst, 0) == 1
     assert stride(src, 0) == 1
 
@@ -447,9 +416,7 @@ def mm256_prefix_broadcast_sd_scalar(out: [f64][4] @ AVX2, val: f64, bound: size
             out[i] = val
 
 
-@instr(
-    "{dst_data} = _mm256_and_ps({src_data}, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));"
-)
+@instr("{dst_data} = _mm256_and_ps({src_data}, _mm256_castsi256_ps(_mm256_set1_epi32(0x7FFFFFFF)));")
 def avx2_abs_ps(dst: [f32][8] @ AVX2, src: [f32][8] @ AVX2):
     assert stride(dst, 0) == 1
     assert stride(src, 0) == 1
@@ -562,9 +529,7 @@ __m256 mul = _mm256_mul_ps({x_data}, {y_data});
 }}
 """
 )
-def mm256_prefix_mul_ps(
-    out: [f32][8] @ AVX2, x: [f32][8] @ AVX2, y: [f32][8] @ AVX2, bound: size
-):
+def mm256_prefix_mul_ps(out: [f32][8] @ AVX2, x: [f32][8] @ AVX2, y: [f32][8] @ AVX2, bound: size):
     assert stride(out, 0) == 1
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
@@ -586,9 +551,7 @@ __m256d mul = _mm256_mul_pd({x_data}, {y_data});
 }}
 """
 )
-def mm256_prefix_mul_pd(
-    out: [f64][4] @ AVX2, x: [f64][4] @ AVX2, y: [f64][4] @ AVX2, bound: size
-):
+def mm256_prefix_mul_pd(out: [f64][4] @ AVX2, x: [f64][4] @ AVX2, y: [f64][4] @ AVX2, bound: size):
     assert stride(out, 0) == 1
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
@@ -610,9 +573,7 @@ __m256 add = _mm256_add_ps({x_data}, {y_data});
 }}
 """
 )
-def mm256_prefix_add_ps(
-    out: [f32][8] @ AVX2, x: [f32][8] @ AVX2, y: [f32][8] @ AVX2, bound: size
-):
+def mm256_prefix_add_ps(out: [f32][8] @ AVX2, x: [f32][8] @ AVX2, y: [f32][8] @ AVX2, bound: size):
     assert stride(out, 0) == 1
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
@@ -634,9 +595,7 @@ __m256d add = _mm256_add_pd({x_data}, {y_data});
 }}
 """
 )
-def mm256_prefix_add_pd(
-    out: [f64][4] @ AVX2, x: [f64][4] @ AVX2, y: [f64][4] @ AVX2, bound: size
-):
+def mm256_prefix_add_pd(out: [f64][4] @ AVX2, x: [f64][4] @ AVX2, y: [f64][4] @ AVX2, bound: size):
     assert stride(out, 0) == 1
     assert stride(x, 0) == 1
     assert stride(y, 0) == 1
@@ -687,12 +646,8 @@ def mm256_prefix_setzero_pd(dst: [f64][4] @ AVX2, bound: size):
 
 mm256_fmadd_reduce_ps = rename(mm256_fmadd_ps, "mm256_fmadd_reduce_ps")
 mm256_fmadd_reduce_pd = rename(mm256_fmadd_pd, "mm256_fmadd_reduce_pd")
-mm256_prefix_fmadd_reduce_ps = rename(
-    mm256_prefix_fmadd_ps, "mm256_prefix_fmadd_reduce_ps"
-)
-mm256_prefix_fmadd_reduce_pd = rename(
-    mm256_prefix_fmadd_pd, "mm256_prefix_fmadd_reduce_pd"
-)
+mm256_prefix_fmadd_reduce_ps = rename(mm256_prefix_fmadd_ps, "mm256_prefix_fmadd_reduce_ps")
+mm256_prefix_fmadd_reduce_pd = rename(mm256_prefix_fmadd_pd, "mm256_prefix_fmadd_reduce_pd")
 
 
 @instr("{dst_data} = _mm256_fmadd_ps({src1_data}, {src2_data}, {src3_data});")
@@ -800,9 +755,7 @@ def avx2_fused_load_cvtps_pd(dst: [f64][4] @ AVX2, src: [f32][4] @ DRAM):
 }}
 """
 )
-def avx2_prefix_fused_load_cvtps_pd(
-    dst: [f64][4] @ AVX2, src: [f32][4] @ DRAM, bound: size
-):
+def avx2_prefix_fused_load_cvtps_pd(dst: [f64][4] @ AVX2, src: [f32][4] @ DRAM, bound: size):
     assert stride(dst, 0) == 1
     assert stride(src, 0) == 1
     assert bound < 4

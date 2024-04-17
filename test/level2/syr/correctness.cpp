@@ -31,7 +31,7 @@ template <typename T>
 void run() {
   std::vector<CBLAS_UPLO> Uplo_values{CBLAS_UPLO::CblasUpper,
                                       CBLAS_UPLO::CblasLower};
-  std::vector<int> N{2, 100, 321};
+  std::vector<int> N{2, 100, 321, 1115};
   std::vector<T> alpha_vals = {1.2};
   std::vector<int> incX_vals{1, 2};
   std::vector<int> lda_diffs{0, 5};

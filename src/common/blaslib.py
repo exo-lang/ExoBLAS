@@ -69,7 +69,7 @@ def optimize_level_2(
     rows_factor,
     cols_factor,
     round_up=None,
-    rows_tail="cut",
+    rows_tail="level_1",
     **kwargs,
 ):
     vec_width = machine.vec_width(precision)
@@ -86,6 +86,7 @@ def optimize_level_2(
         if not round_up and triangle == 2:
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
+        proc = simplify(proc)
 
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
         kernel_loop = outer_loop.parent()
@@ -100,12 +101,16 @@ def optimize_level_2(
         proc, (_, inner, tail_l) = divide_loop_(proc, outer_loop, rows_factor, tail="cut", rc=True)
         proc = rewrite(proc, inner, rows_factor, cols_factor)
         if rows_tail == "level_1":
+            tail_inner = get_inner_loop(proc, tail_l)
+            if round_up:
+                proc = bound_loop_by_if(proc, tail_inner)
+                proc = delete_pass(proc)
             proc = optimize_level_1(
                 proc,
-                get_inner_loop(proc, proc.body()[-1]),
+                tail_inner,
                 precision,
                 machine,
-                rows_factor,
+                rows_factor * cols_factor,
             )
     return proc
 

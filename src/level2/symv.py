@@ -42,5 +42,5 @@ def symv_rm_l(n: size, alpha: R, A: [R][n, n], x: [R][n], beta: R, y: [R][n]):
         y[i] += alpha * (dot - A[i, i] * x[i])
 
 
-variants_generator(optimize_level_2)(symv_rm_u, "i #1", 4, 1, globals=globals())
+variants_generator(optimize_level_2)(symv_rm_u, "i #1", 4, 1, round_up=False, globals=globals())
 variants_generator(optimize_level_2)(symv_rm_l, "i #1", 4, 1, globals=globals())
