@@ -79,28 +79,22 @@ def optimize_level_2(
     inner_loop = get_inner_loop(proc, outer_loop)
     if triangle := get_triangle_type(proc, inner_loop):
         if round_up is None:
-            round_up = machine.supports_predication
+            round_up = memory in {AVX2}
         rows_factor = min(rows_factor, vec_width)
         if round_up and triangle == 1:
             proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
             inner_loop = get_inner_loop(proc, outer_loop)
         if not round_up and triangle == 2:
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
+        proc = round_loop(proc, inner_loop, vec_width, up=round_up)
+        proc = simplify(proc)
 
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
         kernel_loop = outer_loop.parent()
         inner_loop = get_inner_loop(proc, outer_loop)
-        proc = simplify(round_loop(proc, inner_loop, vec_width, up=round_up))
-        inner_loop = proc.forward(inner_loop)
         proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
-        proc = simplify(unroll_and_jam_parent(proc, inner_loop, rows_factor))
+        proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
         proc = unroll_buffers(proc, kernel_loop)
-        if not round_up and machine.supports_predication:
-            inner_loop = proc.forward(inner_loop)
-            outer_loop = inner_loop.parent()
-            tails = list(filter_cursors(is_loop)(proc, outer_loop.body()))[1:]
-            proc = apply(optimize_level_1)(proc, tails, precision, machine, 1, vec_tail="predicate")
-
         proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
         return proc
 
@@ -109,6 +103,9 @@ def optimize_level_2(
         proc = rewrite(proc, inner, rows_factor, cols_factor)
         if rows_tail == "level_1":
             tail_inner = get_inner_loop(proc, tail_l)
+            if round_up:
+                proc = bound_loop_by_if(proc, tail_inner)
+                proc = delete_pass(proc)
             proc = optimize_level_1(
                 proc,
                 tail_inner,

@@ -16,10 +16,12 @@ def trsv_rm_un(Diag: index, n: size, x: [R][n], A: [R][n, n]):
         dot = 0.0
         for j in seq(0, i):
             dot += A[n - i - 1, n - j - 1] * x[n - j - 1]
-
-        x[n - i - 1] = x[n - i - 1] - dot
+        pivot: R
         if Diag == 0:
-            x[n - i - 1] = x[n - i - 1] / A[n - i - 1, n - i - 1]
+            pivot = A[n - i - 1, n - i - 1]
+        else:
+            pivot = 1.0
+        x[n - i - 1] = (x[n - i - 1] - dot) / pivot
 
 
 @proc
@@ -32,9 +34,13 @@ def trsv_rm_ln(Diag: index, n: size, x: [R][n], A: [R][n, n]):
         for j in seq(0, i):
             dot += A[i, j] * x[j]
 
-        x[i] = x[i] - dot
+        pivot: R
         if Diag == 0:
-            x[i] = x[i] / A[i, i]
+            pivot = A[i, i]
+        else:
+            pivot = 1.0
+
+        x[i] = (x[i] - dot) / pivot
 
 
 @proc
@@ -44,9 +50,12 @@ def trsv_rm_ut(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     for i in seq(0, n):
         dot[i] = 0.0
     for i in seq(0, n):
-        x[i] = x[i] - dot[i]
+        pivot: R
         if Diag == 0:
-            x[i] = x[i] / A[i, i]
+            pivot = A[i, i]
+        else:
+            pivot = 1.0
+        x[i] = (x[i] - dot[i]) / pivot
         for j in seq(0, n - i - 1):
             dot[n - j - 1] += A[i, n - j - 1] * x[i]
 
@@ -58,9 +67,12 @@ def trsv_rm_lt(Diag: index, n: size, x: [R][n], A: [R][n, n]):
     for i in seq(0, n):
         dot[i] = 0.0
     for i in seq(0, n):
-        x[n - i - 1] = x[n - i - 1] - dot[n - i - 1]
+        pivot: R
         if Diag == 0:
-            x[n - i - 1] = x[n - i - 1] / A[n - i - 1, n - i - 1]
+            pivot = A[n - i - 1, n - i - 1]
+        else:
+            pivot = 1.0
+        x[n - i - 1] = (x[n - i - 1] - dot[n - i - 1]) / pivot
         for j in seq(0, n - i - 1):
             dot[j] += A[n - i - 1, j] * x[n - i - 1]
 
@@ -87,7 +99,7 @@ def schedule_t(proc, i_loop, precision, machine, rows_factor, cols_factor):
 
 
 for trsv in trsv_rm_ut, trsv_rm_lt:
-    variants_generator(identity_schedule)(trsv, "i #1", 4, 2, globals=globals())
+    variants_generator(schedule_t)(trsv, "i #1", 4, 2, globals=globals())
 
 for trsv in trsv_rm_un, trsv_rm_ln:
-    variants_generator(identity_schedule)(trsv, "i", 4, 2, round_up=False, globals=globals())
+    variants_generator(optimize_level_2)(trsv, "i", 4, 2, round_up=False, globals=globals())
