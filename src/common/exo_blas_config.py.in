@@ -8,26 +8,3 @@ elif "@TARGET_ARCH@" == "avx512":
     from machines.avx512 import Machine
 else:
     sys.exit("Failed to determine machine configuration")
-
-
-class syrk:
-    k_blk = @SYRK_K_BLK@
-    m_blk = @SYRK_M_BLK@
-    m_blk_small = @SYRK_M_BLK_SMALL@
-    m_reg = @SYRK_M_REG@
-    n_reg = @SYRK_N_REG@
-    e_reg = @SYRK_E_REG@
-
-class gemm:
-    k_blk = @GEMM_K_BLK@
-    m_blk = @GEMM_M_BLK@
-    n_blk = @GEMM_N_BLK@
-    m_reg = @GEMM_M_REG@
-    n_reg = @GEMM_N_REG@
-
-class symm:
-    k_blk = @SYMM_K_BLK@
-    m_blk = @SYMM_M_BLK@
-    n_blk = @SYMM_N_BLK@
-    m_reg = @SYMM_M_REG@
-    n_reg = @SYMM_N_REG@

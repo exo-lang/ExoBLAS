@@ -190,9 +190,9 @@ def schedule(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_t
     return simplify(gemm_tiled)
 
 
-PARAMS = {AVX2: (4, 3, 66, 3, 512), AVX512: (5, 5, 33, 2, 512), Neon: (1, 1, 1, 1, 1)}
+PARAMS = {"avx2": (4, 3, 66, 3, 512), "avx512": (5, 5, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
 
-m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.mem_type]
+m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")
 
 # Parameter choosing idea from
@@ -226,4 +226,4 @@ M_tile = (C_AT * N_L3 * C_L3) // (K_tile * S_data)
 
 M_tile = (M_tile // m_r) * m_r
 
-variants_generator(schedule, ("f32",), (AVX2, AVX512))(gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())
+variants_generator(schedule, ("f32",), ("avx2", "avx512"))(gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())

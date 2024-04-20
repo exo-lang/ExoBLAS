@@ -173,9 +173,9 @@ def schedule(main_symm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
 
 
 def schedule_symm(symm, loop, precision, machine, Side=None, Uplo=None):
-    PARAMS = {AVX2: (2, 2, 66, 3, 512), AVX512: (6, 4, 44, 1, 512), Neon: (1, 1, 1, 1, 1)}
+    PARAMS = {"avx2": (2, 2, 66, 3, 512), "avx512": (6, 4, 44, 1, 512), "neon": (1, 1, 1, 1, 1)}
 
-    m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[machine.mem_type]
+    m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[machine.name]
     n_r = n_r_fac * machine.vec_width("f32")
 
     M_tile = M_tile_fac * m_r
@@ -188,4 +188,4 @@ def schedule_symm(symm, loop, precision, machine, Side=None, Uplo=None):
     return symm
 
 
-variants_generator(schedule_symm, ("f32",), (AVX2, AVX512))(symm_rm, "i", globals=globals())
+variants_generator(schedule_symm, ("f32",), ("avx2", "avx512"))(symm_rm, "i", globals=globals())

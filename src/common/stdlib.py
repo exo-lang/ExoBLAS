@@ -1371,3 +1371,24 @@ def inline_calls(proc, block=InvalidCursor(), subproc=None):
     calls = filter_cursors(is_call)(proc, nlr_stmts(proc, block), subproc)
     proc = simplify(apply(inline_proc_and_wins)(proc, calls))
     return proc
+
+
+def specialize_precision(proc, precision, all_buffs=False):
+    def has_type_R(proc, s, *arg):
+        if not isinstance(s, (AllocCursor, ArgCursor)):
+            return False
+        return s.type() == ExoType.R
+
+    set_R_type = predicate(set_precision, has_type_R)
+
+    def is_numeric(proc, s, *arg):
+        if not isinstance(s, (AllocCursor, ArgCursor)):
+            return False
+        return s.type().is_numeric()
+
+    set_numerics = predicate(set_precision, is_numeric)
+
+    set_type = set_numerics if all_buffs else set_R_type
+    proc = apply(set_type)(proc, proc.args(), precision)
+    proc = make_pass(set_type, nlr_stmts)(proc, proc.body(), precision)
+    return proc

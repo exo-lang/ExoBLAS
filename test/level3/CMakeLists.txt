@@ -1,5 +1,5 @@
-add_exo_blas_test(level3 gemm "" EXO_BLAS::exo_mscal)
-add_exo_blas_test(level3 syrk "" EXO_BLAS::exo_mscal)
-add_exo_blas_test(level3 syr2k "" EXO_BLAS::exo_mscal)
+foreach(kernel gemm syrk syr2k symm)
+    add_exo_blas_test(level3 ${kernel} "" EXO_BLAS::exo_mscal)
+endforeach()
+
 add_exo_blas_test(level3 trmm s)
-add_exo_blas_test(level3 symm "" EXO_BLAS::exo_mscal)

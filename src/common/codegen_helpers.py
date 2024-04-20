@@ -6,7 +6,6 @@ import inspect
 
 from exo import *
 from exo.libs.memories import *
-from exo.platforms.x86 import *
 from exo.platforms.neon import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
@@ -14,36 +13,18 @@ from exo.API_cursors import *
 
 from inspection import *
 from higher_order import *
-import exo_blas_config as C
+from exo_blas_config import Machine
 from perf_features import *
 from stdlib import *
 from cblas_enums import *
 
 
-def specialize_precision(proc, precision, all_buffs=True):
+def blas_specialize_precision(proc, precision, all_buffs=True):
     assert precision in {"f32", "f64"}
     prefix = "s" if precision == "f32" else "d"
     template_name = proc.name()
     proc = rename(proc, prefix + template_name)
-
-    def has_type_R(proc, s, *arg):
-        if not isinstance(s, (AllocCursor, ArgCursor)):
-            return False
-        return s.type() == ExoType.R
-
-    set_R_type = predicate(set_precision, has_type_R)
-
-    def is_numeric(proc, s, *arg):
-        if not isinstance(s, (AllocCursor, ArgCursor)):
-            return False
-        return s.type().is_numeric()
-
-    set_numerics = predicate(set_precision, is_numeric)
-
-    set_type = set_numerics if all_buffs else set_R_type
-    proc = apply(set_type)(proc, proc.args(), precision)
-    proc = make_pass(set_type, nlr_stmts)(proc, proc.body(), precision)
-    return proc
+    return specialize_precision(proc, precision, all_buffs)
 
 
 def generate_stride_any_proc(proc):
@@ -211,11 +192,11 @@ def is_param_optional(func):
     return check
 
 
-def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Neon)):
+def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=("avx2", "neon")):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
         for precision in ("f32", "f64"):
-            proc_variant = specialize_precision(proc, precision)
+            proc_variant = blas_specialize_precision(proc, precision)
 
             stride_any = generate_stride_any_proc(proc_variant)
             stride_any = stage_scalar_args(stride_any)
@@ -227,10 +208,10 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Ne
             algorithm = get_perf_features(stride_1)
 
             stride_1, (calls,) = generate_parameters_variants(stride_1, rc=True)
-            if precision in opt_precisions and C.Machine.mem_type in targets:
+            if precision in opt_precisions and Machine.name in targets:
                 if not calls:
                     loop = stride_1.find_loop(loop_name)
-                    stride_1 = blas_op(stride_1, loop, precision, C.Machine, *args, **kwargs)
+                    stride_1 = blas_op(stride_1, loop, precision, Machine, *args, **kwargs)
                 else:
                     for (call, mapping) in calls:
                         call = stride_1.forward(call)
@@ -238,7 +219,7 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=(AVX2, Ne
                         loop = subproc.find_loop(loop_name)
                         check = is_param_optional(blas_op)
                         filtered_mapping = dict(filter(lambda p: check(p[0]), mapping.items()))
-                        subproc = blas_op(subproc, loop, precision, C.Machine, *args, **kwargs, **filtered_mapping)
+                        subproc = blas_op(subproc, loop, precision, Machine, *args, **kwargs, **filtered_mapping)
                         stride_1 = call_eqv(stride_1, call, subproc)
 
             stride_1 = stage_scalar_args(stride_1)
