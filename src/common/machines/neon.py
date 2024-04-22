@@ -156,4 +156,5 @@ Machine = MachineParameters(
         neon_convert_f32_lower_to_f64,
         neon_convert_f32_upper_to_f64,
     ],
+    patterns=[fma_rule],
 )
