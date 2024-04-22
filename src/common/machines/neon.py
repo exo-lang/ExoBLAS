@@ -5,6 +5,7 @@ from exo import instr
 from exo.stdlib.scheduling import *
 
 from machines.machine_params import MachineParameters
+from stdlib import *
 
 
 @instr("{dst_data} = {src_data};")
