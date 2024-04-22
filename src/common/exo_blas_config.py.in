@@ -3,8 +3,10 @@ import sys
 if "@TARGET_ARCH@" == "neon":
     from machines.neon import Machine
 elif "@TARGET_ARCH@" == "avx2":
-    from machines.avx2 import Machine
+    from machines.x86 import avx2_Machine
+    Machine = avx2_Machine
 elif "@TARGET_ARCH@" == "avx512":
-    from machines.avx512 import Machine
+    from machines.x86 import avx512_Machine
+    Machine = avx512_Machine
 else:
     sys.exit("Failed to determine machine configuration")

@@ -192,7 +192,7 @@ def is_param_optional(func):
     return check
 
 
-def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=("avx2", "neon")):
+def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=("avx2", "avx512", "neon")):
     def generate(proc, loop_name, *args, globals=None, **kwargs):
         perf_features = {}
         for precision in ("f32", "f64"):

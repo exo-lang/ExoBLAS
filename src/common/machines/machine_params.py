@@ -27,9 +27,7 @@ class MachineParameters:
     l3_cache: int
 
     instrs: Any
-
-    # fused_load_cvt_f32_f64: Any
-    # prefix_fused_load_cvt_f32_f64: Any
+    patterns: Any
 
     def __getitem__(self, item):
         return getattr(self, item)

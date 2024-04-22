@@ -75,17 +75,17 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = set_memory(gemm_compute, cursors.alloc, machine.mem_type)
     gemm_compute = simplify(gemm_compute)
     gemm_compute = divide_dim(gemm_compute, cursors.alloc, 0, vw)
-    gemm_compute = vectorize(gemm_compute, cursors.load, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+    gemm_compute = vectorize(gemm_compute, cursors.load, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
     gemm_compute = unroll_loop(gemm_compute, cursors.load)
     gemm_compute = lift_scope(gemm_compute, i_cmp_j)
     i_cmp_j = gemm_compute.forward(i_cmp_j)
     gemm_compute = auto_stage_mem(gemm_compute, i_cmp_j.body(), "packed_A", "A_reg")
     gemm_compute = unroll_loop(gemm_compute, o_cmp_j)
-    gemm_compute = vectorize(gemm_compute, i_cmp_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+    gemm_compute = vectorize(gemm_compute, i_cmp_j, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
 
     gemm_compute = unroll_loop(gemm_compute, i_cmp_j)
     gemm_compute, alpah_cursors = auto_stage_mem(gemm_compute, axpy_j.body(), "alpha_", rc=True)
-    gemm_compute = vectorize(gemm_compute, axpy_j, vw, precision, machine.mem_type, rules=[fma_rule], tail="perfect")
+    gemm_compute = vectorize(gemm_compute, axpy_j, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
     gemm_compute = simplify(interleave_loop(gemm_compute, axpy_j, n_r_fac))
     gemm_compute = unroll_loop(gemm_compute, axpy_j)
     gemm_compute = simplify(gemm_compute)
@@ -190,7 +190,7 @@ def schedule(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_t
     return simplify(gemm_tiled)
 
 
-PARAMS = {"avx2": (4, 3, 66, 3, 512), "avx512": (5, 5, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
+PARAMS = {"avx2": (4, 3, 66, 3, 512), "avx512": (2, 2, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
 
 m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")
