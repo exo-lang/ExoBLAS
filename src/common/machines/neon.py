@@ -4,7 +4,7 @@ from exo.platforms.neon import *
 from exo import instr
 from exo.stdlib.scheduling import *
 
-from machine_params import MachineParameters
+from machines.machine_params import MachineParameters
 
 
 @instr("{dst_data} = {src_data};")
