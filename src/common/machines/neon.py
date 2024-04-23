@@ -96,6 +96,9 @@ def neon_vfmadd_4xf32_4xf32(
         dst[i] = acc[i] + lhs[i] * rhs[i]
 
 
+neon_vfmadd_4xf32_4xf32_c = rename(commute_expr(neon_vfmadd_4xf32_4xf32, "_ + _"), "neon_vfmadd_4xf32_4xf32_c")
+
+
 @instr("{dst_data} = vmlaq_f64({acc_data}, {lhs_data}, {rhs_data});")
 def neon_vfmadd_2xf64_2xf64(
     dst: [f64][2] @ Neon,
@@ -109,6 +112,9 @@ def neon_vfmadd_2xf64_2xf64(
 
     for i in seq(0, 2):
         dst[i] = acc[i] + lhs[i] * rhs[i]
+
+
+neon_vfmadd_2xf64_2xf64_c = rename(commute_expr(neon_vfmadd_2xf64_2xf64, "_ + _"), "neon_vfmadd_2xf64_2xf64_c")
 
 
 Machine = MachineParameters(
@@ -156,6 +162,8 @@ Machine = MachineParameters(
         neon_vneg_2xf64,
         neon_convert_f32_lower_to_f64,
         neon_convert_f32_upper_to_f64,
+        neon_vfmadd_4xf32_4xf32_c,
+        neon_vfmadd_2xf64_2xf64_c,
     ],
     patterns=[fma_rule],
 )
