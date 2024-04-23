@@ -22,32 +22,32 @@ forceinline = """
 #endif
 """
 get_mask_func_256 = """
-static forceinline __m256 mm256_prefix_mask_ps(int32_t count) {
+static forceinline __m256i mm256_prefix_mask_epi32(int32_t count) {
     __m256i indices = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7);
     __m256i prefix = _mm256_set1_epi32(count);
-    return _mm256_castsi256_ps(_mm256_cmpgt_epi32(prefix, indices));
+    return _mm256_cmpgt_epi32(prefix, indices);
 }
 
-static forceinline __m256d mm256_prefix_mask_pd(int32_t count) {
+static forceinline __m256i mm256_prefix_mask_epi64x(int32_t count) {
     __m256i indices = _mm256_setr_epi64x(0, 1, 2, 3);
     __m256i prefix = _mm256_set1_epi64x(count);
-    return _mm256_castsi256_pd(_mm256_cmpgt_epi64(prefix, indices));
+    return _mm256_cmpgt_epi64(prefix, indices);
 }
 
-static forceinline __m128 mm_prefix_mask_ps(int32_t count) {
+static forceinline __m128i mm_prefix_mask_epi32(int32_t count) {
     __m128i indices = _mm_setr_epi32(0, 1, 2, 3);
     __m128i prefix = _mm_set1_epi32(count);
-    return _mm_castsi128_ps(_mm_cmpgt_epi32(prefix, indices));
+    return _mm_cmpgt_epi32 (prefix, indices);
 }
 """
 
 predicate_func_256 = """
 static forceinline __m256 mm256_prefix_ps(__m256 dst, __m256 src, int32_t count) {
-    __m256i mask = mm256_prefix_mask_ps(count);
+    __m256i mask = mm256_prefix_mask_epi32(count);
     return _mm256_blendv_ps(dst, src, mask);
 }
 static forceinline __m256 mm256_prefix_pd(__m256d dst, __m256d src, int32_t count) {
-    __m256i mask = mm256_prefix_mask_pd(count);
+    __m256i mask = mm256_prefix_mask_epi64x(count);
     return _mm256_blendv_pd(dst, src, mask);
 }
 """
@@ -181,7 +181,7 @@ def get_avx_instrs(VEC_MEM):
             avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(load_op, vw, precision, VEC_MEM)
             yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_loadu_{type_sfx}(&{{src_data}});")
             mload_op = "maskload" if VEC_MEM is VEC_AVX2 else "maskz_loadu"
-            mask = f"{mm_pfx}_prefix_mask_{type_sfx}({{m}})" if VEC_MEM is VEC_AVX2 else "get_prefix_mask({m})"
+            mask = f"{mm_pfx}_prefix_mask_{itype_sfx}({{m}})" if VEC_MEM is VEC_AVX2 else "get_prefix_mask({m})"
             args = f"&{{src_data}}, {mask}" if VEC_MEM is VEC_AVX2 else f"{mask}, &{{src_data}}"
             yield make_instr(avx2_vec_op_pfx, f"{{dst_data}} = _{mm_pfx}_{mload_op}_{type_sfx}({args});")
 
@@ -270,7 +270,7 @@ def get_avx_instrs(VEC_MEM):
                 yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm_loadu_ps(&{{src_data}}));")
                 yield make_instr(
                     avx2_vec_op_pfx,
-                    f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm_maskload_ps(&{{src_data}}, mm_prefix_mask_ps({{m}})));",
+                    f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm_maskload_ps(&{{src_data}}, mm_prefix_mask_epi32({{m}})));",
                 )
             else:
                 yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm256_loadu_ps(&{{src_data}}));")
