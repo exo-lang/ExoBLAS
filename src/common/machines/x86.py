@@ -46,7 +46,7 @@ static forceinline __m256 mm256_prefix_ps(__m256 dst, __m256 src, int32_t count)
     __m256i mask = mm256_prefix_mask_epi32(count);
     return _mm256_blendv_ps(dst, src, _mm256_castsi256_ps(mask));
 }
-static forceinline __m256 mm256_prefix_pd(__m256d dst, __m256d src, int32_t count) {
+static forceinline __m256d mm256_prefix_pd(__m256d dst, __m256d src, int32_t count) {
     __m256i mask = mm256_prefix_mask_epi64x(count);
     return _mm256_blendv_pd(dst, src, _mm256_castsi256_pd(mask));
 }
