@@ -6,7 +6,6 @@ from exo.platforms.x86 import *
 from exo.syntax import *
 from exo.stdlib.scheduling import *
 
-from dot import exo_sdot_stride_1, dot, exo_ddot_stride_1
 import exo_blas_config as C
 from stdlib import *
 
@@ -79,13 +78,6 @@ def schedule_stride_1(precision):
     stride_1 = stride_1.add_assertion("stride(x, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(y, 0) == 1")
     stride_1 = stride_1.add_assertion("stride(a, 1) == 1")
-
-    scheduled_sdot = exo_sdot_stride_1 if precision == "f32" else exo_ddot_stride_1
-    dot.unsafe_assert_eq(scheduled_sdot)
-
-    for i in range(4):
-        stride_1 = replace(stride_1, stride_1.find_loop("j").expand(1, 0), dot)
-        stride_1 = call_eqv(stride_1, "dot", scheduled_sdot)
 
     return simplify(stride_1)
 

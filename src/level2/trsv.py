@@ -84,14 +84,14 @@ def schedule_t(proc, i_loop, precision, machine, rows_factor, cols_factor):
     proc, (tail_loop, i_loop) = cut_loop_(proc, i_loop, f"n % {rows_factor}", rc=True)
     proc = shift_loop(proc, i_loop, 0)
     j_loop = get_inner_loop(proc, i_loop)
-    proc, (_, oi_loop, t_loop) = divide_loop_(proc, i_loop, rows_factor, tail="cut", rc=True)
     proc = round_loop(proc, j_loop, vw, up=False)
+    proc, (_, oi_loop, t_loop) = divide_loop_(proc, i_loop, rows_factor, tail="cut", rc=True)
     proc = dce(simplify(proc))
     j_loop = proc.forward(j_loop)
     proc = rewrite_expr(proc, j_loop.hi().lhs(), f"(n - ({rows_factor} * io + n % {rows_factor}) - 1) / {vw}")
     j_loop_tail = j_loop.next()
     proc = reorder_stmt_forward(proc, j_loop)
-    proc = optimize_level_1(proc, j_loop_tail, precision, machine, 1, vec_tail="predicate")
+    # proc = optimize_level_1(proc, j_loop_tail, precision, machine, 1, vec_tail="predicate")
     proc = unroll_and_jam_parent(proc, j_loop, rows_factor)
     proc = optimize_level_1(proc, j_loop, precision, machine, cols_factor)
     tail_loop = get_inner_loop(proc, tail_loop)
@@ -100,7 +100,7 @@ def schedule_t(proc, i_loop, precision, machine, rows_factor, cols_factor):
 
 
 for trsv in trsv_rm_ut, trsv_rm_lt:
-    variants_generator(schedule_t, targets=(AVX2, AVX512))(trsv, "i #1", 4, 2, globals=globals())
+    variants_generator(schedule_t, targets=("avx2", "avx512"))(trsv, "i #1", 4, 2, globals=globals())
 
 for trsv in trsv_rm_un, trsv_rm_ln:
     variants_generator(optimize_level_2)(trsv, "i", 4, 2, round_up=False, globals=globals())

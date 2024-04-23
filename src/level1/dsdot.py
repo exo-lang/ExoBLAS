@@ -40,7 +40,7 @@ def sdsdot(n: size, sb: f32, x: [f32][n], y: [f32][n], result: f32):
 for proc in dsdot, sdsdot:
     export_exo_proc(globals(), generate_stride_any_proc(proc))
     stride_1 = generate_stride_1_proc(proc)
-    if C.Machine.mem_type is AVX2:
+    if C.Machine.name == "avx2":
         loop = stride_1.find_loop("i")
         stride_1 = optimize_level_1(stride_1, loop, "f64", C.Machine, 4)
     export_exo_proc(globals(), stride_1)

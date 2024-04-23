@@ -469,12 +469,12 @@ def vectorize_predicate_tail(
     precision,
     mem_type,
     instructions=[],
-    rules=[],
+    patterns=[],
     tail="cut_and_predicate",
     rc=False,
 ):
     proc = parallelize_all_reductions(proc, loop, factor=vec_width, memory=mem_type)
-    proc = stage_compute(proc, loop, precision, mem_type, rules)
+    proc = stage_compute(proc, loop, precision, mem_type, patterns)
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, rc=True)
     proc = simplify(proc)
     proc = fission_into_singles(proc, inner)
@@ -500,19 +500,19 @@ def vectorize(
     precision,
     mem_type,
     instructions=[],
-    rules=[],
+    patterns=[],
     tail="cut_and_predicate",
     rc=False,
 ):
     if tail in {"predicate", "cut_and_predicate"}:
-        return vectorize_predicate_tail(proc, loop, vec_width, precision, mem_type, instructions, rules, tail, rc)
+        return vectorize_predicate_tail(proc, loop, vec_width, precision, mem_type, instructions, patterns, tail, rc)
     proc, (outer, inner, _) = divide_loop_(proc, loop, vec_width, tail=tail, rc=True)
     proc = parallelize_all_reductions(proc, outer, memory=mem_type)
 
     outer = proc.forward(outer)
     inner = outer.body()[0]
 
-    proc = stage_compute(proc, inner, precision, mem_type, rules)
+    proc = stage_compute(proc, inner, precision, mem_type, patterns)
     proc = fission_into_singles(proc, inner)
 
     proc = replace_all_stmts(proc, instructions)
@@ -1370,4 +1370,25 @@ def pack_mem(proc, block, buffer, shape, name=None, rc=False):
 def inline_calls(proc, block=InvalidCursor(), subproc=None):
     calls = filter_cursors(is_call)(proc, nlr_stmts(proc, block), subproc)
     proc = simplify(apply(inline_proc_and_wins)(proc, calls))
+    return proc
+
+
+def specialize_precision(proc, precision, all_buffs=False):
+    def has_type_R(proc, s, *arg):
+        if not isinstance(s, (AllocCursor, ArgCursor)):
+            return False
+        return s.type() == ExoType.R
+
+    set_R_type = predicate(set_precision, has_type_R)
+
+    def is_numeric(proc, s, *arg):
+        if not isinstance(s, (AllocCursor, ArgCursor)):
+            return False
+        return s.type().is_numeric()
+
+    set_numerics = predicate(set_precision, is_numeric)
+
+    set_type = set_numerics if all_buffs else set_R_type
+    proc = apply(set_type)(proc, proc.args(), precision)
+    proc = make_pass(set_type, nlr_stmts)(proc, proc.body(), precision)
     return proc

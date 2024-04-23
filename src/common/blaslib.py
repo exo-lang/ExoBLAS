@@ -25,6 +25,8 @@ def optimize_level_1(
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
+    patterns = machine.patterns
+
     if instrs is None:
         instrs = machine.get_instructions(precision)
 
@@ -33,8 +35,8 @@ def optimize_level_1(
 
     loop = proc.forward(loop)
     proc = cse(proc, loop.body(), precision)
-    rules = [fma_rule, abs_rule]
-    proc, (loop,) = vectorize(proc, loop, vec_width, precision, memory, rules=rules, tail=vec_tail, rc=True)
+
+    proc, (loop,) = vectorize(proc, loop, vec_width, precision, memory, patterns=patterns, tail=vec_tail, rc=True)
 
     proc, (_, loop) = hoist_from_loop(proc, loop, rc=True)
 
