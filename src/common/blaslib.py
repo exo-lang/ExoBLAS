@@ -90,10 +90,12 @@ def optimize_level_2(
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
         proc = simplify(proc)
 
+    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
+    proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
+
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
         kernel_loop = outer_loop.parent()
         inner_loop = get_inner_loop(proc, outer_loop)
-        proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
         proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
         proc = unroll_buffers(proc, kernel_loop)
         proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)

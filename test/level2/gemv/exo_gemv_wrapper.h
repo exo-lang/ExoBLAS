@@ -13,47 +13,28 @@
     if (order != CBLAS_ORDER::CblasRowMajor) {                            \
       throw "Unsupported Exception";                                      \
     }                                                                     \
-                                                                          \
-    if (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {                        \
-      if (incX == 1 && incY == 1) {                                       \
-        exo_##prefix##gemv_rm_nt_stride_1(                                \
-            nullptr, M, N, &alpha, &beta,                                 \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},       \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});           \
-      } else {                                                            \
-        if (incX < 0) {                                                   \
-          X = X + (1 - N) * incX;                                         \
-        }                                                                 \
-        if (incY < 0) {                                                   \
-          Y = Y + (1 - M) * incY;                                         \
-        }                                                                 \
-        exo_##prefix##gemv_rm_nt_stride_any(                              \
-            nullptr, M, N, &alpha, &beta,                                 \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},       \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});           \
-      }                                                                   \
+    int m = TransA == CblasNoTrans ? M : N;                               \
+    int n = TransA == CblasNoTrans ? N : M;                               \
+    if (incX == 1 && incY == 1) {                                         \
+      exo_##prefix##gemv_rm_stride_1(                                     \
+          nullptr, TransA, m, n, &alpha, &beta,                           \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},         \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},         \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}},           \
+          exo_win_1##exo_type{.data = Y, .strides = {incY}});             \
     } else {                                                              \
-      if (incX == 1 && incY == 1) {                                       \
-        exo_##prefix##gemv_rm_t_stride_1(                                 \
-            nullptr, N, M, &alpha, &beta,                                 \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},       \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});           \
-      } else {                                                            \
-        if (incX < 0) {                                                   \
-          X = X + (1 - M) * incX;                                         \
-        }                                                                 \
-        if (incY < 0) {                                                   \
-          Y = Y + (1 - N) * incY;                                         \
-        }                                                                 \
-        exo_##prefix##gemv_rm_t_stride_any(                               \
-            nullptr, N, M, &alpha, &beta,                                 \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},       \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});           \
+      if (incX < 0) {                                                     \
+        X = X + (1 - n) * incX;                                           \
       }                                                                   \
+      if (incY < 0) {                                                     \
+        Y = Y + (1 - m) * incY;                                           \
+      }                                                                   \
+      exo_##prefix##gemv_rm_stride_any(                                   \
+          nullptr, TransA, m, n, &alpha, &beta,                           \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},         \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},         \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}},           \
+          exo_win_1##exo_type{.data = Y, .strides = {incY}});             \
     }                                                                     \
   }
 
