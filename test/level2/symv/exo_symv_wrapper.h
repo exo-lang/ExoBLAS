@@ -18,34 +18,18 @@
     if (incY < 0) {                                                          \
       Y = Y + (1 - N) * incY;                                                \
     }                                                                        \
-    if (Uplo == CBLAS_UPLO::CblasUpper) {                                    \
-      if (incX == 1 && incY == 1) {                                          \
-        exo_##prefix##symv_rm_u_stride_1(                                    \
-            nullptr, N, &alpha,                                              \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},          \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}}, &beta,     \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});              \
-      } else {                                                               \
-        exo_##prefix##symv_rm_u_stride_any(                                  \
-            nullptr, N, &alpha,                                              \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},          \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}}, &beta,     \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});              \
-      }                                                                      \
+    if (incX == 1 && incY == 1) {                                            \
+      exo_##prefix##symv_rm_stride_1(                                        \
+          nullptr, Uplo, N, &alpha,                                          \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},            \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}}, &beta,       \
+          exo_win_1##exo_type{.data = Y, .strides = {incY}});                \
     } else {                                                                 \
-      if (incX == 1 && incY == 1) {                                          \
-        exo_##prefix##symv_rm_l_stride_1(                                    \
-            nullptr, N, &alpha,                                              \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},          \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}}, &beta,     \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});              \
-      } else {                                                               \
-        exo_##prefix##symv_rm_l_stride_any(                                  \
-            nullptr, N, &alpha,                                              \
-            exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},          \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}}, &beta,     \
-            exo_win_1##exo_type{.data = Y, .strides = {incY}});              \
-      }                                                                      \
+      exo_##prefix##symv_rm_stride_any(                                      \
+          nullptr, Uplo, N, &alpha,                                          \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},            \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}}, &beta,       \
+          exo_win_1##exo_type{.data = Y, .strides = {incY}});                \
     }                                                                        \
   }
 

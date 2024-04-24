@@ -91,6 +91,7 @@ def optimize_level_2(
         proc = simplify(proc)
 
     proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
+    proc = unroll_buffers(proc, outer_loop)
     proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
 
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
