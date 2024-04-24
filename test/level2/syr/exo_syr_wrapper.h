@@ -13,40 +13,21 @@
     if (alpha == 0.0) {                                                   \
       return;                                                             \
     }                                                                     \
-    if (Uplo == CBLAS_UPLO::CblasUpper) {                                 \
-      if (incX == 1) {                                                    \
-        exo_##prefix##syr_rm_u_stride_1(                                  \
-            nullptr, N, &alpha,                                           \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_2##exo_type{.data = A, .strides = {lda, 1}});         \
-      } else {                                                            \
-        if (incX < 0) {                                                   \
-          X = X + (1 - N) * incX;                                         \
-        }                                                                 \
-        exo_##prefix##syr_rm_u_stride_any(                                \
-            nullptr, N, &alpha,                                           \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_2##exo_type{.data = A, .strides = {lda, 1}});         \
-      }                                                                   \
+    if (incX == 1) {                                                      \
+      exo_##prefix##syr_rm_stride_1(                                      \
+          nullptr, Uplo, N, &alpha,                                       \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}},           \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}},           \
+          exo_win_2##exo_type{.data = A, .strides = {lda, 1}});           \
     } else {                                                              \
-      if (incX == 1) {                                                    \
-        exo_##prefix##syr_rm_l_stride_1(                                  \
-            nullptr, N, &alpha,                                           \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_2##exo_type{.data = A, .strides = {lda, 1}});         \
-      } else {                                                            \
-        if (incX < 0) {                                                   \
-          X = X + (1 - N) * incX;                                         \
-        }                                                                 \
-        exo_##prefix##syr_rm_l_stride_any(                                \
-            nullptr, N, &alpha,                                           \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_1##exo_type##c{.data = X, .strides = {incX}},         \
-            exo_win_2##exo_type{.data = A, .strides = {lda, 1}});         \
+      if (incX < 0) {                                                     \
+        X = X + (1 - N) * incX;                                           \
       }                                                                   \
+      exo_##prefix##syr_rm_stride_any(                                    \
+          nullptr, Uplo, N, &alpha,                                       \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}},           \
+          exo_win_1##exo_type##c{.data = X, .strides = {incX}},           \
+          exo_win_2##exo_type{.data = A, .strides = {lda, 1}});           \
     }                                                                     \
   }
 
