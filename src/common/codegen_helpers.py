@@ -99,7 +99,7 @@ def generate_parameters_variants(proc, rc=False):
     for param in params[::-1]:
         value = Cblas_params_values[param][0]
         proc = specialize(proc, proc.body(), f"{param} == {value}")
-    proc = dce(proc)
+    proc = dce(simplify(proc))
     calls = []
 
     # Extract the different cases as their own subprocs and schedule them

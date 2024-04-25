@@ -8,73 +8,51 @@ from stdlib import *
 
 
 @proc
-def trsv_rm_un(Diag: index, n: size, x: [R][n], A: [R][n, n]):
+def trsv_rm(Uplo: size, TransA: size, Diag: size, n: size, x: [R][n], A: [R][n, n]):
     assert stride(A, 1) == 1
 
+    Dot: R[n]
+    if TransA == CblasNoTransValue:
+        pass
+    else:
+        for l in seq(0, n):
+            Dot[l] = 0.0
+
     for i in seq(0, n):
-        dot: R
-        dot = 0.0
-        for j in seq(0, i):
-            dot += A[n - i - 1, n - j - 1] * x[n - j - 1]
-        pivot: R
-        if Diag == 0:
-            pivot = A[n - i - 1, n - i - 1]
+        if TransA == CblasNoTransValue:
+            dot: R
+            dot = 0.0
+            if Uplo == CblasUpperValue:
+                for j in seq(0, i):
+                    dot += A[n - i - 1, n - j - 1] * x[n - j - 1]
+                if Diag == CblasNonUnitValue:
+                    x[n - i - 1] = (x[n - i - 1] - dot) / A[n - i - 1, n - i - 1]
+                else:
+                    x[n - i - 1] = x[n - i - 1] - dot
+            else:
+                for j in seq(0, i):
+                    dot += A[i, j] * x[j]
+                if Diag == CblasNonUnitValue:
+                    x[i] = (x[i] - dot) / A[i, i]
+                else:
+                    x[i] = x[i] - dot
         else:
-            pivot = 1.0
-        x[n - i - 1] = (x[n - i - 1] - dot) / pivot
+            if Uplo == CblasUpperValue:
+                if Diag == CblasNonUnitValue:
+                    x[i] = (x[i] - Dot[i]) / A[i, i]
+                else:
+                    x[i] = x[i] - Dot[i]
 
+                for j in seq(0, n - i - 1):
+                    Dot[n - j - 1] += A[i, n - j - 1] * x[i]
+            else:
+                if Diag == CblasNonUnitValue:
+                    x[n - i - 1] = (x[n - i - 1] - Dot[n - i - 1]) / A[n - i - 1, n - i - 1]
+                else:
+                    x[n - i - 1] = x[n - i - 1] - Dot[n - i - 1]
 
-@proc
-def trsv_rm_ln(Diag: index, n: size, x: [R][n], A: [R][n, n]):
-    assert stride(A, 1) == 1
-
-    for i in seq(0, n):
-        dot: R
-        dot = 0.0
-        for j in seq(0, i):
-            dot += A[i, j] * x[j]
-
-        pivot: R
-        if Diag == 0:
-            pivot = A[i, i]
-        else:
-            pivot = 1.0
-
-        x[i] = (x[i] - dot) / pivot
-
-
-@proc
-def trsv_rm_ut(Diag: index, n: size, x: [R][n], A: [R][n, n]):
-    assert stride(A, 1) == 1
-    dot: R[n]
-    for i in seq(0, n):
-        dot[i] = 0.0
-    for i in seq(0, n):
-        pivot: R
-        if Diag == 0:
-            pivot = A[i, i]
-        else:
-            pivot = 1.0
-        x[i] = (x[i] - dot[i]) / pivot
-        for j in seq(0, n - i - 1):
-            dot[n - j - 1] += A[i, n - j - 1] * x[i]
-
-
-@proc
-def trsv_rm_lt(Diag: index, n: size, x: [R][n], A: [R][n, n]):
-    assert stride(A, 1) == 1
-    dot: R[n]
-    for i in seq(0, n):
-        dot[i] = 0.0
-    for i in seq(0, n):
-        pivot: R
-        if Diag == 0:
-            pivot = A[n - i - 1, n - i - 1]
-        else:
-            pivot = 1.0
-        x[n - i - 1] = (x[n - i - 1] - dot[n - i - 1]) / pivot
-        for j in seq(0, n - i - 1):
-            dot[j] += A[n - i - 1, j] * x[n - i - 1]
+                for j in seq(0, n - i - 1):
+                    Dot[j] += A[n - i - 1, j] * x[n - i - 1]
 
 
 def schedule_t(proc, i_loop, precision, machine, rows_factor, cols_factor):
@@ -99,8 +77,12 @@ def schedule_t(proc, i_loop, precision, machine, rows_factor, cols_factor):
     return proc
 
 
-for trsv in trsv_rm_ut, trsv_rm_lt:
-    variants_generator(schedule_t, targets=("avx2", "avx512"))(trsv, "i #1", 4, 2, globals=globals())
+def schedule(trsv, loop, precision, machine, Uplo=None, TransA=None):
+    if TransA == CblasNoTransValue:
+        return optimize_level_2(trsv, loop, precision, machine, 2, 1, round_up=False)
+    else:
+        if machine.name in ("avx2", "avx512"):
+            return schedule_t(trsv, loop, precision, machine, 2, 1)
 
-for trsv in trsv_rm_un, trsv_rm_ln:
-    variants_generator(optimize_level_2)(trsv, "i", 4, 2, round_up=False, globals=globals())
+
+variants_generator(schedule)(trsv_rm, "i", globals=globals())
