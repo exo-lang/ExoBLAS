@@ -76,6 +76,7 @@ def optimize_level_2(
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
+    proc = simplify(proc)
 
     inner_loop = get_inner_loop(proc, outer_loop)
     if triangle := get_triangle_type(proc, inner_loop):
