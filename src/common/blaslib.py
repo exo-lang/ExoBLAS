@@ -63,6 +63,30 @@ def get_triangle_type(proc, loop):
     return 0
 
 
+def optimize_level_2_skinny(proc, outer_loop, precision, machine, skinny_factor, cols_factor):
+    inner_loop = get_inner_loop(proc, outer_loop)
+    vw = machine.vec_width(precision)
+    starter_proc = proc
+    proc = simplify(round_loop(proc, inner_loop, vw))
+    proc, (alloc, load, _, _) = auto_stage_mem(proc, outer_loop, "x", "x_vec", rc=True)
+    proc = set_memory(proc, alloc, machine.mem_type)
+    proc = optimize_level_1(proc, load, precision, machine, 1)
+    proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
+    proc = specialize(
+        proc,
+        proc.forward(outer_loop).expand(3, 0),
+        [f"({vw - 1} + N) / {vw} * {vw} == {vw * i}" for i in range(1, skinny_factor + 1)],
+    )
+    proc = simplify(proc)
+    proc = unroll_loops(proc)
+
+    proc = proc.add_assertion(f"N <= {vw * skinny_factor}")
+    starter_proc = starter_proc.add_assertion(f"N <= {vw * skinny_factor}")
+    proc = proc.unsafe_assert_eq(starter_proc)
+    proc = simplify(eliminate_dead_code(proc, proc.find_loop("if _ : _", many=True)[-1]))
+    return starter_proc, proc
+
+
 def optimize_level_2(
     proc,
     outer_loop,
@@ -76,6 +100,10 @@ def optimize_level_2(
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
+
+    starter_proc = proc
+    skinny_proc = optimize_level_2_skinny(proc, outer_loop, precision, machine, machine.n_vec_registers - 4, 4)
+    return skinny_proc[1]
 
     inner_loop = get_inner_loop(proc, outer_loop)
     if triangle := get_triangle_type(proc, inner_loop):

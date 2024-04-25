@@ -63,10 +63,7 @@ static void args(benchmark::internal::Benchmark *b) {
                "incY", "alignmentA", "alignmentX", "alignmentY", "bench_type",
                "precision"});
   for (int i = 1; i <= level_2_max_N; i *= 2) {
-    add_arg(i, i);
-  }
-  for (int i = 7; i <= level_2_max_N; i *= 7) {
-    add_arg(i, i);
+    add_arg(i, 50);
   }
 }
 
