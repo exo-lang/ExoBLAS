@@ -58,7 +58,7 @@ def get_triangle_type(proc, loop):
         return 1
     if not is_add(proc, loop.hi()):
         return 0
-    if is_read(proc, loop.hi().lhs(), outer_loop.name()) and is_literal(proc, loop.hi().rhs(), 1):
+    if is_read(proc, loop.hi().rhs(), outer_loop.name()) and is_literal(proc, loop.hi().lhs(), 1):
         return 2
     return 0
 
