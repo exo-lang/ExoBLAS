@@ -52,7 +52,7 @@ def trmv_rm(Uplo: size, TransA: size, Diag: size, n: size, x: [R][n], A: [R][n, 
 
 
 def schedule(trmv, loop, precision, machine, Uplo=None, TransA=None):
-    return optimize_level_2(trmv, loop, precision, machine, 4, 2, round_up=Uplo == CblasLowerValue)
+    return optimize_level_2(trmv, loop, precision, machine, 4, 2, round_up=None if Uplo == CblasLowerValue else False)
 
 
 variants_generator(schedule)(trmv_rm, "i", globals=globals())

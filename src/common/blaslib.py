@@ -58,8 +58,11 @@ def get_triangle_type(proc, loop):
         return 1
     if not is_add(proc, loop.hi()):
         return 0
-    if is_read(proc, loop.hi().rhs(), outer_loop.name()) and is_literal(proc, loop.hi().lhs(), 1):
-        return 2
+
+    oprs = [loop.hi().lhs(), loop.hi().rhs()]
+    for opr1, opr2 in oprs, oprs[::-1]:
+        if is_read(proc, opr1, outer_loop.name()) and is_literal(proc, opr2, 1):
+            return 2
     return 0
 
 
@@ -77,7 +80,6 @@ def optimize_level_2(
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
     proc = simplify(proc)
-
     inner_loop = get_inner_loop(proc, outer_loop)
     if triangle := get_triangle_type(proc, inner_loop):
         if round_up is None:

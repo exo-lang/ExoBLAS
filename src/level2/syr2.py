@@ -28,7 +28,7 @@ def syr2_rm(
 
 
 def schedule(syr2, loop, precision, machine, Uplo=None):
-    return optimize_level_2(syr2, loop, precision, machine, 4, 2, round_up=Uplo == CblasLowerValue)
+    return optimize_level_2(syr2, loop, precision, machine, 4, 2, round_up=None if Uplo == CblasLowerValue else False)
 
 
 variants_generator(schedule)(syr2_rm, "i", globals=globals())
