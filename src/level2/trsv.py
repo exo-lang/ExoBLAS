@@ -82,7 +82,8 @@ def schedule(trsv, loop, precision, machine, Uplo=None, TransA=None):
         return optimize_level_2(trsv, loop, precision, machine, 2, 1, round_up=False)
     else:
         if machine.name in ("avx2", "avx512"):
-            return schedule_t(trsv, loop, precision, machine, 2, 1)
+            trsv = schedule_t(trsv, loop, precision, machine, 2, 1)
+        return trsv
 
 
 variants_generator(schedule)(trsv_rm, "i", globals=globals())
