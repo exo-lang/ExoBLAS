@@ -17,6 +17,11 @@ class CBLAS_UPLO(Enum):
     CblasLower = 122
 
 
+class CBLAS_DIAG(Enum):
+    CblasNonUnit = 131
+    CblasUnit = 132
+
+
 CblasUpperValue = CBLAS_UPLO.CblasUpper.value
 CblasLowerValue = CBLAS_UPLO.CblasLower.value
 CblasLeftValue = CBLAS_SIDE.CblasLeft.value
@@ -24,6 +29,8 @@ CblasRightValue = CBLAS_SIDE.CblasRight.value
 CblasNoTransValue = CBLAS_TRANSPOSE.CblasNoTrans.value
 CblasTransValue = CBLAS_TRANSPOSE.CblasTrans.value
 CblasConjTransValue = CBLAS_TRANSPOSE.CblasConjTrans.value
+CblasNonUnitValue = CBLAS_DIAG.CblasNonUnit.value
+CblasUnitValue = CBLAS_DIAG.CblasUnit.value
 
 Cblas_suffix = {
     CblasNoTransValue: "n",

@@ -15,59 +15,16 @@
     if (incX < 0) {                                                         \
       X = X + (1 - N) * incX;                                               \
     }                                                                       \
-    int isUnit = Diag == CBLAS_DIAG::CblasUnit;                             \
-    if (Uplo == CBLAS_UPLO::CblasUpper) {                                   \
-      if (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {                        \
-        if (incX == 1) {                                                    \
-          exo_##prefix##trmv_rm_un_stride_1(                                \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        } else {                                                            \
-          exo_##prefix##trmv_rm_un_stride_any(                              \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        }                                                                   \
-      } else {                                                              \
-        if (incX == 1) {                                                    \
-          exo_##prefix##trmv_rm_ut_stride_1(                                \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        } else {                                                            \
-          exo_##prefix##trmv_rm_ut_stride_any(                              \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        }                                                                   \
-      }                                                                     \
+    if (incX == 1) {                                                        \
+      exo_##prefix##trmv_rm_stride_1(                                       \
+          nullptr, Uplo, TransA, Diag, N,                                   \
+          exo_win_1##exo_type{.data = X, .strides = {incX}},                \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});          \
     } else {                                                                \
-      if (TransA == CBLAS_TRANSPOSE::CblasNoTrans) {                        \
-        if (incX == 1) {                                                    \
-          exo_##prefix##trmv_rm_ln_stride_1(                                \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        } else {                                                            \
-          exo_##prefix##trmv_rm_ln_stride_any(                              \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        }                                                                   \
-      } else {                                                              \
-        if (incX == 1) {                                                    \
-          exo_##prefix##trmv_rm_lt_stride_1(                                \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        } else {                                                            \
-          exo_##prefix##trmv_rm_lt_stride_any(                              \
-              nullptr, isUnit, N,                                           \
-              exo_win_1##exo_type{.data = X, .strides = {incX}},            \
-              exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});      \
-        }                                                                   \
-      }                                                                     \
+      exo_##prefix##trmv_rm_stride_any(                                     \
+          nullptr, Uplo, TransA, Diag, N,                                   \
+          exo_win_1##exo_type{.data = X, .strides = {incX}},                \
+          exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}});          \
     }                                                                       \
   }
 
