@@ -44,7 +44,7 @@ def optimize_level_1(
 
     proc = cleanup(proc)
     proc = replace_all_stmts(proc, instrs)
-    return proc
+    return simplify(proc)
 
 
 def get_triangle_type(proc, loop):
@@ -120,7 +120,7 @@ def optimize_level_2(
                 machine,
                 rows_factor * cols_factor,
             )
-    return proc
+    return simplify(proc)
 
 
 __all__ = ["optimize_level_1", "optimize_level_2"]

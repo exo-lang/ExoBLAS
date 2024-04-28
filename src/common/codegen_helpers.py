@@ -108,7 +108,6 @@ def generate_parameters_variants(proc, rc=False):
         if len(params) == 0:
             name = proc.name() + "_" + suffix
             proc = simplify_triang_loop(proc, block, mapping)
-            proc = simplify(proc)
             proc, _ = extract_subproc(proc, block, name)
             call = proc.forward(block)[0]
             calls.append((call, mapping))
