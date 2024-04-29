@@ -61,9 +61,15 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
 
     gemm_compute = tile_loops_bottom_up(gemm_compute, i_loop, (m_r, n_r, None), tail="guard")
     gemm_compute = repeate_n(parallelize_and_lift_alloc)(gemm_compute, cs.alloc, n=4)
+    if_i = gemm_compute.find("if _:_")
+    gemm_compute = rewrite_expr(gemm_compute, if_i.cond(), f"ii < M - {m_r} * io")
+    if_j = gemm_compute.find("if _:_ #1")
+    gemm_compute = rewrite_expr(gemm_compute, if_j.cond(), f"ji < N - {n_r} * jo")
+
     gemm_compute = fission(gemm_compute, gemm_compute.forward(cs.load).after(), n_lifts=4)
     gemm_compute = fission(gemm_compute, gemm_compute.forward(cs.store).before(), n_lifts=4)
     gemm_compute = repeate_n(lift_scope)(gemm_compute, k_loop, n=4)
+
     gemm_compute = divide_dim(gemm_compute, cs.alloc, 1, vw)
     init_i, cmp_i, axpy_i = gemm_compute.find_loop("ii", many=True)
     init_j, cmp_j, axpy_j = gemm_compute.find_loop("ji", many=True)
@@ -97,27 +103,23 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
         cut_val = FormattedExprStr(f"_ - 1", loop.hi())
         proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
         proc = specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng])
+        proc = delete_pass(proc)
         return proc
 
     right_cond = lambda l, i: f"(N - {l.name()} * {n_r} + {vw - 1}) / {vw}"
     gemm_compute = cut(gemm_compute, gemm_compute.find_loop("jo #1"), right_cond, range(1, n_r_fac))
 
     gemm_compute = dce(gemm_compute)
-    gemm_compute = replace_all_stmts(gemm_compute, machine.get_instructions(precision))
+    gemm_compute = simplify(replace_all_stmts(gemm_compute, machine.get_instructions(precision)))
 
-    gemm_compute = simplify(unroll_loops(gemm_compute))
-    bottom_cond = lambda l, i: f"M - {l.name()} * {m_r}"
-    gemm_compute = cut(gemm_compute, gemm_compute.find_loop("io #1"), bottom_cond, range(m_r, 1, -1))
+    bottom_cond = lambda l, i: f"- {l.name()} * {m_r} + M "
+    gemm_compute = cut(gemm_compute, gemm_compute.find_loop("io #1"), bottom_cond, range(m_r, 0, -1))
+    gemm_compute = unroll_loops(gemm_compute)
 
     def rewrite(p):
-        try:
-            p = delete_pass(p)
-        except:
-            pass
-        p = dce(p)
-        p = divide_loop_(p, p.find_loop("k"), 4, tail="cut")
+        p = divide_loop_(p, p.find_loop("k"), 2, tail="cut")
         p = unroll_loop(p, p.find_loop("ki"))
-        return simplify(p)
+        return p
 
     blocks = gemm_compute.find_loop("C_tile:_", many=True)
     for i, tile in enumerate(blocks):
@@ -190,7 +192,7 @@ def schedule(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_t
     return simplify(gemm_tiled)
 
 
-PARAMS = {"avx2": (4, 3, 66, 3, 512), "avx512": (2, 2, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
+PARAMS = {"avx2": (4, 3, 66, 3, 512), "avx512": (8, 3, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
 
 m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")
