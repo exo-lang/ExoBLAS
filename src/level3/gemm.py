@@ -102,7 +102,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
         loop = proc.forward(loop)
         cut_val = FormattedExprStr(f"_ - 1", loop.hi())
         proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
-        proc = specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng])
+        proc = simplify(specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng]))
         proc = delete_pass(proc)
         return proc
 
@@ -117,7 +117,8 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = unroll_loops(gemm_compute)
 
     def rewrite(p):
-        p = divide_loop_(p, p.find_loop("k"), 2, tail="cut")
+        p = dce(simplify(p))
+        p = divide_loop_(p, p.find_loop("k"), 64 // m_r // (4 if precision == "f32" else 8), tail="cut")
         p = unroll_loop(p, p.find_loop("ki"))
         return p
 
@@ -125,6 +126,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     for i, tile in enumerate(blocks):
         name = gemm_compute.name() + str(i)
         gemm_compute = extract_and_schedule(rewrite)(gemm_compute, tile.expand(), name)
+    gemm_compute = dce(gemm_compute)
     return simplify(gemm_compute)
 
 
@@ -162,9 +164,11 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
         gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, n_r_fac, vec_tail="perfect", inter_tail="cut"
     )
     gemm_mk = optimize_level_1(gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, 1)
+    gemm_mk = unroll_and_jam(gemm_mk, gemm_mk.find_loop("i0"), 4)
 
     gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
-    gemm_mk, _ = extract_subproc(gemm_mk, cursors.load, gemm_mk.name() + "_B_pack")
+    block = cursors.load.as_block()
+    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.forward(block).expand(0, 1), gemm_mk.name() + "_B_pack")
 
     gemm_mk = extract_and_schedule(schedule_compute)(
         gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
@@ -206,9 +210,18 @@ W_L1 = 12
 S_L1 = 48 * 1024
 C_L1 = 64
 N_L1 = S_L1 // (C_L1 * W_L1)
-C_Br = floor((W_L1 - 1) / (1 + m_r / n_r))
 S_data = 4
-K_tile = (C_Br * N_L1 * C_L1) // (n_r * S_data)
+
+K_tile = 1
+
+
+def L1_Sets(K_tile):
+    return ceil((K_tile * m_r * S_data) / (N_L1 * C_L1)) + ceil((K_tile * n_r * S_data) / (N_L1 * C_L1))
+
+
+while L1_Sets(K_tile + 1) <= W_L1 - 1:
+    K_tile += 1
+
 
 W_L2 = 20
 S_L2 = 1280 * 1024
@@ -218,6 +231,7 @@ C_BT = floor((W_L2 - 1) / 2)
 N_tile = (C_BT * N_L2 * C_L2) // (K_tile * S_data)
 
 N_tile = (N_tile // n_r) * n_r
+N_tile += n_r * 4 * 1
 
 W_L3 = 12
 S_L3 = 3 * 1024 * 1024
