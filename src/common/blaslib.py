@@ -44,7 +44,7 @@ def optimize_level_1(
 
     proc = cleanup(proc)
     proc = replace_all_stmts(proc, instrs)
-    return proc
+    return simplify(proc)
 
 
 def get_triangle_type(proc, loop):
@@ -58,33 +58,12 @@ def get_triangle_type(proc, loop):
         return 1
     if not is_add(proc, loop.hi()):
         return 0
-    if is_read(proc, loop.hi().lhs(), outer_loop.name()) and is_literal(proc, loop.hi().rhs(), 1):
-        return 2
+
+    oprs = [loop.hi().lhs(), loop.hi().rhs()]
+    for opr1, opr2 in oprs, oprs[::-1]:
+        if is_read(proc, opr1, outer_loop.name()) and is_literal(proc, opr2, 1):
+            return 2
     return 0
-
-
-def optimize_level_2_skinny(proc, outer_loop, precision, machine, skinny_factor, cols_factor):
-    inner_loop = get_inner_loop(proc, outer_loop)
-    vw = machine.vec_width(precision)
-    starter_proc = proc
-    proc = simplify(round_loop(proc, inner_loop, vw))
-    proc, (alloc, load, _, _) = auto_stage_mem(proc, outer_loop, "x", "x_vec", rc=True)
-    proc = set_memory(proc, alloc, machine.mem_type)
-    proc = optimize_level_1(proc, load, precision, machine, 1)
-    proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
-    proc = specialize(
-        proc,
-        proc.forward(outer_loop).expand(3, 0),
-        [f"({vw - 1} + N) / {vw} * {vw} == {vw * i}" for i in range(1, skinny_factor + 1)],
-    )
-    proc = simplify(proc)
-    proc = unroll_loops(proc)
-
-    proc = proc.add_assertion(f"N <= {vw * skinny_factor}")
-    starter_proc = starter_proc.add_assertion(f"N <= {vw * skinny_factor}")
-    proc = proc.unsafe_assert_eq(starter_proc)
-    proc = simplify(eliminate_dead_code(proc, proc.find_loop("if _ : _", many=True)[-1]))
-    return starter_proc, proc
 
 
 def optimize_level_2(
@@ -100,11 +79,7 @@ def optimize_level_2(
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
-
-    starter_proc = proc
-    skinny_proc = optimize_level_2_skinny(proc, outer_loop, precision, machine, machine.n_vec_registers - 4, 4)
-    return skinny_proc[1]
-
+    proc = simplify(proc)
     inner_loop = get_inner_loop(proc, outer_loop)
     if triangle := get_triangle_type(proc, inner_loop):
         if round_up is None:
@@ -118,10 +93,13 @@ def optimize_level_2(
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
         proc = simplify(proc)
 
+    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
+    proc = unroll_buffers(proc, outer_loop)
+    proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
+
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
         kernel_loop = outer_loop.parent()
         inner_loop = get_inner_loop(proc, outer_loop)
-        proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
         proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
         proc = unroll_buffers(proc, kernel_loop)
         proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
@@ -142,7 +120,7 @@ def optimize_level_2(
                 machine,
                 rows_factor * cols_factor,
             )
-    return proc
+    return simplify(proc)
 
 
 __all__ = ["optimize_level_1", "optimize_level_2"]

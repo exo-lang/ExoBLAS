@@ -7,7 +7,8 @@ from codegen_helpers import *
 
 
 @proc
-def syr2_rm_u(
+def syr2_rm(
+    Uplo: size,
     n: size,
     alpha: R,
     x: [R][n],
@@ -20,25 +21,14 @@ def syr2_rm_u(
 
     for i in seq(0, n):
         for j in seq(0, i + 1):
-            A[n - i - 1, n - j - 1] += (alpha * x[n - i - 1]) * y[n - j - 1] + (alpha * y_copy[n - i - 1]) * x_copy[n - j - 1]
+            if Uplo == CblasUpperValue:
+                A[n - i - 1, n - j - 1] += (alpha * x[n - i - 1]) * y[n - j - 1] + (alpha * y_copy[n - i - 1]) * x_copy[n - j - 1]
+            else:
+                A[i, j] += (alpha * x[i]) * y[j] + (alpha * y_copy[i]) * x_copy[j]
 
 
-@proc
-def syr2_rm_l(
-    n: size,
-    alpha: R,
-    x: [R][n],
-    x_copy: [R][n],
-    y: [R][n],
-    y_copy: [R][n],
-    A: [R][n, n],
-):
-    assert stride(A, 1) == 1
-
-    for i in seq(0, n):
-        for j in seq(0, i + 1):
-            A[i, j] += (alpha * x[i]) * y[j] + (alpha * y_copy[i]) * x_copy[j]
+def schedule(syr2, loop, precision, machine, Uplo=None):
+    return optimize_level_2(syr2, loop, precision, machine, 4, 2, round_up=None if Uplo == CblasLowerValue else False)
 
 
-variants_generator(optimize_level_2)(syr2_rm_u, "i", 4, 2, round_up=False, globals=globals())
-variants_generator(optimize_level_2)(syr2_rm_l, "i", 4, 2, globals=globals())
+variants_generator(schedule)(syr2_rm, "i", globals=globals())
