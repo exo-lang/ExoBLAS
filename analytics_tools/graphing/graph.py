@@ -135,7 +135,14 @@ def parse_jsons(jsons):
 
 
 def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
+    bench_type, data = data
     plt.clf()
+
+    fig, ax = plt.subplots()
+    for mem_level in "L1", "L2", "L3", "DRAM":
+        key = f"peak_{mem_level}_{'load' if loads else 'store'}_avx"
+        if peak := peaks.get(key):
+            ax.axhline(y=peak, linewidth=1, color="r", linestyle="dotted", label=key.replace("_", " "))
 
     for libname, runs in data.items():
         sorted_runs = sorted(runs)
@@ -159,11 +166,14 @@ def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
     plt.xlabel(some_point.get_graph_description())
     plt.title(some_point.sub_kernel_name)
 
-    filename = GRAPHS_DIR / kernel / f"{some_point.sub_kernel_name}_{bandwith_type}_throughput.png"
+    sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
+    sub_kernel_dir.mkdir(parents=True, exist_ok=True)
+    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_{bandwith_type}_throughput.png"
     plt.savefig(filename)
 
 
 def plot_flops_throughput(kernel, data, peaks, verbose):
+    bench_type, data = data
     plt.clf()
 
     some_point = next(iter(data.values()))[0]
@@ -179,7 +189,7 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
         x = [run.get_size_param() for run in sorted_runs]
         y = [run.get_gflops_per_sec() for run in sorted_runs]
         if verbose:
-            print(libname, ": ")
+            print(libname, some_point.sub_kernel_name, bench_type.name, ": ")
             for s, flops in zip(x, y):
                 print(s, flops)
         plt.plot(x, y, label=libname)
@@ -194,7 +204,9 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
     plt.xlabel(some_point.get_graph_description())
     plt.title(some_point.sub_kernel_name)
 
-    filename = GRAPHS_DIR / kernel / f"{some_point.sub_kernel_name}_flops_throughput.png"
+    sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
+    sub_kernel_dir.mkdir(parents=True, exist_ok=True)
+    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_flops_throughput.png"
     plt.savefig(filename)
 
 
@@ -322,7 +334,7 @@ def plot_kernel(kernel, parsed_jsons, peaks):
     assert len(parsed_jsons) == 1
     parsed_jsons = next(iter(parsed_jsons.values()))
     for bench_type_dict in parsed_jsons.values():
-        for data in bench_type_dict.values():
+        for data in bench_type_dict.items():
             plot_bandwidth_throughput(kernel, data, peaks, loads=True)
             plot_bandwidth_throughput(kernel, data, peaks, loads=False)
             plot_flops_throughput(kernel, data, peaks, verbose)

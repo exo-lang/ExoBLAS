@@ -66,6 +66,34 @@ def get_triangle_type(proc, loop):
     return 0
 
 
+def optimize_level_2_skinny(proc, precision, machine, skinny_factor, cols_factor):
+    if "_t" in proc.name():
+        return proc
+    print(proc)
+    outer_loop = proc.body()[0]
+    inner_loop = get_inner_loop(proc, outer_loop)
+    vw = machine.vec_width(precision)
+    starter_proc = proc
+    proc = simplify(round_loop(proc, inner_loop, vw))
+    proc, (alloc, load, _, _) = auto_stage_mem(proc, outer_loop, "x", "x_vec", rc=True)
+    proc = simplify(proc)
+    proc = set_memory(proc, alloc, machine.mem_type)
+    proc = divide_dim(proc, alloc, 0, vw)
+
+    proc = optimize_level_1(proc, load, precision, machine, 1)
+    proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
+    proc = specialize(
+        proc,
+        proc.forward(outer_loop).expand(3, 0),
+        [f"({vw - 1} + N) / {vw} * {vw} == {vw * i}" for i in range(1, skinny_factor + 1)],
+    )
+    proc = simplify(proc)
+    proc = unroll_loops(proc)
+    proc = simplify(eliminate_dead_code(proc, proc.find_loop("if _ : _", many=True)[-1]))
+    print(proc)
+    return proc
+
+
 def optimize_level_2(
     proc,
     outer_loop,
@@ -79,8 +107,21 @@ def optimize_level_2(
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
+
     proc = simplify(proc)
     inner_loop = get_inner_loop(proc, outer_loop)
+
+    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
+    proc = unroll_buffers(proc, outer_loop)
+    proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
+
+    skinny_factor = machine.n_vec_registers - 4
+    proc = specialize(proc, outer_loop, f"N <= {skinny_factor * vec_width}")
+    proc = extract_and_schedule(optimize_level_2_skinny)(
+        proc, proc.forward(outer_loop.as_block())[0].body()[0], proc.name() + "_skinny", precision, machine, skinny_factor, 4
+    )
+    return proc
+
     if triangle := get_triangle_type(proc, inner_loop):
         if round_up is None:
             round_up = memory in {AVX2}
@@ -92,10 +133,6 @@ def optimize_level_2(
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
         proc = simplify(proc)
-
-    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
-    proc = unroll_buffers(proc, outer_loop)
-    proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
 
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
         kernel_loop = outer_loop.parent()

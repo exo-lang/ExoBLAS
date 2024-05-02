@@ -7,7 +7,7 @@ def get_libfree_subkernel_name(sub_kernel_name):
 
 
 def get_elem_bytes(precision):
-    elem_bytes = {"f32": 8, "f64": 4}
+    elem_bytes = {"f32": 4, "f64": 8}
     if precision not in elem_bytes:
         raise NotImplementedError(f"precision {precision} is not supported")
     return elem_bytes[precision]
@@ -30,11 +30,31 @@ def run_name_to_dict(run_name):
     return tokens
 
 
+level_2_N_skinny_enum_base = 100 * 100
+level_2_M_skinny_enum_base = 200 * 100
+
+
 class BENCH_TYPE(Enum):
     level_1 = 0
     level_2_eq = 1
     level_2_sq = 2
+    level_2_N_skinny_40 = level_2_N_skinny_enum_base + 40
+    level_2_M_skinny_40 = level_2_M_skinny_enum_base + 40
     level_3_eq = 3
+
+    def is_level_2_N_skinny(self):
+        return self.value >= level_2_N_skinny_enum_base and self.value < level_2_N_skinny_enum_base + 100 * 100
+
+    def is_level_2_M_skinny(self):
+        return self.value >= level_2_M_skinny_enum_base and self.value < level_2_M_skinny_enum_base + 100 * 100
+
+    def get_skinny_dim_value(self):
+        if self.is_level_2_N_skinny():
+            return self.value - level_2_N_skinny_enum_base
+        elif self.is_level_2_M_skinny():
+            return self.value - level_2_M_skinny_enum_base
+        else:
+            assert False, f"Bad case {self.vlaue}"
 
 
 level_2_bench_types = {BENCH_TYPE.level_2_eq.value, BENCH_TYPE.level_2_sq.value}

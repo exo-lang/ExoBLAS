@@ -12,7 +12,7 @@ class kernel:
 
         self.sub_kernel_name = get_libfree_subkernel_name(run_dict["sub_kernel_name"])
         self.sub_kernel_name = self.sub_kernel_name.replace("_rm", "")
-        self.bench_type = int(run_dict["bench_type"])
+        self.bench_type = BENCH_TYPE(int(run_dict["bench_type"]))
 
         self.precision = run_dict["precision"]
 
@@ -199,16 +199,29 @@ class swap(level_1_double_vec):
 
 class level_2(kernel):
     def get_size_param(self):
-        return self.N
+        if self.bench_type == BENCH_TYPE.level_2_eq or self.bench_type == self.bench_type.level_2_sq:
+            return self.N
+        elif self.bench_type.is_level_2_N_skinny():
+            return self.M
+        elif self.bench_type.is_level_2_M_skinny():
+            return self.N
+        else:
+            assert False, f"Unknown case {self.bench_type}"
 
     def get_cmp_tuple_(self):
         return (self.N, self.M)
 
     def get_graph_description(self):
-        if self.bench_type == BENCH_TYPE.level_2_sq.value:
+        if self.bench_type == BENCH_TYPE.level_2_sq:
             return "N"
-        elif self.bench_type == BENCH_TYPE.level_2_eq.value:
+        elif self.bench_type == BENCH_TYPE.level_2_eq:
             return "M = N"
+        elif self.bench_type.is_level_2_N_skinny():
+            return f"M, N={self.bench_type.get_skinny_dim_value()}"
+        elif self.bench_type.is_level_2_M_skinny():
+            return f"N, M={self.bench_type.get_skinny_dim_value()}"
+        else:
+            assert False, f"Unknown case {self.bench_type}"
 
 
 class gemv(level_2):
@@ -219,7 +232,7 @@ class gemv(level_2):
         return (self.M * self.N + self.M + self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return (self.M * self.N + self.M * self.N / 4 + self.M) * get_elem_bytes(self.precision)
+        return (self.M * self.N + self.N + self.M) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
         if self.TransA == CBLAS_TRANSPOSE.CblasNoTrans.value:
@@ -314,7 +327,7 @@ class gemm(level_3):
         return (self.M, self.N, self.K)
 
     def get_graph_description(self):
-        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+        if self.bench_type == BENCH_TYPE.level_3_eq:
             return "M = N = K"
 
     def get_flops(self):
@@ -338,7 +351,7 @@ class symm(level_3):
         return (self.M, self.N)
 
     def get_graph_description(self):
-        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+        if self.bench_type == BENCH_TYPE.level_3_eq:
             return "M = N"
 
     def get_flops(self):
@@ -370,7 +383,7 @@ class syrk(level_3):
         return (self.N, self.K)
 
     def get_graph_description(self):
-        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+        if self.bench_type == BENCH_TYPE.level_3_eq:
             return "N = K"
 
     def get_flops(self):
@@ -394,7 +407,7 @@ class syr2k(level_3):
         return (self.N, self.K)
 
     def get_graph_description(self):
-        if self.bench_type == BENCH_TYPE.level_3_eq.value:
+        if self.bench_type == BENCH_TYPE.level_3_eq:
             return "N = K"
 
     def get_flops(self):
