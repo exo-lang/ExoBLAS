@@ -114,7 +114,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     bottom_cond = lambda l, i: f"M - {l.name()} * {m_r}"
     gemm_compute = cut(gemm_compute, gemm_compute.find_loop("io #1"), bottom_cond, range(m_r, 1, -1))
 
-    def rewrite(p):
+    def rewrite(p, *args):
         try:
             p = delete_pass(p)
         except:

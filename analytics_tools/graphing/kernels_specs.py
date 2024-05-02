@@ -232,13 +232,19 @@ class gemv(level_2):
         return (self.M * self.N + self.M + self.N) * get_elem_bytes(self.precision)
 
     def get_loaded_bytes(self):
-        return (self.M * self.N + self.N + self.M) * get_elem_bytes(self.precision)
+        if self.bench_type.is_skinny():
+            return (self.M * self.N + self.N + self.M) * get_elem_bytes(self.precision)
+        else:
+            return (self.M * self.N + self.M * self.N / 4 + self.M) * get_elem_bytes(self.precision)
 
     def get_stored_bytes(self):
         if self.TransA == CBLAS_TRANSPOSE.CblasNoTrans.value:
             return self.M * get_elem_bytes(self.precision)
         else:
-            return ((self.M * self.N) // 4) * get_elem_bytes(self.precision)
+            if self.bench_type.is_skinny():
+                return self.N * get_elem_bytes(self.precision)
+            else:
+                return ((self.M * self.N) // 4) * get_elem_bytes(self.precision)
 
 
 class ger(level_2):

@@ -22,4 +22,4 @@ def gemv_rm(TransA: size, M: size, N: size, alpha: R, beta: R, A: [R][M, N], AT:
                 y[j] += alpha * x[i] * AT[i, j]
 
 
-variants_generator(optimize_level_2)(gemv_rm, "i #1", 4, 2, globals=globals())
+variants_generator(optimize_level_2)(gemv_rm, "i #1", 4, 2, skinny_factor=(11, 4), globals=globals())

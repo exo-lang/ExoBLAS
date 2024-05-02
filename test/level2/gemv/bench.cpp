@@ -68,20 +68,11 @@ static void args(benchmark::internal::Benchmark *b) {
   for (int i = 7; i <= level_2_max_N; i *= 7) {
     add_arg(i, i, BENCH_TYPES::level_2_eq);
   }
-  if constexpr (TransA == CblasNoTrans) {
-    for (int i = 1; i <= (1 << 25); i *= 2) {
-      add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
-    }
-    for (int i = 7; i <= (1 << 25); i *= 7) {
-      add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
-    }
-  } else {
-    for (int i = 1; i <= (1 << 25); i *= 2) {
-      add_arg(40, i, BENCH_TYPES::level_2_M_skinny_40);
-    }
-    for (int i = 7; i <= (1 << 25); i *= 7) {
-      add_arg(40, i, BENCH_TYPES::level_2_M_skinny_40);
-    }
+  for (int i = 1; i <= (1 << 25); i *= 2) {
+    add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
+  }
+  for (int i = 7; i <= (1 << 25); i *= 7) {
+    add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
   }
 }
 

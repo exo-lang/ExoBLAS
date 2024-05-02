@@ -48,6 +48,9 @@ class BENCH_TYPE(Enum):
     def is_level_2_M_skinny(self):
         return self.value >= level_2_M_skinny_enum_base and self.value < level_2_M_skinny_enum_base + 100 * 100
 
+    def is_skinny(self):
+        return self.is_level_2_M_skinny() and self.is_level_2_N_skinny()
+
     def get_skinny_dim_value(self):
         if self.is_level_2_N_skinny():
             return self.value - level_2_N_skinny_enum_base
