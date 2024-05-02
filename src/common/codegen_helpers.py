@@ -136,10 +136,10 @@ def export_exo_proc(globals, proc):
     globals.setdefault("__all__", []).append(proc.name())
 
 
-def bind_builtins_args(proc, block, precision):
+def bind_externs_args(proc, block, precision):
     stmt = InvalidCursor()
     for c in nlr(proc, block):
-        if isinstance(c, BuiltInFunctionCursor):
+        if isinstance(c, ExternFunctionCursor):
             for arg in c.args():
                 proc = bind_expr(proc, arg, "arg")
                 stmt = proc.forward(stmt)
@@ -200,7 +200,7 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=("avx2", 
 
             stride_any = generate_stride_any_proc(proc_variant)
             stride_any = stage_scalar_args(stride_any)
-            stride_any = bind_builtins_args(stride_any, stride_any.body(), precision)
+            stride_any = bind_externs_args(stride_any, stride_any.body(), precision)
             stride_any = generate_parameters_variants(stride_any)
             export_exo_proc(globals, stride_any)
 
@@ -223,7 +223,7 @@ def variants_generator(blas_op, opt_precisions=("f32", "f64"), targets=("avx2", 
                         stride_1 = call_eqv(stride_1, call, subproc)
 
             stride_1 = stage_scalar_args(stride_1)
-            stride_1 = bind_builtins_args(stride_1, stride_1.body(), precision)
+            stride_1 = bind_externs_args(stride_1, stride_1.body(), precision)
             scheduled = get_perf_features(stride_1)
 
             perf_features[stride_1.name()] = {

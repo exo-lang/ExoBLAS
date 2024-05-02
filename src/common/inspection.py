@@ -21,7 +21,7 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         elif isinstance(expr, BinaryOpCursor):
             yield expr.lhs()
             yield expr.rhs()
-        elif isinstance(expr, BuiltInFunctionCursor):
+        elif isinstance(expr, ExternFunctionCursor):
             yield from expr.args()
         elif isinstance(expr, (LiteralCursor, ReadConfigCursor)):
             pass
@@ -338,21 +338,21 @@ def is_and(proc, expr):
     return is_binop(proc, expr, "and")
 
 
-def is_builtin(proc, expr, name):
+def is_extern(proc, expr, name):
     expr = proc.forward(expr)
-    return isinstance(expr, BuiltInFunctionCursor) and expr.name() == name
+    return isinstance(expr, ExternFunctionCursor) and expr.name() == name
 
 
 def is_select(proc, expr):
-    return is_builtin(proc, expr, "select")
+    return is_extern(proc, expr, "select")
 
 
 def is_relu(proc, expr):
-    return is_builtin(proc, expr, "relu")
+    return is_extern(proc, expr, "relu")
 
 
 def is_sin(proc, expr):
-    return is_builtin(proc, expr, "sin")
+    return is_extern(proc, expr, "sin")
 
 
 def is_literal(proc, expr, value=None):
@@ -544,7 +544,7 @@ def expr_to_string(expr_cursor, subst={}):
         lhs_str = expr_to_string(expr_cursor.lhs(), subst)
         rhs_str = expr_to_string(expr_cursor.rhs(), subst)
         return f"({lhs_str}{binop_str}{rhs_str})"
-    elif isinstance(expr_cursor, BuiltInFunctionCursor):
+    elif isinstance(expr_cursor, ExternFunctionCursor):
         name = expr_cursor.name()
         args_str = expr_list_to_string(expr_cursor.args(), subst)
         return f"({name}({args_str[1:-1]}))"
