@@ -66,21 +66,60 @@ def get_triangle_type(proc, loop):
     return 0
 
 
-def optimize_level_2(
-    proc,
-    outer_loop,
-    precision,
-    machine,
-    rows_factor,
-    cols_factor,
-    round_up=None,
-    rows_tail="level_1",
-    **kwargs,
+def get_reused_vectors(proc, inner_loop):
+    inner_loop = proc.forward(inner_loop)
+    accesses = filter_cursors(is_access)(proc, lrn(proc, inner_loop))
+
+    for acc in accesses:
+        decl = get_declaration(proc, acc, acc.name())
+        if hasattr(decl, "is_tensor") and decl.is_tensor() and len(decl.shape()) == 1:
+            # This is a vector
+            get_symbols
+            if inner_loop.name() in get_symbols(proc, acc):
+                yield decl
+
+
+def get_skinny_cond(proc, vec, precision, machine):
+    assert len(vec.shape()) == 1
+    vw = machine.vec_width(precision)
+    vec_shp = expr_to_string(vec.shape()[0])
+    if machine.supports_predication:
+        return f"({vw - 1} + {vec_shp}) / {vw} * {vw}"
+    else:
+        return f"{vec_shp} / {vw} * {vw}"
+
+
+def _optimize_level_2_skinny(proc, outer_loop, precision, machine, skinny_factor, cols_factor):
+    inner_loop = get_inner_loop(proc, outer_loop)
+    vw = machine.vec_width(precision)
+
+    reused_vector = list(get_reused_vectors(proc, inner_loop))[0]  # We will only support one vector for now (level 2)
+    proc = simplify(round_loop(proc, inner_loop, vw, up=machine.supports_predication))
+    proc, (alloc, load, _, store) = auto_stage_mem(proc, outer_loop, reused_vector.name(), rc=True)
+    proc = simplify(proc)
+    proc = set_memory(proc, alloc, machine.mem_type)
+    proc = divide_dim(proc, alloc, 0, vw)
+
+    for stage in [load, store]:
+        if not is_invalid(proc, stage):
+            proc = optimize_level_1(proc, stage, precision, machine, 1)
+
+    proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
+    cond_lhs = get_skinny_cond(proc, reused_vector, precision, machine)
+    proc = specialize(proc, proc.body(), [f"{cond_lhs} == {vw * i}" for i in range(1, skinny_factor + 1)])
+    proc = unroll_loops(simplify(proc))
+    return cleanup(proc)
+
+
+def _optimize_level_2_general(
+    proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, rows_tail="level_1", **kwargs
 ):
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
+
     proc = simplify(proc)
     inner_loop = get_inner_loop(proc, outer_loop)
+
     if triangle := get_triangle_type(proc, inner_loop):
         if round_up is None:
             round_up = memory in {AVX2}
@@ -92,10 +131,6 @@ def optimize_level_2(
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
         proc = round_loop(proc, inner_loop, vec_width, up=round_up)
         proc = simplify(proc)
-
-    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
-    proc = unroll_buffers(proc, outer_loop)
-    proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
 
     def rewrite(proc, outer_loop, rows_factor, cols_factor):
         kernel_loop = outer_loop.parent()
@@ -120,7 +155,60 @@ def optimize_level_2(
                 machine,
                 rows_factor * cols_factor,
             )
-    return simplify(proc)
+
+    return cleanup(proc)
+
+
+def optimize_level_2(
+    proc,
+    outer_loop,
+    precision,
+    machine,
+    rows_factor,
+    cols_factor,
+    round_up=None,
+    rows_tail="level_1",
+    skinny_factor=None,
+    **kwargs,
+):
+    vec_width = machine.vec_width(precision)
+    memory = machine.mem_type
+
+    proc = simplify(proc)
+    inner_loop = get_inner_loop(proc, outer_loop)
+
+    proc = parallelize_all_reductions(proc, inner_loop, 1, unroll=True)
+    proc = unroll_buffers(proc, outer_loop)
+    proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
+
+    if skinny_factor and machine.supports_predication:
+        # We cannot partially stage memories for now so we need to stage the whole vector
+        reused_vector = list(get_reused_vectors(proc, inner_loop))[0]  # We will only support one vector for now (level 2)
+        cond_lhs = get_skinny_cond(proc, reused_vector, precision, machine)
+        proc = specialize(proc, outer_loop, f"{expr_to_string(reused_vector.shape()[0])} <= {skinny_factor[0] * vec_width}")
+        if_stmt = proc.forward(outer_loop.as_block())[0]
+
+        proc = extract_and_schedule(
+            _optimize_level_2_skinny,
+        )(proc, if_stmt.body()[0], proc.name() + "_skinny", precision, machine, skinny_factor[0], skinny_factor[1])
+        proc = extract_and_schedule(_optimize_level_2_general)(
+            proc,
+            if_stmt.orelse()[0],
+            proc.name() + "_general",
+            precision,
+            machine,
+            rows_factor,
+            cols_factor,
+            round_up,
+            rows_tail,
+            **kwargs,
+        )
+    else:
+        proc = _optimize_level_2_general(
+            proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=round_up, rows_tail=rows_tail, **kwargs
+        )
+
+    return proc
 
 
 __all__ = ["optimize_level_1", "optimize_level_2"]

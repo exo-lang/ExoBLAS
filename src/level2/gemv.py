@@ -8,18 +8,18 @@ from cblas_enums import *
 
 
 @proc
-def gemv_rm(TransA: size, m: size, n: size, alpha: R, beta: R, A: [R][m, n], AT: [R][n, m], x: [R][n], y: [R][m]):
+def gemv_rm(TransA: size, M: size, N: size, alpha: R, beta: R, A: [R][M, N], AT: [R][N, M], x: [R][N], y: [R][M]):
     assert stride(A, 1) == 1
-    for i in seq(0, m):
+    for i in seq(0, M):
         y[i] = y[i] * beta
     if TransA == CblasNoTransValue:
-        for i in seq(0, m):
-            for j in seq(0, n):
+        for i in seq(0, M):
+            for j in seq(0, N):
                 y[i] += alpha * (x[j] * A[i, j])
     else:
-        for i in seq(0, n):
-            for j in seq(0, m):
+        for i in seq(0, N):
+            for j in seq(0, M):
                 y[j] += alpha * x[i] * AT[i, j]
 
 
-variants_generator(optimize_level_2)(gemv_rm, "i #1", 4, 2, globals=globals())
+variants_generator(optimize_level_2)(gemv_rm, "i #1", 4, 2, skinny_factor=(11, 4), globals=globals())

@@ -155,7 +155,7 @@ def get_declaration(proc, ctxt, name):
         stmt = ctxt
 
     for stmt in get_observed_stmts(stmt):
-        if isinstance(stmt, AllocCursor) and stmt.name() == name:
+        if isinstance(stmt, (AllocCursor, ForCursor)) and stmt.name() == name:
             return stmt
     for arg in proc.args():
         if arg.name() == name:

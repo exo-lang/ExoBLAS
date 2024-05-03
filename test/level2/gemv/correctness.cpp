@@ -47,7 +47,7 @@ void run() {
       CBLAS_TRANSPOSE::CblasNoTrans,
       CBLAS_TRANSPOSE::CblasTrans,
   };
-  std::vector<int> N{41, 80, 101, 1024};
+  std::vector<int> N{3, 41, 80, 101, 141, 1024};
   std::vector<int> M{77, 103, 500};
   std::vector<T> alpha_vals{2.4};
   std::vector<int> lda_diffs{0, 5};

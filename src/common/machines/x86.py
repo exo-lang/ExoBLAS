@@ -96,6 +96,8 @@ class VEC_AVX2(VEC):
 
         reg_width, C_reg_type_name = vec_types[prim_type]
         if not (shape[-1].isdecimal() and int(shape[-1]) == reg_width):
+            print(new_name, shape)
+            print(shape[-1], shape[-1].isdecimal(), int(shape[-1]) % reg_width)
             raise MemGenError(f"{srcinfo}: AVX2 vectors of type {prim_type} must be {reg_width}-wide, got {shape}")
         shape = shape[:-1]
         if shape:
