@@ -42,11 +42,10 @@ def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N,
                 C[i, j] += alpha * (A[i, k] * A_alias[j, k])
 
 
-def schedule_compute(compute, precision, machine, m_r, n_r_fac):
+def schedule_compute(compute, i_loop, precision, machine, m_r, n_r_fac):
     return compute
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
-    i_loop = compute.body()[0]
     j_loop = get_inner_loop(compute, i_loop)
     k_loop = get_inner_loop(compute, j_loop)
     compute, cs = auto_stage_mem(compute, k_loop, "C", "C_tile", accum=True, rc=1)
@@ -91,7 +90,7 @@ def schedule_compute(compute, precision, machine, m_r, n_r_fac):
     bottom_cond = lambda l, i: f"N - {l.name()} * {m_r}"
     compute = cut(compute, i_loop, bottom_cond, range(m_r, 1, -1))
 
-    def rewrite(p):
+    def rewrite(p, *args):
         try:
             p = delete_pass(p)
         except:

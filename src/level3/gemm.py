@@ -46,10 +46,9 @@ def gemm(
                         C[i, j] += alpha * (AT[k, i] * BT[j, k])
 
 
-def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
+def schedule_compute(gemm_compute, i_loop, precision, machine, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
-    i_loop = gemm_compute.body()[0]
     j_loop = get_inner_loop(gemm_compute, i_loop)
     k_loop = get_inner_loop(gemm_compute, j_loop)
     gemm_compute = auto_stage_mem(gemm_compute, gemm_compute.body(), "alpha", "alpha_")
@@ -116,7 +115,7 @@ def schedule_compute(gemm_compute, precision, machine, m_r, n_r_fac):
     gemm_compute = cut(gemm_compute, gemm_compute.find_loop("io #1"), bottom_cond, range(m_r, 0, -1))
     gemm_compute = unroll_loops(gemm_compute)
 
-    def rewrite(p):
+    def rewrite(p, *args):
         p = dce(simplify(p))
         p = divide_loop_(p, p.find_loop("k"), 64 // m_r // (4 if precision == "f32" else 8), tail="cut")
         p = unroll_loop(p, p.find_loop("ki"))

@@ -43,7 +43,7 @@ static void bench(benchmark::State &state) {
 
 template <typename T, int Order, int Uplo, int TransA, int Diag>
 static void args(benchmark::internal::Benchmark *b) {
-  auto add_arg = [&b](int M, int N) {
+  auto add_arg = [&b](int M, int N, int bench_type) {
     return b->Args({M,
                     N,
                     Order,
@@ -56,17 +56,23 @@ static void args(benchmark::internal::Benchmark *b) {
                     64,
                     64,
                     64,
-                    {BENCH_TYPES::level_2_sq},
+                    {bench_type},
                     {type_bits<T>()}});
   };
   b->ArgNames({"M", "N", "Order", "TransA", "alpha", "lda_diff", "incX", "beta",
                "incY", "alignmentA", "alignmentX", "alignmentY", "bench_type",
                "precision"});
   for (int i = 1; i <= level_2_max_N; i *= 2) {
-    add_arg(i, i);
+    add_arg(i, i, BENCH_TYPES::level_2_eq);
   }
   for (int i = 7; i <= level_2_max_N; i *= 7) {
-    add_arg(i, i);
+    add_arg(i, i, BENCH_TYPES::level_2_eq);
+  }
+  for (int i = 1; i <= (1 << 25); i *= 2) {
+    add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
+  }
+  for (int i = 7; i <= (1 << 25); i *= 7) {
+    add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
   }
 }
 
