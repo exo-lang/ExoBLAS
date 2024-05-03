@@ -79,14 +79,22 @@ def get_reused_vectors(proc, inner_loop):
                 yield decl
 
 
+def get_skinny_cond(proc, vec, precision, machine):
+    assert len(vec.shape()) == 1
+    vw = machine.vec_width(precision)
+    vec_shp = expr_to_string(vec.shape()[0])
+    if machine.supports_predication:
+        return f"({vw - 1} + {vec_shp}) / {vw} * {vw}"
+    else:
+        return f"{vec_shp} / {vw} * {vw}"
+
+
 def _optimize_level_2_skinny(proc, outer_loop, precision, machine, skinny_factor, cols_factor):
     inner_loop = get_inner_loop(proc, outer_loop)
     vw = machine.vec_width(precision)
 
     reused_vector = list(get_reused_vectors(proc, inner_loop))[0]  # We will only support one vector for now (level 2)
-    vec_shp = expr_to_string(reused_vector.shape()[0])
-
-    proc = simplify(round_loop(proc, inner_loop, vw))
+    proc = simplify(round_loop(proc, inner_loop, vw, up=machine.supports_predication))
     proc, (alloc, load, _, store) = auto_stage_mem(proc, outer_loop, reused_vector.name(), rc=True)
     proc = simplify(proc)
     proc = set_memory(proc, alloc, machine.mem_type)
@@ -97,11 +105,8 @@ def _optimize_level_2_skinny(proc, outer_loop, precision, machine, skinny_factor
             proc = optimize_level_1(proc, stage, precision, machine, 1)
 
     proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor)
-    proc = specialize(
-        proc,
-        proc.body(),
-        [f"({vw - 1} + {vec_shp}) / {vw} * {vw} == {vw * i}" for i in range(1, skinny_factor + 1)],
-    )
+    cond_lhs = get_skinny_cond(proc, reused_vector, precision, machine)
+    proc = specialize(proc, proc.body(), [f"{cond_lhs} == {vw * i}" for i in range(1, skinny_factor + 1)])
     proc = unroll_loops(simplify(proc))
     return cleanup(proc)
 
@@ -178,14 +183,14 @@ def optimize_level_2(
 
     if skinny_factor:
         reused_vector = list(get_reused_vectors(proc, inner_loop))[0]  # We will only support one vector for now (level 2)
-        vec_shp = expr_to_string(reused_vector.shape()[0])
-        proc = specialize(proc, outer_loop, f"{vec_shp} <= {skinny_factor[0] * vec_width}")
+        cond_lhs = get_skinny_cond(proc, reused_vector, precision, machine)
+        proc = specialize(proc, outer_loop, f"{cond_lhs} <= {skinny_factor[0] * vec_width}")
         if_stmt = proc.forward(outer_loop.as_block())[0]
 
-        proc = extract_and_schedule(_optimize_level_2_skinny)(
-            proc, if_stmt.body()[0], proc.name() + "_skinny", precision, machine, skinny_factor[0], skinny_factor[1]
-        )
-        proc = extract_and_schedule(_optimize_level_2_general)(
+        proc = extract_and_schedule(
+            _optimize_level_2_skinny,
+        )(proc, if_stmt.body()[0], proc.name() + "_skinny", precision, machine, skinny_factor[0], skinny_factor[1])
+        proc = extract_and_schedule(_optimize_level_2_general, False)(
             proc,
             if_stmt.orelse()[0],
             proc.name() + "_general",
