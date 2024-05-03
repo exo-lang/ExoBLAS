@@ -181,16 +181,17 @@ def optimize_level_2(
     proc = unroll_buffers(proc, outer_loop)
     proc = attempt(lift_reduce_constant)(proc, proc.forward(inner_loop).expand(1, 0))
 
-    if skinny_factor:
+    if skinny_factor and machine.supports_predication:
+        # We cannot partially stage memories for now so we need to stage the whole vector
         reused_vector = list(get_reused_vectors(proc, inner_loop))[0]  # We will only support one vector for now (level 2)
         cond_lhs = get_skinny_cond(proc, reused_vector, precision, machine)
-        proc = specialize(proc, outer_loop, f"{cond_lhs} <= {skinny_factor[0] * vec_width}")
+        proc = specialize(proc, outer_loop, f"{expr_to_string(reused_vector.shape()[0])} <= {skinny_factor[0] * vec_width}")
         if_stmt = proc.forward(outer_loop.as_block())[0]
 
         proc = extract_and_schedule(
             _optimize_level_2_skinny,
         )(proc, if_stmt.body()[0], proc.name() + "_skinny", precision, machine, skinny_factor[0], skinny_factor[1])
-        proc = extract_and_schedule(_optimize_level_2_general, False)(
+        proc = extract_and_schedule(_optimize_level_2_general)(
             proc,
             if_stmt.orelse()[0],
             proc.name() + "_general",
