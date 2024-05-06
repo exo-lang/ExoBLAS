@@ -301,6 +301,11 @@ def get_inner_loop(proc, loop):
     return get_nth_inner_loop(proc, loop, 0)
 
 
+def is_expr(proc, expr):
+    expr = proc.forward(expr)
+    return isinstance(expr, ExprCursor)
+
+
 def is_binop(proc, expr, op=None):
     expr = proc.forward(expr)
     return isinstance(expr, BinaryOpCursor) and (op is None or expr.op() == op)

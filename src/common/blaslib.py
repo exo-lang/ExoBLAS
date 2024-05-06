@@ -116,14 +116,9 @@ def _optimize_level_2_skinny(proc, outer_loop, precision, machine, skinny_factor
     return cleanup(proc)
 
 
-def _optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, **kwargs):
-    vec_width = machine.vec_width(precision)
-    memory = machine.mem_type
-
-    proc = simplify(proc)
+def adjust_level_2_triangular(proc, outer_loop, machine, rows_factor, round_up=None):
+    outer_loop = proc.forward(outer_loop)
     inner_loop = get_inner_loop(proc, outer_loop)
-    proc = simplify(round_loop(proc, outer_loop, rows_factor, up=False))
-    tail = proc.forward(outer_loop).next()
 
     if triangle := get_triangle_type(proc, inner_loop):
         if round_up is None:
@@ -135,8 +130,21 @@ def _optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor,
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
         proc = round_loop(proc, inner_loop, rows_factor, up=round_up)
         proc = simplify(proc)
+    return proc
 
-    proc = divide_loop_(proc, outer_loop, rows_factor, tail="perfect")
+
+def optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, **kwargs):
+    outer_loop = proc.forward(outer_loop)
+    vec_width = machine.vec_width(precision)
+    memory = machine.mem_type
+    inner_loop = get_inner_loop(proc, outer_loop)
+
+    proc = simplify(proc)
+
+    proc = simplify(round_loop(proc, outer_loop, rows_factor, up=False))
+    tail = proc.forward(outer_loop).next()
+    proc = adjust_level_2_triangular(proc, outer_loop, machine, rows_factor, round_up)
+
     proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
     proc = unroll_buffers(proc, outer_loop)
     proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
@@ -178,7 +186,7 @@ def optimize_level_2(
         proc = extract_and_schedule(
             _optimize_level_2_skinny,
         )(proc, if_stmt.body()[0], proc.name() + "_skinny", precision, machine, skinny_factor[0], skinny_factor[1])
-        proc = extract_and_schedule(_optimize_level_2_general)(
+        proc = extract_and_schedule(optimize_level_2_general)(
             proc,
             if_stmt.orelse()[0],
             proc.name() + "_general",
@@ -190,7 +198,7 @@ def optimize_level_2(
             **kwargs,
         )
     else:
-        proc = _optimize_level_2_general(
+        proc = optimize_level_2_general(
             proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=round_up, **kwargs
         )
 

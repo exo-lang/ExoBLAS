@@ -1059,15 +1059,38 @@ def unroll_loops(proc, block=InvalidCursor(), threshold=None):
     return make_pass(predicate(unroll_loop, pred), lrn_stmts)(proc, block)
 
 
+def magic_simplify(proc, block=InvalidCursor()):
+    def mod_simplify(proc, e):
+        if not is_mod(proc, e):
+            return proc
+        if is_mul(proc, e.lhs()):
+            for operand in e.lhs().lhs(), e.lhs().rhs():
+                if is_literal(proc, operand, e.rhs().value()):
+                    proc = rewrite_expr(proc, e, 0)
+        return proc
+
+    def div_simplify(proc, e):
+        if not is_div(proc, e):
+            return proc
+        if is_mul(proc, e.lhs()):
+            operands = (e.lhs().lhs(), e.lhs().rhs())
+            for lhs, rhs in operands, operands[::-1]:
+                if is_literal(proc, lhs) and lhs.value() % e.rhs().value():
+                    proc = rewrite_expr(proc, e, FormattedExprStr("_ * _", lhs.value() / e.rhs().value(), rhs))
+        return proc
+
+    exprs = filter_cursors(is_expr)(proc, lrn(proc, block))
+    try_all = lambda p, e: mod_simplify(div_simplify(p, e), e)
+    proc = apply(try_all)(proc, exprs)
+    return simplify(proc)
+
+
 def cleanup(proc, block=InvalidCursor()):
     proc = simplify(proc)
     proc = unroll_loops(proc, block, threshold=1)
     proc = dce(proc, block)
-    try:
-        proc.find("pass")
-        proc = delete_pass(proc)
-    except SchedulingError:
-        pass
+    proc = magic_simplify(proc)
+    proc = delete_pass(proc)
     return proc
 
 
