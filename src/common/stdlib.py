@@ -1074,9 +1074,13 @@ def magic_simplify(proc, block=InvalidCursor()):
                     return rewrite_expr(proc, e, FormattedExprStr("_ * _", lhs.value() / e.rhs().value(), rhs))
         return proc
 
-    exprs = filter_cursors(is_expr)(proc, lrn(proc, block))
     try_all = lambda p, e: mod_simplify(div_simplify(p, e), e)
-    proc = apply(try_all)(proc, exprs)
+    for s in lrn_stmts(proc, block):
+        if is_loop(proc, s):
+            proc = try_all(proc, s.lo())
+            proc = try_all(proc, s.hi())
+        elif is_if(proc, s):
+            proc = try_all(proc, s.cond())
     return simplify(proc)
 
 

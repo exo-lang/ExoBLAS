@@ -195,6 +195,11 @@ def is_loop(proc, loop):
     return isinstance(loop, ForCursor)
 
 
+def is_cntrl_stmt(proc, s):
+    s = proc.forward(s)
+    return is_loop(proc, s) and is_if(proc, s)
+
+
 def check_is_loop(proc, loop):
     if not is_loop(proc, loop):
         raise TypeError(f"loop is not a {ForCursor}")
