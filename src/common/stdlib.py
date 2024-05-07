@@ -367,13 +367,8 @@ def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=Fals
 
 def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
     loop = proc.forward(loop)
-    inner_loops = [i for i in loop.body() if isinstance(i, ForCursor)]
-    if len(inner_loops) > 1:
-        raise BLAS_SchedulingError("Multiple loops found, decision is ambigious")
-    if len(inner_loops) == 0:
-        raise BLAS_SchedulingError("No loops found")
-
-    return interleave_outer_loop_with_inner_loop(proc, loop, inner_loops[0], factor, unroll=unroll)
+    inner_loop = get_inner_loop(proc, loop)
+    return interleave_outer_loop_with_inner_loop(proc, loop, inner_loop, factor, unroll=unroll)
 
 
 def unroll_and_jam_parent(proc, loop, factor, unroll=(True, True, True)):
@@ -1066,7 +1061,7 @@ def magic_simplify(proc, block=InvalidCursor()):
         if is_mul(proc, e.lhs()):
             for operand in e.lhs().lhs(), e.lhs().rhs():
                 if is_literal(proc, operand, e.rhs().value()):
-                    proc = rewrite_expr(proc, e, 0)
+                    return rewrite_expr(proc, e, 0)
         return proc
 
     def div_simplify(proc, e):
@@ -1076,7 +1071,7 @@ def magic_simplify(proc, block=InvalidCursor()):
             operands = (e.lhs().lhs(), e.lhs().rhs())
             for lhs, rhs in operands, operands[::-1]:
                 if is_literal(proc, lhs) and lhs.value() % e.rhs().value():
-                    proc = rewrite_expr(proc, e, FormattedExprStr("_ * _", lhs.value() / e.rhs().value(), rhs))
+                    return rewrite_expr(proc, e, FormattedExprStr("_ * _", lhs.value() / e.rhs().value(), rhs))
         return proc
 
     exprs = filter_cursors(is_expr)(proc, lrn(proc, block))

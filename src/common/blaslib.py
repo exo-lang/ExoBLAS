@@ -55,6 +55,7 @@ class TRIANG_TYPE(Enum):
 
 def get_triangle_type(proc, loop):
     loop = proc.forward(loop)
+    proc = simplify(proc)
     outer_loop = loop.parent()
     assert is_loop(proc, outer_loop)
 
@@ -128,28 +129,24 @@ def adjust_level_2_triangular(proc, outer_loop, machine, rows_factor, round_up=N
             inner_loop = get_inner_loop(proc, outer_loop)
         if not round_up and triangle == TRIANG_TYPE.DIAG:
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
+        proc = simplify(round_loop(proc, outer_loop, rows_factor, up=False))
         proc = round_loop(proc, inner_loop, rows_factor, up=round_up)
-        proc = simplify(proc)
-    return proc
+        return cleanup(proc), (outer_loop,)
+    return proc, (outer_loop,)
 
 
 def optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, **kwargs):
     outer_loop = proc.forward(outer_loop)
     vec_width = machine.vec_width(precision)
     memory = machine.mem_type
-    inner_loop = get_inner_loop(proc, outer_loop)
+    proc, (outer_loop,) = adjust_level_2_triangular(proc, outer_loop, machine, rows_factor, round_up)
 
-    proc = simplify(proc)
-
-    proc = simplify(round_loop(proc, outer_loop, rows_factor, up=False))
-    tail = proc.forward(outer_loop).next()
-    proc = adjust_level_2_triangular(proc, outer_loop, machine, rows_factor, round_up)
-
-    proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
+    proc = unroll_and_jam(proc, outer_loop, rows_factor)
     proc = unroll_buffers(proc, outer_loop)
+    inner_loop = get_inner_loop(proc, outer_loop)
     proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
 
-    tail = get_inner_loop(proc, tail)
+    tail = get_inner_loop(proc, proc.forward(outer_loop).next())
     proc = optimize_level_1(proc, tail, precision, machine, rows_factor * cols_factor)
     return cleanup(proc)
 

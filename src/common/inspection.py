@@ -14,8 +14,15 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         cursor = proc.forward(cursor)
 
     def expr_children(expr):
-        if isinstance(expr, (ReadCursor, WindowExprCursor)):
+        if isinstance(expr, ReadCursor):
             yield from expr.idx()
+        elif isinstance(expr, WindowExprCursor):
+            for idx in expr.idx():
+                if isinstance(idx, tuple):
+                    yield idx[0]
+                    yield idx[1]
+                else:
+                    yield idx
         elif isinstance(expr, UnaryMinusCursor):
             yield expr.arg()
         elif isinstance(expr, BinaryOpCursor):
