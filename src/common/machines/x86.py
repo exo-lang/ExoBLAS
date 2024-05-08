@@ -33,6 +33,17 @@ static forceinline __m256i mm256_prefix_mask_epi64x(int32_t count) {
     __m256i prefix = _mm256_set1_epi64x(count);
     return _mm256_cmpgt_epi64(prefix, indices);
 }
+static forceinline __m256i mm256_suffix_mask_epi32(int32_t count) {
+    __m256i indices = _mm256_set_epi32(0, 1, 2, 3, 4, 5, 6, 7);
+    __m256i prefix = _mm256_set1_epi32(count);
+    return _mm256_cmpgt_epi32(prefix, indices);
+}
+
+static forceinline __m256i mm256_suffix_mask_epi64x(int32_t count) {
+    __m256i indices = _mm256_set_epi64x(0, 1, 2, 3);
+    __m256i prefix = _mm256_set1_epi64x(count);
+    return _mm256_cmpgt_epi64(prefix, indices);
+}
 
 static forceinline __m128i mm_prefix_mask_epi32(int32_t count) {
     __m128i indices = _mm_setr_epi32(0, 1, 2, 3);
@@ -48,6 +59,14 @@ static forceinline __m256 mm256_prefix_ps(__m256 dst, __m256 src, int32_t count)
 }
 static forceinline __m256d mm256_prefix_pd(__m256d dst, __m256d src, int32_t count) {
     __m256i mask = mm256_prefix_mask_epi64x(count);
+    return _mm256_blendv_pd(dst, src, _mm256_castsi256_pd(mask));
+}
+static forceinline __m256 mm256_suffix_ps(__m256 dst, __m256 src, int32_t count) {
+    __m256i mask = mm256_suffix_mask_epi32(count);
+    return _mm256_blendv_ps(dst, src, _mm256_castsi256_ps(mask));
+}
+static forceinline __m256d mm256_suffix_pd(__m256d dst, __m256d src, int32_t count) {
+    __m256i mask = mm256_suffix_mask_epi64x(count);
     return _mm256_blendv_pd(dst, src, _mm256_castsi256_pd(mask));
 }
 """
@@ -111,7 +130,12 @@ class VEC_AVX512(VEC):
     @classmethod
     def global_(cls):
         include = "#include <immintrin.h>"
-        pfx_mask_fun = "#define get_prefix_mask(count) ((1 << count) - 1)"
+        pfx_mask_fun = """
+#define get_prefix_mask_ps(count) ((1 << count) - 1)
+#define get_prefix_mask_pd(count) ((1 << count) - 1)
+#define get_suffix_mask_ps(count) (((1 << 16) - 1) ^ ((1 << count) - 1))
+#define get_suffix_mask_pd(count) (((1 <<  8) - 1) ^ ((1 << count) - 1))
+"""
         return "\n".join([include, pfx_mask_fun])
 
     @classmethod
@@ -171,29 +195,46 @@ def get_avx_instrs(VEC_MEM):
                     if "fmadd" not in instr:
                         pat = "("
                         index = instr.find(pat)
-                        instr = instr[: index + len(pat)] + "{dst_data}, get_prefix_mask({m}), " + instr[index + len(pat) :]
+                        instr = (
+                            instr[: index + len(pat)]
+                            + "{dst_data}, get_prefix_mask_{type_sfx}({m}), "
+                            + instr[index + len(pat) :]
+                        )
                     else:
                         pat = ", "
                         index = instr.find(pat)
-                        instr = instr[: index + len(pat)] + "get_prefix_mask({m}), " + instr[index + len(pat) :]
+                        instr = instr[: index + len(pat)] + "get_prefix_mask_{type_sfx}({m}), " + instr[index + len(pat) :]
                 return f"{{dst_data}} = {instr};"
 
         # Load Family
-        for load_op in vec_load, vec_load_bck:
-            avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(load_op, vw, precision, VEC_MEM)
-            yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_loadu_{type_sfx}(&{{src_data}});")
-            mload_op = "maskload" if VEC_MEM is VEC_AVX2 else "maskz_loadu"
-            mask = f"{mm_pfx}_prefix_mask_{itype_sfx}({{m}})" if VEC_MEM is VEC_AVX2 else "get_prefix_mask({m})"
-            args = f"&{{src_data}}, {mask}" if VEC_MEM is VEC_AVX2 else f"{mask}, &{{src_data}}"
-            yield make_instr(avx2_vec_op_pfx, f"{{dst_data}} = _{mm_pfx}_{mload_op}_{type_sfx}({args});")
+        avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(vec_load, vw, precision, VEC_MEM)
+        yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_loadu_{type_sfx}(&{{src_data}});")
+        mload_op = "maskload" if VEC_MEM is VEC_AVX2 else "maskz_loadu"
+        mask = f"{mm_pfx}_prefix_mask_{itype_sfx}({{m}})" if VEC_MEM is VEC_AVX2 else "get_prefix_mask_{type_sfx}({m})"
+        args = f"&{{src_data}}, {mask}" if VEC_MEM is VEC_AVX2 else f"{mask}, &{{src_data}}"
+        yield make_instr(avx2_vec_op_pfx, f"{{dst_data}} = _{mm_pfx}_{mload_op}_{type_sfx}({args});")
+
+        avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(vec_load_bck, vw, precision, VEC_MEM)
+        yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_loadu_{type_sfx}(&{{src_data}});")
+        mload_op = "maskload" if VEC_MEM is VEC_AVX2 else "maskz_loadu"
+        mask = f"{mm_pfx}_suffix_mask_{itype_sfx}({{m}})" if VEC_MEM is VEC_AVX2 else "get_suffix_mask_{type_sfx}({m})"
+        args = f"&{{src_data}}, {mask}" if VEC_MEM is VEC_AVX2 else f"{mask}, &{{src_data}}"
+        yield make_instr(avx2_vec_op_pfx, f"{{dst_data}} = _{mm_pfx}_{mload_op}_{type_sfx}({args});")
 
         # Store Family
-        for store_op in vec_store, vec_store_bck:
-            avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(store_op, vw, precision, VEC_MEM)
-            yield make_instr(avx2_vec_op, f"_{mm_pfx}_storeu_{type_sfx}(&{{dst_data}}, {{src_data}});")
-            mstore_op = "maskstore" if VEC_MEM is VEC_AVX2 else "mask_storeu"
-            args = f"&{{dst_data}}, {mask}, {{src_data}}"
-            yield make_instr(avx2_vec_op_pfx, f"_{mm_pfx}_{mstore_op}_{type_sfx}({args});")
+        avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(vec_store, vw, precision, VEC_MEM)
+        yield make_instr(avx2_vec_op, f"_{mm_pfx}_storeu_{type_sfx}(&{{dst_data}}, {{src_data}});")
+        mstore_op = "maskstore" if VEC_MEM is VEC_AVX2 else "mask_storeu"
+        mask = f"{mm_pfx}_prefix_mask_{itype_sfx}({{m}})" if VEC_MEM is VEC_AVX2 else "get_prefix_mask_{type_sfx}({m})"
+        args = f"&{{dst_data}}, {mask}, {{src_data}}"
+        yield make_instr(avx2_vec_op_pfx, f"_{mm_pfx}_{mstore_op}_{type_sfx}({args});")
+
+        avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(vec_store_bck, vw, precision, VEC_MEM)
+        yield make_instr(avx2_vec_op, f"_{mm_pfx}_storeu_{type_sfx}(&{{dst_data}}, {{src_data}});")
+        mstore_op = "maskstore" if VEC_MEM is VEC_AVX2 else "mask_storeu"
+        mask = f"{mm_pfx}_suffix_mask_{itype_sfx}({{m}})" if VEC_MEM is VEC_AVX2 else "get_suffix_mask_{type_sfx}({m})"
+        args = f"&{{dst_data}}, {mask}, {{src_data}}"
+        yield make_instr(avx2_vec_op_pfx, f"_{mm_pfx}_{mstore_op}_{type_sfx}({args});")
 
         # Copy Family
         avx2_vec_op, avx2_vec_op_pfx = specialize_vec_op(vec_copy, vw, precision, VEC_MEM)
@@ -278,7 +319,7 @@ def get_avx_instrs(VEC_MEM):
                 yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm256_loadu_ps(&{{src_data}}));")
                 yield make_instr(
                     avx2_vec_op_pfx,
-                    f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm_maskz_load_ps(&{{src_data}}, get_prefix_mask({{m}})));",
+                    f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm_maskz_load_ps(&{{src_data}}, get_prefix_mask_{type_sfx}({{m}})));",
                 )
 
 
