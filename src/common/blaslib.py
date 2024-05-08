@@ -1,4 +1,5 @@
 from __future__ import annotations
+from enum import Enum
 
 from exo import *
 from exo.libs.memories import DRAM_STATIC
@@ -47,23 +48,29 @@ def optimize_level_1(
     return simplify(proc)
 
 
+class TRIANG_TYPE(Enum):
+    DIAG = 1
+    NO_DIAG = 2
+
+
 def get_triangle_type(proc, loop):
     loop = proc.forward(loop)
+    proc = simplify(proc)
     outer_loop = loop.parent()
     assert is_loop(proc, outer_loop)
 
     if not is_literal(proc, loop.lo(), 0):
-        return 0
+        return None
     if is_read(proc, loop.hi(), outer_loop.name()):
-        return 1
+        return TRIANG_TYPE.NO_DIAG
     if not is_add(proc, loop.hi()):
-        return 0
+        return None
 
     oprs = [loop.hi().lhs(), loop.hi().rhs()]
     for opr1, opr2 in oprs, oprs[::-1]:
         if is_read(proc, opr1, outer_loop.name()) and is_literal(proc, opr2, 1):
-            return 2
-    return 0
+            return TRIANG_TYPE.DIAG
+    return None
 
 
 def get_reused_vectors(proc, inner_loop):
@@ -74,7 +81,6 @@ def get_reused_vectors(proc, inner_loop):
         decl = get_declaration(proc, acc, acc.name())
         if hasattr(decl, "is_tensor") and decl.is_tensor() and len(decl.shape()) == 1:
             # This is a vector
-            get_symbols
             if inner_loop.name() in get_symbols(proc, acc):
                 yield decl
 
@@ -111,51 +117,37 @@ def _optimize_level_2_skinny(proc, outer_loop, precision, machine, skinny_factor
     return cleanup(proc)
 
 
-def _optimize_level_2_general(
-    proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, rows_tail="level_1", **kwargs
-):
-    vec_width = machine.vec_width(precision)
-    memory = machine.mem_type
-
-    proc = simplify(proc)
+def adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor, round_up=None):
+    outer_loop = proc.forward(outer_loop)
     inner_loop = get_inner_loop(proc, outer_loop)
+    vw = machine.vec_width(precision)
 
     if triangle := get_triangle_type(proc, inner_loop):
         if round_up is None:
-            round_up = memory in {AVX2}
-        rows_factor = min(rows_factor, vec_width)
-        if round_up and triangle == 1:
+            round_up = machine.supports_predication
+        if round_up and triangle == TRIANG_TYPE.NO_DIAG:
             proc, (outer_loop,) = cut_loop_and_unroll(proc, outer_loop, 1, rc=True)
             inner_loop = get_inner_loop(proc, outer_loop)
-        if not round_up and triangle == 2:
+        if not round_up and triangle == TRIANG_TYPE.DIAG:
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
-        proc = round_loop(proc, inner_loop, vec_width, up=round_up)
-        proc = simplify(proc)
+        proc = simplify(round_loop(proc, outer_loop, rows_factor, up=False))
+        proc = round_loop(proc, inner_loop, vw, up=round_up)
+        return cleanup(proc), (outer_loop,)
+    return proc, (outer_loop,)
 
-    def rewrite(proc, outer_loop, rows_factor, cols_factor):
-        kernel_loop = outer_loop.parent()
-        inner_loop = get_inner_loop(proc, outer_loop)
-        proc = unroll_and_jam_parent(proc, inner_loop, rows_factor)
-        proc = unroll_buffers(proc, kernel_loop)
-        proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
-        return proc
 
-    if rows_tail in {"level_1", "cut"}:
-        proc, (_, inner, tail_l) = divide_loop_(proc, outer_loop, rows_factor, tail="cut", rc=True)
-        proc = rewrite(proc, inner, rows_factor, cols_factor)
-        if rows_tail == "level_1":
-            tail_inner = get_inner_loop(proc, tail_l)
-            if round_up:
-                proc = bound_loop_by_if(proc, tail_inner)
-                proc = delete_pass(proc)
-            proc = optimize_level_1(
-                proc,
-                tail_inner,
-                precision,
-                machine,
-                rows_factor * cols_factor,
-            )
+def optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, **kwargs):
+    outer_loop = proc.forward(outer_loop)
+    rows_factor = min(rows_factor, machine.vec_width(precision))
+    proc, (outer_loop,) = adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor, round_up)
 
+    proc = unroll_and_jam(proc, outer_loop, rows_factor)
+    proc = unroll_buffers(proc, outer_loop)
+    inner_loop = get_inner_loop(proc, outer_loop)
+    proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
+
+    tail = get_inner_loop(proc, proc.forward(outer_loop).next())
+    proc = optimize_level_1(proc, tail, precision, machine, cols_factor)
     return cleanup(proc)
 
 
@@ -191,7 +183,7 @@ def optimize_level_2(
         proc = extract_and_schedule(
             _optimize_level_2_skinny,
         )(proc, if_stmt.body()[0], proc.name() + "_skinny", precision, machine, skinny_factor[0], skinny_factor[1])
-        proc = extract_and_schedule(_optimize_level_2_general)(
+        proc = extract_and_schedule(optimize_level_2_general)(
             proc,
             if_stmt.orelse()[0],
             proc.name() + "_general",
@@ -200,12 +192,11 @@ def optimize_level_2(
             rows_factor,
             cols_factor,
             round_up,
-            rows_tail,
             **kwargs,
         )
     else:
-        proc = _optimize_level_2_general(
-            proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=round_up, rows_tail=rows_tail, **kwargs
+        proc = optimize_level_2_general(
+            proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=round_up, **kwargs
         )
 
     return proc

@@ -367,13 +367,8 @@ def parallelize_all_reductions(proc, loop, factor=None, memory=DRAM, unroll=Fals
 
 def unroll_and_jam(proc, loop, factor, unroll=(True, True, True)):
     loop = proc.forward(loop)
-    inner_loops = [i for i in loop.body() if isinstance(i, ForCursor)]
-    if len(inner_loops) > 1:
-        raise BLAS_SchedulingError("Multiple loops found, decision is ambigious")
-    if len(inner_loops) == 0:
-        raise BLAS_SchedulingError("No loops found")
-
-    return interleave_outer_loop_with_inner_loop(proc, loop, inner_loops[0], factor, unroll=unroll)
+    inner_loop = get_inner_loop(proc, loop)
+    return interleave_outer_loop_with_inner_loop(proc, loop, inner_loop, factor, unroll=unroll)
 
 
 def unroll_and_jam_parent(proc, loop, factor, unroll=(True, True, True)):
@@ -1059,15 +1054,42 @@ def unroll_loops(proc, block=InvalidCursor(), threshold=None):
     return make_pass(predicate(unroll_loop, pred), lrn_stmts)(proc, block)
 
 
+def magic_simplify(proc, block=InvalidCursor()):
+    def mod_simplify(proc, e):
+        if not is_mod(proc, e):
+            return proc
+        if is_mul(proc, e.lhs()):
+            for operand in e.lhs().lhs(), e.lhs().rhs():
+                if is_literal(proc, operand, e.rhs().value()):
+                    return rewrite_expr(proc, e, 0)
+        return proc
+
+    def div_simplify(proc, e):
+        if not is_div(proc, e):
+            return proc
+        if is_mul(proc, e.lhs()):
+            operands = (e.lhs().lhs(), e.lhs().rhs())
+            for lhs, rhs in operands, operands[::-1]:
+                if is_literal(proc, lhs) and lhs.value() % e.rhs().value():
+                    return rewrite_expr(proc, e, FormattedExprStr("_ * _", lhs.value() / e.rhs().value(), rhs))
+        return proc
+
+    try_all = lambda p, e: mod_simplify(div_simplify(p, e), e)
+    for s in lrn_stmts(proc, block):
+        if is_loop(proc, s):
+            proc = try_all(proc, s.lo())
+            proc = try_all(proc, s.hi())
+        elif is_if(proc, s):
+            proc = try_all(proc, s.cond())
+    return simplify(proc)
+
+
 def cleanup(proc, block=InvalidCursor()):
     proc = simplify(proc)
     proc = unroll_loops(proc, block, threshold=1)
     proc = dce(proc, block)
-    try:
-        proc.find("pass")
-        proc = delete_pass(proc)
-    except SchedulingError:
-        pass
+    proc = magic_simplify(proc)
+    proc = delete_pass(proc)
     return proc
 
 

@@ -14,8 +14,15 @@ def get_children(proc, cursor=InvalidCursor(), lr=True):
         cursor = proc.forward(cursor)
 
     def expr_children(expr):
-        if isinstance(expr, (ReadCursor, WindowExprCursor)):
+        if isinstance(expr, ReadCursor):
             yield from expr.idx()
+        elif isinstance(expr, WindowExprCursor):
+            for idx in expr.idx():
+                if isinstance(idx, tuple):
+                    yield idx[0]
+                    yield idx[1]
+                else:
+                    yield idx
         elif isinstance(expr, UnaryMinusCursor):
             yield expr.arg()
         elif isinstance(expr, BinaryOpCursor):
@@ -188,6 +195,11 @@ def is_loop(proc, loop):
     return isinstance(loop, ForCursor)
 
 
+def is_cntrl_stmt(proc, s):
+    s = proc.forward(s)
+    return is_loop(proc, s) and is_if(proc, s)
+
+
 def check_is_loop(proc, loop):
     if not is_loop(proc, loop):
         raise TypeError(f"loop is not a {ForCursor}")
@@ -299,6 +311,11 @@ def get_nth_inner_loop(proc, loop, n):
 
 def get_inner_loop(proc, loop):
     return get_nth_inner_loop(proc, loop, 0)
+
+
+def is_expr(proc, expr):
+    expr = proc.forward(expr)
+    return isinstance(expr, ExprCursor)
 
 
 def is_binop(proc, expr, op=None):
