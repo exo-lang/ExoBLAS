@@ -35,8 +35,4 @@ def symv_rm(Uplo: size, n: size, alpha: R, A: [R][n, n], x: [R][n], beta: R, y: 
             y[i] += alpha * (dot - A[i, i] * x[i])
 
 
-def schedule(symv, loop, precision, machine, Uplo=None):
-    return optimize_level_2(symv, loop, precision, machine, 4, 1, round_up=None if Uplo == CblasLowerValue else False)
-
-
-variants_generator(schedule)(symv_rm, "i #1", globals=globals())
+variants_generator(optimize_level_2)(symv_rm, "i #1", 4, 1, globals=globals())
