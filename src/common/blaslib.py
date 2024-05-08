@@ -131,14 +131,14 @@ def adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor,
         if not round_up and triangle == TRIANG_TYPE.DIAG:
             proc, (inner_loop,) = cut_loop_and_unroll(proc, inner_loop, 1, front=False, rc=True)
         proc = simplify(round_loop(proc, outer_loop, rows_factor, up=False))
-        proc = round_loop(proc, inner_loop, rows_factor if not round_up else max(rows_factor, vw), up=round_up)
+        proc = round_loop(proc, inner_loop, vw, up=round_up)
         return cleanup(proc), (outer_loop,)
     return proc, (outer_loop,)
 
 
 def optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, **kwargs):
     outer_loop = proc.forward(outer_loop)
-
+    rows_factor = min(rows_factor, machine.vec_width(precision))
     proc, (outer_loop,) = adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor, round_up)
 
     proc = unroll_and_jam(proc, outer_loop, rows_factor)
@@ -147,7 +147,7 @@ def optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor, 
     proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
 
     tail = get_inner_loop(proc, proc.forward(outer_loop).next())
-    proc = optimize_level_1(proc, tail, precision, machine, rows_factor * cols_factor)
+    proc = optimize_level_1(proc, tail, precision, machine, cols_factor)
     return cleanup(proc)
 
 
