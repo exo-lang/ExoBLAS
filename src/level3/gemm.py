@@ -47,7 +47,7 @@ def gemm(
                         C[i, j] += alpha * (AT[k, i] * BT[j, k])
 
 
-def schedule_compute(gemm_compute, i_loop, precision, machine, m_r, n_r_fac):
+def schedule_compute(gemm_compute, i_loop, precision, machine, m_r, n_r_fac, small=False):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
     j_loop = get_inner_loop(gemm_compute, i_loop)
@@ -77,7 +77,7 @@ def schedule_compute(gemm_compute, i_loop, precision, machine, m_r, n_r_fac):
     gemm_compute = unroll_loop(gemm_compute, init_j)
     gemm_compute, (o_cmp_j, i_cmp_j, _) = divide_loop_(gemm_compute, cmp_j, vw, tail="perfect", rc=True)
     gemm_compute = simplify(gemm_compute)
-    gemm_compute, cursors = auto_stage_mem(gemm_compute, cmp_i, "packed_B", rc=True)
+    gemm_compute, cursors = auto_stage_mem(gemm_compute, cmp_i, "packed_B" if not small else "B", rc=True)
     gemm_compute = set_memory(gemm_compute, cursors.alloc, machine.mem_type)
     gemm_compute = simplify(gemm_compute)
     gemm_compute = divide_dim(gemm_compute, cursors.alloc, 0, vw)
@@ -85,7 +85,7 @@ def schedule_compute(gemm_compute, i_loop, precision, machine, m_r, n_r_fac):
     gemm_compute = unroll_loop(gemm_compute, cursors.load)
     gemm_compute = lift_scope(gemm_compute, i_cmp_j)
     i_cmp_j = gemm_compute.forward(i_cmp_j)
-    gemm_compute = auto_stage_mem(gemm_compute, i_cmp_j.body(), "packed_A", "A_reg")
+    gemm_compute = auto_stage_mem(gemm_compute, i_cmp_j.body(), "packed_A" if not small else "A", "A_reg")
     gemm_compute = unroll_loop(gemm_compute, o_cmp_j)
     gemm_compute = vectorize(gemm_compute, i_cmp_j, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
 
@@ -169,7 +169,7 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
 
     gemm_mk = set_memory(gemm_mk, cursors.alloc, ALIGNED_DRAM_STATIC)
     block = cursors.load.as_block()
-    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.forward(block).expand(0, 1), gemm_mk.name() + "_B_pack")
+    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.forward(block).expand(0, 2), gemm_mk.name() + "_B_pack")
 
     gemm_mk = extract_and_schedule(schedule_compute)(
         gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
@@ -177,10 +177,7 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     return gemm_mk_starter, simplify(gemm_mk)
 
 
-def schedule(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA=None, TransB=None):
-    if TransA != CblasNoTransValue or TransB != CblasNoTransValue:
-        return gemm
-
+def schedule_tiled(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA=None, TransB=None):
     gemm_macro = schedule_macro(gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac)
 
     k_loop = get_inner_loop(gemm, get_inner_loop(gemm, i_loop))
@@ -195,6 +192,25 @@ def schedule(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_t
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_A : _", many=True))
     gemm_tiled = squash_buffers(gemm_tiled, gemm_tiled.find("packed_B : _", many=True))
     return simplify(gemm_tiled)
+
+
+def schedule_gemm(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA=None, TransB=None):
+    if TransA != CblasNoTransValue or TransB != CblasNoTransValue:
+        return gemm
+    vw = machine.vec_width(precision)
+    n_r = vw * n_r_fac
+    starter_gemm = gemm
+    gemm = specialize(gemm, i_loop, f"N <= 100")
+    if_c = gemm.forward(i_loop.as_block())[0]
+    gemm = extract_and_schedule(schedule_compute)(
+        gemm, if_c.body()[0], "gemm_small", precision, machine, m_r, n_r_fac, small=True
+    )
+    tiled_gemm = schedule_tiled(
+        starter_gemm, starter_gemm.body()[0], precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA, TransB
+    )
+    tiled_gemm = rename(tiled_gemm, "tiled_gemm")
+    gemm = replace_all_stmts(gemm, (starter_gemm, tiled_gemm))
+    return gemm
 
 
 PARAMS = {"avx2": (4, 3, 66, 3, 512), "avx512": (8, 3, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
@@ -245,4 +261,6 @@ M_tile = (C_AT * N_L3 * C_L3) // (K_tile * S_data)
 
 M_tile = (M_tile // m_r) * m_r
 M_tile = 427 * m_r
-variants_generator(schedule, ("f32",), ("avx2", "avx512"))(gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())
+variants_generator(schedule_gemm, ("f32",), ("avx2", "avx512"))(
+    gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
+)
