@@ -11,6 +11,7 @@ from stdlib import *
 from codegen_helpers import *
 from blaslib import *
 from cblas_enums import *
+from memories import *
 
 
 @proc
@@ -142,7 +143,7 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
 
     packed_A_shape = ((0, ceil(max_M / m_r)), (1, max_K), (0, m_r))
     gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
-    gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
+    gemm_mk = set_memory(gemm_mk, cursors.alloc, ALIGNED_DRAM_STATIC)
 
     expr = gemm_mk.find(f"(i0i + M / {m_r} * {m_r}) / {m_r}")
     gemm_mk = rewrite_expr(gemm_mk, expr, f"M / {m_r}")
@@ -163,9 +164,10 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
         gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, n_r_fac, vec_tail="perfect", inter_tail="cut"
     )
     gemm_mk = optimize_level_1(gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, 1)
-    gemm_mk = unroll_and_jam(gemm_mk, gemm_mk.find_loop("i0"), 4)
+    gemm_mk = unroll_and_jam(gemm_mk, gemm_mk.find_loop("i0"), 4, unroll=(0, 1, 0))
+    gemm_mk = tile_loops_bottom_up(gemm_mk, gemm_mk.find_loop("i0o"), (17, 3))
 
-    gemm_mk = set_memory(gemm_mk, cursors.alloc, DRAM_STATIC)
+    gemm_mk = set_memory(gemm_mk, cursors.alloc, ALIGNED_DRAM_STATIC)
     block = cursors.load.as_block()
     gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.forward(block).expand(0, 1), gemm_mk.name() + "_B_pack")
 
@@ -221,6 +223,7 @@ def L1_Sets(K_tile):
 while L1_Sets(K_tile + 1) <= W_L1 - 1:
     K_tile += 1
 
+K_tile = 344
 
 W_L2 = 20
 S_L2 = 1280 * 1024
@@ -231,6 +234,7 @@ N_tile = (C_BT * N_L2 * C_L2) // (K_tile * S_data)
 
 N_tile = (N_tile // n_r) * n_r
 N_tile += n_r * 4 * 1
+N_tile = n_r * 17
 
 W_L3 = 12
 S_L3 = 3 * 1024 * 1024
@@ -240,5 +244,5 @@ C_AT = floor((W_L3 - 1) / 2)
 M_tile = (C_AT * N_L3 * C_L3) // (K_tile * S_data)
 
 M_tile = (M_tile // m_r) * m_r
-
+M_tile = 427 * m_r
 variants_generator(schedule, ("f32",), ("avx2", "avx512"))(gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals())
