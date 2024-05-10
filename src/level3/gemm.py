@@ -95,7 +95,7 @@ def schedule_compute(gemm_compute, i_loop, precision, machine, m_r, n_r_fac, sma
     gemm_compute = delete_pass(gemm_compute)
     gemm_compute = apply(attempt(lift_scope))(gemm_compute, nlr_stmts(gemm_compute))
     gemm_compute = replace_all_stmts(gemm_compute, machine.get_instructions(precision))
-    bottom_cond = lambda l, i: f"-({m_r} * (({m_r - 1} + M) / 2 - 1)) + M"
+    bottom_cond = lambda l, i: f"-({m_r} * (({m_r - 1} + M) / {m_r} - 1)) + M"
     gemm_compute = cut(gemm_compute, gemm_compute.find_loop("io"), bottom_cond, range(m_r, 0, -1))
     gemm_compute = simplify(unroll_loops(gemm_compute))
     gemm_compute = dce(gemm_compute)
