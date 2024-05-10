@@ -136,18 +136,20 @@ def adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor,
     return proc, (outer_loop,)
 
 
-def optimize_level_2_general(proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, **kwargs):
+def optimize_level_2_general(
+    proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=None, rows_tail="cut", **kwargs
+):
     outer_loop = proc.forward(outer_loop)
     rows_factor = min(rows_factor, machine.vec_width(precision))
-    proc, (outer_loop,) = adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor, round_up)
-
-    proc = unroll_and_jam(proc, outer_loop, rows_factor)
-    proc = unroll_buffers(proc, outer_loop)
     inner_loop = get_inner_loop(proc, outer_loop)
+    proc, (outer_loop,) = adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor, round_up)
+    proc = unroll_and_jam(proc, outer_loop, rows_factor)
+    proc = unroll_buffers(proc, proc.forward(inner_loop).parent())
     proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
 
-    tail = get_inner_loop(proc, proc.forward(outer_loop).next())
-    proc = optimize_level_1(proc, tail, precision, machine, cols_factor)
+    if rows_tail == "cut":
+        tail = get_inner_loop(proc, proc.forward(outer_loop).next())
+        proc = optimize_level_1(proc, tail, precision, machine, cols_factor)
     return cleanup(proc)
 
 
@@ -192,11 +194,12 @@ def optimize_level_2(
             rows_factor,
             cols_factor,
             round_up,
+            rows_tail=rows_tail,
             **kwargs,
         )
     else:
         proc = optimize_level_2_general(
-            proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=round_up, **kwargs
+            proc, outer_loop, precision, machine, rows_factor, cols_factor, round_up=round_up, rows_tail=rows_tail, **kwargs
         )
 
     return proc
