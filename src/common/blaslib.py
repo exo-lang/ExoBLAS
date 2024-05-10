@@ -205,4 +205,71 @@ def optimize_level_2(
     return proc
 
 
-__all__ = ["optimize_level_1", "optimize_level_2"]
+def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac, small=False):
+    vw = machine.vec_width(precision)
+    n_r = vw * n_r_fac
+
+    writes = filter_cursors(is_write)(proc, lrn_stmts(proc, i_loop))
+    writes = {w.name() for w in writes}
+    assert len(writes) == 1
+    output_buf = next(iter(writes))
+    output_buf = get_declaration(proc, i_loop, output_buf)
+    output_buf_dim0 = expr_to_string(output_buf.shape()[0])
+    output_buf_dim1 = expr_to_string(output_buf.shape()[1])
+
+    j_loop = get_inner_loop(proc, i_loop)
+    k_loop = get_inner_loop(proc, j_loop)
+
+    proc = auto_stage_mem(proc, proc.body(), "alpha", "alpha_")
+    proc, cs = auto_stage_mem(proc, k_loop, "C", "C_tile", accum=True, rc=1)
+    proc = lift_reduce_constant(proc, cs.load.expand(0, 1))
+    assign = proc.forward(cs.store).prev()
+    proc = inline_assign(proc, assign)
+    proc = set_memory(proc, cs.alloc, machine.mem_type)
+
+    proc = tile_loops_bottom_up(proc, i_loop, (m_r, n_r, None), tail="guard")
+    proc = repeate_n(parallelize_and_lift_alloc)(proc, cs.alloc, n=4)
+    if_i = proc.find("if _:_")
+    proc = rewrite_expr(proc, if_i.cond(), f"ii < {output_buf_dim0} - {m_r} * io")
+    if_j = proc.find("if _:_ #1")
+    proc = rewrite_expr(proc, if_j.cond(), f"ji < {output_buf_dim1} - {n_r} * jo")
+
+    proc = fission(proc, proc.forward(cs.load).after(), n_lifts=4)
+    proc = fission(proc, proc.forward(cs.store).before(), n_lifts=4)
+    proc = repeate_n(lift_scope)(proc, k_loop, n=4)
+    proc = divide_dim(proc, cs.alloc, 1, vw)
+    proc = apply(lift_scope)(proc, proc.find_loop("ji", many=True))
+    proc = optimize_level_1(proc, proc.find_loop("ji"), precision, machine, n_r_fac, vec_tail="perfect")
+    proc = optimize_level_1(proc, proc.find_loop("ji #1"), precision, machine, n_r_fac, vec_tail="perfect")
+    proc = optimize_level_2(
+        proc, proc.find_loop("ii #1"), precision, machine, m_r, n_r_fac, rows_tail="perfect", vec_tail="perfect"
+    )
+
+    def cut(proc, loop, cond, rng):
+        loop = proc.forward(loop)
+        cut_val = FormattedExprStr(f"_ - 1", loop.hi())
+        proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
+        proc = shift_loop(proc, loop2, 0)
+        proc = rewrite_expr(proc, loop2.hi(), 1)
+        proc = specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng])
+        proc = unroll_loop(proc, loop2)
+        return proc
+
+    right_cond = lambda l, i: f"({output_buf_dim1} - {l.name()} * {n_r} + {vw - 1}) / {vw}"
+    proc = cut(proc, proc.find_loop("jo"), right_cond, range(1, n_r_fac))
+    proc = dce(proc)
+    proc = delete_pass(proc)
+    proc = apply(attempt(lift_scope))(proc, nlr_stmts(proc))
+    proc = replace_all_stmts(proc, machine.get_instructions(precision))
+    bottom_cond = lambda l, i: f"-({m_r} * (({m_r - 1} + {output_buf_dim0}) / {m_r} - 1)) + {output_buf_dim0}"
+    proc = cut(proc, proc.find_loop("io"), bottom_cond, range(1, m_r))
+    proc = simplify(unroll_loops(proc))
+    proc = dce(proc)
+    proc = delete_pass(proc)
+
+    tile = 64 // m_r // (4 if precision == "f32" else 8)
+    proc = apply(divide_loop_)(proc, proc.find_loop("k", many=True), tile, tail="cut")
+    return simplify(proc)
+
+
+__all__ = ["optimize_level_1", "optimize_level_2", "schedule_compute"]
