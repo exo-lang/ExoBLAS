@@ -11,6 +11,7 @@ import exo_blas_config as C
 from stdlib import *
 from codegen_helpers import *
 from blaslib import *
+from memories import *
 
 
 @proc
@@ -30,7 +31,7 @@ def syrk_rm(Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A
 
 
 @proc
-def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], C: [R][N, N]):
+def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], C: [R][M, N]):
     assert stride(A, 1) == 1
     assert stride(A_alias, 1) == 1
     assert stride(C, 1) == 1
@@ -40,69 +41,6 @@ def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N,
         for j in seq(0, N):
             for k in seq(0, K):
                 C[i, j] += alpha * (A[i, k] * A_alias[j, k])
-
-
-def schedule_compute(compute, i_loop, precision, machine, m_r, n_r_fac):
-    return compute
-    vw = machine.vec_width(precision)
-    n_r = vw * n_r_fac
-    j_loop = get_inner_loop(compute, i_loop)
-    k_loop = get_inner_loop(compute, j_loop)
-    compute, cs = auto_stage_mem(compute, k_loop, "C", "C_tile", accum=True, rc=1)
-    compute = lift_reduce_constant(compute, cs.load.expand(0, 1))
-    assign = compute.forward(cs.store).prev()
-    compute = inline_assign(compute, assign)
-    compute = set_memory(compute, cs.alloc, machine.mem_type)
-
-    compute = tile_loops_bottom_up(compute, i_loop, (m_r, n_r, None), tail="guard")
-    compute = repeate_n(parallelize_and_lift_alloc)(compute, cs.alloc, n=4)
-    compute = fission(compute, compute.forward(cs.load).after(), n_lifts=4)
-    compute = fission(compute, compute.forward(cs.store).before(), n_lifts=4)
-    compute = repeate_n(lift_scope)(compute, k_loop, n=4)
-    compute = divide_dim(compute, cs.alloc, 1, vw)
-    init_i, cmp_i, axpy_i = compute.find_loop("ii", many=True)
-    init_j, cmp_j, axpy_j = compute.find_loop("ji", many=True)
-    compute = vectorize(compute, init_j, vw, precision, machine.mem_type, tail="perfect")
-    compute = unroll_loop(compute, init_j)
-    compute, (o_cmp_j, i_cmp_j, _) = divide_loop_(compute, cmp_j, vw, tail="perfect", rc=True)
-    compute = simplify(compute)
-    compute = vectorize(compute, i_cmp_j, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
-    compute = unroll_loop(compute, i_cmp_j)
-    compute = unroll_loop(compute, o_cmp_j)
-    compute, alpah_cursors = auto_stage_mem(compute, axpy_j.body(), "alpha", rc=True)
-    compute = vectorize(compute, axpy_j, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
-    compute = unroll_loop(compute, axpy_j)
-    compute = simplify(compute)
-
-    def cut(proc, loop, cond, rng):
-        loop = proc.forward(loop)
-        cut_val = FormattedExprStr(f"_ - 1", loop.hi())
-        proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
-        proc = specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng])
-        return proc
-
-    right_cond = lambda l, i: f"({m_r} * (io + 1) - {l.name()} * {n_r} + {vw - 1}) / {vw}"
-    compute = cut(compute, j_loop, right_cond, range(1, n_r_fac))
-    compute = dce(compute)
-    compute = replace_all_stmts(compute, machine.get_instructions(precision))
-
-    compute = simplify(unroll_loops(compute))
-    bottom_cond = lambda l, i: f"N - {l.name()} * {m_r}"
-    compute = cut(compute, i_loop, bottom_cond, range(m_r, 1, -1))
-
-    def rewrite(p, *args):
-        try:
-            p = delete_pass(p)
-        except:
-            pass
-        p = dce(p)
-        return simplify(p)
-
-    blocks = compute.find_loop("C_tile:_", many=True)
-    for i, tile in enumerate(blocks):
-        name = compute.name() + str(i)
-        compute = extract_and_schedule(rewrite)(compute, tile.expand(), name)
-    return simplify(compute)
 
 
 def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
@@ -117,13 +55,13 @@ def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
     i_loop = mk.body()[0]
     packed_A_shape = ((0, ceil(max_N / m_r)), (1, max_K), (0, m_r))
     mk, cursors = pack_mem(mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
-    mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
+    mk = set_memory(mk, cursors.alloc, ALIGNED_DRAM_STATIC)
     mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_pack")
 
     # TODO: This packing step is doing more work the necessary (packing the whole matrix, not jus triangle)
     packed_A_alias_shape = ((0, ceil(max_N / n_r)), (1, max_K), (0, n_r))
     mk, cursors = pack_mem(mk, i_loop, "A_alias", packed_A_alias_shape, "packed_A_alias", rc=1)
-    mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
+    mk = set_memory(mk, cursors.alloc, ALIGNED_DRAM_STATIC)
     mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_alias_pack")
     mk = extract_and_schedule(schedule_compute)(mk, i_loop, mk.name() + "_compute", precision, machine, m_r, n_r_fac)
     return mk_starter, simplify(mk)
@@ -175,12 +113,12 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
     return simplify(tiled)
 
 
-PARAMS = {"avx2": (2, 2, 32, 512), "avx512": (2, 2, 2, 512), "neon": (1, 1, 1, 1)}
+PARAMS = {"avx2": (4, 3, 32, 512), "avx512": (2, 2, 2, 512), "neon": (1, 1, 1, 1)}
 
 m_r, n_r_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")
-
+K_tile = 344
 lcm = (m_r * n_r) // math.gcd(m_r, n_r)
-N_tile = lcm * N_tile_fac
+N_tile = (408 // lcm) * lcm
 
 variants_generator(schedule, ("f32",), ("avx2", "avx512"))(syrk_rm, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())

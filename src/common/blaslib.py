@@ -144,7 +144,7 @@ def optimize_level_2_general(
     inner_loop = get_inner_loop(proc, outer_loop)
     proc, (outer_loop,) = adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor, round_up)
     proc = unroll_and_jam(proc, outer_loop, rows_factor)
-    proc = unroll_buffers(proc, proc.forward(inner_loop).parent())
+    proc = attempt(unroll_buffers)(proc, proc.forward(inner_loop).parent())
     proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
 
     if rows_tail == "cut":
@@ -205,6 +205,24 @@ def optimize_level_2(
     return proc
 
 
+def rewrite_divide_guard(proc, if_c):
+    args = if_c.cond().lhs().lhs(), if_c.cond().rhs(), if_c.cond().lhs().rhs()
+    proc = rewrite_expr(proc, if_c.cond(), FormattedExprStr("_ < _ - _", *args))
+    return proc
+
+
+def cut_level3_tail(proc, loop, fac, vw=1):
+    loop = proc.forward(loop)
+    if_c = loop.find("if _:_", many=True)[-1]
+    cond = if_c.cond().rhs()
+    cut_val = FormattedExprStr(f"_ - 1", loop.hi())
+    proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
+    op = "==" if vw == 1 else "<="
+    conds = [f"{expr_to_string(cond)} {op} {vw} * {i}" for i in range(fac)]
+    proc = specialize(proc, loop2.body(), conds)
+    return proc
+
+
 def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac, small=False):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
@@ -228,42 +246,33 @@ def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac, small=False
     proc = set_memory(proc, cs.alloc, machine.mem_type)
 
     proc = tile_loops_bottom_up(proc, i_loop, (m_r, n_r, None), tail="guard")
-    proc = repeate_n(parallelize_and_lift_alloc)(proc, cs.alloc, n=4)
-    if_i = proc.find("if _:_")
-    proc = rewrite_expr(proc, if_i.cond(), f"ii < {output_buf_dim0} - {m_r} * io")
-    if_j = proc.find("if _:_ #1")
-    proc = rewrite_expr(proc, if_j.cond(), f"ji < {output_buf_dim1} - {n_r} * jo")
+    i_loop, j_loop = proc.forward(i_loop), proc.forward(j_loop)
+    m_r_loop, m_r_if = j_loop.body()[0], j_loop.body()[0].body()[0]
+    n_r_loop, n_r_if = m_r_if.body()[0], m_r_if.body()[0].body()[0]
 
+    proc = rewrite_divide_guard(proc, m_r_if)
+    proc = rewrite_divide_guard(proc, n_r_if)
+    proc = lift_scope(proc, n_r_loop)
+
+    proc = repeate_n(parallelize_and_lift_alloc)(proc, cs.alloc, n=4)
     proc = fission(proc, proc.forward(cs.load).after(), n_lifts=4)
     proc = fission(proc, proc.forward(cs.store).before(), n_lifts=4)
     proc = repeate_n(lift_scope)(proc, k_loop, n=4)
     proc = divide_dim(proc, cs.alloc, 1, vw)
-    proc = apply(lift_scope)(proc, proc.find_loop("ji", many=True))
-    proc = optimize_level_1(proc, proc.find_loop("ji"), precision, machine, n_r_fac, vec_tail="perfect")
-    proc = optimize_level_1(proc, proc.find_loop("ji #1"), precision, machine, n_r_fac, vec_tail="perfect")
-    proc = optimize_level_2(
-        proc, proc.find_loop("ii #1"), precision, machine, m_r, n_r_fac, rows_tail="perfect", vec_tail="perfect"
-    )
 
-    def cut(proc, loop, cond, rng):
-        loop = proc.forward(loop)
-        cut_val = FormattedExprStr(f"_ - 1", loop.hi())
-        proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
-        proc = shift_loop(proc, loop2, 0)
-        proc = rewrite_expr(proc, loop2.hi(), 1)
-        proc = specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng])
-        proc = unroll_loop(proc, loop2)
-        return proc
+    k_loop = proc.forward(k_loop)
+    loops = [k_loop.prev(), k_loop.body()[0], k_loop.next()]
+    proc = apply(optimize_level_2)(proc, loops, precision, machine, m_r, n_r_fac, rows_tail="perfect", vec_tail="perfect")
+    proc = inline_calls(proc)
 
-    right_cond = lambda l, i: f"({output_buf_dim1} - {l.name()} * {n_r} + {vw - 1}) / {vw}"
-    proc = cut(proc, proc.find_loop("jo"), right_cond, range(1, n_r_fac))
+    proc = cut_level3_tail(proc, j_loop, n_r_fac, vw=vw)
     proc = dce(proc)
     proc = delete_pass(proc)
+
     proc = apply(attempt(lift_scope))(proc, nlr_stmts(proc))
     proc = replace_all_stmts(proc, machine.get_instructions(precision))
-    bottom_cond = lambda l, i: f"-({m_r} * (({m_r - 1} + {output_buf_dim0}) / {m_r} - 1)) + {output_buf_dim0}"
-    proc = cut(proc, proc.find_loop("io"), bottom_cond, range(1, m_r))
-    proc = simplify(unroll_loops(proc))
+
+    proc = simplify(cut_level3_tail(proc, i_loop, m_r))
     proc = dce(proc)
     proc = delete_pass(proc)
 

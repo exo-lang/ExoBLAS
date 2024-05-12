@@ -554,7 +554,7 @@ def expr_to_string(expr_cursor, subst={}):
         val_str = str(expr_cursor.value())
         return f"({val_str})"
     elif isinstance(expr_cursor, UnaryMinusCursor):
-        arg_str = expr_to_string(expr_cursor.arg, subst)
+        arg_str = expr_to_string(expr_cursor.arg(), subst)
         return f"(-{arg_str})"
     elif isinstance(expr_cursor, BinaryOpCursor):
         binop_str = expr_cursor.op()
