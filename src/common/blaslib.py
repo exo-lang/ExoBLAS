@@ -220,20 +220,27 @@ def cut_level3_tail(proc, loop, fac, vw=1):
     op = "==" if vw == 1 else "<="
     conds = [f"{expr_to_string(cond)} {op} {vw} * {i}" for i in range(fac)]
     proc = specialize(proc, loop2.body(), conds)
+    return cleanup(proc)
+
+
+def decompose_into_rank_updates(proc, k_loop):
+    k_loop = proc.forward(k_loop)
+    should_fission = False
+    while True:
+        try:
+            add = k_loop.find("_ += _ + _")
+            proc = split_write(proc, add)
+            should_fission = True
+        except:
+            break
+    if should_fission:
+        proc = fission_into_singles(proc, k_loop)
     return proc
 
 
 def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
-
-    writes = filter_cursors(is_write)(proc, lrn_stmts(proc, i_loop))
-    writes = {w.name() for w in writes}
-    assert len(writes) == 1
-    output_buf = next(iter(writes))
-    output_buf = get_declaration(proc, i_loop, output_buf)
-    output_buf_dim0 = expr_to_string(output_buf.shape()[0])
-    output_buf_dim1 = expr_to_string(output_buf.shape()[1])
 
     j_loop = get_inner_loop(proc, i_loop)
     k_loop = get_inner_loop(proc, j_loop)
@@ -255,26 +262,21 @@ def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
     proc = lift_scope(proc, n_r_loop)
 
     proc = repeate_n(parallelize_and_lift_alloc)(proc, cs.alloc, n=4)
+    proc = divide_dim(proc, cs.alloc, 1, vw)
     proc = fission(proc, proc.forward(cs.load).after(), n_lifts=4)
     proc = fission(proc, proc.forward(cs.store).before(), n_lifts=4)
     proc = repeate_n(lift_scope)(proc, k_loop, n=4)
-    proc = divide_dim(proc, cs.alloc, 1, vw)
+    proc = decompose_into_rank_updates(proc, k_loop)
 
-    k_loop = proc.forward(k_loop)
-    loops = [k_loop.prev(), k_loop.body()[0], k_loop.next()]
+    loops = list(filter_cursors(is_loop)(proc, proc.forward(j_loop).body()))
+    loops = [loops[0]] + [loop.body()[0] for loop in loops[1:-1]] + [loops[-1]]
     proc = apply(optimize_level_2)(proc, loops, precision, machine, m_r, n_r_fac, rows_tail="perfect", vec_tail="perfect")
     proc = inline_calls(proc)
 
     proc = cut_level3_tail(proc, j_loop, n_r_fac, vw=vw)
-    proc = dce(proc)
-    proc = delete_pass(proc)
-
     proc = apply(attempt(lift_scope))(proc, nlr_stmts(proc))
     proc = replace_all_stmts(proc, machine.get_instructions(precision))
-
-    proc = simplify(cut_level3_tail(proc, i_loop, m_r))
-    proc = dce(proc)
-    proc = delete_pass(proc)
+    proc = cut_level3_tail(proc, i_loop, m_r)
 
     tile = 64 // m_r // (4 if precision == "f32" else 8)
     proc = apply(divide_loop_)(proc, proc.find_loop("k", many=True), tile, tail="cut")
