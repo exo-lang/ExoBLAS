@@ -47,7 +47,26 @@ def gemm(
                         C[i, j] += alpha * (AT[k, i] * BT[j, k])
 
 
-def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac):
+cache = {}
+
+
+def schedule_inner(proc, i_loop, precision, machine, m_r, n_r_fac):
+    global cache
+    print("Looking for: ")
+    print(proc)
+    renamed_proc = rename(proc, "dummy")
+    for p in cache:
+        if p == str(renamed_proc):
+            print("Found in Cache")
+            cache[p].unsafe_assert_eq(proc)
+            return cache[p]
+    print("Not found in cache")
+    proc = schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac)
+    cache[str(renamed_proc)] = proc
+    return proc
+
+
+def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac, TransA, TransB):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
     gemm_mk = specialize_precision(gemm_mk, precision)
@@ -58,44 +77,49 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     gemm_mk = rename(gemm_mk, gemm_mk.name() + "_mk")
     i_loop = gemm_mk.body()[0]
 
-    packed_A_shape = ((0, ceil(max_M / m_r)), (1, max_K), (0, m_r))
-    gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
+    isTransA = TransA == CblasTransValue
+    packed_A_shape = ((int(isTransA), ceil(max_M / m_r)), (1 - int(isTransA), max_K), (int(isTransA), m_r))
+    gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "AT" if isTransA else "A", packed_A_shape, "packed_A", rc=1)
     gemm_mk = set_memory(gemm_mk, cursors.alloc, ALIGNED_DRAM_STATIC)
 
-    expr = gemm_mk.find(f"(i0i + M / {m_r} * {m_r}) / {m_r}")
+    expr = gemm_mk.find(f"(_ + M / {m_r} * {m_r}) / {m_r}")
     gemm_mk = rewrite_expr(gemm_mk, expr, f"M / {m_r}")
 
-    expr = gemm_mk.find(f"(i0i + M / {m_r} * {m_r}) % {m_r}")
-    gemm_mk = rewrite_expr(gemm_mk, expr, f"i0i")
-    gemm_mk = apply(lift_scope)(gemm_mk, gemm_mk.find_loop("i1", many=True))
-    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.find_loop("i0o").expand(0, 1), gemm_mk.name() + "_A_pack")
-    packed_B_shape = ((1, ceil(max_N / n_r)), (0, max_K), (1, n_r))
-    gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "B", packed_B_shape, "packed_B", rc=1)
+    expr = gemm_mk.find(f"(_ + M / {m_r} * {m_r}) % {m_r}")
+    gemm_mk = rewrite_expr(gemm_mk, expr, expr_to_string(expr.lhs().lhs()))
 
-    expr = gemm_mk.find(f"(i1i + N / {n_r} * {n_r}) / {n_r}")
+    if not isTransA:
+        gemm_mk = apply(lift_scope)(gemm_mk, gemm_mk.find_loop("i1", many=True))
+    gemm_mk, _ = extract_subproc(
+        gemm_mk, gemm_mk.find_loop("i0o" if not isTransA else "i0").expand(0, 1 - int(isTransA)), gemm_mk.name() + "_A_pack"
+    )
+    isTransB = TransB == CblasTransValue
+    packed_B_shape = ((1 - int(isTransB), ceil(max_N / n_r)), (int(isTransB), max_K), (1 - int(isTransB), n_r))
+    gemm_mk, cursors = pack_mem(gemm_mk, i_loop, "BT" if isTransB else "B", packed_B_shape, "packed_B", rc=1)
+
+    expr = gemm_mk.find(f"(_ + N / {n_r} * {n_r}) / {n_r}")
     gemm_mk = rewrite_expr(gemm_mk, expr, f"N / {n_r}")
 
-    expr = gemm_mk.find(f"(i1i + N / {n_r} * {n_r}) % {n_r}")
-    gemm_mk = rewrite_expr(gemm_mk, expr, f"i1i")
-    gemm_mk = optimize_level_1(
-        gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, n_r_fac, vec_tail="perfect", inter_tail="cut"
-    )
-    gemm_mk = optimize_level_1(gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, 1)
-    gemm_mk = unroll_and_jam(gemm_mk, gemm_mk.find_loop("i0"), 4, unroll=(0, 1, 0))
-    gemm_mk = tile_loops_bottom_up(gemm_mk, gemm_mk.find_loop("i0o"), (17, 3))
+    expr = gemm_mk.find(f"(_ + N / {n_r} * {n_r}) % {n_r}")
+    gemm_mk = rewrite_expr(gemm_mk, expr, expr_to_string(expr.lhs().lhs()))
+
+    if not isTransB:
+        gemm_mk = optimize_level_1(
+            gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, n_r_fac, vec_tail="perfect", inter_tail="cut"
+        )
+        gemm_mk = optimize_level_1(gemm_mk, gemm_mk.find_loop("i1i"), precision, machine, 1)
+        gemm_mk = unroll_and_jam(gemm_mk, gemm_mk.find_loop("i0"), 4, unroll=(0, 1, 0))
+        gemm_mk = tile_loops_bottom_up(gemm_mk, gemm_mk.find_loop("i0o"), (17, 3))
 
     gemm_mk = set_memory(gemm_mk, cursors.alloc, ALIGNED_DRAM_STATIC)
     block = cursors.load.as_block()
-    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.forward(block).expand(0, 2), gemm_mk.name() + "_B_pack")
-
-    gemm_mk = extract_and_schedule(schedule_compute)(
-        gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
-    )
+    gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.forward(block).expand(0, 2 - 2 * int(isTransB)), gemm_mk.name() + "_B_pack")
+    gemm_mk = extract_and_schedule(schedule_inner)(gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac)
     return gemm_mk_starter, simplify(gemm_mk)
 
 
-def schedule_tiled(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA=None, TransB=None):
-    gemm_macro = schedule_macro(gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac)
+def schedule_tiled(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA, TransB):
+    gemm_macro = schedule_macro(gemm, precision, machine, M_tile, N_tile, K_tile, m_r, n_r_fac, TransA, TransB)
 
     k_loop = get_inner_loop(gemm, get_inner_loop(gemm, i_loop))
     gemm_tiled = repeate_n(lift_scope)(gemm, k_loop, n=1)
@@ -112,20 +136,18 @@ def schedule_tiled(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_til
 
 
 def schedule_gemm(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA=None, TransB=None):
-    if TransA != CblasNoTransValue or TransB != CblasNoTransValue:
-        return gemm
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
     starter_gemm = gemm
     gemm = specialize(gemm, i_loop, f"N <= 100")
     if_c = gemm.forward(i_loop.as_block())[0]
     # gemm = extract_and_schedule(schedule_compute)(
-    #     gemm, if_c.body()[0], "gemm_small", precision, machine, m_r, n_r_fac, small=True
+    #     gemm, if_c.body()[0], gemm.name() + "_small", precision, machine, m_r, n_r_fac, small=True
     # )
     tiled_gemm = schedule_tiled(
         starter_gemm, starter_gemm.body()[0], precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA, TransB
     )
-    tiled_gemm = rename(tiled_gemm, "tiled_gemm")
+    tiled_gemm = rename(tiled_gemm, tiled_gemm.name() + "_tiled")
     gemm = replace_all_stmts(gemm, (starter_gemm, tiled_gemm))
     return gemm
 

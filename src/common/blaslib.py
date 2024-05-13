@@ -223,7 +223,7 @@ def cut_level3_tail(proc, loop, fac, vw=1):
     return proc
 
 
-def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac, small=False):
+def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
 
