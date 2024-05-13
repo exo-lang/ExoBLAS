@@ -238,6 +238,29 @@ def decompose_into_rank_updates(proc, k_loop):
     return proc
 
 
+gcache = {}
+
+
+def cache(func):
+    def wrapper(proc, *args, **kwargs):
+        global gcache
+        print("Looking for: ")
+        print(proc)
+        renamed_proc = rename(proc, "dummy")
+        for p in gcache:
+            if p == str(renamed_proc):
+                print("Found in Cache")
+                gcache[p].unsafe_assert_eq(proc)
+                return gcache[p]
+        print("Not found in cache")
+        proc = func(proc, *args, **kwargs)
+        gcache[str(renamed_proc)] = proc
+        return proc
+
+    return wrapper
+
+
+@cache
 def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac

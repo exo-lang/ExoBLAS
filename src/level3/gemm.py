@@ -47,25 +47,6 @@ def gemm(
                         C[i, j] += alpha * (AT[k, i] * BT[j, k])
 
 
-cache = {}
-
-
-def schedule_inner(proc, i_loop, precision, machine, m_r, n_r_fac):
-    global cache
-    print("Looking for: ")
-    print(proc)
-    renamed_proc = rename(proc, "dummy")
-    for p in cache:
-        if p == str(renamed_proc):
-            print("Found in Cache")
-            cache[p].unsafe_assert_eq(proc)
-            return cache[p]
-    print("Not found in cache")
-    proc = schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac)
-    cache[str(renamed_proc)] = proc
-    return proc
-
-
 def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fac, TransA, TransB):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
@@ -114,7 +95,9 @@ def schedule_macro(gemm_mk, precision, machine, max_M, max_N, max_K, m_r, n_r_fa
     gemm_mk = set_memory(gemm_mk, cursors.alloc, ALIGNED_DRAM_STATIC)
     block = cursors.load.as_block()
     gemm_mk, _ = extract_subproc(gemm_mk, gemm_mk.forward(block).expand(0, 2 - 2 * int(isTransB)), gemm_mk.name() + "_B_pack")
-    gemm_mk = extract_and_schedule(schedule_inner)(gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac)
+    gemm_mk = extract_and_schedule(schedule_compute)(
+        gemm_mk, i_loop, gemm_mk.name() + "_compute", precision, machine, m_r, n_r_fac
+    )
     return gemm_mk_starter, simplify(gemm_mk)
 
 
