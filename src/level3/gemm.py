@@ -135,15 +135,25 @@ def schedule_tiled(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_til
     return simplify(gemm_tiled)
 
 
-def schedule_gemm(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA=None, TransB=None):
+def schedule_gemm(gemm, i_loop, precision, machine, TransA=None, TransB=None):
+    PARAMS = {"avx2": (4, 3, 427, 17, 344), "avx512": (8, 3, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
+    m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[machine.name]
+    if precision == "f64":
+        K_tile //= 2
+
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
+
+    M_tile = M_tile_fac * m_r
+    N_tile = N_tile_fac * n_r
+
     starter_gemm = gemm
     gemm = specialize(gemm, i_loop, f"N <= 100")
     if_c = gemm.forward(i_loop.as_block())[0]
-    # gemm = extract_and_schedule(schedule_compute)(
-    #     gemm, if_c.body()[0], gemm.name() + "_small", precision, machine, m_r, n_r_fac, small=True
-    # )
+    if TransB == CblasNoTransValue:
+        gemm = extract_and_schedule(schedule_compute)(
+            gemm, if_c.body()[0], gemm.name() + "_small", precision, machine, m_r, n_r_fac
+        )
     tiled_gemm = schedule_tiled(
         starter_gemm, starter_gemm.body()[0], precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, TransA, TransB
     )
@@ -152,54 +162,4 @@ def schedule_gemm(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
     return gemm
 
 
-PARAMS = {"avx2": (4, 3, 66, 3, 512), "avx512": (8, 3, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
-
-m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
-n_r = n_r_fac * C.Machine.vec_width("f32")
-
-# Parameter choosing idea from
-# Tze Meng Low, Francisco D. Igual, Tyler M. Smith, and Enrique S. Quintana-Orti. 2016. Analytical Modeling Is Enough for High-Performance BLIS. ACM Trans. Math. Softw. 43, 2, Article 12 (June 2017), 18 pages. https://doi.org/10.1145/2925987
-
-# Hardware parameters for i7-1185G7 (Tiger Lake)
-# TODO: Abstract these parameters
-W_L1 = 12
-S_L1 = 48 * 1024
-C_L1 = 64
-N_L1 = S_L1 // (C_L1 * W_L1)
-S_data = 4
-
-K_tile = 1
-
-
-def L1_Sets(K_tile):
-    return ceil((K_tile * m_r * S_data) / (N_L1 * C_L1)) + ceil((K_tile * n_r * S_data) / (N_L1 * C_L1))
-
-
-while L1_Sets(K_tile + 1) <= W_L1 - 1:
-    K_tile += 1
-
-K_tile = 344
-
-W_L2 = 20
-S_L2 = 1280 * 1024
-C_L2 = 64
-N_L2 = S_L2 // (C_L2 * W_L2)
-C_BT = floor((W_L2 - 1) / 2)
-N_tile = (C_BT * N_L2 * C_L2) // (K_tile * S_data)
-
-N_tile = (N_tile // n_r) * n_r
-N_tile += n_r * 4 * 1
-N_tile = n_r * 17
-
-W_L3 = 12
-S_L3 = 3 * 1024 * 1024
-C_L3 = 64
-N_L3 = S_L3 // (C_L3 * W_L3)
-C_AT = floor((W_L3 - 1) / 2)
-M_tile = (C_AT * N_L3 * C_L3) // (K_tile * S_data)
-
-M_tile = (M_tile // m_r) * m_r
-M_tile = 427 * m_r
-variants_generator(schedule_gemm, ("f32",), ("avx2", "avx512"))(
-    gemm, "i", m_r, n_r_fac, M_tile, N_tile, K_tile, globals=globals()
-)
+variants_generator(schedule_gemm, targets=("avx2", "avx512"))(gemm, "i", globals=globals())
