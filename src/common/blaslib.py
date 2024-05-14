@@ -276,24 +276,24 @@ def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
     j_loop = get_inner_loop(proc, i_loop)
     k_loop = get_inner_loop(proc, j_loop)
 
+    writes = filter_cursors(is_write)(proc, lrn_stmts(proc, i_loop))
+    writes = {w.name() for w in writes}
+    assert len(writes) == 1
+    output = next(iter(writes))
+
     proc = auto_stage_mem(proc, proc.body(), "alpha", "alpha_")
-    proc, cs = auto_stage_mem(proc, k_loop, "C", "C_tile", accum=True, rc=1)
-    proc = lift_reduce_constant(proc, cs.load.expand(0, 1))
-    assign = proc.forward(cs.store).prev()
-    proc = inline_assign(proc, assign)
+
+    proc = tile_loops_bottom_up(proc, i_loop, (m_r, n_r), tail="guard")
+    i_loop = proc.forward(i_loop)
+    proc = apply(rewrite_divide_guard)(proc, i_loop.find("if _:_", many=True))
+
+    proc, cs = auto_stage_mem(proc, k_loop, output, "mtile", accum=True, rc=1)
     proc = set_memory(proc, cs.alloc, machine.mem_type)
-
-    proc = tile_loops_bottom_up(proc, i_loop, (m_r, n_r, None), tail="guard")
-    i_loop, j_loop = proc.forward(i_loop), proc.forward(j_loop)
-    m_r_loop, m_r_if = j_loop.body()[0], j_loop.body()[0].body()[0]
-    n_r_loop, n_r_if = m_r_if.body()[0], m_r_if.body()[0].body()[0]
-
-    proc = rewrite_divide_guard(proc, m_r_if)
-    proc = rewrite_divide_guard(proc, n_r_if)
-    proc = lift_scope(proc, n_r_loop)
-
     proc = repeate_n(parallelize_and_lift_alloc)(proc, cs.alloc, n=4)
     proc = divide_dim(proc, cs.alloc, 1, vw)
+    proc = lift_reduce_constant(proc, cs.load.expand(0, 1))
+    proc = inline_assign(proc, proc.forward(cs.store).prev())
+
     proc = fission(proc, proc.forward(cs.load).after(), n_lifts=4)
     proc = fission(proc, proc.forward(cs.store).before(), n_lifts=4)
     proc = repeate_n(lift_scope)(proc, k_loop, n=4)
@@ -303,9 +303,9 @@ def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
     loops = [loops[0]] + [loop.body()[0] for loop in loops[1:-1]] + [loops[-1]]
     proc = apply(optimize_level_2)(proc, loops, precision, machine, m_r, n_r_fac, rows_tail="perfect", vec_tail="perfect")
     proc = inline_calls(proc)
+    proc = apply(attempt(lift_scope))(proc, filter_cursors(is_if)(proc, nlr_stmts(proc)))
 
     proc = cut_level3_tail(proc, j_loop, n_r_fac, vw=vw)
-    proc = apply(attempt(lift_scope))(proc, nlr_stmts(proc))
     proc = replace_all_stmts(proc, machine.get_instructions(precision))
     proc = cut_level3_tail(proc, i_loop, m_r)
 

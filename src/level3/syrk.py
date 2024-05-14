@@ -89,7 +89,7 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
     j_loop = get_inner_loop(tiled, i_loop)
     k_loop = get_inner_loop(tiled, j_loop)
     tiled = repeate_n(lift_scope)(tiled, k_loop, n=2)
-    tiled = tile_loops_bottom_up(tiled, k_loop, [K_tile, N_tile, N_tile], tail="guard")
+    tiled = tile_loops_bottom_up(tiled, k_loop, [K_tile, N_tile, N_tile], tail="guard1")
 
     # TODO: This code should be a part of tiling
     def rewrite(proc, loop):
