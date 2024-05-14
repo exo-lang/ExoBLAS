@@ -600,7 +600,7 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
                 proc = push_scope_in(proc, loop, depth + min_depth + 1)
         elif tail == "guard1":
             if tile is not None:
-                proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
+                proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail="guard", rc=True)
                 proc = simplify(proc)
                 proc = push_scope_in(proc, inner.body()[0], depth + guards + min_depth + 1)
                 guards += 1

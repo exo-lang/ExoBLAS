@@ -88,8 +88,8 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
     tiled = proc
     j_loop = get_inner_loop(tiled, i_loop)
     k_loop = get_inner_loop(tiled, j_loop)
-    tiled = repeate_n(lift_scope)(tiled, k_loop, n=2)
-    tiled = tile_loops_bottom_up(tiled, k_loop, [K_tile, N_tile, N_tile], tail="guard1")
+    tiled = repeate_n(lift_scope)(tiled, k_loop, n=1)
+    tiled = tile_loops_bottom_up(tiled, i_loop, [N_tile, K_tile, N_tile], tail="guard1")
 
     # TODO: This code should be a part of tiling
     def rewrite(proc, loop):
@@ -103,14 +103,15 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
             proc = unroll_loop(proc, loop2)
         return proc
 
-    tiled = apply(rewrite)(tiled, (j_loop, i_loop, k_loop))
+    tiled = apply(rewrite)(tiled, (j_loop, k_loop, i_loop))
     tiled = simplify(dce(tiled))
-    tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ki", many=True))
+
     tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ii", many=True))
+    tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ki", many=True))
     tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ji", many=True))
     tiled = simplify(delete_pass(tiled))
 
-    tiled = apply(repeate_n(reorder_loops))(tiled, tiled.find_loop("ki", many=True), n=2)
+    tiled = apply(repeate_n(reorder_loops))(tiled, tiled.find_loop("ki", many=True), n=1)
     tiled = replace_all_stmts(tiled, [syrk_macro, gemm])
     tiled = inline_calls(tiled, subproc=syrk_macro[1])
     tiled = inline_calls(tiled, subproc=gemm[1])
@@ -122,7 +123,7 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
     return simplify(tiled)
 
 
-PARAMS = {"avx2": (4, 3, 32, 512), "avx512": (2, 2, 2, 512), "neon": (1, 1, 1, 1)}
+PARAMS = {"avx2": (4, 3, 32, 344), "avx512": (2, 2, 2, 512), "neon": (1, 1, 1, 1)}
 
 m_r, n_r_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")
