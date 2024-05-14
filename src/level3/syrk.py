@@ -15,9 +15,11 @@ from memories import *
 
 
 @proc
-def syrk_rm(Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], AT: [R][K, N], C: [R][N, N]):
+def syrk_rm(
+    Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A_: [R][N, K], AT: [R][K, N], AT_: [R][K, N], C: [R][N, N]
+):
     assert stride(A, 1) == 1
-    assert stride(A_alias, 1) == 1
+    assert stride(A_, 1) == 1
     assert stride(C, 1) == 1
 
     for i in seq(0, N):
@@ -25,25 +27,25 @@ def syrk_rm(Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A
             if (Uplo == CblasUpperValue and j >= i) or (Uplo == CblasLowerValue and j < i + 1):
                 for k in seq(0, K):
                     if Trans == CblasNoTransValue:
-                        C[i, j] += alpha * (A[i, k] * A_alias[j, k])
+                        C[i, j] += alpha * (A[i, k] * A_[j, k])
                     else:
-                        C[i, j] += alpha * (AT[k, i] * AT[k, j])
+                        C[i, j] += alpha * (AT[k, i] * AT_[k, j])
 
 
 @proc
-def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], C: [R][M, N]):
+def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_: [R][N, K], C: [R][M, N]):
     assert stride(A, 1) == 1
-    assert stride(A_alias, 1) == 1
+    assert stride(A_, 1) == 1
     assert stride(C, 1) == 1
     assert M <= N
 
     for i in seq(0, M):
         for j in seq(0, N):
             for k in seq(0, K):
-                C[i, j] += alpha * (A[i, k] * A_alias[j, k])
+                C[i, j] += alpha * (A[i, k] * A_[j, k])
 
 
-def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
+def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac, Trans):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
 
@@ -53,28 +55,35 @@ def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
     mk_starter = mk
     mk = rename(mk, mk.name() + "_mk")
     i_loop = mk.body()[0]
-    packed_A_shape = ((0, ceil(max_N / m_r)), (1, max_K), (0, m_r))
-    mk, cursors = pack_mem(mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
+
+    isTrans = Trans == CblasTransValue
+    packed_A_shape = ((isTrans, ceil(max_N / m_r)), (1 - isTrans, max_K), (isTrans, m_r))
+    mk, cursors = pack_mem(mk, i_loop, mk.args()[3 + int("gemm" in mk.name())].name(), packed_A_shape, "packed_A", rc=1)
     mk = set_memory(mk, cursors.alloc, ALIGNED_DRAM_STATIC)
-    mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_pack")
+    mk, _ = extract_subproc(mk, cursors.load.as_block(), mk.name() + "_A_pack")
 
     # TODO: This packing step is doing more work the necessary (packing the whole matrix, not jus triangle)
-    packed_A_alias_shape = ((0, ceil(max_N / n_r)), (1, max_K), (0, n_r))
-    mk, cursors = pack_mem(mk, i_loop, "A_alias", packed_A_alias_shape, "packed_A_alias", rc=1)
+    packed_A_alias_shape = ((isTrans, ceil(max_N / n_r)), (1 - isTrans, max_K), (isTrans, n_r))
+    mk, cursors = pack_mem(mk, i_loop, mk.args()[4 + int("gemm" in mk.name())].name(), packed_A_alias_shape, "packed_A_", rc=1)
     mk = set_memory(mk, cursors.alloc, ALIGNED_DRAM_STATIC)
-    mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_alias_pack")
+    mk, _ = extract_subproc(mk, cursors.load.as_block(), mk.name() + "_A_alias_pack")
     mk = extract_and_schedule(schedule_compute)(mk, i_loop, mk.name() + "_compute", precision, machine, m_r, n_r_fac)
     return mk_starter, simplify(mk)
 
 
 def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Uplo=None, Trans=None):
-    if Uplo != CblasLowerValue or Trans != CblasNoTransValue:
+    if Uplo != CblasLowerValue:
         return proc
 
-    syrk_macro = schedule_macro(proc, precision, machine, N_tile, K_tile, m_r, n_r_fac)
+    syrk_macro = schedule_macro(proc, precision, machine, N_tile, K_tile, m_r, n_r_fac, Trans)
 
-    syrk_gemm_macro = specialize_precision(syrk_gemm, precision)
-    syrk_gemm_macro = schedule_macro(syrk_gemm_macro, precision, machine, N_tile, K_tile, m_r, n_r_fac)
+    gemm = syrk_gemm
+    if Trans == CblasTransValue:
+        gemm = gemm.transpose(gemm.args()[4])
+        gemm = gemm.transpose(gemm.args()[5])
+        gemm = rename(gemm, gemm.name() + "_t")
+    gemm = blas_specialize_precision(gemm, precision)
+    gemm = schedule_macro(gemm, precision, machine, N_tile, K_tile, m_r, n_r_fac, Trans)
 
     tiled = proc
     j_loop = get_inner_loop(tiled, i_loop)
@@ -102,13 +111,13 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
     tiled = simplify(delete_pass(tiled))
 
     tiled = apply(repeate_n(reorder_loops))(tiled, tiled.find_loop("ki", many=True), n=2)
-    tiled = replace_all_stmts(tiled, [syrk_macro, syrk_gemm_macro])
+    tiled = replace_all_stmts(tiled, [syrk_macro, gemm])
     tiled = inline_calls(tiled, subproc=syrk_macro[1])
-    tiled = inline_calls(tiled, subproc=syrk_gemm_macro[1])
+    tiled = inline_calls(tiled, subproc=gemm[1])
 
     tiled = apply(hoist_from_loop)(tiled, tiled.find_loop("jo", many=True))
     tiled = squash_buffers(tiled, tiled.find("packed_A : _", many=True))
-    tiled = squash_buffers(tiled, tiled.find("packed_A_alias : _", many=True))
+    tiled = squash_buffers(tiled, tiled.find("packed_A_ : _", many=True))
 
     return simplify(tiled)
 
@@ -121,4 +130,4 @@ K_tile = 344
 lcm = (m_r * n_r) // math.gcd(m_r, n_r)
 N_tile = (408 // lcm) * lcm
 
-variants_generator(schedule, ("f32",), ("avx2", "avx512"))(syrk_rm, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())
+variants_generator(schedule, targets=("avx2", "avx512"))(syrk_rm, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())

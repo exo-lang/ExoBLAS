@@ -14,6 +14,14 @@ from inspection import *
 from codegen_helpers import *
 
 
+def blas_specialize_precision(proc, precision, all_buffs=True):
+    assert precision in {"f32", "f64"}
+    prefix = "s" if precision == "f32" else "d"
+    template_name = proc.name()
+    proc = rename(proc, prefix + template_name)
+    return specialize_precision(proc, precision, all_buffs)
+
+
 def optimize_level_1(
     proc,
     loop,
@@ -306,4 +314,4 @@ def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
     return simplify(proc)
 
 
-__all__ = ["optimize_level_1", "optimize_level_2", "schedule_compute"]
+__all__ = ["optimize_level_1", "optimize_level_2", "schedule_compute", "blas_specialize_precision"]

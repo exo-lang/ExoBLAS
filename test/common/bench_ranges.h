@@ -2,7 +2,7 @@
 
 constexpr auto level_1_max_N = (1 << 28);
 constexpr auto level_2_max_N = (1 << 14);
-constexpr auto level_3_max_N = level_2_max_N / 2;
+constexpr auto level_3_max_N = level_2_max_N / 4;
 
 template <typename T>
 T round_down(T a, T b) {
