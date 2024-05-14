@@ -17,7 +17,7 @@ from exo_blas_config import Machine
 from perf_features import *
 from stdlib import *
 from cblas_enums import *
-from blaslib import *
+from blaslib import blas_specialize_precision
 
 
 def generate_stride_any_proc(proc):

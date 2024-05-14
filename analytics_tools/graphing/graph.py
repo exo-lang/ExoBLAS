@@ -250,6 +250,8 @@ def to_superscript(n):
 
 
 def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
+    print(f"{level}, {bench_type}, {lib} ")
+
     def aggregate(data):
         data = np.array(data)
         return data.prod() ** (1.0 / len(data))
@@ -282,7 +284,9 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.xlabel("N")
         plt.ylabel("Kernel Names")
 
-        filename = GRAPHS_DIR / "all" / f"{level.__name__}_p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
+        level_dir = GRAPHS_DIR / "all" / level.__name__
+        level_dir.mkdir(parents=True, exist_ok=True)
+        filename = level_dir / f"{bench_type.name}_p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
         plt.savefig(filename)
 
 

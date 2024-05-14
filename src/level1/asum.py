@@ -3,8 +3,8 @@ from __future__ import annotations
 from exo import *
 from exo.platforms.x86 import *
 
-from blaslib import *
 from codegen_helpers import *
+from blaslib import *
 
 
 @proc

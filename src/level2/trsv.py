@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from exo import *
 
-from blaslib import *
 from codegen_helpers import *
+from blaslib import *
 from stdlib import *
 
 
@@ -79,10 +79,10 @@ def schedule_t(proc, i_loop, precision, machine, rows_factor, cols_factor):
 
 def schedule(trsv, loop, precision, machine, Uplo=None, TransA=None):
     if TransA == CblasNoTransValue:
-        return optimize_level_2(trsv, loop, precision, machine, 2, 1, round_up=False)
+        return optimize_level_2(trsv, loop, precision, machine, 4, 2, round_up=False)
     else:
         if machine.name in ("avx2", "avx512"):
-            trsv = schedule_t(trsv, loop, precision, machine, 2, 1)
+            trsv = schedule_t(trsv, loop, precision, machine, 4, 2)
         return trsv
 
 

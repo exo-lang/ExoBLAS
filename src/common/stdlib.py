@@ -390,19 +390,16 @@ def interleave_outer_loop_with_inner_loop(
     outer_loop_cursor = proc.forward(outer_loop_cursor)
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
-    if isinstance(outer_loop_cursor.hi(), LiteralCursor) and outer_loop_cursor.hi().value() == interleave_factor:
-        middle_loop_cursor = outer_loop_cursor
-    else:
-        proc = divide_loop(
-            proc,
-            outer_loop_cursor,
-            interleave_factor,
-            (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"),
-            tail="cut",
-        )
+    proc = divide_loop(
+        proc,
+        outer_loop_cursor,
+        interleave_factor,
+        (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"),
+        tail="cut",
+    )
 
-        outer_loop_cursor = proc.forward(outer_loop_cursor)
-        middle_loop_cursor = outer_loop_cursor.body()[0]
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    middle_loop_cursor = outer_loop_cursor.body()[0]
     middle_loop_stmts = list(middle_loop_cursor.body())
 
     proc = simplify(proc)

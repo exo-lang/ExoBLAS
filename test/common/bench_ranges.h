@@ -10,7 +10,7 @@ T round_down(T a, T b) {
 }
 
 auto level_1_pow_2 = benchmark::CreateRange(1, level_1_max_N, 2);
-auto level_1_pow_7 = benchmark::CreateRange(7, round_down(level_1_max_N, 7), 7);
+auto level_1_pow_3 = benchmark::CreateRange(3, round_down(level_1_max_N, 3), 3);
 
 static constexpr int level_2_N_skinny_enum_base = 100 * 100;
 static constexpr int level_2_M_skinny_enum_base = 200 * 100;

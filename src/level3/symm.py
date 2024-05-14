@@ -123,7 +123,7 @@ def schedule_symm(symm, loop, precision, machine, Side=None, Uplo=None):
     M_tile = M_tile_fac * m_r
     N_tile = N_tile_fac * n_r
 
-    if Side == CblasRightValue or Uplo == CblasLowerValue:
+    if Side == CblasRightValue:
         return symm
 
     symm = schedule(symm, loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, Side, Uplo)

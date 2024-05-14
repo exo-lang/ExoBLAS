@@ -40,7 +40,7 @@ static void args(benchmark::internal::Benchmark *b) {
   b->ArgNames({"N", "incX", "incY", "alpha", "alignmentX", "alignmentY",
                "bench_type", "precision"});
   add_args(level_1_pow_2);
-  add_args(level_1_pow_7);
+  add_args(level_1_pow_3);
 }
 
 BENCHMARK(bench<Exo>)->Name("exo_sdsdot")->Apply(args<float>);

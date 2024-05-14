@@ -149,10 +149,10 @@ def optimize_level_2_general(
 ):
     outer_loop = proc.forward(outer_loop)
     rows_factor = min(rows_factor, machine.vec_width(precision))
-    inner_loop = get_inner_loop(proc, outer_loop)
     proc, (outer_loop,) = adjust_level_2_triangular(proc, outer_loop, precision, machine, rows_factor, round_up)
     proc = unroll_and_jam(proc, outer_loop, rows_factor)
-    proc = attempt(unroll_buffers)(proc, proc.forward(inner_loop).parent())
+    inner_loop = get_inner_loop(proc, outer_loop)
+    proc = attempt(unroll_buffers)(proc, outer_loop)
     proc = optimize_level_1(proc, inner_loop, precision, machine, cols_factor, **kwargs)
 
     if rows_tail == "cut":
@@ -169,7 +169,7 @@ def optimize_level_2(
     rows_factor,
     cols_factor,
     round_up=None,
-    rows_tail="level_1",
+    rows_tail="cut",
     skinny_factor=None,
     **kwargs,
 ):
