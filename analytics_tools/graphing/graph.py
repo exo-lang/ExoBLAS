@@ -19,6 +19,8 @@ PEAKS_JSON = GRAPHING_ROOT / "peaks.json"
 
 BENCHMARK_JSONS_DIR = ROOT_PATH / "benchmark_results"
 
+BACKEND = "AVX2"
+
 
 def get_peaks_json():
     if PEAKS_JSON.exists():
@@ -164,7 +166,7 @@ def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
     some_point = next(iter(data.values()))[0]
 
     plt.xlabel(some_point.get_graph_description())
-    plt.title(some_point.sub_kernel_name)
+    plt.title(some_point.sub_kernel_name + f" ({BACKEND})")
 
     sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
     sub_kernel_dir.mkdir(parents=True, exist_ok=True)
@@ -202,7 +204,7 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
     plt.ylabel(unit)
 
     plt.xlabel(some_point.get_graph_description())
-    plt.title(some_point.sub_kernel_name)
+    plt.title(some_point.sub_kernel_name + f" ({BACKEND})")
 
     sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
     sub_kernel_dir.mkdir(parents=True, exist_ok=True)
@@ -268,7 +270,7 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
 
         cmap = mcolors.LinearSegmentedColormap.from_list("custom_colormap", ["red", "lightgreen", "green"], N=256)
         plt.figure(figsize=(9, 9), dpi=200)
-        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap, vmin=0.8, vmax=1.2)
+        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap, vmin=0.7, vmax=1.3)
 
         # Place the ticks in-between the columns
         tick_positions = np.arange(data.shape[1] + 1)
@@ -280,7 +282,7 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.tick_params(axis="y", which="both", length=0)
 
         level_name = level.__name__.replace("_", " ").capitalize()
-        plt.title(f"{level_name} Geomean of runtime of {lib} / ExoBLAS")
+        plt.title(f"{level_name} Geomean of runtime of {lib} / ExoBLAS" + f" ({BACKEND})")
         plt.xlabel("N")
         plt.ylabel("Kernel Names")
 
