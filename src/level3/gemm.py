@@ -119,10 +119,8 @@ def schedule_tiled(gemm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_til
 
 
 def schedule_gemm(gemm, i_loop, precision, machine, TransA=None, TransB=None):
-    PARAMS = {"avx2": (4, 3, 427, 17, 344), "avx512": (8, 3, 33, 2, 512), "neon": (1, 1, 1, 1, 1)}
+    PARAMS = {"avx2": (4, 3, 427, 17, 344), "avx512": (8, 3, 427, 17, 344), "neon": (1, 1, 1, 1, 1)}
     m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[machine.name]
-    if precision == "f64":
-        K_tile //= 2
 
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac

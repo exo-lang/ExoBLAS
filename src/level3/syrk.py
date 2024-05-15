@@ -123,12 +123,11 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
     return simplify(tiled)
 
 
-PARAMS = {"avx2": (4, 3, 32, 344), "avx512": (2, 2, 2, 512), "neon": (1, 1, 1, 1)}
+PARAMS = {"avx2": (4, 3, 20, 344), "avx512": (8, 3, 20 // 2, 344), "neon": (1, 1, 1, 1)}
 
 m_r, n_r_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")
-K_tile = 344
 lcm = (m_r * n_r) // math.gcd(m_r, n_r)
-N_tile = (408 // lcm) * lcm
+N_tile = n_r_fac * lcm
 
 variants_generator(schedule, targets=("avx2", "avx512"))(syrk_rm, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())
