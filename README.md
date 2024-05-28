@@ -60,4 +60,7 @@ cmake --build build/apple-silicon
 ```
 
 ## Testing ExoBLAS
-For more detailed on building and testing ExoBLAS, please read [here](TESTING.md).
+For more detailed on building and testing ExoBLAS, please read [here](docs/TESTING.md).
+
+## Troubleshooting
+Some troubleshooting instructions can be found [here](docs/TROUBLESHOOTING.md).
