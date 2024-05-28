@@ -6,9 +6,31 @@ import importlib
 import numpy as np
 import seaborn as sns
 import matplotlib.colors as mcolors
+import matplotlib.font_manager
 
 from misc import *
 from kernels_specs import level_1, level_2, level_3
+
+from pylab import rcParams
+rcParams['figure.figsize'] = 6*(3.33/6), 3.9*(3.33/6)
+rc_fonts = {
+    "font.family": "serif",
+    'font.serif': 'Linux Libertine',
+    "pdf.fonttype" : 42,
+    "ps.fonttype" : 42
+}
+rcParams.update(rc_fonts)
+rcParams.update({
+    'axes.labelpad': 1,
+    #'axes.labelsize': 7,
+    'axes.linewidth': 0.5,
+    #'grid.linewidth': 0.5,
+    #'lines.linewidth': 0.75,
+    'xtick.major.pad': 0.5,
+    'xtick.major.width': 0.5,
+    'ytick.major.pad': 0.5,
+    'ytick.major.width': 0.5,
+})
 
 SCRIPT_PATH = Path(__file__)
 ROOT_PATH = SCRIPT_PATH.parent.parent.parent.resolve()
@@ -206,7 +228,7 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
 
     sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
     sub_kernel_dir.mkdir(parents=True, exist_ok=True)
-    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_flops_throughput.png"
+    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_flops_throughput.gdf"
     plt.savefig(filename)
 
 
@@ -282,8 +304,9 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.xlabel("N")
         plt.ylabel("Kernel Names")
 
-        filename = GRAPHS_DIR / "all" / f"{level.__name__}_p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
-        plt.savefig(filename)
+        filename = GRAPHS_DIR / "all" / f"{level.__name__}_p{p}_disc_gmean_{lib}_x_ExoBLAS."
+        plt.savefig(filename + "pdf")
+        plt.savefig(filename + "png")
 
 
 def plot_speedup_heatmap(parsed_jsons):
