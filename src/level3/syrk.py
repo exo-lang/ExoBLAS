@@ -123,7 +123,11 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
     return simplify(tiled)
 
 
-PARAMS = {"avx2": (4, 3, 20, 344), "avx512": (8, 3, 20 // 2, 344), "neon": (1, 1, 1, 1)}
+# Correct parameters
+# PARAMS = {"avx2": (4, 3, 20, 344), "avx512": (8, 3, 20 // 2, 344), "neon": (1, 1, 1, 1)}
+
+# For fast compilation
+PARAMS = {"avx2": (2, 2, 20, 344), "avx512": (2, 2, 20 // 2, 344), "neon": (1, 1, 1, 1)}
 
 m_r, n_r_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")

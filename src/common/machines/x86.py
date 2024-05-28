@@ -340,7 +340,7 @@ def get_avx_instrs(VEC_MEM):
                 yield make_instr(avx2_vec_op, f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm256_loadu_ps(&{{src_data}}));")
                 yield make_instr(
                     avx2_vec_op_pfx,
-                    f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm256_maskz_load_ps(&{{src_data}}, mm256_prefix_mask_epi32{type_sfx}({{m}})));",
+                    f"{{dst_data}} = _{mm_pfx}_cvtps_pd(_mm256_maskload_ps (&{{src_data}}, mm256_prefix_mask_epi32({{m}})));",
                 )
 
 

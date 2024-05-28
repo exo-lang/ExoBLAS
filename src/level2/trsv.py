@@ -78,10 +78,9 @@ def schedule(trsv, loop, precision, machine, Uplo=None, TransA=None):
     if TransA == CblasNoTransValue:
         return optimize_level_2(trsv, loop, precision, machine, 4, 2, round_up=False)
     else:
-        return trsv
         if machine.name in ("avx2", "avx512"):
             trsv = schedule_t(trsv, loop, precision, machine, 4, 2)
         return trsv
 
 
-variants_generator(identity_schedule)(trsv_rm, "i", globals=globals())
+variants_generator(schedule)(trsv_rm, "i", globals=globals())

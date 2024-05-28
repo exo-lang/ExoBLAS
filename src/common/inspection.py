@@ -1,3 +1,5 @@
+from functools import wraps
+
 from exo import *
 from exo.API_cursors import *
 from exo.stdlib.analysis import *
@@ -313,108 +315,163 @@ def get_inner_loop(proc, loop):
     return get_nth_inner_loop(proc, loop, 0)
 
 
+def bool_inspec_op(func):
+    class BooleanInspectionOperation:
+        def __init__(self, func):
+            self.func = func
+
+        def __call__(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+        def __and__(self, other):
+            if not isinstance(other, BooleanInspectionOperation):
+                return NotImplemented
+            return BooleanInspectionOperation(lambda *args, **kwargs: self(*args, **kwargs) and other(*args, **kwargs))
+
+        def __or__(self, other):
+            if not isinstance(other, BooleanInspectionOperation):
+                return NotImplemented
+            return BooleanInspectionOperation(lambda *args, **kwargs: self(*args, **kwargs) or other(*args, **kwargs))
+
+        def __invert__(self):
+            return BooleanInspectionOperation(lambda *args, **kwargs: not self(*args, **kwargs))
+
+        def __repr__(self):
+            return f"<BooleanInspectionOperation {self.func.__name__}>"
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return BooleanInspectionOperation(wrapper)
+
+
+@bool_inspec_op
 def is_expr(proc, expr):
     expr = proc.forward(expr)
     return isinstance(expr, ExprCursor)
 
 
+@bool_inspec_op
 def is_binop(proc, expr, op=None):
     expr = proc.forward(expr)
     return isinstance(expr, BinaryOpCursor) and (op is None or expr.op() == op)
 
 
+@bool_inspec_op
 def is_add(proc, expr):
     return is_binop(proc, expr, "+")
 
 
+@bool_inspec_op
 def is_sub(proc, expr):
     return is_binop(proc, expr, "-")
 
 
+@bool_inspec_op
 def is_mul(proc, expr):
     return is_binop(proc, expr, "*")
 
 
+@bool_inspec_op
 def is_div(proc, expr):
     return is_binop(proc, expr, "/")
 
 
+@bool_inspec_op
 def is_mod(proc, expr):
     return is_binop(proc, expr, "%")
 
 
+@bool_inspec_op
 def is_eq(proc, expr):
     return is_binop(proc, expr, "==")
 
 
+@bool_inspec_op
 def is_or(proc, expr):
     return is_binop(proc, expr, "or")
 
 
+@bool_inspec_op
 def is_and(proc, expr):
     return is_binop(proc, expr, "and")
 
 
+@bool_inspec_op
 def is_builtin(proc, expr, name):
     expr = proc.forward(expr)
     return isinstance(expr, BuiltInFunctionCursor) and expr.name() == name
 
 
+@bool_inspec_op
 def is_select(proc, expr):
     return is_builtin(proc, expr, "select")
 
 
+@bool_inspec_op
 def is_relu(proc, expr):
     return is_builtin(proc, expr, "relu")
 
 
+@bool_inspec_op
 def is_sin(proc, expr):
     return is_builtin(proc, expr, "sin")
 
 
+@bool_inspec_op
 def is_literal(proc, expr, value=None):
     expr = proc.forward(expr)
     return isinstance(expr, LiteralCursor) and (value is None or expr.value() == value)
 
 
+@bool_inspec_op
 def is_reduce(proc, reduce):
     reduce = proc.forward(reduce)
     return isinstance(reduce, ReduceCursor)
 
 
+@bool_inspec_op
 def is_assign(proc, assign):
     assign = proc.forward(assign)
     return isinstance(assign, AssignCursor)
 
 
+@bool_inspec_op
 def is_read(proc, read, name=None):
     read = proc.forward(read)
     return isinstance(read, ReadCursor) and (name is None or read.name() == name)
 
 
+@bool_inspec_op
 def is_write(proc, write):
     return is_reduce(proc, write) or is_assign(proc, write)
 
 
+@bool_inspec_op
 def is_access(proc, access, name=None):
     return (is_read(proc, access) or is_write(proc, access)) and (name is None or access.name() == name)
 
 
+@bool_inspec_op
 def is_window_stmt(proc, window):
     window = proc.forward(window)
     return isinstance(window, WindowStmtCursor)
 
 
+@bool_inspec_op
 def is_unary_minus(proc, expr):
     expr = proc.forward(expr)
     return isinstance(expr, UnaryMinusCursor)
 
 
+@bool_inspec_op
 def is_call(proc, call, subproc=None):
     call = proc.forward(call)
     return isinstance(call, CallCursor) and (subproc is None or call.subproc() == subproc)
 
 
+@bool_inspec_op
 def is_invalid(proc, inv):
     if isinstance(inv, InvalidCursor):
         return True
@@ -425,11 +482,13 @@ def is_invalid(proc, inv):
         return True
 
 
+@bool_inspec_op
 def is_start_of_body(proc, stmt):
     stmt = proc.forward(stmt)
     return isinstance(stmt.prev(), InvalidCursor)
 
 
+@bool_inspec_op
 def is_end_of_body(proc, stmt):
     stmt = proc.forward(stmt)
     return isinstance(stmt.next(), InvalidCursor)

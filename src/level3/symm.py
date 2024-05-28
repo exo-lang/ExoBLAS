@@ -115,8 +115,11 @@ def schedule(main_symm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile
 
 
 def schedule_symm(symm, loop, precision, machine, Side=None, Uplo=None):
-    PARAMS = {"avx2": (4, 3, 427, 17, 344), "avx512": (8, 3, 427, 17 // 2, 344), "neon": (1, 1, 1, 1, 1)}
+    # Correct parameters
+    # PARAMS = {"avx2": (4, 3, 427, 17, 344), "avx512": (8, 3, 427, 17 // 2, 344), "neon": (1, 1, 1, 1, 1)}
 
+    # For fast compilation
+    PARAMS = {"avx2": (2, 2, 427, 17, 344), "avx512": (2, 2, 427, 17 // 2, 344), "neon": (1, 1, 1, 1, 1)}
     m_r, n_r_fac, M_tile_fac, N_tile_fac, K_tile = PARAMS[machine.name]
     n_r = n_r_fac * machine.vec_width("f32")
 

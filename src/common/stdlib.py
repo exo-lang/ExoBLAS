@@ -477,6 +477,8 @@ def vectorize_predicate_tail(
         proc = attempt(cut_loop)(proc, outer, cut)
         outer = proc.forward(outer)
         proc = dce(proc, outer.body())
+        if (~is_invalid)(proc, outer.next()):
+            proc = dce(proc, outer.next().body())
     proc = replace_all_stmts(proc, instructions)
 
     if not rc:
@@ -1419,3 +1421,12 @@ def specialize_precision(proc, precision, all_buffs=False):
     proc = apply(set_type)(proc, proc.args(), precision)
     proc = make_pass(set_type, nlr_stmts)(proc, proc.body(), precision)
     return proc
+
+
+def vectorize_simple(proc, loop, vw, precision, mem_type, instrs, patterns=[]):
+    proc = divide_loop_(proc, loop, vw, tail="cut")
+    proc = parallelize_reductions(proc, loop, ...)
+    inner = proc.forward(loop).body()[0]
+    proc = stage_compute(proc, inner, ..., patterns)
+    proc = fission_into_singles(proc, inner)
+    return replace_all_stmts(proc, instrs)
