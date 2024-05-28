@@ -57,13 +57,7 @@ For example, to use `apple-silicon`, you would run:
 ```
 cmake --preset apple-silicon
 cmake --build build/apple-silicon
-ctest --test-dir build/apple-silicon
 ```
 
-## Troubleshooting
-
-If there is an error on apple-silicon, try running
-
-```
-export SDKROOT=$(xcrun --sdk macosx --show-sdk-path)
-```
+## Testing ExoBLAS
+For more detailed on building and testing ExoBLAS, please read [here](TESTING.md).
