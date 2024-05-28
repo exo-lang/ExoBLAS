@@ -72,6 +72,36 @@ ctest --test-dir ./build/avx2 -V -R cblas_ # Run the reference benchmark for all
 ```
 Note that benchmark results are cached, so you can run the reference benchmarks once when you start development. Remember to rerun them if you change the inputs being passed by the benchmark.
 
+## Checking codegen consistency
+It is valuable when doing development to be able to compare against the code-generation at the commit before you started you made any changes.
+
+Before you start development, make sure to build the entire library using:
+```
+cmake --build build/avx2
+```
+Then, run the following command to generate a cache of the generated C code:
+```
+ctest --test-dir ./build/avx2 -V -R update_
+```
+This will create a local untracked copy of all the generated C sources in `test/codegen/reference/sources/`.
+
+As you change the scheduling code or the library code, you can run the following command to check that the codegen is still the same (after rebuilding the library):
+```
+ctest --test-dir ./build/avx2 -V -R codegen_nonverbose
+```
+This will fail if the new files are different from the cached source and print the diff.
+
+If you want to check an individual kernel's codegen, you can run:
+```
+ctest --test-dir ./build/avx2 -V -R [KERNEL]_codegen_nonverbose
+```
+
+If a kernel's codegen has changed, but this is expected. You can update its codegen again by running:
+```
+ctest --test-dir ./build/avx2 -V -R [KERNEL]_update_reference
+```
+This will update the cached sources, and the hash of the sources in the json stored in `test/codegen/reference/sha256/`. The hashes jsons are tracked files and they are what we use to verify the codegen output. The cached sources are only relevant so that we can show the diff when the hash is inconsistent.
+
 ## Running the graphing script
 To plot one kernel results, you can run:
 ```
