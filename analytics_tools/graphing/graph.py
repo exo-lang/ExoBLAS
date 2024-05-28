@@ -15,7 +15,8 @@ from pylab import rcParams
 rcParams['figure.figsize'] = 6*(3.33/6), 3.9*(3.33/6)
 rc_fonts = {
     "font.family": "serif",
-    'font.serif': 'Linux Libertine',
+    #'font.serif': 'Linux Libertine',
+    'font.serif': ['Linux Libertine', 'Linux Libertine O', 'Linux Libertine Display O', 'Linux Libertine Initials O', 'Linux Libertine Mono O'],
     "pdf.fonttype" : 42,
     "ps.fonttype" : 42
 }
@@ -40,6 +41,8 @@ GRAPHS_DIR = GRAPHING_ROOT / "graphs"
 PEAKS_JSON = GRAPHING_ROOT / "peaks.json"
 
 BENCHMARK_JSONS_DIR = ROOT_PATH / "benchmark_results"
+
+EXOBLAS_NAME = "AIRxo"
 
 
 def get_peaks_json():
@@ -85,7 +88,7 @@ def rename_lib(dir_name):
     if lib_name == "Intel10_64lp_seq":
         lib_name = "MKL"
     elif lib_name == "exo" or lib_name == "Exo":
-        lib_name = "ExoBLAS"
+        lib_name = EXOBLAS_NAME
     elif lib_name == "All":
         lib_name = "OpenBLAS"
     return lib_name
@@ -300,13 +303,16 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.tick_params(axis="y", which="both", length=0)
 
         level_name = level.__name__.replace("_", " ").capitalize()
-        plt.title(f"{level_name} Geomean of runtime of {lib} / ExoBLAS")
+        plt.title(f"{level_name} Geomean of runtime of {lib} / " + EXOBLAS_NAME)
         plt.xlabel("N")
         plt.ylabel("Kernel Names")
 
-        filename = GRAPHS_DIR / "all" / f"{level.__name__}_p{p}_disc_gmean_{lib}_x_ExoBLAS."
-        plt.savefig(filename + "pdf")
-        plt.savefig(filename + "png")
+        filename = f"{level.__name__}_p{p}_disc_gmean_{lib}_x_" + EXOBLAS_NAME + "."
+        png_path = GRAPHS_DIR / "all" / (filename + "png")
+        pdf_path = GRAPHS_DIR / "all" / (filename + "pdf")
+
+        plt.savefig(png_path)
+        plt.savefig(pdf_path)
 
 
 def plot_speedup_heatmap(parsed_jsons):
@@ -319,20 +325,20 @@ def plot_speedup_heatmap(parsed_jsons):
                 new_data.setdefault(bench_type, {})[sub_kernel] = data
                 libs |= data.keys()
 
-    libs.remove("ExoBLAS")
+    libs.remove(EXOBLAS_NAME)
     for bench_type in new_data:
         for lib in libs:
             for level in (level_1, level_2, level_3):
                 heatmap_data = []
                 for sub_kernel in new_data[bench_type]:
-                    if "ExoBLAS" not in new_data[bench_type][sub_kernel]:
+                    if EXOBLAS_NAME not in new_data[bench_type][sub_kernel]:
                         continue
                     if lib not in new_data[bench_type][sub_kernel]:
                         continue
                     if not isinstance(new_data[bench_type][sub_kernel][lib][0], level):
                         continue
                     lib_data = sorted(new_data[bench_type][sub_kernel][lib])
-                    exoblas_data = sorted(new_data[bench_type][sub_kernel]["ExoBLAS"])
+                    exoblas_data = sorted(new_data[bench_type][sub_kernel][EXOBLAS_NAME])
 
                     lib_data_x = [run.get_size_param() for run in lib_data]
                     exoblas_data_x = [run.get_size_param() for run in exoblas_data]
