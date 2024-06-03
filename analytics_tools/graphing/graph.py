@@ -12,26 +12,32 @@ from misc import *
 from kernels_specs import level_1, level_2, level_3
 
 from pylab import rcParams
-rcParams['figure.figsize'] = 6*(3.33/6), 3.9*(3.33/6)
-rc_fonts = {
-    "font.family": "serif",
-    #'font.serif': 'Linux Libertine',
-    'font.serif': ['Linux Libertine', 'Linux Libertine O', 'Linux Libertine Display O', 'Linux Libertine Initials O', 'Linux Libertine Mono O'],
-    "pdf.fonttype" : 42,
-    "ps.fonttype" : 42
-}
-rcParams.update(rc_fonts)
-rcParams.update({
-    'axes.labelpad': 1,
-    #'axes.labelsize': 7,
-    'axes.linewidth': 0.5,
-    #'grid.linewidth': 0.5,
-    #'lines.linewidth': 0.75,
-    'xtick.major.pad': 0.5,
-    'xtick.major.width': 0.5,
-    'ytick.major.pad': 0.5,
-    'ytick.major.width': 0.5,
-})
+
+
+# !!! change for the paper !!
+is_paper = False
+
+if is_paper:
+    plt.rcParams['figure.figsize'] = 8*(3.33/6), 3.9*(3.33/6)
+    rc_fonts = {
+        "font.family": "serif",
+        #'font.serif': 'Linux Libertine',
+        'font.serif': ['Linux Libertine', 'Linux Libertine O', 'Linux Libertine Display O', 'Linux Libertine Initials O', 'Linux Libertine Mono O'],
+        "pdf.fonttype" : 42,
+        "ps.fonttype" : 42
+    }
+    plt.rcParams.update(rc_fonts)
+    plt.rcParams.update({
+        'axes.labelpad': 1,
+        #'axes.labelsize': 7,
+        'axes.linewidth': 0.5,
+        #'grid.linewidth': 0.5,
+        #'lines.linewidth': 0.75,
+        'xtick.major.pad': 0.5,
+        'xtick.major.width': 0.5,
+        'ytick.major.pad': 0.5,
+        'ytick.major.width': 0.5,
+    })
 
 SCRIPT_PATH = Path(__file__)
 ROOT_PATH = SCRIPT_PATH.parent.parent.parent.resolve()
@@ -42,7 +48,10 @@ PEAKS_JSON = GRAPHING_ROOT / "peaks.json"
 
 BENCHMARK_JSONS_DIR = ROOT_PATH / "benchmark_results"
 
-EXOBLAS_NAME = "AIRxo"
+if is_paper:
+    EXOBLAS_NAME = "AIRxo"
+else:
+    EXOBLAS_NAME = "ExoBLAS"
 
 
 def get_peaks_json():
@@ -264,6 +273,7 @@ def prepare_heatmap_data(aggregated):
     array = array[:, non_zero_columns]
     ranges = np.array(ranges)
     ranges = ranges[non_zero_columns]
+    functions = [key + " " for key in functions]
     return array, functions, ranges
 
 
@@ -290,8 +300,8 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         data, sub_kernels, ranges = prepare_heatmap_data(agg_heatmap_data)
 
         cmap = mcolors.LinearSegmentedColormap.from_list("custom_colormap", ["red", "lightgreen", "green"], N=256)
-        plt.figure(figsize=(9, 9), dpi=200)
-        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap, vmin=0.8, vmax=1.2)
+
+        ax = sns.heatmap(data, annot=True, cbar=False, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap, vmin=0.8, vmax=1.2, annot_kws={'fontweight' : 'bold'})
 
         # Place the ticks in-between the columns
         tick_positions = np.arange(data.shape[1] + 1)
@@ -303,9 +313,18 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.tick_params(axis="y", which="both", length=0)
 
         level_name = level.__name__.replace("_", " ").capitalize()
-        plt.title(f"{level_name} Geomean of runtime of {lib} / " + EXOBLAS_NAME)
+        plt.title(f"Runtime of {lib} / " + EXOBLAS_NAME)
         plt.xlabel("N")
-        plt.ylabel("Kernel Names")
+
+        if is_paper:
+            plt.subplots_adjust(bottom=0.22, left=.17)
+            ax.axhline(y=0, color='k',linewidth=2)
+            ax.axhline(y=6, color='k',linewidth=2)
+            ax.axvline(x=0, color='k',linewidth=2)
+            ax.axvline(x=8, color='k',linewidth=2)
+        else:
+            plt.ylabel("Kernel Names")
+            plt.figure(figsize=(9, 9), dpi=200)
 
         filename = f"{level.__name__}_p{p}_disc_gmean_{lib}_x_" + EXOBLAS_NAME + "."
         png_path = GRAPHS_DIR / "all" / (filename + "png")
