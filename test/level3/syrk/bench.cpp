@@ -57,9 +57,10 @@ static void args(benchmark::internal::Benchmark *b) {
   for (int i = 1; i <= level_3_max_N; i *= 2) {
     add_arg(i, i);
   }
-  for (int i = 7; i <= level_3_max_N; i *= 7) {
+  for (int i = 3; i <= level_3_max_N; i *= 3) {
     add_arg(i, i);
   }
 }
 
 call_bench_all(syrk, CblasRowMajor, 0, CblasLower, CblasNoTrans, 0, 0);
+call_bench_all(syrk, CblasRowMajor, 0, CblasLower, CblasTrans, 0, 0);

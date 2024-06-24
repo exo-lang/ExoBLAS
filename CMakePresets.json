@@ -43,7 +43,8 @@
         "CXX_STANDARD" : "C++17",
         "CMAKE_BUILD_TYPE": "Release",
         "TARGET_ARCH": "avx2",
-        "MKL_ENABLE_INSTRUCTIONS": "AVX2"
+        "MKL_ENABLE_INSTRUCTIONS": "AVX2",
+        "OPENBLAS_CORETYPE": "Haswell"
       }
     },
     {

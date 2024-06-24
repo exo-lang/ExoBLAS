@@ -23,6 +23,7 @@
         exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},             \
         exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},             \
         exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},             \
+        exo_win_2##exo_type##c{.data = A, .strides = {lda, 1}},             \
         exo_win_2##exo_type{.data = C, .strides{ldc, 1}});                  \
   }
 

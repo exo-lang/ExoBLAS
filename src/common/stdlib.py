@@ -390,19 +390,16 @@ def interleave_outer_loop_with_inner_loop(
     outer_loop_cursor = proc.forward(outer_loop_cursor)
     inner_loop_cursor = proc.forward(inner_loop_cursor)
 
-    if isinstance(outer_loop_cursor.hi(), LiteralCursor) and outer_loop_cursor.hi().value() == interleave_factor:
-        middle_loop_cursor = outer_loop_cursor
-    else:
-        proc = divide_loop(
-            proc,
-            outer_loop_cursor,
-            interleave_factor,
-            (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"),
-            tail="cut",
-        )
+    proc = divide_loop(
+        proc,
+        outer_loop_cursor,
+        interleave_factor,
+        (outer_loop_cursor.name() + "o", outer_loop_cursor.name() + "i"),
+        tail="cut",
+    )
 
-        outer_loop_cursor = proc.forward(outer_loop_cursor)
-        middle_loop_cursor = outer_loop_cursor.body()[0]
+    outer_loop_cursor = proc.forward(outer_loop_cursor)
+    middle_loop_cursor = outer_loop_cursor.body()[0]
     middle_loop_stmts = list(middle_loop_cursor.body())
 
     proc = simplify(proc)
@@ -480,6 +477,8 @@ def vectorize_predicate_tail(
         proc = attempt(cut_loop)(proc, outer, cut)
         outer = proc.forward(outer)
         proc = dce(proc, outer.body())
+        if (~is_invalid)(proc, outer.next()):
+            proc = dce(proc, outer.next().body())
     proc = replace_all_stmts(proc, instructions)
 
     if not rc:
@@ -598,15 +597,23 @@ def tile_loops_bottom_up(proc, loop, tiles, const_allocs=True, tail="cut_and_gua
                 proc = push_scope_in(proc, tail_l.body()[0], depth + min_depth + 1, tile)
             else:
                 proc = push_scope_in(proc, loop, depth + min_depth + 1)
-        elif tail == "guard":
+        elif tail == "guard1":
             if tile is not None:
-                proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
+                proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail="guard", rc=True)
                 proc = simplify(proc)
                 proc = push_scope_in(proc, inner.body()[0], depth + guards + min_depth + 1)
                 guards += 1
                 proc = push_scope_in(proc, inner, depth + guards + min_depth + 1, tile)
             else:
                 proc = push_scope_in(proc, loop, depth + guards + min_depth + 1)
+        elif tail == "guard":
+            if tile is not None:
+                proc, (_, inner, _) = divide_loop_(proc, loop, tile, tail=tail, rc=True)
+                proc = simplify(proc)
+                proc = push_scope_in(proc, inner.body()[0], depth + min_depth + 1)
+                proc = push_scope_in(proc, inner, (depth + 1) * 2 + min_depth)
+            else:
+                proc = push_scope_in(proc, loop, depth + min_depth + 1)
     return proc
 
 
@@ -1414,3 +1421,12 @@ def specialize_precision(proc, precision, all_buffs=False):
     proc = apply(set_type)(proc, proc.args(), precision)
     proc = make_pass(set_type, nlr_stmts)(proc, proc.body(), precision)
     return proc
+
+
+def vectorize_simple(proc, loop, vw, precision, mem_type, instrs, patterns=[]):
+    proc = divide_loop_(proc, loop, vw, tail="cut")
+    proc = parallelize_reductions(proc, loop, ...)
+    inner = proc.forward(loop).body()[0]
+    proc = stage_compute(proc, inner, ..., patterns)
+    proc = fission_into_singles(proc, inner)
+    return replace_all_stmts(proc, instrs)

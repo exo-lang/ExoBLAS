@@ -11,12 +11,15 @@ import exo_blas_config as C
 from stdlib import *
 from codegen_helpers import *
 from blaslib import *
+from memories import *
 
 
 @proc
-def syrk_rm(Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], AT: [R][K, N], C: [R][N, N]):
+def syrk_rm(
+    Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A_: [R][N, K], AT: [R][K, N], AT_: [R][K, N], C: [R][N, N]
+):
     assert stride(A, 1) == 1
-    assert stride(A_alias, 1) == 1
+    assert stride(A_, 1) == 1
     assert stride(C, 1) == 1
 
     for i in seq(0, N):
@@ -24,88 +27,25 @@ def syrk_rm(Uplo: size, Trans: size, N: size, K: size, alpha: R, A: [R][N, K], A
             if (Uplo == CblasUpperValue and j >= i) or (Uplo == CblasLowerValue and j < i + 1):
                 for k in seq(0, K):
                     if Trans == CblasNoTransValue:
-                        C[i, j] += alpha * (A[i, k] * A_alias[j, k])
+                        C[i, j] += alpha * (A[i, k] * A_[j, k])
                     else:
-                        C[i, j] += alpha * (AT[k, i] * AT[k, j])
+                        C[i, j] += alpha * (AT[k, i] * AT_[k, j])
 
 
 @proc
-def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_alias: [R][N, K], C: [R][N, N]):
+def syrk_gemm(M: size, N: size, K: size, alpha: R, A: [R][N, K], A_: [R][N, K], C: [R][M, N]):
     assert stride(A, 1) == 1
-    assert stride(A_alias, 1) == 1
+    assert stride(A_, 1) == 1
     assert stride(C, 1) == 1
     assert M <= N
 
     for i in seq(0, M):
         for j in seq(0, N):
             for k in seq(0, K):
-                C[i, j] += alpha * (A[i, k] * A_alias[j, k])
+                C[i, j] += alpha * (A[i, k] * A_[j, k])
 
 
-def schedule_compute(compute, i_loop, precision, machine, m_r, n_r_fac):
-    return compute
-    vw = machine.vec_width(precision)
-    n_r = vw * n_r_fac
-    j_loop = get_inner_loop(compute, i_loop)
-    k_loop = get_inner_loop(compute, j_loop)
-    compute, cs = auto_stage_mem(compute, k_loop, "C", "C_tile", accum=True, rc=1)
-    compute = lift_reduce_constant(compute, cs.load.expand(0, 1))
-    assign = compute.forward(cs.store).prev()
-    compute = inline_assign(compute, assign)
-    compute = set_memory(compute, cs.alloc, machine.mem_type)
-
-    compute = tile_loops_bottom_up(compute, i_loop, (m_r, n_r, None), tail="guard")
-    compute = repeate_n(parallelize_and_lift_alloc)(compute, cs.alloc, n=4)
-    compute = fission(compute, compute.forward(cs.load).after(), n_lifts=4)
-    compute = fission(compute, compute.forward(cs.store).before(), n_lifts=4)
-    compute = repeate_n(lift_scope)(compute, k_loop, n=4)
-    compute = divide_dim(compute, cs.alloc, 1, vw)
-    init_i, cmp_i, axpy_i = compute.find_loop("ii", many=True)
-    init_j, cmp_j, axpy_j = compute.find_loop("ji", many=True)
-    compute = vectorize(compute, init_j, vw, precision, machine.mem_type, tail="perfect")
-    compute = unroll_loop(compute, init_j)
-    compute, (o_cmp_j, i_cmp_j, _) = divide_loop_(compute, cmp_j, vw, tail="perfect", rc=True)
-    compute = simplify(compute)
-    compute = vectorize(compute, i_cmp_j, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
-    compute = unroll_loop(compute, i_cmp_j)
-    compute = unroll_loop(compute, o_cmp_j)
-    compute, alpah_cursors = auto_stage_mem(compute, axpy_j.body(), "alpha", rc=True)
-    compute = vectorize(compute, axpy_j, vw, precision, machine.mem_type, patterns=[fma_rule], tail="perfect")
-    compute = unroll_loop(compute, axpy_j)
-    compute = simplify(compute)
-
-    def cut(proc, loop, cond, rng):
-        loop = proc.forward(loop)
-        cut_val = FormattedExprStr(f"_ - 1", loop.hi())
-        proc, (loop1, loop2) = cut_loop_(proc, loop, cut_val, rc=True)
-        proc = specialize(proc, loop2.body(), [f"{cond(loop2, i)} == {i}" for i in rng])
-        return proc
-
-    right_cond = lambda l, i: f"({m_r} * (io + 1) - {l.name()} * {n_r} + {vw - 1}) / {vw}"
-    compute = cut(compute, j_loop, right_cond, range(1, n_r_fac))
-    compute = dce(compute)
-    compute = replace_all_stmts(compute, machine.get_instructions(precision))
-
-    compute = simplify(unroll_loops(compute))
-    bottom_cond = lambda l, i: f"N - {l.name()} * {m_r}"
-    compute = cut(compute, i_loop, bottom_cond, range(m_r, 1, -1))
-
-    def rewrite(p, *args):
-        try:
-            p = delete_pass(p)
-        except:
-            pass
-        p = dce(p)
-        return simplify(p)
-
-    blocks = compute.find_loop("C_tile:_", many=True)
-    for i, tile in enumerate(blocks):
-        name = compute.name() + str(i)
-        compute = extract_and_schedule(rewrite)(compute, tile.expand(), name)
-    return simplify(compute)
-
-
-def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
+def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac, Trans):
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
 
@@ -115,34 +55,41 @@ def schedule_macro(mk, precision, machine, max_N, max_K, m_r, n_r_fac):
     mk_starter = mk
     mk = rename(mk, mk.name() + "_mk")
     i_loop = mk.body()[0]
-    packed_A_shape = ((0, ceil(max_N / m_r)), (1, max_K), (0, m_r))
-    mk, cursors = pack_mem(mk, i_loop, "A", packed_A_shape, "packed_A", rc=1)
-    mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
-    mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_pack")
+
+    isTrans = Trans == CblasTransValue
+    packed_A_shape = ((isTrans, ceil(max_N / m_r)), (1 - isTrans, max_K), (isTrans, m_r))
+    mk, cursors = pack_mem(mk, i_loop, mk.args()[3 + int("gemm" in mk.name())].name(), packed_A_shape, "packed_A", rc=1)
+    mk = set_memory(mk, cursors.alloc, ALIGNED_DRAM_STATIC)
+    mk, _ = extract_subproc(mk, cursors.load.as_block(), mk.name() + "_A_pack")
 
     # TODO: This packing step is doing more work the necessary (packing the whole matrix, not jus triangle)
-    packed_A_alias_shape = ((0, ceil(max_N / n_r)), (1, max_K), (0, n_r))
-    mk, cursors = pack_mem(mk, i_loop, "A_alias", packed_A_alias_shape, "packed_A_alias", rc=1)
-    mk = set_memory(mk, cursors.alloc, DRAM_STATIC)
-    mk, _ = extract_subproc(mk, cursors.load, mk.name() + "_A_alias_pack")
+    packed_A_alias_shape = ((isTrans, ceil(max_N / n_r)), (1 - isTrans, max_K), (isTrans, n_r))
+    mk, cursors = pack_mem(mk, i_loop, mk.args()[4 + int("gemm" in mk.name())].name(), packed_A_alias_shape, "packed_A_", rc=1)
+    mk = set_memory(mk, cursors.alloc, ALIGNED_DRAM_STATIC)
+    mk, _ = extract_subproc(mk, cursors.load.as_block(), mk.name() + "_A_alias_pack")
     mk = extract_and_schedule(schedule_compute)(mk, i_loop, mk.name() + "_compute", precision, machine, m_r, n_r_fac)
     return mk_starter, simplify(mk)
 
 
 def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Uplo=None, Trans=None):
-    if Uplo != CblasLowerValue or Trans != CblasNoTransValue:
+    if Uplo != CblasLowerValue:
         return proc
 
-    syrk_macro = schedule_macro(proc, precision, machine, N_tile, K_tile, m_r, n_r_fac)
+    syrk_macro = schedule_macro(proc, precision, machine, N_tile, K_tile, m_r, n_r_fac, Trans)
 
-    syrk_gemm_macro = specialize_precision(syrk_gemm, precision)
-    syrk_gemm_macro = schedule_macro(syrk_gemm_macro, precision, machine, N_tile, K_tile, m_r, n_r_fac)
+    gemm = syrk_gemm
+    if Trans == CblasTransValue:
+        gemm = gemm.transpose(gemm.args()[4])
+        gemm = gemm.transpose(gemm.args()[5])
+        gemm = rename(gemm, gemm.name() + "_t")
+    gemm = blas_specialize_precision(gemm, precision)
+    gemm = schedule_macro(gemm, precision, machine, N_tile, K_tile, m_r, n_r_fac, Trans)
 
     tiled = proc
     j_loop = get_inner_loop(tiled, i_loop)
     k_loop = get_inner_loop(tiled, j_loop)
-    tiled = repeate_n(lift_scope)(tiled, k_loop, n=2)
-    tiled = tile_loops_bottom_up(tiled, k_loop, [K_tile, N_tile, N_tile], tail="guard")
+    tiled = repeate_n(lift_scope)(tiled, k_loop, n=1)
+    tiled = tile_loops_bottom_up(tiled, i_loop, [N_tile, K_tile, N_tile], tail="guard1")
 
     # TODO: This code should be a part of tiling
     def rewrite(proc, loop):
@@ -156,31 +103,35 @@ def schedule(proc, i_loop, precision, machine, m_r, n_r_fac, N_tile, K_tile, Upl
             proc = unroll_loop(proc, loop2)
         return proc
 
-    tiled = apply(rewrite)(tiled, (j_loop, i_loop, k_loop))
+    tiled = apply(rewrite)(tiled, (j_loop, k_loop, i_loop))
     tiled = simplify(dce(tiled))
-    tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ki", many=True))
+
     tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ii", many=True))
+    tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ki", many=True))
     tiled = apply(attempt(bound_loop_by_if))(tiled, tiled.find_loop("ji", many=True))
     tiled = simplify(delete_pass(tiled))
 
-    tiled = apply(repeate_n(reorder_loops))(tiled, tiled.find_loop("ki", many=True), n=2)
-    tiled = replace_all_stmts(tiled, [syrk_macro, syrk_gemm_macro])
+    tiled = apply(repeate_n(reorder_loops))(tiled, tiled.find_loop("ki", many=True), n=1)
+    tiled = replace_all_stmts(tiled, [syrk_macro, gemm])
     tiled = inline_calls(tiled, subproc=syrk_macro[1])
-    tiled = inline_calls(tiled, subproc=syrk_gemm_macro[1])
+    tiled = inline_calls(tiled, subproc=gemm[1])
 
     tiled = apply(hoist_from_loop)(tiled, tiled.find_loop("jo", many=True))
     tiled = squash_buffers(tiled, tiled.find("packed_A : _", many=True))
-    tiled = squash_buffers(tiled, tiled.find("packed_A_alias : _", many=True))
+    tiled = squash_buffers(tiled, tiled.find("packed_A_ : _", many=True))
 
     return simplify(tiled)
 
 
-PARAMS = {"avx2": (2, 2, 32, 512), "avx512": (2, 2, 2, 512), "neon": (1, 1, 1, 1)}
+# Correct parameters
+# PARAMS = {"avx2": (4, 3, 20, 344), "avx512": (8, 3, 20 // 2, 344), "neon": (1, 1, 1, 1)}
+
+# For fast compilation
+PARAMS = {"avx2": (2, 2, 20, 344), "avx512": (2, 2, 20 // 2, 344), "neon": (1, 1, 1, 1)}
 
 m_r, n_r_fac, N_tile_fac, K_tile = PARAMS[C.Machine.name]
 n_r = n_r_fac * C.Machine.vec_width("f32")
-
 lcm = (m_r * n_r) // math.gcd(m_r, n_r)
-N_tile = lcm * N_tile_fac
+N_tile = n_r_fac * lcm
 
-variants_generator(schedule, ("f32",), ("avx2", "avx512"))(syrk_rm, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())
+variants_generator(schedule, targets=("avx2", "avx512"))(syrk_rm, "i", m_r, n_r_fac, N_tile, K_tile, globals=globals())

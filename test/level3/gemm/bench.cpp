@@ -65,16 +65,15 @@ static void args(benchmark::internal::Benchmark *b) {
   b->ArgNames({"M", "N", "K", "order", "TransA", "TransB", "alpha", "lda_diff",
                "ldb_diff", "beta", "ldc_diff", "alignmentA", "alignmentB",
                "alignmentC", "bench_type", "precision"});
-  for (int i = 1; i < level_3_max_N; i *= 2) {
+  for (int i = 1; i <= level_3_max_N; i *= 2) {
     add_arg(i, i, i);
   }
-  for (int i = 7; i < level_3_max_N; i *= 7) {
+  for (int i = 3; i <= level_3_max_N; i *= 3) {
     add_arg(i, i, i);
   }
-  for (int i = 100; i <= 4000; i += 100) {
-    add_arg(i, i, i);
-  }
-  add_arg((8192 / 4) * 4, (8192 / 24) * 24, 8192);
 }
 
 call_bench_all(gemm, CblasRowMajor, 0, 0, CblasNoTrans, CblasNoTrans, 0);
+call_bench_all(gemm, CblasRowMajor, 0, 0, CblasNoTrans, CblasTrans, 0);
+call_bench_all(gemm, CblasRowMajor, 0, 0, CblasTrans, CblasNoTrans, 0);
+call_bench_all(gemm, CblasRowMajor, 0, 0, CblasTrans, CblasTrans, 0);

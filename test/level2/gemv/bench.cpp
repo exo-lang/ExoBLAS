@@ -63,15 +63,15 @@ static void args(benchmark::internal::Benchmark *b) {
                "incY", "alignmentA", "alignmentX", "alignmentY", "bench_type",
                "precision"});
   for (int i = 1; i <= level_2_max_N; i *= 2) {
-    add_arg(i, i, BENCH_TYPES::level_2_eq);
+    add_arg(i, i, BENCH_TYPES::level_2_sq);
   }
-  for (int i = 7; i <= level_2_max_N; i *= 7) {
-    add_arg(i, i, BENCH_TYPES::level_2_eq);
+  for (int i = 3; i <= level_2_max_N; i *= 3) {
+    add_arg(i, i, BENCH_TYPES::level_2_sq);
   }
   for (int i = 1; i <= (1 << 25); i *= 2) {
     add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
   }
-  for (int i = 7; i <= (1 << 25); i *= 7) {
+  for (int i = 3; i <= (1 << 25); i *= 3) {
     add_arg(i, 40, BENCH_TYPES::level_2_N_skinny_40);
   }
 }

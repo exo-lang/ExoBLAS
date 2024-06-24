@@ -18,26 +18,34 @@ from pylab import rcParams
 is_paper = False
 
 if is_paper:
-    plt.rcParams['figure.figsize'] = 8*(3.33/6), 3.9*(3.33/6)
+    plt.rcParams["figure.figsize"] = 8 * (3.33 / 6), 3.9 * (3.33 / 6)
     rc_fonts = {
         "font.family": "serif",
         #'font.serif': 'Linux Libertine',
-        'font.serif': ['Linux Libertine', 'Linux Libertine O', 'Linux Libertine Display O', 'Linux Libertine Initials O', 'Linux Libertine Mono O'],
-        "pdf.fonttype" : 42,
-        "ps.fonttype" : 42
+        "font.serif": [
+            "Linux Libertine",
+            "Linux Libertine O",
+            "Linux Libertine Display O",
+            "Linux Libertine Initials O",
+            "Linux Libertine Mono O",
+        ],
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
     }
     plt.rcParams.update(rc_fonts)
-    plt.rcParams.update({
-        'axes.labelpad': 1,
-        #'axes.labelsize': 7,
-        'axes.linewidth': 0.5,
-        #'grid.linewidth': 0.5,
-        #'lines.linewidth': 0.75,
-        'xtick.major.pad': 0.5,
-        'xtick.major.width': 0.5,
-        'ytick.major.pad': 0.5,
-        'ytick.major.width': 0.5,
-    })
+    plt.rcParams.update(
+        {
+            "axes.labelpad": 1,
+            #'axes.labelsize': 7,
+            "axes.linewidth": 0.5,
+            #'grid.linewidth': 0.5,
+            #'lines.linewidth': 0.75,
+            "xtick.major.pad": 0.5,
+            "xtick.major.width": 0.5,
+            "ytick.major.pad": 0.5,
+            "ytick.major.width": 0.5,
+        }
+    )
 
 SCRIPT_PATH = Path(__file__)
 ROOT_PATH = SCRIPT_PATH.parent.parent.parent.resolve()
@@ -48,6 +56,7 @@ PEAKS_JSON = GRAPHING_ROOT / "peaks.json"
 
 BENCHMARK_JSONS_DIR = ROOT_PATH / "benchmark_results"
 
+BACKEND = "AVX2"
 if is_paper:
     EXOBLAS_NAME = "AIRxo"
 else:
@@ -198,7 +207,7 @@ def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
     some_point = next(iter(data.values()))[0]
 
     plt.xlabel(some_point.get_graph_description())
-    plt.title(some_point.sub_kernel_name)
+    plt.title(some_point.sub_kernel_name + f" ({BACKEND})")
 
     sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
     sub_kernel_dir.mkdir(parents=True, exist_ok=True)
@@ -236,7 +245,7 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
     plt.ylabel(unit)
 
     plt.xlabel(some_point.get_graph_description())
-    plt.title(some_point.sub_kernel_name)
+    plt.title(some_point.sub_kernel_name + f" ({BACKEND})")
 
     sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
     sub_kernel_dir.mkdir(parents=True, exist_ok=True)
@@ -285,6 +294,8 @@ def to_superscript(n):
 
 
 def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
+    print(f"{level}, {bench_type}, {lib} ")
+
     def aggregate(data):
         data = np.array(data)
         return data.prod() ** (1.0 / len(data))
@@ -301,7 +312,18 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
 
         cmap = mcolors.LinearSegmentedColormap.from_list("custom_colormap", ["red", "lightgreen", "green"], N=256)
 
-        ax = sns.heatmap(data, annot=True, cbar=False, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap, vmin=0.8, vmax=1.2, annot_kws={'fontweight' : 'bold'})
+        ax = sns.heatmap(
+            data,
+            annot=True,
+            cbar=False,
+            fmt=".2f",
+            xticklabels=ranges,
+            yticklabels=sub_kernels,
+            cmap=cmap,
+            vmin=0.8,
+            vmax=1.2,
+            annot_kws={"fontweight": "bold"},
+        )
 
         # Place the ticks in-between the columns
         tick_positions = np.arange(data.shape[1] + 1)
@@ -313,20 +335,22 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.tick_params(axis="y", which="both", length=0)
 
         level_name = level.__name__.replace("_", " ").capitalize()
-        plt.title(f"Runtime of {lib} / " + EXOBLAS_NAME)
+        plt.title(f"{level_name} Geomean of runtime of {lib} / {EXOBLAS_NAME}" + f" ({BACKEND})")
         plt.xlabel("N")
 
         if is_paper:
-            plt.subplots_adjust(bottom=0.22, left=.17)
-            ax.axhline(y=0, color='k',linewidth=2)
-            ax.axhline(y=6, color='k',linewidth=2)
-            ax.axvline(x=0, color='k',linewidth=2)
-            ax.axvline(x=8, color='k',linewidth=2)
+            plt.subplots_adjust(bottom=0.22, left=0.17)
+            ax.axhline(y=0, color="k", linewidth=2)
+            ax.axhline(y=6, color="k", linewidth=2)
+            ax.axvline(x=0, color="k", linewidth=2)
+            ax.axvline(x=8, color="k", linewidth=2)
         else:
             plt.ylabel("Kernel Names")
             plt.figure(figsize=(9, 9), dpi=200)
 
-        filename = f"{level.__name__}_p{p}_disc_gmean_{lib}_x_" + EXOBLAS_NAME + "."
+        level_dir = GRAPHS_DIR / "all" / level.__name__
+        level_dir.mkdir(parents=True, exist_ok=True)
+        filename = level_dir / f"{bench_type.name}_p{p}_disc_gmean_{lib}_x_ExoBLAS"
         png_path = GRAPHS_DIR / "all" / (filename + "png")
         pdf_path = GRAPHS_DIR / "all" / (filename + "pdf")
 
