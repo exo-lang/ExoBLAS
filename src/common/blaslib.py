@@ -255,17 +255,15 @@ def cache(func):
         print("Looking for: ")
         print(proc)
         for p, sched_p in gcache:
-            proc, success = attempt(replace)(proc, proc.body(), p, quiet=True, rs=True)
-            if not success:
-                proc_renamed = rename(proc, "dummy")
-                p_renamed = rename(p, "dummy")
-                if str(proc_renamed) == str(p_renamed):
-                    sched_p.unsafe_assert_eq(sched_p)
-                    return sched_p
-                continue
-            print("Found in Cache")
-            proc = call_eqv(proc, proc.body()[0], sched_p)
-            return proc
+            proc_renamed = rename(proc, "dummy")
+            p_renamed = rename(p, "dummy")
+            if str(proc_renamed) == str(p_renamed):
+                proc, success = attempt(replace)(proc, proc.body(), p, quiet=True, rs=True)
+                if not success:
+                    continue
+                proc = call_eqv(proc, proc.body()[0], sched_p)
+                print("Found in Cache")
+                return proc
         print("Not found in cache")
         sched_proc = func(proc, *args, **kwargs)
         gcache.append((proc, sched_proc))
@@ -276,7 +274,6 @@ def cache(func):
 
 @cache
 def schedule_compute(proc, i_loop, precision, machine, m_r, n_r_fac):
-    return proc
     vw = machine.vec_width(precision)
     n_r = vw * n_r_fac
 

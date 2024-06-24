@@ -61,7 +61,12 @@ def gemm(M: size, N: size, K: size, alpha: R, A: [R][M, K], B: [R][N, K], C: [R]
 
 def schedule(main_symm, i_loop, precision, machine, m_r, n_r_fac, M_tile, N_tile, K_tile, Side=None, Uplo=None):
     gemm_macro_spec = blas_specialize_precision(gemm, precision)
+    sfx = ""
+    sfx += "r" if Side == CblasRightValue else "l"
+    sfx += "u" if Uplo == CblasUpperValue else "l"
+    gemm_macro_spec = rename(gemm_macro_spec, gemm_macro_spec.name() + sfx)
     gemm_macro = schedule_compute(gemm_macro_spec, gemm_macro_spec.body()[0], precision, machine, m_r, n_r_fac)
+    gemm_macro = gemm_macro_spec
 
     symm_tiled = main_symm
     k_loop = get_inner_loop(symm_tiled, get_inner_loop(symm_tiled, i_loop))
