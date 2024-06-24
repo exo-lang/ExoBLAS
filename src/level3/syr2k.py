@@ -57,4 +57,4 @@ def schedule(syr2k, loop, precision, machine, Uplo=None, Trans=None):
     return schedule_compute(syr2k, syr2k.body()[0], precision, machine, m_r, n_r_fac)
 
 
-variants_generator(schedule)(syr2k_rm, "i", globals=globals())
+variants_generator(schedule, targets=("avx2", "avx512"))(syr2k_rm, "i", globals=globals())
