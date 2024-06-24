@@ -49,14 +49,14 @@ function(add_exo_blas_test level kernel precision)
   set(benchmark_min_warmup_time "--benchmark_min_warmup_time=1")
   set(benchmark_min_time "--benchmark_min_time=1s")
 
-  add_test(NAME cblas_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=cblas|CBLAS ${benchmark_min_warmup_time} ${benchmark_min_time})
+  add_test(NAME cblas_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=cblas|CBLAS)
   set_tests_properties(
     cblas_${precision_kernel}_bench
     PROPERTIES
-    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=console;BENCHMARK_OUT=${bla_vendor_benchmark_json_output};MKL_ENABLE_INSTRUCTIONS=${MKL_ENABLE_INSTRUCTIONS}"
+    ENVIRONMENT "OPENBLAS_NUM_THREADS=1;MKL_NUM_THREADS=1;VECLIB_MAXIMUM_THREADS=1;BENCHMARK_FORMAT=console;BENCHMARK_OUT=${bla_vendor_benchmark_json_output};MKL_ENABLE_INSTRUCTIONS=${MKL_ENABLE_INSTRUCTIONS};OPENBLAS_CORETYPE=${OPENBLAS_CORETYPE}"
   )
 
-  add_test(NAME exo_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=exo|EXO ${benchmark_min_warmup_time} ${benchmark_min_time})
+  add_test(NAME exo_${precision_kernel}_bench COMMAND ${precision_kernel}_bench --benchmark_filter=exo|EXO)
   set_tests_properties(
     exo_${precision_kernel}_bench
     PROPERTIES

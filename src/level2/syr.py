@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from exo import *
 
-from blaslib import *
 from codegen_helpers import *
+from blaslib import *
 from cblas_enums import *
 
 

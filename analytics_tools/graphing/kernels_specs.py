@@ -127,7 +127,7 @@ class rotm(level_1_double_vec):
         run_dict = run_name_to_dict(run_name)
 
         self.FLAG = int(run_dict["Flag"])
-        self.sub_kernel_name += f", Flag = {self.FLAG}"
+        self.sub_kernel_name += f"({self.FLAG})"
 
     def get_flops(self):
         if self.FLAG == -2:

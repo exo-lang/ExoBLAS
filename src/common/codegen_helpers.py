@@ -17,14 +17,7 @@ from exo_blas_config import Machine
 from perf_features import *
 from stdlib import *
 from cblas_enums import *
-
-
-def blas_specialize_precision(proc, precision, all_buffs=True):
-    assert precision in {"f32", "f64"}
-    prefix = "s" if precision == "f32" else "d"
-    template_name = proc.name()
-    proc = rename(proc, prefix + template_name)
-    return specialize_precision(proc, precision, all_buffs)
+from blaslib import blas_specialize_precision
 
 
 def generate_stride_any_proc(proc):

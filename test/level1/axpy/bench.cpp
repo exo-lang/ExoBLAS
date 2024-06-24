@@ -40,7 +40,7 @@ static void args(benchmark::internal::Benchmark *b) {
   b->ArgNames({"N", "alpha", "incX", "incY", "alignmentX", "alignmentY",
                "bench_type", "precision"});
   add_args(level_1_pow_2);
-  add_args(level_1_pow_7);
+  add_args(level_1_pow_3);
 }
 
 call_bench_all(axpy);

@@ -57,6 +57,9 @@ void run() {
       }
     }
   }
+  for (int i = 1; i <= 1 << 14; i *= 2) {
+    test_ger<T>(CblasRowMajor, i, 40, 17, 1, 1, 40);
+  }
 }
 
 int main() {
