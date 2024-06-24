@@ -6,9 +6,46 @@ import importlib
 import numpy as np
 import seaborn as sns
 import matplotlib.colors as mcolors
+import matplotlib.font_manager
 
 from misc import *
 from kernels_specs import level_1, level_2, level_3
+
+from pylab import rcParams
+
+
+# !!! change for the paper !!
+is_paper = False
+
+if is_paper:
+    plt.rcParams["figure.figsize"] = 8 * (3.33 / 6), 3.9 * (3.33 / 6)
+    rc_fonts = {
+        "font.family": "serif",
+        #'font.serif': 'Linux Libertine',
+        "font.serif": [
+            "Linux Libertine",
+            "Linux Libertine O",
+            "Linux Libertine Display O",
+            "Linux Libertine Initials O",
+            "Linux Libertine Mono O",
+        ],
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
+    }
+    plt.rcParams.update(rc_fonts)
+    plt.rcParams.update(
+        {
+            "axes.labelpad": 1,
+            #'axes.labelsize': 7,
+            "axes.linewidth": 0.5,
+            #'grid.linewidth': 0.5,
+            #'lines.linewidth': 0.75,
+            "xtick.major.pad": 0.5,
+            "xtick.major.width": 0.5,
+            "ytick.major.pad": 0.5,
+            "ytick.major.width": 0.5,
+        }
+    )
 
 SCRIPT_PATH = Path(__file__)
 ROOT_PATH = SCRIPT_PATH.parent.parent.parent.resolve()
@@ -20,6 +57,10 @@ PEAKS_JSON = GRAPHING_ROOT / "peaks.json"
 BENCHMARK_JSONS_DIR = ROOT_PATH / "benchmark_results"
 
 BACKEND = "AVX2"
+if is_paper:
+    EXOBLAS_NAME = "AIRxo"
+else:
+    EXOBLAS_NAME = "ExoBLAS"
 
 
 def get_peaks_json():
@@ -65,7 +106,7 @@ def rename_lib(dir_name):
     if lib_name == "Intel10_64lp_seq":
         lib_name = "MKL"
     elif lib_name == "exo" or lib_name == "Exo":
-        lib_name = "ExoBLAS"
+        lib_name = EXOBLAS_NAME
     elif lib_name == "All":
         lib_name = "OpenBLAS"
     return lib_name
@@ -208,7 +249,7 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
 
     sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
     sub_kernel_dir.mkdir(parents=True, exist_ok=True)
-    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_flops_throughput.png"
+    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_flops_throughput.gdf"
     plt.savefig(filename)
 
 
@@ -241,6 +282,7 @@ def prepare_heatmap_data(aggregated):
     array = array[:, non_zero_columns]
     ranges = np.array(ranges)
     ranges = ranges[non_zero_columns]
+    functions = [key + " " for key in functions]
     return array, functions, ranges
 
 
@@ -269,8 +311,19 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         data, sub_kernels, ranges = prepare_heatmap_data(agg_heatmap_data)
 
         cmap = mcolors.LinearSegmentedColormap.from_list("custom_colormap", ["red", "lightgreen", "green"], N=256)
-        plt.figure(figsize=(9, 9), dpi=200)
-        sns.heatmap(data, annot=True, fmt=".2f", xticklabels=ranges, yticklabels=sub_kernels, cmap=cmap, vmin=0.7, vmax=1.3)
+
+        ax = sns.heatmap(
+            data,
+            annot=True,
+            cbar=False,
+            fmt=".2f",
+            xticklabels=ranges,
+            yticklabels=sub_kernels,
+            cmap=cmap,
+            vmin=0.8,
+            vmax=1.2,
+            annot_kws={"fontweight": "bold"},
+        )
 
         # Place the ticks in-between the columns
         tick_positions = np.arange(data.shape[1] + 1)
@@ -282,14 +335,27 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.tick_params(axis="y", which="both", length=0)
 
         level_name = level.__name__.replace("_", " ").capitalize()
-        plt.title(f"{level_name} Geomean of runtime of {lib} / ExoBLAS" + f" ({BACKEND})")
+        plt.title(f"{level_name} Geomean of runtime of {lib} / {EXOBLAS_NAME}" + f" ({BACKEND})")
         plt.xlabel("N")
-        plt.ylabel("Kernel Names")
+
+        if is_paper:
+            plt.subplots_adjust(bottom=0.22, left=0.17)
+            ax.axhline(y=0, color="k", linewidth=2)
+            ax.axhline(y=6, color="k", linewidth=2)
+            ax.axvline(x=0, color="k", linewidth=2)
+            ax.axvline(x=8, color="k", linewidth=2)
+        else:
+            plt.ylabel("Kernel Names")
+            plt.figure(figsize=(9, 9), dpi=200)
 
         level_dir = GRAPHS_DIR / "all" / level.__name__
         level_dir.mkdir(parents=True, exist_ok=True)
-        filename = level_dir / f"{bench_type.name}_p{p}_disc_gmean_{lib}_x_ExoBLAS.png"
-        plt.savefig(filename)
+        filename = level_dir / f"{bench_type.name}_p{p}_disc_gmean_{lib}_x_ExoBLAS"
+        png_path = GRAPHS_DIR / "all" / (filename + "png")
+        pdf_path = GRAPHS_DIR / "all" / (filename + "pdf")
+
+        plt.savefig(png_path)
+        plt.savefig(pdf_path)
 
 
 def plot_speedup_heatmap(parsed_jsons):
@@ -302,20 +368,20 @@ def plot_speedup_heatmap(parsed_jsons):
                 new_data.setdefault(bench_type, {})[sub_kernel] = data
                 libs |= data.keys()
 
-    libs.remove("ExoBLAS")
+    libs.remove(EXOBLAS_NAME)
     for bench_type in new_data:
         for lib in libs:
             for level in (level_1, level_2, level_3):
                 heatmap_data = []
                 for sub_kernel in new_data[bench_type]:
-                    if "ExoBLAS" not in new_data[bench_type][sub_kernel]:
+                    if EXOBLAS_NAME not in new_data[bench_type][sub_kernel]:
                         continue
                     if lib not in new_data[bench_type][sub_kernel]:
                         continue
                     if not isinstance(new_data[bench_type][sub_kernel][lib][0], level):
                         continue
                     lib_data = sorted(new_data[bench_type][sub_kernel][lib])
-                    exoblas_data = sorted(new_data[bench_type][sub_kernel]["ExoBLAS"])
+                    exoblas_data = sorted(new_data[bench_type][sub_kernel][EXOBLAS_NAME])
 
                     lib_data_x = [run.get_size_param() for run in lib_data]
                     exoblas_data_x = [run.get_size_param() for run in exoblas_data]
