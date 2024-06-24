@@ -40,6 +40,7 @@ def syr2k_rm(
 
 
 def schedule(syr2k, loop, precision, machine, Uplo=None, Trans=None):
+    return syr2k
     if Uplo != CblasLowerValue or Trans != CblasNoTransValue:
         return syr2k
 
