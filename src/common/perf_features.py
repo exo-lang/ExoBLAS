@@ -88,7 +88,7 @@ def count_flops(proc, upper=False):
 
     def get_expr_ops(proc, expr):
         expr = proc.forward(expr)
-        if isinstance(expr, (BuiltInFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
+        if isinstance(expr, (ExternFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
             children_ops = sum(get_expr_ops(proc, c) for c in get_numeric_children(proc, expr))
             return one + children_ops
         return zero
@@ -135,7 +135,7 @@ def _count_mem_traffic(proc, loads, upper=False):
 
     def get_expr_loads(proc, expr):
         expr = proc.forward(expr)
-        if isinstance(expr, (BuiltInFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
+        if isinstance(expr, (ExternFunctionCursor, BinaryOpCursor, UnaryMinusCursor)):
             return sum(get_expr_loads(proc, c) for c in get_numeric_children(proc, expr))
         elif isinstance(expr, ReadCursor):
             return get_bytes_traffic(proc, expr)

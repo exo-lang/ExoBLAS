@@ -132,7 +132,7 @@ def export_exo_proc(globals, proc):
 def bind_builtins_args(proc, block, precision):
     stmt = InvalidCursor()
     for c in nlr(proc, block):
-        if isinstance(c, BuiltInFunctionCursor):
+        if isinstance(c, ExternFunctionCursor):
             for arg in c.args():
                 proc = bind_expr(proc, arg, "arg")
                 stmt = proc.forward(stmt)

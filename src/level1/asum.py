@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from exo import *
 from exo.platforms.x86 import *
+from exo.libs.externs import select
 
 from codegen_helpers import *
 from blaslib import *
