@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from exo import *
 from exo.API_cursors import *
-from exo.syntax import *
+from exo.frontend.syntax import *
 from exo.libs.externs import select
 
 from stdlib import *
