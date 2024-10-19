@@ -7,7 +7,7 @@ import inspect
 from exo import *
 from exo.libs.memories import *
 from exo.platforms.neon import *
-from exo.syntax import *
+from exo.frontend.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 

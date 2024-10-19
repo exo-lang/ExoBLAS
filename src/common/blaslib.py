@@ -5,7 +5,7 @@ from exo import *
 from exo.libs.memories import DRAM_STATIC
 from exo.platforms.x86 import *
 from exo.platforms.neon import *
-from exo.syntax import *
+from exo.frontend.syntax import *
 from exo.stdlib.scheduling import *
 from exo.API_cursors import *
 
