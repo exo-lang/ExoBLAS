@@ -1,4 +1,7 @@
-# Exo BLAS
+# ExoBLAS
+
+ExoBLAS is a BLAS library implemented with [Exo](https://github.com/exo-lang/exo).
+The library design documentation and the performance graphs compared against OpenBLAS and MKL can be found in [Samir Droubi's thesis](https://dspace.mit.edu/handle/1721.1/156752).
 
 ## Install dependencies
 
