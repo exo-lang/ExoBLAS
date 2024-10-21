@@ -1,4 +1,7 @@
-# Exo BLAS
+# ExoBLAS
+
+ExoBLAS is a BLAS library implemented with [Exo](https://github.com/exo-lang/exo).
+The library design documentation and the performance graphs compared against OpenBLAS and MKL can be found in [Samir Droubi's thesis](https://dspace.mit.edu/handle/1721.1/156752).
 
 ## Install dependencies
 
@@ -37,12 +40,14 @@ If you prefer to keep your `~/.local` clean, you can install
 elsewhere and set `CMAKE_PREFIX_PATH` to that directory in your
 environment.
 
+Additionally, the following dependencies are required:
+- CMake version 3.23 or higher
+- Ninja (on Ubuntu, install with `apt install ninja-build`)
+- A CBLAS reference implementation, such as OpenBLAS (on Ubuntu, install with `apt install libopenblas-dev`) or MKL
+
 ## Building Exo BLAS
 
-We use CMake and its presets feature to ease configuration. There
-are currently three presets, but `cmake --list-presets` will always
-show the current list:
-
+We use CMake and its presets feature to ease configuration. We currently support four presets, but `cmake --list-presets` will always show the current list:
 ```
 $ cmake --list-presets
 Available configure presets:
@@ -50,10 +55,16 @@ Available configure presets:
   "apple-silicon" - Apple M1 or M2 mac
   "linux-arm64"   - Linux AArch64
   "avx2"          - Intel AVX2
+  "avx512"        - Intel AVX512
 ```
 
-For example, to use `apple-silicon`, you would run:
+For example, to build ExoBLAS targeting AVX512 instructions, run:
+```
+cmake --preset avx512
+cmake --build build/avx512
+```
 
+To target Apple M series with Neon, run:
 ```
 cmake --preset apple-silicon
 cmake --build build/apple-silicon
