@@ -41,9 +41,9 @@ elsewhere and set `CMAKE_PREFIX_PATH` to that directory in your
 environment.
 
 Additionally, the following dependencies are required:
-- cmake with version 3.23 or higher is required.
-- Install Ninja (on Ubuntu it's `apt install ninja-build`)
-- Install cblas reference, such as OpenBLAS (on Ubuntu it's `apt install libopenblas-dev`) or MKL.
+- CMake version 3.23 or higher
+- Ninja (on Ubuntu, install with `apt install ninja-build`)
+- A CBLAS reference implementation, such as OpenBLAS (on Ubuntu, install with `apt install libopenblas-dev`) or MKL
 
 ## Building Exo BLAS
 
