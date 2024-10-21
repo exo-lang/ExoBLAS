@@ -32,10 +32,18 @@ cmake --build build/avx2 --target exo_[KERNEL] # to build the binary for this ke
 cmake --build build/avx2 --target [KERNEL]_correctness # to build the correctness test for this kernel
 cmake --build build/avx2 --target [KERNEL]_bench # to build the bench test for this kernel
 ```
-If you want to benchmark against a new library, you need to run:
+
+If you want to benchmark against a different BLAS library (e.g., MKL), run:
 ```
 cmake --preset avx2 -DBLA_VENDOR=[OTHER_LIB]
 ```
+For example,
+```
+$ cmake --preset avx2 -DBLA_VENDOR=OpenBLAS # use OpenBLAS as a reference
+$ cmake --preset avx2 -DBLA_VENDOR=Intel10_64lp_seq # Use MKL as a reference
+```
+
+
 Then, recompile the benchmark test:
 ```
 cmake --build build/avx2 --target [KERNEL]_bench
