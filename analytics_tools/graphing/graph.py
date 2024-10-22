@@ -13,39 +13,33 @@ from kernels_specs import level_1, level_2, level_3
 
 from pylab import rcParams
 
-
-# !!! change for the paper !!
-is_paper = True
-
-if is_paper:
-    plt.rcParams["figure.figsize"] = 8 * (3.33 / 6), 3.9 * (3.33 / 6)
-    rc_fonts = {
-        "font.family": "serif",
-        #'font.serif': 'Linux Libertine',
-        "font.serif": [
-            "Linux Libertine",
-            "Linux Libertine O",
-            "Linux Libertine Display O",
-            "Linux Libertine Initials O",
-            "Linux Libertine Mono O",
-        ],
-        "pdf.fonttype": 42,
-        "ps.fonttype": 42,
+rc_fonts = {
+    "font.family": "serif",
+    #'font.serif': 'Linux Libertine',
+    "font.serif": [
+        "Linux Libertine",
+        "Linux Libertine O",
+        "Linux Libertine Display O",
+        "Linux Libertine Initials O",
+        "Linux Libertine Mono O",
+    ],
+    "pdf.fonttype": 42,
+    "ps.fonttype": 42,
+}
+plt.rcParams.update(rc_fonts)
+plt.rcParams.update(
+    {
+        "axes.labelpad": 1,
+        #'axes.labelsize': 7,
+        "axes.linewidth": 0.5,
+        #'grid.linewidth': 0.5,
+        #'lines.linewidth': 0.75,
+        "xtick.major.pad": 0.5,
+        "xtick.major.width": 0.5,
+        "ytick.major.pad": 0.5,
+        "ytick.major.width": 0.5,
     }
-    plt.rcParams.update(rc_fonts)
-    plt.rcParams.update(
-        {
-            "axes.labelpad": 1,
-            #'axes.labelsize': 7,
-            "axes.linewidth": 0.5,
-            #'grid.linewidth': 0.5,
-            #'lines.linewidth': 0.75,
-            "xtick.major.pad": 0.5,
-            "xtick.major.width": 0.5,
-            "ytick.major.pad": 0.5,
-            "ytick.major.width": 0.5,
-        }
-    )
+)
 
 SCRIPT_PATH = Path(__file__)
 ROOT_PATH = SCRIPT_PATH.parent.parent.parent.resolve()
@@ -54,14 +48,10 @@ GRAPHING_ROOT = SCRIPT_PATH.parent.resolve()
 GRAPHS_DIR = GRAPHING_ROOT / "graphs"
 PEAKS_JSON = GRAPHING_ROOT / "peaks.json"
 
-BENCHMARK_JSONS_DIR = ROOT_PATH / "benchmark_results"
+#BENCHMARK_JSONS_DIR = ROOT_PATH / "avx2_benchmark_results_level1"
+#BACKEND = "AVX2"
 
-BACKEND = "AVX2"
-if is_paper:
-    EXOBLAS_NAME = "AIRxo"
-else:
-    EXOBLAS_NAME = "ExoBLAS"
-
+EXOBLAS_NAME = "Exo 2"
 
 def get_peaks_json():
     if PEAKS_JSON.exists():
@@ -78,22 +68,25 @@ def kernel_graphs_dir(kernel):
 
 
 def help_msg():
-    print("python graph.py <kernel name> <verbose?>!")
+    print("python graph.py <kernel name> <backend name (AVX2 or AVX512)> <benchmark dir>")
     exit(1)
 
 
 def check_args():
-    if len(sys.argv) > 3:
+    if len(sys.argv) > 5:
         help_msg()
 
 
 def parse_args():
     check_args()
     kernel = sys.argv[1]
-    verbose = False
-    if len(sys.argv) > 2:
-        verbose = bool(sys.argv[2])
-    return kernel, verbose
+
+    global BACKEND
+    global BENCHMARK_JSONS_DIR
+    BACKEND = sys.argv[2]
+    BENCHMARK_JSONS_DIR = ROOT_PATH / sys.argv[3]
+
+    return kernel
 
 
 def init_directories(kernel):
@@ -215,7 +208,7 @@ def plot_bandwidth_throughput(kernel, data, peaks, loads=True):
     plt.savefig(filename)
 
 
-def plot_flops_throughput(kernel, data, peaks, verbose):
+def plot_flops_throughput(kernel, data, peaks):
     bench_type, data = data
     plt.clf()
 
@@ -231,10 +224,10 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
         assert len(runs) == len(set(runs))  # No duplicates
         x = [run.get_size_param() for run in sorted_runs]
         y = [run.get_gflops_per_sec() for run in sorted_runs]
-        if verbose:
-            print(libname, some_point.sub_kernel_name, bench_type.name, ": ")
-            for s, flops in zip(x, y):
-                print(s, flops)
+        #if verbose:
+        #    print(libname, some_point.sub_kernel_name, bench_type.name, ": ")
+        #    for s, flops in zip(x, y):
+        #        print(s, flops)
         plt.plot(x, y, label=libname)
 
     plt.legend()
@@ -296,6 +289,10 @@ def to_superscript(n):
 def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
     print(f"{level}, {bench_type}, {lib} ")
 
+    if bench_type.name.find("skinny"):
+        plt.rcParams["figure.figsize"] = 8 * (3.33 / 6), 3.9 * (3.33 / 6)
+        plt.subplots_adjust(bottom=0.22, left=0.17)
+
     def aggregate(data):
         data = np.array(data)
         return data.prod() ** (1.0 / len(data))
@@ -338,15 +335,11 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.title(f"{level_name} Geomean of runtime of {lib} / {EXOBLAS_NAME}" + f" ({BACKEND})")
         plt.xlabel("N")
 
-        if is_paper:
-            plt.subplots_adjust(bottom=0.22, left=0.17)
-            ax.axhline(y=0, color="k", linewidth=2)
-            ax.axhline(y=6, color="k", linewidth=2)
-            ax.axvline(x=0, color="k", linewidth=2)
-            ax.axvline(x=8, color="k", linewidth=2)
-        else:
-            plt.ylabel("Kernel Names")
-            plt.figure(figsize=(9, 9), dpi=200)
+        nrows, ncols = data.shape
+        ax.axhline(y=0, color="k", linewidth=2)
+        ax.axhline(y=nrows, color="k", linewidth=2)
+        ax.axvline(x=0, color="k", linewidth=2)
+        ax.axvline(x=ncols, color="k", linewidth=2)
 
         level_dir = GRAPHS_DIR / "all" / level.__name__
         level_dir.mkdir(parents=True, exist_ok=True)
@@ -409,7 +402,7 @@ def plot_kernel(kernel, parsed_jsons, peaks):
         for data in bench_type_dict.items():
             plot_bandwidth_throughput(kernel, data, peaks, loads=True)
             plot_bandwidth_throughput(kernel, data, peaks, loads=False)
-            plot_flops_throughput(kernel, data, peaks, verbose)
+            plot_flops_throughput(kernel, data, peaks)
 
 
 def plot_all(parsed_jsons, peaks):
@@ -418,7 +411,7 @@ def plot_all(parsed_jsons, peaks):
 
 if __name__ == "__main__":
     check_args()
-    kernel, verbose = parse_args()
+    kernel = parse_args()
 
     init_directories(kernel)
     jsons = get_jsons(kernel)
@@ -430,3 +423,5 @@ if __name__ == "__main__":
         plot_kernel(kernel, parsed_jsons, peaks)
     else:
         plot_all(parsed_jsons, peaks)
+
+

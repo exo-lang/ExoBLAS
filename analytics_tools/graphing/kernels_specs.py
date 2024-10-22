@@ -279,6 +279,58 @@ class trsv(trmv):
     pass
 
 
+class ssbmv(level_2):
+    def get_flops(self):
+        # Number of floating point operations required
+        # Each non-zero element in A results in one multiplication and one addition
+        # Total flops = 2 * N * (K + 1)
+        return 2 * self.N * (self.K + 1)
+
+    def get_input_bytes(self):
+        # Amount of input data in bytes
+        # Input bytes = [A elements + x elements + y elements] * element size
+        elem_bytes = get_elem_bytes(self.precision)
+        return (self.N * (self.K + 1) + 2 * self.N) * elem_bytes
+
+    def get_loaded_bytes(self):
+        # Total amount of data loaded from memory during computation
+        # Loaded bytes = [A elements + x elements + y elements accessed during computation] * element size
+        # Each element in x is accessed approximately (K + 1) times
+        elem_bytes = get_elem_bytes(self.precision)
+        total_elements_accessed = self.N * (self.K + 1) + self.N * (self.K + 1) + self.N
+        return total_elements_accessed * elem_bytes
+
+    def get_stored_bytes(self):
+        # Total amount of data stored to memory
+        # Stored bytes = y elements * element size
+        elem_bytes = get_elem_bytes(self.precision)
+        return self.N * elem_bytes
+
+class stbsv(level_2):
+    def get_flops(self):
+        # Number of floating point operations required
+        # Total flops = K * (2N - K - 1)
+        return self.K * (2 * self.N - self.K - 1)
+
+    def get_input_bytes(self):
+        # Amount of input data in bytes
+        # Input bytes = [A elements + x elements] * element size
+        elem_bytes = get_elem_bytes(self.precision)
+        return (self.N * (self.K + 1) + self.N) * elem_bytes
+
+    def get_loaded_bytes(self):
+        # Total amount of data loaded from memory
+        # Loaded bytes = [A elements + x elements accessed during computation] * element size
+        elem_bytes = get_elem_bytes(self.precision)
+        return self.N * (2 * self.K + 1) * elem_bytes
+
+    def get_stored_bytes(self):
+        # Total amount of data stored to memory
+        # Stored bytes = x elements * element size
+        elem_bytes = get_elem_bytes(self.precision)
+        return self.N * elem_bytes
+
+
 class symv(level_2):
     def get_flops(self):
         return self.N * (self.N + 1) * 2
