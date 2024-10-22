@@ -15,7 +15,7 @@ from pylab import rcParams
 
 
 # !!! change for the paper !!
-is_paper = False
+is_paper = True
 
 if is_paper:
     plt.rcParams["figure.figsize"] = 8 * (3.33 / 6), 3.9 * (3.33 / 6)
@@ -249,7 +249,7 @@ def plot_flops_throughput(kernel, data, peaks, verbose):
 
     sub_kernel_dir = GRAPHS_DIR / kernel / some_point.sub_kernel_name
     sub_kernel_dir.mkdir(parents=True, exist_ok=True)
-    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_flops_throughput.gdf"
+    filename = sub_kernel_dir / f"{some_point.sub_kernel_name}_{bench_type.name}_flops_throughput.pdf"
     plt.savefig(filename)
 
 
@@ -351,8 +351,8 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         level_dir = GRAPHS_DIR / "all" / level.__name__
         level_dir.mkdir(parents=True, exist_ok=True)
         filename = level_dir / f"{bench_type.name}_p{p}_disc_gmean_{lib}_x_ExoBLAS"
-        png_path = GRAPHS_DIR / "all" / (filename + "png")
-        pdf_path = GRAPHS_DIR / "all" / (filename + "pdf")
+        png_path = filename.with_suffix('.png')
+        pdf_path = filename.with_suffix('.pdf')
 
         plt.savefig(png_path)
         plt.savefig(pdf_path)
