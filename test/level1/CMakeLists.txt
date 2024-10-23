@@ -1,4 +1,4 @@
-foreach(kernel asum dot rot rotm scal axpy swap dsdot)
+foreach(kernel asum dot rot rotm scal axpy swap dsdot copy)
     add_exo_blas_test(level1 ${kernel} "")
 endforeach()
 

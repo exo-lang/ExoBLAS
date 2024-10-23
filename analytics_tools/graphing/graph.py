@@ -289,9 +289,12 @@ def to_superscript(n):
 def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
     print(f"{level}, {bench_type}, {lib} ")
 
-    if bench_type.name.find("skinny"):
-        plt.rcParams["figure.figsize"] = 8 * (3.33 / 6), 3.9 * (3.33 / 6)
+    if bench_type.name.find("skinny") != -1:
+        plt.figure(figsize=(8 * (3.33 / 6), 3.9 * (3.33 / 6)))
         plt.subplots_adjust(bottom=0.22, left=0.17)
+    elif bench_type.name.find("level_2") != -1:
+        plt.figure(figsize=(8 * (3.33 / 6), 13 * (3.33 / 6)))
+        plt.subplots_adjust(left=0.17, bottom=0.05, top=0.95)
 
     def aggregate(data):
         data = np.array(data)
