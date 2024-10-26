@@ -335,7 +335,7 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         plt.tick_params(axis="y", which="both", length=0)
 
         level_name = level.__name__.replace("_", " ").capitalize()
-        plt.title(f"{level_name} Geomean of runtime of {lib} / {EXOBLAS_NAME}" + f" ({BACKEND})")
+        plt.title(f"Runtime of {lib} / {EXOBLAS_NAME}" + f" ({BACKEND})")
         plt.xlabel("N")
 
         nrows, ncols = data.shape
@@ -347,10 +347,10 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
         level_dir = GRAPHS_DIR / "all" / level.__name__
         level_dir.mkdir(parents=True, exist_ok=True)
         filename = level_dir / f"{bench_type.name}_p{p}_disc_gmean_{lib}_x_ExoBLAS"
-        png_path = filename.with_suffix('.png')
+        #png_path = filename.with_suffix('.png')
         pdf_path = filename.with_suffix('.pdf')
 
-        plt.savefig(png_path)
+        #plt.savefig(png_path)
         plt.savefig(pdf_path)
 
 
