@@ -102,6 +102,8 @@ def rename_lib(dir_name):
         lib_name = EXOBLAS_NAME
     elif lib_name == "All":
         lib_name = "OpenBLAS"
+    elif lib_name == "FLAME":
+        lib_name = "BLIS"
     return lib_name
 
 
