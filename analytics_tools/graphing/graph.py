@@ -291,12 +291,12 @@ def to_superscript(n):
 def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
     print(f"{level}, {bench_type}, {lib} ")
 
+    islevel2 = False
     if bench_type.name.find("skinny") != -1:
         plt.figure(figsize=(8 * (3.33 / 6), 3.9 * (3.33 / 6)))
         plt.subplots_adjust(bottom=0.22, left=0.17)
     elif bench_type.name.find("level_2") != -1:
-        plt.figure(figsize=(8 * (3.33 / 6), 13 * (3.33 / 6)))
-        plt.subplots_adjust(left=0.17, bottom=0.05, top=0.95)
+        islevel2 = True
 
     def aggregate(data):
         data = np.array(data)
@@ -308,6 +308,14 @@ def plot_geomean_heatmap(level, bench_type, lib, heatmap_data):
     p10_ranges = powers_list(10, 9)
 
     for p, ranges in ((4, p4_ranges), (10, p10_ranges)):
+        if islevel2:
+            if p == 4:
+                plt.figure(figsize=(8 * (3.33 / 6), 13 * (3.33 / 6)))
+                plt.subplots_adjust(left=0.17, bottom=0.05, top=0.95)
+            else:
+                plt.figure(figsize=(6 * (3.33 / 6), 13 * (3.33 / 6)))
+                plt.subplots_adjust(left=0.24, bottom=0.05, top=0.95)
+        
         plt.clf()
         agg_heatmap_data = discretize_and_aggregate(heatmap_data, ranges, aggregate)
         data, sub_kernels, ranges = prepare_heatmap_data(agg_heatmap_data)
