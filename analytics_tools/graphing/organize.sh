@@ -8,17 +8,19 @@ fi
 
 DIR="$1"
 
-# Create level1 and level2 directories inside the provided directory
+# Create level1, level2, and level3 directories inside the provided directory
 mkdir -p "$DIR/level1"
 mkdir -p "$DIR/level2"
+mkdir -p "$DIR/level3"
 
 # List of subdirectories to copy
 SUBDIRS=("exo" "FLAME" "Intel10_64lp_seq" "OpenBLAS")
 
-# Copy the subdirectories into level1 and level2
+# Copy the subdirectories into all levels
 for SUBDIR in "${SUBDIRS[@]}"; do
     cp -r "$DIR/$SUBDIR" "$DIR/level1/"
     cp -r "$DIR/$SUBDIR" "$DIR/level2/"
+    cp -r "$DIR/$SUBDIR" "$DIR/level3/"
 done
 
 # BLAS Level 1 operations
@@ -31,6 +33,11 @@ LEVEL1_OPS=(
 LEVEL2_KEEP=(
     "gemv.json" "ger.json" "symv.json" "syr2.json"
     "syr.json" "trmv.json" "trsv.json"
+)
+
+# Files to keep in level3
+LEVEL3_KEEP=(
+    "gemm.json" "symm.json" "syrk.json"
 )
 
 # Function to delete files not in a given list
@@ -54,3 +61,6 @@ delete_unwanted_files "$DIR/level1" "${LEVEL1_OPS[@]}"
 
 # Delete unwanted files in level2
 delete_unwanted_files "$DIR/level2" "${LEVEL2_KEEP[@]}"
+
+# Delete unwanted files in level3
+delete_unwanted_files "$DIR/level3" "${LEVEL3_KEEP[@]}"

@@ -84,7 +84,7 @@ def parse_args():
     global BACKEND
     global BENCHMARK_JSONS_DIR
     BACKEND = sys.argv[2]
-    BENCHMARK_JSONS_DIR = ROOT_PATH / sys.argv[3]
+    BENCHMARK_JSONS_DIR = Path.cwd() / sys.argv[3]
 
     return kernel
 
