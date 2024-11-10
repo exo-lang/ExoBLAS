@@ -69,7 +69,12 @@ environment.
 Additionally, the following dependencies are required:
 - CMake version 3.23 or higher
 - Ninja (on Ubuntu, install with `apt install ninja-build`)
-- A CBLAS reference implementation, such as OpenBLAS (on Ubuntu, install with `apt install libopenblas-dev`) or MKL
+- Install one or more of the CBLAS reference implementation:
+  - OpenBLAS (on Ubuntu, use `apt install libopenblas-dev`).
+  - MKL (follow [Intel's instructions](https://www.intel.com/content/www/us/en/developer/articles/guide/installing-free-libraries-and-python-apt-repo.html) to install MKL).
+  - BLIS (on Ubuntu, use `apt install libblis-dev`).
+
+  We installed intel-mkl-2018.2-046 as mentioned in the MKL documentation, 0.8.1-2 for libblis, and 0.3.20 for OpenBLAS. After installing MKL, remember to set the `MKLROOT` environment variable to allow Exo to discover the installed location: `export MKLROOT=/opt/intel/mkl`.
 
 ## Building ExoBLAS
 
@@ -88,6 +93,16 @@ For example, to build ExoBLAS targeting AVX512 instructions, run:
 ```
 cmake --preset avx512
 cmake --build build/avx512
+```
+
+If CMake fails with the error message `Could not find a package configuration file provided by "Exo" with any of the following names...`, simply set the `Exo_DIR` environment variable to the directory containing `ExoConfig.cmake` (e.g., `export Exo_DIR=/home/ubuntu/exo2-artifact/exo/src/exo/cmake`).
+
+If unspecified in the `cmake --preset` command, CMake will attempt to find an existing BLAS implementation to link against.
+If you wish to control which existing library to compare the performance against, you can use the `-DBLA_VENDOR` option as follows:
+```bash
+cmake --preset avx512 -DBLA_VENDOR=OpenBLAS         # Use OpenBLAS as a reference
+cmake --preset avx512 -DBLA_VENDOR=Intel10_64lp_seq # Use MKL as a reference
+cmake --preset avx512 -DBLA_VENDOR=FLAME            # Use BLIS as a reference
 ```
 
 To target Apple M series with Neon, run:
