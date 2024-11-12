@@ -2,7 +2,7 @@
 
 ExoBLAS is a BLAS (Basic Linear Algebra Subprograms) library implemented using the [Exo](https://github.com/exo-lang/exo) programming language.
 
-The library design documentation can be found in Section 6 of [our ASPLOS '25 paper](.) and in [Samir Droubi's master's thesis](https://dspace.mit.edu/handle/1721.1/156752).
+The library design documentation can be found in Section 6 of the [ASPLOS '25 paper](https://arxiv.org/abs/2411.07211) and in [Samir Droubi's master's thesis](https://dspace.mit.edu/handle/1721.1/156752).
 
 We collected performance graphs comparing ExoBLAS against OpenBLAS, BLIS, and MKL on two machines, which can be found in the following Google Drive folders:
 - [Intel i7-1185G7](https://drive.google.com/drive/folders/102lOlilyndcNjh9ncNso_nw9FCjhOuXE?usp=sharing)
