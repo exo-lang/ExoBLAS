@@ -57,6 +57,11 @@ jobs:
       - name: Install Google benchmark
         run: git clone https://github.com/google/benchmark; cmake -S benchmark -B benchmark/build -DCMAKE_BUILD_TYPE=Release -DBENCHMARK_ENABLE_TESTING=NO ; cmake --build benchmark/build; cmake --install benchmark/build --prefix ~/.local
 
+      - name: Install OpenBLAS
+        run: |
+          apt-get update
+          apt-get install -y libopenblas-dev
+
       - name: Checkout ExoBLAS repo
         uses: actions/checkout@v4
         with:
