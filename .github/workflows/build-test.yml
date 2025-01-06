@@ -23,6 +23,7 @@ jobs:
             CXX: clang++ # This will be system AppleClang
             PRESET: apple-silicon
 
+
     env:
       CC: ${{matrix.CC}}
       CXX: ${{matrix.CXX}}
@@ -55,6 +56,12 @@ jobs:
 
       - name: Install Google benchmark
         run: git clone https://github.com/google/benchmark; cmake -S benchmark -B benchmark/build -DCMAKE_BUILD_TYPE=Release -DBENCHMARK_ENABLE_TESTING=NO ; cmake --build benchmark/build; cmake --install benchmark/build --prefix ~/.local
+
+      - name: Install OpenBLAS
+        if: matrix.runner == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev
 
       - name: Checkout ExoBLAS repo
         uses: actions/checkout@v4
