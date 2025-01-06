@@ -60,8 +60,8 @@ jobs:
       - name: Install OpenBLAS
         if: matrix.runner == 'ubuntu-latest'
         run: |
-          apt-get update
-          apt-get install -y libopenblas-dev
+          sudo apt-get update
+          sudo apt-get install -y libopenblas-dev
 
       - name: Checkout ExoBLAS repo
         uses: actions/checkout@v4
