@@ -58,6 +58,7 @@ jobs:
         run: git clone https://github.com/google/benchmark; cmake -S benchmark -B benchmark/build -DCMAKE_BUILD_TYPE=Release -DBENCHMARK_ENABLE_TESTING=NO ; cmake --build benchmark/build; cmake --install benchmark/build --prefix ~/.local
 
       - name: Install OpenBLAS
+        if: matrix.runner == 'ubuntu-latest'
         run: |
           apt-get update
           apt-get install -y libopenblas-dev
